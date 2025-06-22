@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.util.*
 
 plugins {
     `java-library`
@@ -6,7 +7,7 @@ plugins {
     id("maven-publish")
 }
 
-group = "com.inertia"
+group = "com.ladakx"
 version = "1.0-DEV"
 
 java {
@@ -18,6 +19,25 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.codemc.io/repository/maven-public/")
     maven("https://repo.panda-lang.org/releases")
+}
+
+dependencies {
+    compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
+
+    api(project(":inertia-api"))
+    implementation(project(":inertia-core"))
+    implementation(project(":inertia-nms-abstraction"))
+    implementation(project(":inertia-nms-v1_12_R1"))
+    implementation(project(":inertia-nms-v1_16_R3"))
+    implementation(project(":inertia-nms-v1_21_R1"))
+
+    implementation("net.kyori:adventure-api:4.17.0")
+    implementation("net.kyori:adventure-platform-bukkit:4.3.3")
+    implementation("net.kyori:adventure-text-minimessage:4.17.0")
+
+    implementation("dev.rollczi:litecommands-bukkit:3.9.7")
+
+    implementation("de.tr7zw:item-nbt-api:2.12.3")
 }
 
 tasks.register<Exec>("cmake") {
@@ -46,53 +66,49 @@ tasks.register<Exec>("make") {
     if (os.contains("win")) { commandLine("nmake") } else { commandLine("make") }
 }
 
-tasks.register<Copy>("copyNativeLib") {
-    group = "native"
-    description = "Copy native library to resources"
-    dependsOn("make")
-    val os = System.getProperty("os.name").lowercase()
-    val libName = when {
-        os.contains("win") -> "inertia_native.dll"
-        os.contains("mac") -> "libinertia_native.dylib"
-        else -> "libinertia_native.so"
+tasks {
+    // Your existing processResources and shadowJar tasks remain here
+    processResources {
+        from(project(":inertia-core").tasks.named("processResources"))
+        filesMatching("plugin.yml") {
+            expand(project.properties)
+        }
     }
-    from(file("../native/$libName"))
-    into(file("src/main/resources"))
-}
 
-tasks.processResources { dependsOn("copyNativeLib") }
+    shadowJar {
+        archiveBaseName.set("Inertia")
+        archiveClassifier.set("")
+        archiveVersion.set("1.0-DEV")
 
-tasks.shadowJar {
-    archiveBaseName.set("Inertia")
-    archiveClassifier.set("")
-    archiveVersion.set(project.version.toString())
+        relocate("net.kyori.adventure", "com.ladakx.inertia.libs.adventure")
+        relocate("dev.rollczi.litecommands", "com.ladakx.inertia.libs.litecommands")
+        relocate("de.tr7zw.changeme.nbtapi", "com.ladakx.inertia.libs.nbtapi")
 
-    relocate("net.kyori.adventure", "com.inertia.libs.adventure")
-    relocate("dev.rollczi.litecommands", "com.inertia.libs.litecommands")
-    relocate("de.tr7zw.changeme.nbtapi", "com.inertia.libs.nbtapi")
+        // --- FINAL CORRECTED NATIVE LIBRARY PACKAGING ---
+        val os = System.getProperty("os.name").toLowerCase(Locale.ROOT)
+        val osFolder = when {
+            os.contains("mac") -> "darwin"
+            os.contains("win") -> "windows"
+            else -> "linux"
+        }
 
-    minimize()
-}
+        // THIS IS THE FIX: We are now looking for the library in the correct build directory
+        // and NOT in a 'libs' subfolder.
+        from(project(":native").layout.buildDirectory) {
+            // Include only the library file based on the OS.
+            val libName = when (osFolder) {
+                "windows" -> "inertia_native.dll"
+                "darwin" -> "libinertia_native.dylib"
+                else -> "libinertia_native.so"
+            }
+            include(libName)
+            into("native/$osFolder")
+        }
+    }
 
-tasks.build { dependsOn(tasks.shadowJar) }
-
-dependencies {
-    api(project(":inertia-api"))
-    implementation(project(":inertia-core"))
-    implementation(project(":inertia-nms-abstraction"))
-    implementation(project(":inertia-nms-v1_12_R1"))
-    implementation(project(":inertia-nms-v1_16_R3"))
-    implementation(project(":inertia-nms-v1_21_R1"))
-
-    implementation("net.kyori:adventure-api:4.17.0")
-    implementation("net.kyori:adventure-platform-bukkit:4.3.3")
-    implementation("net.kyori:adventure-text-minimessage:4.17.0")
-    implementation("dev.rollczi:litecommands-bukkit:3.2.1")
-    implementation("de.tr7zw:item-nbt-api:2.12.3")
-}
-
-tasks.withType<Test> {
-    enabled = false
+    build {
+        dependsOn(shadowJar)
+    }
 }
 
 val properties = Properties().apply {

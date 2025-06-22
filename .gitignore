@@ -46,4 +46,4 @@ bin/
 ladakx.key
 deployment.properties
 project.txt
-sc.py
+sc_text.py
