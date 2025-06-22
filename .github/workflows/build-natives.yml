@@ -3,7 +3,7 @@ name: Build & Release Native Libraries
 on:
   push:
     tags:
-      - 'v*' # Run this workflow when a tag like v1.0.0 is pushed
+      - 'v*' # Run  this workflow when a tag like v1.0.0 is pushed
 
 jobs:
   build-natives:
