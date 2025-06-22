@@ -1,19 +1,11 @@
 plugins {
-    id("java")
+    `java-library`
 }
 
-group = "me.ladakx"
-version = "1.0-SNAPSHOT"
-
-repositories {
-    mavenCentral()
-}
+group = "com.inertia"
+version = "1.0.0-SNAPSHOT"
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
+    compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
 }
 
-tasks.test {
-    useJUnitPlatform()
-}

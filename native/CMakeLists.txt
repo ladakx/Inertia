@@ -1,17 +1,26 @@
-cmake_minimum_required(VERSION 3.10)
-project(InertiaNative)
+cmake_minimum_required(VERSION 3.16)
+project(inertia_native)
 
-# Знайти бібліотеку JNI
-find_package(JNI REQUIRED)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Вказуємо, що ми створюємо динамічну бібліотеку (SHARED)
-add_library(inertia SHARED src/JNI_Bridge.cpp)
+# Додаємо підпроект Jolt
+add_subdirectory(Jolt/Build)
 
-# Вказуємо, де шукати заголовкові файли JNI
-target_include_directories(inertia PUBLIC ${JNI_INCLUDE_DIRS})
+# Створюємо нашу бібліотеку
+add_library(inertia_native SHARED src/JNI_Bridge.cpp)
 
-# На macOS назва файлу за замовчуванням буде libinertia.dylib
-# Ми можемо встановити префікс в "" для отримання inertia.dylib, але стандартний варіант кращий
-set_target_properties(inertia PROPERTIES
-    PREFIX "" # За бажанням, щоб назва була inertia.dylib, а не libinertia.dylib
+# ОТРИМУЄМО ШЛЯХИ НАПРЯМУ ВІД JOLT:
+# Це найнадійніший спосіб. Ми запитуємо у цілі "Jolt",
+# які шляхи до заголовків вона використовує.
+get_target_property(JOLT_INCLUDE_DIRS Jolt INTERFACE_INCLUDE_DIRECTORIES)
+
+# Додаємо всі необхідні шляхи до нашої бібліотеки
+target_include_directories(inertia_native PUBLIC
+    ${JOLT_INCLUDE_DIRS}
+    ${JNI_INCLUDE_DIR}
+    ${JNI_INCLUDE_DIR2}
 )
+
+# Підключаємо скомпільовану бібліотеку Jolt
+target_link_libraries(inertia_native PRIVATE Jolt)

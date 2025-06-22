@@ -40,3 +40,10 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+/native/Jolt/
+/native/CMakeFiles/
+ladakx.key
+deployment.properties
+project.txt
+sc.py

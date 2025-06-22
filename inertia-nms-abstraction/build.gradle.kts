@@ -1,19 +1,12 @@
 plugins {
-    id("java")
-}
-
-group = "me.ladakx"
-version = "1.0-SNAPSHOT"
-
-repositories {
-    mavenCentral()
+    `java-library`
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-}
+    api(project(":inertia-api"))
+    compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
 
-tasks.test {
-    useJUnitPlatform()
+    if (name != "inertia-nms-abstraction") {
+        implementation(project(":inertia-nms-abstraction"))
+    }
 }
