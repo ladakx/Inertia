@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # THIS IS THE FIX:
-# We tell CMake to look for the CMakeLists.txt file directly inside the 'Jolt' directory,
-# not in a non-existent 'Jolt/Build' subdirectory.
-add_subdirectory(Jolt)
+# We are now telling CMake to look for the 'Jolt' directory
+# one level up from the current directory (native/).
+add_subdirectory(../Jolt)
 
 # Створюємо нашу бібліотеку
 add_library(inertia_native SHARED src/JNI_Bridge.cpp)
