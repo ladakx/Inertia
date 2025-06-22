@@ -4,8 +4,10 @@ project(inertia_native)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Додаємо підпроект Jolt
-add_subdirectory(Jolt/Build)
+# THIS IS THE FIX:
+# We tell CMake to look for the CMakeLists.txt file directly inside the 'Jolt' directory,
+# not in a non-existent 'Jolt/Build' subdirectory.
+add_subdirectory(Jolt)
 
 # Створюємо нашу бібліотеку
 add_library(inertia_native SHARED src/JNI_Bridge.cpp)
