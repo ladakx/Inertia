@@ -5,6 +5,18 @@
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleHome" value="" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/inertia-api" />
+            <option value="$PROJECT_DIR$/inertia-core" />
+            <option value="$PROJECT_DIR$/inertia-nms-abstraction" />
+            <option value="$PROJECT_DIR$/inertia-nms-v1_12_R1" />
+            <option value="$PROJECT_DIR$/inertia-nms-v1_16_R3" />
+            <option value="$PROJECT_DIR$/inertia-nms-v1_21_R1" />
+            <option value="$PROJECT_DIR$/inertia-plugin" />
+          </set>
+        </option>
       </GradleProjectSettings>
     </option>
   </component>

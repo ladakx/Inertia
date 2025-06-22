@@ -1,19 +1,23 @@
 plugins {
     id("java")
+    id("io.github.goooler.shadow") version "8.1.8" apply false
 }
 
-group = "me.ladakx"
-version = "1.0-SNAPSHOT"
+subprojects {
+    apply(plugin = "java")
 
-repositories {
-    mavenCentral()
-}
+    group = "com.inertia"
+    version = "1.0.0-SNAPSHOT"
 
-dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-}
+    repositories {
+        mavenCentral()
+        maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
+        maven("https://oss.sonatype.org/content/groups/public/")
+    }
 
-tasks.test {
-    useJUnitPlatform()
+    tasks.withType<JavaCompile> {
+        options.encoding = "UTF-8"
+        sourceCompatibility = "1.8" // Цільова версія Java
+        targetCompatibility = "1.8"
+    }
 }
