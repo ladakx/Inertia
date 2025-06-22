@@ -41,10 +41,8 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: List directory structure
-        run: |
-          ls -la ${{ github.workspace }}/
-          ls -la ${{ github.workspace }}/Jolt
+      - name: Check for Jolt CMakeLists.txt
+        run: ls -l ${{ github.workspace }}/Jolt/CMakeLists.txt || echo "Jolt/CMakeLists.txt not found"
 
       - name: Set up cross-compilation for Linux aarch64
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
