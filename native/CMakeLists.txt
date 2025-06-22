@@ -4,7 +4,7 @@ project(inertia_native)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(../Jolt jolt-build)
+add_subdirectory(../Jolt/Build jolt-build)
 
 # Створюємо нашу бібліотеку
 add_library(inertia_native SHARED src/JNI_Bridge.cpp)
