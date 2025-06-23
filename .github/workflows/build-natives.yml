@@ -5,139 +5,98 @@ on:
     tags:
       - 'v*'
 
-
 jobs:
-  build-native:
-    name: Build ${{ matrix.triplet }}
-    runs-on: ${{ matrix.os }}
-
+  build-natives:
+    name: Build for ${{ matrix.arch }} on ${{ matrix.os-name }}
     strategy:
-      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            os-name: Linux
             arch: x86_64
-            triplet: linux-x86_64
+            artifact_name: inertia-linux-x64
             lib_name: libinertia_native.so
-            artifact_name: inertia-linux-x86_64
 
           - os: ubuntu-latest
+            os-name: Linux
             arch: aarch64
-            triplet: linux-aarch64
-            lib_name: libinertia_native.so
             artifact_name: inertia-linux-aarch64
+            lib_name: libinertia_native.so
 
           - os: windows-latest
+            os-name: Windows
             arch: x86_64
-            triplet: windows-x64
-            lib_name: inertia_native.dll
             artifact_name: inertia-windows-x64
-
-          - os: windows-latest
-            arch: arm64
-            triplet: windows-arm64
             lib_name: inertia_native.dll
-            artifact_name: inertia-windows-arm64
 
           - os: macos-latest
-            arch: x86_64
-            triplet: macos-x64
-            lib_name: libinertia_native.dylib
-            artifact_name: inertia-macos-x64
-
-          - os: macos-latest
-            arch: arm64
-            triplet: macos-arm64
-            lib_name: libinertia_native.dylib
+            os-name: macOS
+            arch: aarch64
             artifact_name: inertia-macos-arm64
+            lib_name: libinertia_native.dylib
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: 'recursive'
 
-      - name: Create build directory
-        run: cmake -E make_directory native/build
+      # --- КРОК 1: НАЛАШТУВАННЯ QEMU ДЛЯ ЕМУЛЯЦІЇ ARM ---
+      - name: Set up QEMU
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
 
-      - name: Configure CMake
-        shell: bash
-        working-directory: native/build
-        run: |
-          CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
+      # --- КРОК 2: ЗАПУСК КОМАНД У DOCKER-КОНТЕЙНЕРІ ДЛЯ AARCH64 ---
+      - name: Build in aarch64 container
+        if: matrix.arch == 'aarch64'
+        uses: docker://arm64v8/ubuntu:22.04
+        with:
+          args: >
+            bash -c "
+              apt-get update && apt-get install -y git cmake g++ openjdk-21-jdk
+              && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
+              && cd /github/workspace/native
+              && cmake -B build . -DCMAKE_BUILD_TYPE=Release
+              && cmake --build build --config Release
+            "
 
-          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            CMAKE_CMD="$CMAKE_CMD \
-              -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF \
-              -DUSE_AVX2=OFF -DUSE_AVX512=OFF -DUSE_LZCNT=OFF \
-              -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF"
-          fi
-
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            CMAKE_CMD="$CMAKE_CMD \
-              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-              -DCMAKE_CXX_FLAGS='-fPIC'"
-          fi
-
-          if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.arch }}" == "arm64" ]]; then
-            CMAKE_CMD="$CMAKE_CMD \
-              -DCMAKE_OSX_ARCHITECTURES=arm64 \
-              -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
-          fi
-
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DUSE_STATIC_MSVC_RUNTIME_LIBRARY=OFF"
-          fi
-
-          echo "Running: $CMAKE_CMD"
-          eval $CMAKE_CMD
-
-      - name: Build
-        shell: bash
-        working-directory: native/build
-        run: |
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            cmake --build . --config Release
-          else
-            cmake --build .
-          fi
-
-      - name: Archive native library (Unix)
-        if: runner.os != 'Windows'
+      # --- КРОК 3: ЗВИЧАЙНА ЗБІРКА ДЛЯ X86_64 (НЕ В DOCKER) ---
+      - name: Build for x86_64
+        if: matrix.arch == 'x86_64'
         shell: bash
         run: |
-          ARTIFACT_DIR="${{ github.workspace }}/native/build/artifact"
-          mkdir -p "$ARTIFACT_DIR"
+          # Встановлюємо JDK, щоб CMake знайшов JNI
+          export JAVA_HOME=$JAVA_HOME_21_X64
+          
+          # Створюємо папку для збірки
+          cmake -E make_directory ${{ github.workspace }}/native/build
+          
+          # Конфігуруємо та збираємо
+          cd ${{ github.workspace }}/native/build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --config Release
 
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            LIB_NAME="libinertia_native.dylib"
-          else
-            LIB_NAME="libinertia_native.so"
-          fi
-
-          cp "${{ github.workspace }}/native/build/${LIB_NAME}" "$ARTIFACT_DIR"
-          cd "$ARTIFACT_DIR"
-          zip "../${{ matrix.artifact_name }}.zip" ./*
-
-      - name: Archive native library (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
+      # --- КРОК 4: АРХІВАЦІЯ РЕЗУЛЬТАТУ ---
+      - name: Archive native library
+        shell: bash
         run: |
-          $BuildDir = "${{ github.workspace }}\native\build\Release"
-          $ArtifactDir = "${{ github.workspace }}\native\build\artifact"
-          New-Item -ItemType Directory -Force -Path $ArtifactDir
-          Copy-Item "$BuildDir\${{ matrix.lib_name }}" -Destination $ArtifactDir
-          Compress-Archive -Path "$ArtifactDir\*" -DestinationPath "${{ github.workspace }}\native\build\${{ matrix.artifact_name }}.zip"
+          cd ${{ github.workspace }}/native/build/
+          mkdir -p artifact
+          mv ${{ matrix.lib_name }} artifact/
+          cd artifact
+          zip ../../${{ matrix.artifact_name }}.zip ./*
 
-      - name: Upload artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: native/build/${{ matrix.artifact_name }}.zip
+          path: ${{ github.workspace }}/native/${{ matrix.artifact_name }}.zip
 
   release:
     name: Create GitHub Release
-    needs: build-native
+    needs: build-natives
     runs-on: ubuntu-latest
     permissions:
       contents: write
