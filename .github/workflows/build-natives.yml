@@ -3,7 +3,7 @@ name: Build & Release Native Libraries
 on:
   push:
     tags:
-      - 'v*' # Run  this workflow when a tag like v1.0.0 is pushed
+      - 'v*' # Запускается по пушу тегов вида v1.0.0
 
 jobs:
   build-natives:
@@ -23,11 +23,11 @@ jobs:
             arch: x86_64
             artifact_name: inertia-native-windows-x86_64
             lib_name: inertia_native.dll
-          - os: macos-latest # This will be an x86_64 build due to GitHub runner limitations
+          - os: macos-latest
             arch: x86_64
             artifact_name: inertia-native-darwin-x86_64
             lib_name: libinertia_native.dylib
-          - os: macos-latest # For Apple Silicon
+          - os: macos-latest
             arch: aarch64
             artifact_name: inertia-native-darwin-aarch64
             lib_name: libinertia_native.dylib
@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0
 
       - name: Check for Jolt CMakeLists.txt
-        run: ls -l ${{ github.workspace }}/Jolt/CMakeLists.txt || echo "Jolt/CMakeLists.txt not found"
+        run: ls -l ${{ github.workspace }}/Jolt/Build/CMakeLists.txt || echo "Jolt/CMakeLists.txt not found"
 
       - name: Set up cross-compilation for Linux aarch64
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
@@ -53,26 +53,26 @@ jobs:
       - name: Create Build Directory
         run: cmake -E make_directory ${{ github.workspace }}/native/build
 
+      - name: Clean Build Directory
+        run: |
+          rm -rf ${{ github.workspace }}/native/build/CMakeCache.txt ${{ github.workspace }}/native/build/CMakeFiles
+
       - name: Configure CMake
         shell: bash
         working-directory: ${{ github.workspace }}/native/build
         run: |
-          # Base CMake command
           CMAKE_CMD="cmake .."
-          
-          # Add toolchain for Linux aarch64 cross-compile
+
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
             CMAKE_CMD="$CMAKE_CMD -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
           fi
-          
-          # Add target for macOS Apple Silicon
+
           if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
-              CMAKE_CMD="$CMAKE_CMD -DCMAKE_OSX_ARCHITECTURES=arm64"
+            CMAKE_CMD="$CMAKE_CMD -DCMAKE_OSX_ARCHITECTURES=arm64"
           fi
-          
+
           echo "Running CMake command: $CMAKE_CMD"
           $CMAKE_CMD
-
 
       - name: Build Native Library
         working-directory: ${{ github.workspace }}/native/build
@@ -83,11 +83,8 @@ jobs:
         shell: bash
         run: |
           cd ${{ github.workspace }}/native/build
-          # Create a directory for the artifact
           mkdir -p artifact
-          # Move the compiled library into it
           mv ${{ matrix.lib_name }} artifact/
-          # Create a zip archive
           cd artifact
           zip ../${{ matrix.artifact_name }}.zip ./*
 
@@ -102,7 +99,7 @@ jobs:
     needs: build-natives
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Required to create a release
+      contents: write
 
     steps:
       - name: Download all artifacts
@@ -113,4 +110,4 @@ jobs:
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*/*.zip # Upload all zipped artifacts
+          files: artifacts/*/*.zip
