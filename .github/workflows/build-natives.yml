@@ -84,6 +84,10 @@ jobs:
               -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
           fi
           
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            CMAKE_CMD="$CMAKE_CMD -DUSE_STATIC_MSVC_RUNTIME_LIBRARY=OFF"
+          fi
+          
           echo "Running CMake command: $CMAKE_CMD"
           $CMAKE_CMD
 
