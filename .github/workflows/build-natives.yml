@@ -70,12 +70,14 @@ jobs:
               -DUSE_FMADD=OFF"
           fi
           
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             CMAKE_CMD="$CMAKE_CMD \
-              -DCROSS_COMPILE_ARM=ON \
-              -DCROSS_COMPILE_ARM_TARGET=aarch64-linux-gnu \
-              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+              -DCMAKE_CXX_FLAGS='-fPIC'"
+          fi
+          
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            CMAKE_CMD="$CMAKE_CMD -DUSE_STATIC_MSVC_RUNTIME_LIBRARY=OFF"
           fi
           
           if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
@@ -84,12 +86,8 @@ jobs:
               -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
           fi
           
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DUSE_STATIC_MSVC_RUNTIME_LIBRARY=OFF"
-          fi
-          
           echo "Running CMake command: $CMAKE_CMD"
-          $CMAKE_CMD
+          eval "$CMAKE_CMD"
 
       - name: Build Native Library
         working-directory: ${{ github.workspace }}/native/build
