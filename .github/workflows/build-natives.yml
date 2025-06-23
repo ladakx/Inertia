@@ -58,10 +58,10 @@ jobs:
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
           
           # --- ОСНОВНЕ ВИПРАВЛЕННЯ ---
-          # Вимикаємо x86-інструкції при збірці для aarch64
-          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DJPH_USE_AVX2=OFF -DJPH_USE_AVX=OFF -DJPH_USE_F16C=OFF -DJPH_USE_LZCNT=OFF -DJPH_USE_TZCNT=OFF -DJPH_USE_FMA=OFF"
-          fi
+          # Вмикаємо цей прапор для ВСІХ збірок, щоб гарантувати сумісність.
+          # Він примусово вимикає всі платформо-специфічні інструкції (AVX2, FMA, SSE і т.д.),
+          # що вирішує нашу проблему з крос-компіляцією.
+          CMAKE_CMD="$CMAKE_CMD -DJPH_CROSS_PLATFORM_DETERMINISTIC=ON"
           
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
             CMAKE_CMD="$CMAKE_CMD -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
@@ -78,7 +78,7 @@ jobs:
         working-directory: ${{ github.workspace }}/native/build
         run: cmake --build . --config Release
 
-      # ... (решта файлу залишається без змін) ...
+      # ... решта файлу залишається без змін ...
       - name: Archive native library
         shell: bash
         run: |
