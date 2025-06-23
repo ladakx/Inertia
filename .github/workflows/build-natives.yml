@@ -67,17 +67,21 @@ jobs:
               -DUSE_LZCNT=OFF \
               -DUSE_TZCNT=OFF \
               -DUSE_F16C=OFF \
-              -DUSE_FMADD=OFF \
-              -DCROSS_COMPILE_ARM=ON \
-              -DCROSS_COMPILE_ARM_TARGET=aarch64-linux-gnu"
+              -DUSE_FMADD=OFF"
           fi
           
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+            CMAKE_CMD="$CMAKE_CMD \
+              -DCROSS_COMPILE_ARM=ON \
+              -DCROSS_COMPILE_ARM_TARGET=aarch64-linux-gnu \
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
           fi
           
           if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
-              CMAKE_CMD="$CMAKE_CMD -DCMAKE_OSX_ARCHITECTURES=arm64"
+            CMAKE_CMD="$CMAKE_CMD \
+              -DCMAKE_OSX_ARCHITECTURES=arm64 \
+              -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
           fi
           
           echo "Running CMake command: $CMAKE_CMD"
