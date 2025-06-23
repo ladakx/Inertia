@@ -100,9 +100,13 @@ jobs:
           ARTIFACT_DIR="${{ github.workspace }}/native/build/artifact"
           mkdir -p "$ARTIFACT_DIR"
           
-          # Файл лежить прямо в build/ на Linux/macOS
-          cp "${{ github.workspace }}/native/build/libinertia_native.so" "$ARTIFACT_DIR"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            LIB_NAME="libinertia_native.dylib"
+          else
+            LIB_NAME="libinertia_native.so"
+          fi
           
+          cp "${{ github.workspace }}/native/build/${LIB_NAME}" "$ARTIFACT_DIR"
           cd "$ARTIFACT_DIR"
           zip "../${{ matrix.artifact_name }}.zip" ./*
 
