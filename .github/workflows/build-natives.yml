@@ -58,7 +58,18 @@ jobs:
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
           
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DJPH_DISABLE_CPU_FEATURES=ON"
+            CMAKE_CMD="$CMAKE_CMD \
+              -DUSE_SSE4_1=OFF \
+              -DUSE_SSE4_2=OFF \
+              -DUSE_AVX=OFF \
+              -DUSE_AVX2=OFF \
+              -DUSE_AVX512=OFF \
+              -DUSE_LZCNT=OFF \
+              -DUSE_TZCNT=OFF \
+              -DUSE_F16C=OFF \
+              -DUSE_FMADD=OFF \
+              -DCROSS_COMPILE_ARM=ON \
+              -DCROSS_COMPILE_ARM_TARGET=aarch64-linux-gnu"
           fi
           
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
