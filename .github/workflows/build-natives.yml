@@ -134,7 +134,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: build-natives
+    needs: build-native
     runs-on: ubuntu-latest
     permissions:
       contents: write
