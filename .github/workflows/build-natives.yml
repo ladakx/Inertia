@@ -98,11 +98,22 @@ jobs:
       - name: Archive native library
         shell: bash
         run: |
-          cd ${{ github.workspace }}/native/build/
-          mkdir -p artifact
-          mv ${{ matrix.lib_name }} artifact/
-          cd artifact
-          zip ../${{ matrix.artifact_name }}.zip ./*
+          ARTIFACT_DIR="${{ github.workspace }}/native/build/artifact"
+          mkdir -p "$ARTIFACT_DIR"
+          cp "${{ github.workspace }}/native/build/Release/${{ matrix.lib_name }}" "$ARTIFACT_DIR"
+          cd "$ARTIFACT_DIR"
+          zip "../${{ matrix.artifact_name }}.zip" ./*
+        if: runner.os != 'Windows'
+
+      - name: Archive native library (Windows)
+        shell: pwsh
+        run: |
+          $BuildDir = "${{ github.workspace }}\native\build\Release"
+          $ArtifactDir = "${{ github.workspace }}\native\build\artifact"
+          New-Item -ItemType Directory -Force -Path $ArtifactDir
+          Copy-Item "$BuildDir\${{ matrix.lib_name }}" -Destination $ArtifactDir
+          Compress-Archive -Path "$ArtifactDir\*" -DestinationPath "${{ github.workspace }}\native\build\${{ matrix.artifact_name }}.zip"
+        if: runner.os == 'Windows'
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
