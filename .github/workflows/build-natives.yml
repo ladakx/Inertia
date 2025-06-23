@@ -3,7 +3,7 @@ name: Build & Release Native Libraries
 on:
   push:
     tags:
-      - 'v*' # Запускати робочий процес при публікації тегу, напр. v1.0.0
+      - 'v*'
 
 jobs:
   build-natives:
@@ -36,6 +36,15 @@ jobs:
         with:
           submodules: 'recursive'
 
+      # --- ОСНОВНЕ ВИПРАВЛЕННЯ ---
+      # Встановлюємо JDK 21 на віртуальну машину.
+      # Це потрібно, щоб CMake міг знайти jni.h
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin' # Надійний дистрибутив OpenJDK
+
       - name: Set up cross-compilation for Linux aarch64
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
         run: |
@@ -66,6 +75,7 @@ jobs:
         working-directory: ${{ github.workspace }}/native/build
         run: cmake --build . --config Release
 
+      # ... (решта файлу: Archive, Upload, Release - залишається без змін)
       - name: Archive native library
         shell: bash
         run: |
