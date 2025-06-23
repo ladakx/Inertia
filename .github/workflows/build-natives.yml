@@ -71,6 +71,8 @@ jobs:
 
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
             CMAKE_CMD="$CMAKE_CMD -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+            # Добавим флаг для отключения неподдерживаемых инструкций, если они заданны в проекте
+            CMAKE_CMD="$CMAKE_CMD -DCMAKE_CXX_FLAGS='-O3'"
           fi
 
           if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
