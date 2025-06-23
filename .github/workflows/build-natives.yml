@@ -57,11 +57,8 @@ jobs:
         run: |
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
           
-          # --- ОСТАТОЧНЕ ВИПРАВЛЕННЯ ---
-          # Використовуємо саме ті прапори, які існують в CMake Jolt,
-          # щоб примусово вимкнути x86-інструкції для aarch64.
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DJPH_USE_AVX2=OFF -DJPH_USE_AVX=OFF -DJPH_USE_SSE4_2=OFF -DJPH_USE_F16C=OFF -DJPH_USE_LZCNT=OFF -DJPH_USE_TZCNT=OFF -DJPH_USE_FMA=OFF -DJPH_USE_BMI=OFF"
+            CMAKE_CMD="$CMAKE_CMD -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DJPH_DISABLE_CPU_FEATURES=ON"
           fi
           
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
