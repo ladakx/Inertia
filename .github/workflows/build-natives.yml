@@ -53,9 +53,9 @@ jobs:
       - name: Create Build Directory
         run: cmake -E make_directory ${{ github.workspace }}/native/build
 
-      - name: Clean Build Directory
+      - name: Clean build directory
         run: |
-          rm -rf ${{ github.workspace }}/native/build/CMakeCache.txt ${{ github.workspace }}/native/build/CMakeFiles
+          rm -rf ${{ github.workspace }}/native/build/*
 
       - name: Configure CMake
         shell: bash
