@@ -36,14 +36,11 @@ jobs:
         with:
           submodules: 'recursive'
 
-      # --- ОСНОВНЕ ВИПРАВЛЕННЯ ---
-      # Встановлюємо JDK 21 на віртуальну машину.
-      # Це потрібно, щоб CMake міг знайти jni.h
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin' # Надійний дистрибутив OpenJDK
+          distribution: 'temurin'
 
       - name: Set up cross-compilation for Linux aarch64
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
@@ -58,7 +55,13 @@ jobs:
         shell: bash
         working-directory: ${{ github.workspace }}/native/build
         run: |
-          CMAKE_CMD="cmake .."
+          CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
+          
+          # --- ОСНОВНЕ ВИПРАВЛЕННЯ ---
+          # Вимикаємо x86-інструкції при збірці для aarch64
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            CMAKE_CMD="$CMAKE_CMD -DJPH_USE_AVX2=OFF -DJPH_USE_AVX=OFF -DJPH_USE_F16C=OFF -DJPH_USE_LZCNT=OFF -DJPH_USE_TZCNT=OFF -DJPH_USE_FMA=OFF"
+          fi
           
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" == "aarch64" ]]; then
             CMAKE_CMD="$CMAKE_CMD -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
@@ -75,7 +78,7 @@ jobs:
         working-directory: ${{ github.workspace }}/native/build
         run: cmake --build . --config Release
 
-      # ... (решта файлу: Archive, Upload, Release - залишається без змін)
+      # ... (решта файлу залишається без змін) ...
       - name: Archive native library
         shell: bash
         run: |
