@@ -93,15 +93,18 @@ jobs:
         working-directory: ${{ github.workspace }}/native/build
         run: cmake --build . --config Release
 
-      - name: Archive native library
+      - name: Archive native library (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           ARTIFACT_DIR="${{ github.workspace }}/native/build/artifact"
           mkdir -p "$ARTIFACT_DIR"
-          cp "${{ github.workspace }}/native/build/Release/${{ matrix.lib_name }}" "$ARTIFACT_DIR"
+          
+          # Файл лежить прямо в build/ на Linux/macOS
+          cp "${{ github.workspace }}/native/build/libinertia_native.so" "$ARTIFACT_DIR"
+          
           cd "$ARTIFACT_DIR"
           zip "../${{ matrix.artifact_name }}.zip" ./*
-        if: runner.os != 'Windows'
 
       - name: Archive native library (Windows)
         shell: pwsh
