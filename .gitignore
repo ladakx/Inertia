@@ -42,7 +42,10 @@ bin/
 .DS_Store
 
 /native/Jolt/
+/native/build/
+/native/CMakeCache.txt
 /native/CMakeFiles/
+/native/build/**
 ladakx.key
 deployment.properties
 project.txt
