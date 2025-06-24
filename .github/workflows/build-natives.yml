@@ -59,6 +59,13 @@ jobs:
       - name: Create build directory
         run: cmake -E make_directory native/build
 
+      - name: Install Zig (only for aarch64)
+        if: matrix.arch == 'aarch64'
+        run: |
+          curl -L https://ziglang.org/builds/zig-linux-x86_64-0.12.0-dev.2633+0596df91e.tar.xz | tar -xJ
+          echo "ZIG_CC=$(pwd)/zig-linux-x86_64-0.12.0-dev.2633+0596df91e/zig cc" >> $GITHUB_ENV
+          echo "ZIG_CXX=$(pwd)/zig-linux-x86_64-0.12.0-dev.2633+0596df91e/zig c++" >> $GITHUB_ENV
+
       - name: Configure CMake
         shell: bash
         working-directory: native/build
@@ -66,18 +73,11 @@ jobs:
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
 
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
             CMAKE_CMD="$CMAKE_CMD \
+              -DCMAKE_C_COMPILER=\"$ZIG_CC\" \
+              -DCMAKE_CXX_COMPILER=\"$ZIG_CXX\" \
               -DCMAKE_SYSTEM_NAME=Linux \
               -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-              -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-              -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-              -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-              -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY \
               -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF \
               -DUSE_AVX2=OFF -DUSE_AVX512=OFF -DUSE_LZCNT=OFF \
               -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF"
@@ -111,11 +111,6 @@ jobs:
           else
             cmake --build .
           fi
-
-      - name: Check architecture of .so
-        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
-        run: |
-          file native/build/libinertia_native.so
 
       - name: Archive native library (Unix)
         if: runner.os != 'Windows'
