@@ -3,7 +3,7 @@ name: Build & Release Native Libraries
 on:
   push:
     branches:
-      - main  # запускать на push в main
+      - master
 
 jobs:
   build-native:
