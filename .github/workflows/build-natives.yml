@@ -5,103 +5,139 @@ on:
     tags:
       - 'v*'
 
+
 jobs:
-  build-natives:
-    name: Build for ${{ matrix.os_name }} (${{ matrix.arch }})
+  build-native:
+    name: Build ${{ matrix.triplet }}
+    runs-on: ${{ matrix.os }}
+
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            os_name: linux
             arch: x86_64
+            triplet: linux-x86_64
             lib_name: libinertia_native.so
-          - os: ubuntu-latest
-            os_name: linux
-            arch: aarch64
-            lib_name: libinertia_native.so
-          - os: windows-latest
-            os_name: windows
-            arch: x64
-            lib_name: inertia_native.dll
-          - os: macos-latest
-            os_name: macos
-            arch: x64
-            lib_name: libinertia_native.dylib
-          - os: macos-latest
-            os_name: macos
-            arch: arm64
-            lib_name: libinertia_native.dylib
+            artifact_name: inertia-linux-x86_64
 
-    runs-on: ${{ matrix.os }}
+          - os: ubuntu-latest
+            arch: aarch64
+            triplet: linux-aarch64
+            lib_name: libinertia_native.so
+            artifact_name: inertia-linux-aarch64
+
+          - os: windows-latest
+            arch: x86_64
+            triplet: windows-x64
+            lib_name: inertia_native.dll
+            artifact_name: inertia-windows-x64
+
+          - os: windows-latest
+            arch: arm64
+            triplet: windows-arm64
+            lib_name: inertia_native.dll
+            artifact_name: inertia-windows-arm64
+
+          - os: macos-latest
+            arch: x86_64
+            triplet: macos-x64
+            lib_name: libinertia_native.dylib
+            artifact_name: inertia-macos-x64
+
+          - os: macos-latest
+            arch: arm64
+            triplet: macos-arm64
+            lib_name: libinertia_native.dylib
+            artifact_name: inertia-macos-arm64
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: recursive
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Set up cross-compilation for Linux aarch64
-        if: matrix.os_name == 'linux' && matrix.arch == 'aarch64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-aarch64-linux-gnu
-
-      - name: Create Build Directory
-        run: cmake -E make_directory ${{ github.workspace }}/native/build
+      - name: Create build directory
+        run: cmake -E make_directory native/build
 
       - name: Configure CMake
         shell: bash
-        working-directory: ${{ github.workspace }}/native/build
+        working-directory: native/build
         run: |
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
-          
-          # --- ФІНАЛЬНЕ ВИПРАВЛЕННЯ ---
-          # Застосовуємо статичне лінкування ТІЛЬКИ для Linux
-          if [[ "${{ matrix.os_name }}" == "linux" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DCMAKE_EXE_LINKER_FLAGS='-static-libstdc++ -static-libgcc' -DCMAKE_SHARED_LINKER_FLAGS='-static-libstdc++ -static-libgcc'"
-          fi
-          
-          if [[ "${{ matrix.os_name }}" == 'linux' && "${{ matrix.arch }}" == 'aarch64' ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
-          fi
-          
-          if [[ "${{ matrix.os_name }}" == "macos" ]]; then
-              CMAKE_CMD="$CMAKE_CMD -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}"
-          fi
-          
-          echo "Running CMake command: $CMAKE_CMD"
-          $CMAKE_CMD
 
-      - name: Build Native Library
-        working-directory: ${{ github.workspace }}/native/build
-        run: cmake --build . --config Release
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            CMAKE_CMD="$CMAKE_CMD \
+              -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF \
+              -DUSE_AVX2=OFF -DUSE_AVX512=OFF -DUSE_LZCNT=OFF \
+              -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF"
+          fi
 
-      - name: Archive native library
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            CMAKE_CMD="$CMAKE_CMD \
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+              -DCMAKE_CXX_FLAGS='-fPIC'"
+          fi
+
+          if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.arch }}" == "arm64" ]]; then
+            CMAKE_CMD="$CMAKE_CMD \
+              -DCMAKE_OSX_ARCHITECTURES=arm64 \
+              -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
+          fi
+
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            CMAKE_CMD="$CMAKE_CMD -DUSE_STATIC_MSVC_RUNTIME_LIBRARY=OFF"
+          fi
+
+          echo "Running: $CMAKE_CMD"
+          eval $CMAKE_CMD
+
+      - name: Build
+        shell: bash
+        working-directory: native/build
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            cmake --build . --config Release
+          else
+            cmake --build .
+          fi
+
+      - name: Archive native library (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
-          cd ${{ github.workspace }}/native/build/
-          ARTIFACT_NAME="inertia-${{ matrix.os_name }}-${{ matrix.arch }}"
-          mkdir -p artifact
-          mv ${{ matrix.lib_name }} artifact/
-          cd artifact
-          zip ../$ARTIFACT_NAME.zip ./*
+          ARTIFACT_DIR="${{ github.workspace }}/native/build/artifact"
+          mkdir -p "$ARTIFACT_DIR"
 
-      - name: Upload Artifact
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            LIB_NAME="libinertia_native.dylib"
+          else
+            LIB_NAME="libinertia_native.so"
+          fi
+
+          cp "${{ github.workspace }}/native/build/${LIB_NAME}" "$ARTIFACT_DIR"
+          cd "$ARTIFACT_DIR"
+          zip "../${{ matrix.artifact_name }}.zip" ./*
+
+      - name: Archive native library (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $BuildDir = "${{ github.workspace }}\native\build\Release"
+          $ArtifactDir = "${{ github.workspace }}\native\build\artifact"
+          New-Item -ItemType Directory -Force -Path $ArtifactDir
+          Copy-Item "$BuildDir\${{ matrix.lib_name }}" -Destination $ArtifactDir
+          Compress-Archive -Path "$ArtifactDir\*" -DestinationPath "${{ github.workspace }}\native\build\${{ matrix.artifact_name }}.zip"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          # Важливо: назва артефакту тепер теж динамічна
-          name: inertia-${{ matrix.os_name }}-${{ matrix.arch }}
-          path: ${{ github.workspace }}/native/build/inertia-${{ matrix.os_name }}-${{ matrix.arch }}.zip
+          name: ${{ matrix.artifact_name }}
+          path: native/build/${{ matrix.artifact_name }}.zip
 
   release:
     name: Create GitHub Release
-    needs: build-natives
+    needs: build-native
     runs-on: ubuntu-latest
     permissions:
       contents: write
