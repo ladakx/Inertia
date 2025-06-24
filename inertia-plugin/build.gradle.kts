@@ -1,5 +1,4 @@
 import java.util.Properties
-import java.util.*
 
 plugins {
     `java-library`
@@ -40,32 +39,6 @@ dependencies {
     implementation("de.tr7zw:item-nbt-api:2.12.3")
 }
 
-tasks.register<Exec>("cmake") {
-    group = "native"
-    description = "Run CMake for native code"
-    workingDir = file("../native")
-
-    val javaHome = "/Users/vladislav/Library/Java/JavaVirtualMachines/openjdk-24.0.1/Contents/Home"
-    val jniIncludeDir = file("$javaHome/include").absolutePath
-    val jniPlatformIncludeDir = file("$javaHome/include/darwin").absolutePath
-
-    commandLine(
-        "/usr/local/bin/cmake",
-        "-DJNI_INCLUDE_DIR=$jniIncludeDir",
-        "-DJNI_INCLUDE_DIR2=$jniPlatformIncludeDir",
-        "."
-    )
-}
-
-tasks.register<Exec>("make") {
-    group = "native"
-    description = "Compile native code"
-    dependsOn("cmake")
-    workingDir = file("../native")
-    val os = System.getProperty("os.name").lowercase()
-    if (os.contains("win")) { commandLine("nmake") } else { commandLine("make") }
-}
-
 tasks {
     // Your existing processResources and shadowJar tasks remain here
     processResources {
@@ -83,27 +56,6 @@ tasks {
         relocate("net.kyori.adventure", "com.ladakx.inertia.libs.adventure")
         relocate("dev.rollczi.litecommands", "com.ladakx.inertia.libs.litecommands")
         relocate("de.tr7zw.changeme.nbtapi", "com.ladakx.inertia.libs.nbtapi")
-
-        // --- FINAL CORRECTED NATIVE LIBRARY PACKAGING ---
-        val os = System.getProperty("os.name").toLowerCase(Locale.ROOT)
-        val osFolder = when {
-            os.contains("mac") -> "darwin"
-            os.contains("win") -> "windows"
-            else -> "linux"
-        }
-
-        // THIS IS THE FIX: We are now looking for the library in the correct build directory
-        // and NOT in a 'libs' subfolder.
-        from(project(":native").layout.buildDirectory) {
-            // Include only the library file based on the OS.
-            val libName = when (osFolder) {
-                "windows" -> "inertia_native.dll"
-                "darwin" -> "libinertia_native.dylib"
-                else -> "libinertia_native.so"
-            }
-            include(libName)
-            into("native/$osFolder")
-        }
     }
 
     build {
