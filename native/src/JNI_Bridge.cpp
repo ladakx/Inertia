@@ -24,18 +24,22 @@ using namespace JPH;
 static TempAllocator* gTempAllocator = nullptr;
 static JobSystemThreadPool* gJobSystem = nullptr;
 static PhysicsSystem* gPhysicsSystem = nullptr;
-// --- ВИДАЛЕНО ГЛОБАЛЬНИЙ ВКАЗІВНИК ---
-// static BodyInterface* gBodyInterface = nullptr;
+
+// Interface objects must persist for the lifetime of PhysicsSystem
+static BroadPhaseLayerInterface* gBroadPhaseLayerInterface = nullptr;
+static ObjectVsBroadPhaseLayerFilter* gObjectVsBroadPhaseLayerFilter = nullptr;
+static ObjectLayerPairFilter* gObjectLayerPairFilter = nullptr;
 
 // Our handle system to map our stable long IDs to Jolt's internal BodyID
-static std::atomic<long>    gNextBodyID(1);
+static std::atomic<long> gNextBodyID(1);
 static std::map<long, BodyID> gBodyIdMap;
 
-// BroadPhase and Object layers (as in your existing code)
+// BroadPhase and Object layers
 namespace Layers {
     static constexpr ObjectLayer NON_MOVING = 0;
     static constexpr ObjectLayer MOVING = 1;
 };
+
 class BPLayerInterfaceImpl final : public BroadPhaseLayerInterface {
 public:
     BPLayerInterfaceImpl() {
@@ -45,11 +49,14 @@ public:
     uint GetNumBroadPhaseLayers() const override { return 2; }
     BroadPhaseLayer GetBroadPhaseLayer(ObjectLayer inLayer) const override { return mObjectToBroadPhase[inLayer]; }
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-    const char * GetBroadPhaseLayerName(BroadPhaseLayer inLayer) const override { return inLayer.GetValue() == 0? "NON_MOVING" : "MOVING"; }
+    const char * GetBroadPhaseLayerName(BroadPhaseLayer inLayer) const override {
+        return inLayer.GetValue() == 0 ? "NON_MOVING" : "MOVING";
+    }
 #endif
 private:
     BroadPhaseLayer mObjectToBroadPhase[Layers::MOVING + 1];
 };
+
 class ObjectVsBroadPhaseLayerFilterImpl : public ObjectVsBroadPhaseLayerFilter {
 public:
     bool ShouldCollide(ObjectLayer inLayer1, BroadPhaseLayer inLayer2) const override {
@@ -60,6 +67,7 @@ public:
         }
     }
 };
+
 class ObjectLayerPairFilterImpl : public ObjectLayerPairFilter {
 public:
     bool ShouldCollide(ObjectLayer inObject1, ObjectLayer inObject2) const override {
@@ -84,15 +92,15 @@ extern "C" {
         const uint cMaxBodyPairs = 65536;
         const uint cMaxContactConstraints = 10240;
 
-        BPLayerInterfaceImpl broad_phase_layer_interface;
-        ObjectVsBroadPhaseLayerFilterImpl object_vs_broadphase_layer_filter;
-        ObjectLayerPairFilterImpl object_vs_object_layer_filter;
+        // Create interface objects that will persist for the lifetime of PhysicsSystem
+        gBroadPhaseLayerInterface = new BPLayerInterfaceImpl();
+        gObjectVsBroadPhaseLayerFilter = new ObjectVsBroadPhaseLayerFilterImpl();
+        gObjectLayerPairFilter = new ObjectLayerPairFilterImpl();
 
         gPhysicsSystem = new PhysicsSystem();
         gPhysicsSystem->Init(maxBodies, 0, cMaxBodyPairs, cMaxContactConstraints,
-                             broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
+                             *gBroadPhaseLayerInterface, *gObjectVsBroadPhaseLayerFilter, *gObjectLayerPairFilter);
 
-        // gBodyInterface = &gPhysicsSystem->GetBodyInterface();
         std::cout << "Inertia JNI: Jolt Physics System Initialized." << std::endl;
     }
 
@@ -110,6 +118,16 @@ extern "C" {
 
         delete gTempAllocator;
         gTempAllocator = nullptr;
+
+        // Clean up interface objects
+        delete gBroadPhaseLayerInterface;
+        gBroadPhaseLayerInterface = nullptr;
+
+        delete gObjectVsBroadPhaseLayerFilter;
+        gObjectVsBroadPhaseLayerFilter = nullptr;
+
+        delete gObjectLayerPairFilter;
+        gObjectLayerPairFilter = nullptr;
 
         UnregisterTypes();
         delete Factory::sInstance;
@@ -178,15 +196,18 @@ extern "C" {
 
         ObjectLayer layer = (EMotionType)bodyType == EMotionType::Static ? Layers::NON_MOVING : Layers::MOVING;
 
+        // Use RefPtr for automatic reference counting of shapes
+        RefPtr<Shape> boxShape = new BoxShape(Vec3(halfExtentX, halfExtentY, halfExtentZ));
+
         BodyCreationSettings bodySettings(
-            new BoxShape(Vec3(halfExtentX, halfExtentY, halfExtentZ)),
+            boxShape,
             RVec3(posX, posY, posZ),
             Quat(rotX, rotY, rotZ, rotW),
             (EMotionType)bodyType,
             layer
         );
 
-        Body* body = bodyInterface.CreateBody(bodySettings); // This now uses the local, valid interface
+        Body* body = bodyInterface.CreateBody(bodySettings);
         if (body == nullptr) return -1;
 
         BodyID bodyId = body->GetID();
