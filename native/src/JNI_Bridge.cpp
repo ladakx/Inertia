@@ -196,11 +196,9 @@ extern "C" {
 
         ObjectLayer layer = (EMotionType)bodyType == EMotionType::Static ? Layers::NON_MOVING : Layers::MOVING;
 
-        // Use RefPtr for automatic reference counting of shapes
-        RefPtr<Shape> boxShape = new BoxShape(Vec3(halfExtentX, halfExtentY, halfExtentZ));
-
+        // --- ФІНАЛЬНЕ ВИПРАВЛЕННЯ ---
         BodyCreationSettings bodySettings(
-            boxShape,
+            new BoxShape(Vec3(halfExtentX, halfExtentY, halfExtentZ)),
             RVec3(posX, posY, posZ),
             Quat(rotX, rotY, rotZ, rotW),
             (EMotionType)bodyType,
