@@ -62,9 +62,9 @@ jobs:
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
           
           # --- ФІНАЛЬНЕ ВИПРАВЛЕННЯ ---
-          # Застосовуємо статичне лінкування ТІЛЬКИ для Linux
+          # Використовуємо екрановані подвійні лапки, щоб передати прапори як один рядок.
           if [[ "${{ matrix.os_name }}" == "linux" ]]; then
-            CMAKE_CMD="$CMAKE_CMD -DCMAKE_EXE_LINKER_FLAGS='-static-libstdc++ -static-libgcc' -DCMAKE_SHARED_LINKER_FLAGS='-static-libstdc++ -static-libgcc'"
+            CMAKE_CMD="$CMAKE_CMD -DCMAKE_EXE_LINKER_FLAGS=\"-static-libstdc++ -static-libgcc\" -DCMAKE_SHARED_LINKER_FLAGS=\"-static-libstdc++ -static-libgcc\""
           fi
           
           if [[ "${{ matrix.os_name }}" == 'linux' && "${{ matrix.arch }}" == 'aarch64' ]]; then
@@ -88,14 +88,18 @@ jobs:
           cd ${{ github.workspace }}/native/build/
           ARTIFACT_NAME="inertia-${{ matrix.os_name }}-${{ matrix.arch }}"
           mkdir -p artifact
-          mv ${{ matrix.lib_name }} artifact/
+          # Для Windows бібліотека буде в підпапці Release
+          if [[ "${{ matrix.os_name }}" == "windows" ]]; then
+            mv Release/${{ matrix.lib_name }} artifact/
+          else
+            mv ${{ matrix.lib_name }} artifact/
+          fi
           cd artifact
           zip ../$ARTIFACT_NAME.zip ./*
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          # Важливо: назва артефакту тепер теж динамічна
           name: inertia-${{ matrix.os_name }}-${{ matrix.arch }}
           path: ${{ github.workspace }}/native/build/inertia-${{ matrix.os_name }}-${{ matrix.arch }}.zip
 
