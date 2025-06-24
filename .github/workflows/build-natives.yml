@@ -81,6 +81,7 @@ jobs:
             CMAKE_CMD="$CMAKE_CMD \
               -DCMAKE_SYSTEM_NAME=Linux \
               -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+              -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
               -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF \
               -DUSE_AVX2=OFF -DUSE_AVX512=OFF -DUSE_LZCNT=OFF \
               -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF"
