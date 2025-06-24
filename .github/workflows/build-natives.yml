@@ -2,8 +2,8 @@ name: Build & Release Native Libraries
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'
 
 jobs:
   build-native:
