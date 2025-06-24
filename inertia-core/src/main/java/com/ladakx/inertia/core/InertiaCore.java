@@ -18,10 +18,10 @@ public class InertiaCore {
 
     public InertiaCore(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.physicsEngine = new PhysicsEngine();
+        this.physicsEngine = new PhysicsEngine(plugin);
         this.bodyVisualManager = new BodyVisualManager(this);
         this.inertiaObjectManager = new InertiaObjectManager(this);
-        this.api = new InertiaApiImpl(this); // Create the API implementation
+        this.api = new InertiaApiImpl(this);
     }
 
     public void load() {

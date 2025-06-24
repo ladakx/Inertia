@@ -24,7 +24,8 @@ using namespace JPH;
 static TempAllocator* gTempAllocator = nullptr;
 static JobSystemThreadPool* gJobSystem = nullptr;
 static PhysicsSystem* gPhysicsSystem = nullptr;
-static BodyInterface* gBodyInterface = nullptr;
+// --- ВИДАЛЕНО ГЛОБАЛЬНИЙ ВКАЗІВНИК ---
+// static BodyInterface* gBodyInterface = nullptr;
 
 // Our handle system to map our stable long IDs to Jolt's internal BodyID
 static std::atomic<long>    gNextBodyID(1);
@@ -71,7 +72,7 @@ extern "C" {
      * Initializes the Jolt physics system.
      */
     JNIEXPORT void JNICALL Java_com_ladakx_inertia_core_ntve_JNIBridge_init(JNIEnv *env, jclass, jint maxBodies, jint numThreads) {
-        if (gPhysicsSystem != nullptr) return; // Already initialized
+        if (gPhysicsSystem != nullptr) return;
 
         RegisterDefaultAllocator();
         Factory::sInstance = new Factory();
@@ -91,7 +92,7 @@ extern "C" {
         gPhysicsSystem->Init(maxBodies, 0, cMaxBodyPairs, cMaxContactConstraints,
                              broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
 
-        gBodyInterface = &gPhysicsSystem->GetBodyInterface();
+        // gBodyInterface = &gPhysicsSystem->GetBodyInterface();
         std::cout << "Inertia JNI: Jolt Physics System Initialized." << std::endl;
     }
 
@@ -124,6 +125,8 @@ extern "C" {
     JNIEXPORT jint JNICALL Java_com_ladakx_inertia_core_ntve_JNIBridge_updateAndGetTransforms(JNIEnv* env, jclass, jfloat deltaTime, jobject byteBuffer) {
         if (gPhysicsSystem == nullptr) return 0;
 
+        BodyInterface& bodyInterface = gPhysicsSystem->GetBodyInterface();
+
         gPhysicsSystem->Update(deltaTime, 1, gTempAllocator, gJobSystem);
 
         void* bufferPtr = env->GetDirectBufferAddress(byteBuffer);
@@ -145,18 +148,15 @@ extern "C" {
             }
 
             if (ourId != -1) {
-                // Write bodyId
                 *reinterpret_cast<long*>(currentPtr) = ourId;
                 currentPtr += sizeof(long);
 
-                // Write position
-                Vec3 position = gBodyInterface->GetPosition(bodyID);
+                Vec3 position = bodyInterface.GetPosition(bodyID);
                 *reinterpret_cast<float*>(currentPtr) = position.GetX(); currentPtr += sizeof(float);
                 *reinterpret_cast<float*>(currentPtr) = position.GetY(); currentPtr += sizeof(float);
                 *reinterpret_cast<float*>(currentPtr) = position.GetZ(); currentPtr += sizeof(float);
 
-                // Write rotation
-                Quat rotation = gBodyInterface->GetRotation(bodyID);
+                Quat rotation = bodyInterface.GetRotation(bodyID);
                 *reinterpret_cast<float*>(currentPtr) = rotation.GetX(); currentPtr += sizeof(float);
                 *reinterpret_cast<float*>(currentPtr) = rotation.GetY(); currentPtr += sizeof(float);
                 *reinterpret_cast<float*>(currentPtr) = rotation.GetZ(); currentPtr += sizeof(float);
@@ -174,6 +174,8 @@ extern "C" {
     JNIEXPORT jlong JNICALL Java_com_ladakx_inertia_core_ntve_JNIBridge_createBoxBody(JNIEnv *env, jclass, jdouble posX, jdouble posY, jdouble posZ, jdouble rotX, jdouble rotY, jdouble rotZ, jdouble rotW, jint bodyType, jfloat halfExtentX, jfloat halfExtentY, jfloat halfExtentZ) {
         if (gPhysicsSystem == nullptr) return -1;
 
+        BodyInterface& bodyInterface = gPhysicsSystem->GetBodyInterface();
+
         ObjectLayer layer = (EMotionType)bodyType == EMotionType::Static ? Layers::NON_MOVING : Layers::MOVING;
 
         BodyCreationSettings bodySettings(
@@ -184,11 +186,11 @@ extern "C" {
             layer
         );
 
-        Body* body = gBodyInterface->CreateBody(bodySettings);
+        Body* body = bodyInterface.CreateBody(bodySettings); // This now uses the local, valid interface
         if (body == nullptr) return -1;
 
         BodyID bodyId = body->GetID();
-        gBodyInterface->AddBody(bodyId, EActivation::Activate);
+        bodyInterface.AddBody(bodyId, EActivation::Activate);
 
         long ourId = gNextBodyID++;
         gBodyIdMap[ourId] = bodyId;
@@ -204,8 +206,9 @@ extern "C" {
 
         auto it = gBodyIdMap.find(ourId);
         if (it != gBodyIdMap.end()) {
-            gBodyInterface->RemoveBody(it->second);
-            gBodyInterface->DestroyBody(it->second);
+            BodyInterface& bodyInterface = gPhysicsSystem->GetBodyInterface();
+            bodyInterface.RemoveBody(it->second);
+            bodyInterface.DestroyBody(it->second);
             gBodyIdMap.erase(it);
         }
     }
