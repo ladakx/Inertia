@@ -62,9 +62,10 @@ jobs:
       - name: Install Zig (only for aarch64)
         if: matrix.arch == 'aarch64'
         run: |
-          curl -L https://ziglang.org/builds/zig-linux-x86_64-0.12.0-dev.2633+0596df91e.tar.xz | tar -xJ
-          echo "ZIG_CC=$(pwd)/zig-linux-x86_64-0.12.0-dev.2633+0596df91e/zig cc" >> $GITHUB_ENV
-          echo "ZIG_CXX=$(pwd)/zig-linux-x86_64-0.12.0-dev.2633+0596df91e/zig c++" >> $GITHUB_ENV
+          curl -LO https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz
+          tar -xf zig-linux-x86_64-0.11.0.tar.xz
+          echo "ZIG_CC=$(pwd)/zig-linux-x86_64-0.11.0/zig cc" >> $GITHUB_ENV
+          echo "ZIG_CXX=$(pwd)/zig-linux-x86_64-0.11.0/zig c++" >> $GITHUB_ENV
 
       - name: Configure CMake
         shell: bash
