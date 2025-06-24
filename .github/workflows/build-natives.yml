@@ -64,42 +64,49 @@ jobs:
         run: |
           curl -LO https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz
           tar -xf zig-linux-x86_64-0.11.0.tar.xz
-          echo "ZIG_CC=$(pwd)/zig-linux-x86_64-0.11.0/zig cc" >> $GITHUB_ENV
-          echo "ZIG_CXX=$(pwd)/zig-linux-x86_64-0.11.0/zig c++" >> $GITHUB_ENV
+          chmod +x zig-linux-x86_64-0.11.0/zig
+          ZIG_PATH="$(pwd)/zig-linux-x86_64-0.11.0/zig"
+          echo "ZIG_CC=${ZIG_PATH} cc" >> $GITHUB_ENV
+          echo "ZIG_CXX=${ZIG_PATH} c++" >> $GITHUB_ENV
+          echo "ZIG_PATH=${ZIG_PATH}" >> $GITHUB_ENV
 
       - name: Configure CMake
         shell: bash
         working-directory: native/build
         run: |
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
-
+          
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
             CMAKE_CMD="$CMAKE_CMD \
-              -DCMAKE_C_COMPILER=\"$ZIG_CC\" \
-              -DCMAKE_CXX_COMPILER=\"$ZIG_CXX\" \
+              -DCMAKE_C_COMPILER=\"${ZIG_PATH}\" \
+              -DCMAKE_C_COMPILER_ARG1=\"cc\" \
+              -DCMAKE_CXX_COMPILER=\"${ZIG_PATH}\" \
+              -DCMAKE_CXX_COMPILER_ARG1=\"c++\" \
               -DCMAKE_SYSTEM_NAME=Linux \
               -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+              -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
+              -DCMAKE_CXX_COMPILER_TARGET=aarch64-linux-gnu \
               -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF \
               -DUSE_AVX2=OFF -DUSE_AVX512=OFF -DUSE_LZCNT=OFF \
               -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF"
           fi
-
+          
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             CMAKE_CMD="$CMAKE_CMD \
               -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
               -DCMAKE_CXX_FLAGS='-fPIC'"
           fi
-
+          
           if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.arch }}" == "arm64" ]]; then
             CMAKE_CMD="$CMAKE_CMD \
               -DCMAKE_OSX_ARCHITECTURES=arm64 \
               -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON"
           fi
-
+          
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             CMAKE_CMD="$CMAKE_CMD -DUSE_STATIC_MSVC_RUNTIME_LIBRARY=OFF"
           fi
-
+          
           echo "Running: $CMAKE_CMD"
           eval $CMAKE_CMD
 
