@@ -56,17 +56,32 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Create build directory
-        run: cmake -E make_directory native/build
+      - name: Cache build dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/AppData/Local/ccache
+            native/build
+          key: build-cache-${{ matrix.triplet }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake', '**/*.cpp', '**/*.h', '**/*.c') }}
+          restore-keys: |
+            build-cache-${{ matrix.triplet }}-
+            build-cache-
 
-      - name: Install Zig (only for aarch64)
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.triplet }}
+          max-size: 500M
+
+      - name: Install cross-compilation tools (only for aarch64)
         if: matrix.arch == 'aarch64'
         run: |
-          curl -LO https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz
-          tar -xf zig-linux-x86_64-0.11.0.tar.xz
-          chmod +x zig-linux-x86_64-0.11.0/zig
-          # Добавляем zig в PATH
-          echo "$(pwd)/zig-linux-x86_64-0.11.0" >> $GITHUB_PATH
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Create build directory
+        run: cmake -E make_directory native/build
 
       - name: Configure CMake
         shell: bash
@@ -74,20 +89,29 @@ jobs:
         run: |
           CMAKE_CMD="cmake .. -DCMAKE_BUILD_TYPE=Release"
           
+          # Add ccache support
+          if command -v ccache >/dev/null 2>&1; then
+            CMAKE_CMD="$CMAKE_CMD -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache"
+          fi
+          
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            # Используем CC и CXX переменные окружения
-            export CC="zig cc -target aarch64-linux-gnu"
-            export CXX="zig c++ -target aarch64-linux-gnu"
             CMAKE_CMD="$CMAKE_CMD \
               -DCMAKE_SYSTEM_NAME=Linux \
               -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-              -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+              -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu \
+              -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+              -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+              -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+              -DCMAKE_CXX_FLAGS='-fPIC -march=armv8-a' \
               -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF \
               -DUSE_AVX2=OFF -DUSE_AVX512=OFF -DUSE_LZCNT=OFF \
               -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF"
           fi
           
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" != "aarch64" ]]; then
             CMAKE_CMD="$CMAKE_CMD \
               -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
               -DCMAKE_CXX_FLAGS='-fPIC'"
@@ -110,44 +134,44 @@ jobs:
         shell: bash
         working-directory: native/build
         run: |
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            cmake --build . --config Release
+          # Определяем количество ядер для параллельной сборки
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            CORES=$(nproc)
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            CORES=$(sysctl -n hw.ncpu)
+          elif [[ "${{ runner.os }}" == "Windows" ]]; then
+            CORES=$NUMBER_OF_PROCESSORS
           else
-            cmake --build .
+            CORES=2
+          fi
+          
+          echo "Building with $CORES cores"
+          
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            cmake --build . --config Release --parallel $CORES
+          else
+            cmake --build . --parallel $CORES
           fi
 
-      - name: Archive native library (Unix)
-        if: runner.os != 'Windows'
+      - name: Archive native library
         shell: bash
         run: |
-          ARTIFACT_DIR="${{ github.workspace }}/native/build/artifact"
-          mkdir -p "$ARTIFACT_DIR"
-
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            LIB_NAME="libinertia_native.dylib"
+          cd native/build
+          
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            # Windows: библиотека в папке Release
+            7z a "${{ matrix.artifact_name }}.zip" "Release/${{ matrix.lib_name }}"
           else
-            LIB_NAME="libinertia_native.so"
+            # Unix: библиотека в корне build директории
+            zip "${{ matrix.artifact_name }}.zip" "${{ matrix.lib_name }}"
           fi
-
-          cp "${{ github.workspace }}/native/build/${LIB_NAME}" "$ARTIFACT_DIR"
-          cd "$ARTIFACT_DIR"
-          zip "../${{ matrix.artifact_name }}.zip" ./*
-
-      - name: Archive native library (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $BuildDir = "${{ github.workspace }}\native\build\Release"
-          $ArtifactDir = "${{ github.workspace }}\native\build\artifact"
-          New-Item -ItemType Directory -Force -Path $ArtifactDir
-          Copy-Item "$BuildDir\${{ matrix.lib_name }}" -Destination $ArtifactDir
-          Compress-Archive -Path "$ArtifactDir\*" -DestinationPath "${{ github.workspace }}\native\build\${{ matrix.artifact_name }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: native/build/${{ matrix.artifact_name }}.zip
+          retention-days: 1
 
   release:
     name: Create GitHub Release
@@ -166,3 +190,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*/*.zip
+          fail_on_unmatched_files: false
