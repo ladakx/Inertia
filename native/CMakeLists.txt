@@ -11,11 +11,15 @@ add_subdirectory(../Jolt/Build jolt-build)
 add_library(inertia_native SHARED src/JNI_Bridge.cpp)
 
 # --- ОСНОВНЕ ВИПРАВЛЕННЯ ---
-# Додаємо прапори для статичного лінкування стандартних бібліотек C++.
-# Це робить нашу .so бібліотеку самодостатньою і вирішує проблеми
-# з різними версіями системних бібліотек.
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+# Применяем флаг для статической линковки стандартной библиотеки C++
+# только для платформы Linux, так как на macOS он не поддерживается.
+if(UNIX AND NOT APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
+elseif(APPLE)
+    # На macOS не нужно использовать -static-libgcc
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++")
+endif()
 
 get_target_property(JOLT_INCLUDE_DIRS Jolt INTERFACE_INCLUDE_DIRECTORIES)
 
