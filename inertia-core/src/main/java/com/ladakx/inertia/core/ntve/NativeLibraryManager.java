@@ -1,4 +1,4 @@
-/* Original project path: inertia-core/src/main/java/com/ladakx/inertia/core/ntve/NativeDownloader.java */
+/* New file: inertia-core/src/main/java/com/ladakx/inertia/core/ntve/NativeLibraryManager.java */
 
 package com.ladakx.inertia.core.ntve;
 
@@ -9,22 +9,69 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.zip.ZipInputStream;
 
-public class NativeDownloader {
+public class NativeLibraryManager {
+
+    // --- ОСНОВНИЙ ПЕРЕМИКАЧ ---
+    // false = завантажувати бібліотеку з JAR-файлу (для локальної розробки)
+    // true = завантажувати бібліотеку з GitHub Releases (для production)
+    private static final boolean LOAD_FROM_GITHUB = false;
 
     private final Plugin plugin;
+    private boolean loaded = false;
+
     private final String repoOwner = "ladakx";
     private final String repoName = "Inertia";
 
-    private boolean loaded = false;
-
-    public NativeDownloader(Plugin plugin) {
+    public NativeLibraryManager(Plugin plugin) {
         this.plugin = plugin;
     }
 
     public synchronized void load() {
+        if (loaded) {
+            return;
+        }
+
+        if (LOAD_FROM_GITHUB) {
+            loadFromGitHub();
+        } else {
+            loadFromJar();
+        }
+
+        loaded = true;
+    }
+
+    private void loadFromJar() {
+        plugin.getLogger().info("Loading native library from JAR...");
+        try {
+            String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+            String libFileName = getLibraryFileName(os);
+            String libPath = "/native/" + getOsFolder(os) + "/" + libFileName;
+
+            try (InputStream is = getClass().getResourceAsStream(libPath)) {
+                if (is == null) {
+                    throw new IllegalStateException("Native library not found in JAR for this OS: " + libPath);
+                }
+
+                File tempFile = File.createTempFile("inertia", ".tmp");
+                tempFile.deleteOnExit();
+
+                Files.copy(is, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                System.load(tempFile.getAbsolutePath());
+                plugin.getLogger().info("Successfully loaded native library from JAR: " + libFileName);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("CRITICAL: FAILED TO LOAD INERTIA NATIVE LIBRARY FROM JAR!");
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void loadFromGitHub() {
         if (loaded) {
             return;
         }
@@ -91,8 +138,20 @@ public class NativeDownloader {
         }
     }
 
+    // Допоміжні методи
+    private String getOsFolder(String os) {
+        if (os.contains("win")) return "windows";
+        if (os.contains("mac")) return "darwin";
+        return "linux";
+    }
+
+    private String getLibraryFileName(String os) {
+        if (os.contains("win")) return "inertia_native.dll";
+        if (os.contains("mac")) return "libinertia_native.dylib";
+        return "libinertia_native.so";
+    }
+
     private String getAssetNameForSystem(String os, String arch) {
-        // ... (цей метод вже правильний і залишається без змін)
         String osName;
         if (os.contains("win")) {
             osName = "windows";
@@ -118,15 +177,5 @@ public class NativeDownloader {
         }
 
         return String.format("inertia-%s-%s", osName, archName);
-    }
-
-    private String getLibraryFileName(String os) {
-        if (os.contains("win")) {
-            return "inertia_native.dll";
-        } else if (os.contains("mac")) {
-            return "libinertia_native.dylib";
-        } else {
-            return "libinertia_native.so";
-        }
     }
 }

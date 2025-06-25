@@ -60,6 +60,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
+            zig-linux-x86_64-0.11.0
             ~/.cache/ccache
             ~/AppData/Local/ccache
             native/build
@@ -74,36 +75,22 @@ jobs:
           key: ${{ matrix.triplet }}
           max-size: 500M
 
-      - name: Setup Java (for JNI)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Install cross-compilation tools (only for aarch64)
-        if: matrix.arch == 'aarch64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu \
-            libc6-dev-arm64-cross
-
-      - name: Download and setup JDK for aarch64 (only for aarch64)
-        if: matrix.arch == 'aarch64'
-        run: |
-          # Скачиваем JDK для aarch64
-          wget -q https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_aarch64_linux_hotspot_17.0.9_9.tar.gz
-          tar -xzf OpenJDK17U-jdk_aarch64_linux_hotspot_17.0.9_9.tar.gz
-          mv jdk-17.0.9+9 jdk-aarch64
-          
-          # Экспортируем переменные для кросс-компиляции
-          echo "JAVA_HOME_AARCH64=$(pwd)/jdk-aarch64" >> $GITHUB_ENV
-          echo "JNI_INCLUDE_PATH=$(pwd)/jdk-aarch64/include" >> $GITHUB_ENV
-          echo "JNI_INCLUDE_PATH_LINUX=$(pwd)/jdk-aarch64/include/linux" >> $GITHUB_ENV
-
       - name: Create build directory
         run: cmake -E make_directory native/build
+
+      - name: Install Zig (only for aarch64)
+        if: matrix.arch == 'aarch64'
+        run: |
+          if [ ! -d "zig-linux-x86_64-0.11.0" ]; then
+            echo "Downloading Zig..."
+            curl -LO https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz
+            tar -xf zig-linux-x86_64-0.11.0.tar.xz
+            chmod +x zig-linux-x86_64-0.11.0/zig
+            rm zig-linux-x86_64-0.11.0.tar.xz
+          else
+            echo "Using cached Zig installation"
+          fi
+          echo "$(pwd)/zig-linux-x86_64-0.11.0" >> $GITHUB_PATH
 
       - name: Configure CMake
         shell: bash
@@ -117,27 +104,19 @@ jobs:
           fi
           
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            # Используем CC и CXX переменные окружения
+            export CC="zig cc -target aarch64-linux-gnu"
+            export CXX="zig c++ -target aarch64-linux-gnu"
             CMAKE_CMD="$CMAKE_CMD \
               -DCMAKE_SYSTEM_NAME=Linux \
               -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-              -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu \
-              -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
-              -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
-              -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
-              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-              -DCMAKE_CXX_FLAGS='-fPIC -march=armv8-a' \
-              -DJAVA_HOME=$JAVA_HOME_AARCH64 \
-              -DJAVA_INCLUDE_PATH=$JNI_INCLUDE_PATH \
-              -DJAVA_INCLUDE_PATH2=$JNI_INCLUDE_PATH_LINUX \
-              -DJAVA_AWT_INCLUDE_PATH=$JNI_INCLUDE_PATH \
+              -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
               -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF \
               -DUSE_AVX2=OFF -DUSE_AVX512=OFF -DUSE_LZCNT=OFF \
               -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF"
           fi
           
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.arch }}" != "aarch64" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             CMAKE_CMD="$CMAKE_CMD \
               -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
               -DCMAKE_CXX_FLAGS='-fPIC'"
@@ -197,7 +176,7 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: native/build/${{ matrix.artifact_name }}.zip
-          retention-days: 1
+          retention-days: 1  # Уменьшаем время хранения артефактов
 
   release:
     name: Create GitHub Release

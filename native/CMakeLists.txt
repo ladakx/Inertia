@@ -4,20 +4,28 @@ project(inertia_native)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(JNI REQUIRED)
+# Handle JNI paths manually if provided
+if(DEFINED JAVA_INCLUDE_PATH AND DEFINED JAVA_INCLUDE_PATH2)
+    message(STATUS "Using provided JNI paths:")
+    message(STATUS "  JAVA_INCLUDE_PATH: ${JAVA_INCLUDE_PATH}")
+    message(STATUS "  JAVA_INCLUDE_PATH2: ${JAVA_INCLUDE_PATH2}")
+
+    set(JNI_INCLUDE_DIRS ${JAVA_INCLUDE_PATH} ${JAVA_INCLUDE_PATH2})
+    set(JNI_FOUND TRUE)
+else()
+    # Fallback to automatic detection
+    find_package(JNI REQUIRED)
+endif()
 
 add_subdirectory(../Jolt/Build jolt-build)
 
 add_library(inertia_native SHARED src/JNI_Bridge.cpp)
 
-# --- ОСНОВНЕ ВИПРАВЛЕННЯ ---
-# Применяем флаг для статической линковки стандартной библиотеки C++
-# только для платформы Linux, так как на macOS он не поддерживается.
+# Static linking configuration
 if(UNIX AND NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++ -static-libgcc")
 elseif(APPLE)
-    # На macOS не нужно использовать -static-libgcc
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++")
 endif()
 
