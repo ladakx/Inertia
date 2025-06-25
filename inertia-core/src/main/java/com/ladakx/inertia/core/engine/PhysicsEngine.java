@@ -3,7 +3,7 @@
 package com.ladakx.inertia.core.engine;
 
 import com.ladakx.inertia.core.ntve.JNIBridge;
-import com.ladakx.inertia.core.ntve.NativeDownloader; // Змінено імпорт
+import com.ladakx.inertia.core.ntve.NativeLibraryManager;
 import org.bukkit.plugin.Plugin;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -69,7 +69,7 @@ public final class PhysicsEngine implements Runnable {
     public void run() {
         // --- ОСНОВНЕ ВИПРАВЛЕННЯ ---
         // Використовуємо наш новий завантажувач
-        new NativeDownloader(plugin).load();
+        new NativeLibraryManager(plugin).load();
 
         JNIBridge.init(MAX_BODIES, 0);
         plugin.getLogger().info("Inertia physics thread started.");
