@@ -16,7 +16,6 @@
             <option value="$PROJECT_DIR$/inertia-nms-v1_16_R3" />
             <option value="$PROJECT_DIR$/inertia-nms-v1_21_R1" />
             <option value="$PROJECT_DIR$/inertia-plugin" />
-            <option value="$PROJECT_DIR$/native" />
           </set>
         </option>
       </GradleProjectSettings>
