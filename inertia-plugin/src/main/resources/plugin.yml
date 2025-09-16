@@ -1,7 +1,9 @@
 name: Inertia
-version: ${project.version} # This will be replaced by Gradle with the version from build.gradle.kts
+version: ${project.version}
 main: com.ladakx.inertia.InertiaSpigotPlugin
 api-version: '1.21'
 author: Ladakx
 description: A Minecraft plugin that integrates the Jolt Physics engine.
 website: https://github.com/ladakx/Inertia
+# The 'libraries' section is no longer needed as Jolt is now shaded into the plugin JAR.
+

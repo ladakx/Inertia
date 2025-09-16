@@ -46,8 +46,8 @@ bin/
 /native/CMakeCache.txt
 /native/CMakeFiles/
 /native/build/**
-ladakx.key
-deployment.properties
+inertia-plugin/ladakx.key
+inertia-plugin/deployment.properties
 project.txt
 sc_text.py
 sc.py
