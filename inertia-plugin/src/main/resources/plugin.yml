@@ -5,5 +5,15 @@ api-version: '1.21'
 author: Ladakx
 description: A Minecraft plugin that integrates the Jolt Physics engine.
 website: https://github.com/ladakx/Inertia
-# The 'libraries' section is no longer needed as Jolt is now shaded into the plugin JAR.
 
+commands:
+  inertiaspawn:
+    description: Spawns a physical object for testing.
+    usage: /<command> cube
+    permission: inertia.command.spawn
+    permission-message: You do not have permission to use this command.
+
+permissions:
+  inertia.command.spawn:
+    description: Allows spawning physical objects.
+    default: op

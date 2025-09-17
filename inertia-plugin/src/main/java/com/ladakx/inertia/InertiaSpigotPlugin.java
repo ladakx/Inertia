@@ -6,8 +6,11 @@ import com.ladakx.inertia.core.InertiaPluginLogger;
 import com.ladakx.inertia.core.physics.PhysicsManager;
 import com.ladakx.inertia.core.synchronization.SyncTask;
 import com.ladakx.inertia.core.visualization.BodyVisualizer;
+import com.ladakx.inertia.plugin.commands.SpawnCubeCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+
+import java.util.Objects;
 
 public final class InertiaSpigotPlugin extends JavaPlugin {
 
@@ -36,6 +39,10 @@ public final class InertiaSpigotPlugin extends JavaPlugin {
 
         // Start the synchronization task
         this.syncTask = new SyncTask(this.physicsManager, this.bodyVisualizer).runTaskTimer(this, 0L, 1L);
+
+        // Register commands
+        Objects.requireNonNull(getCommand("inertiaspawn")).setExecutor(new SpawnCubeCommand(this));
+
 
         InertiaPluginLogger.info("Inertia plugin has been enabled successfully.");
     }
