@@ -1,5 +1,6 @@
 package com.ladakx.inertia.core.physics;
 
+import com.github.stephengold.joltjni.BodyInterface;
 import com.github.stephengold.joltjni.BroadPhaseLayerInterfaceTable;
 import com.github.stephengold.joltjni.JobSystem;
 import com.github.stephengold.joltjni.JobSystemThreadPool;
@@ -181,11 +182,9 @@ public class PhysicsManager implements PhysicsWorld {
         writeBuffer.clear();
         for (InertiaBodyImpl body : bodies.values()) {
             if (body.getJoltBody().isActive()) {
-                // Get position as an RVec3 object and rotation as a Quat object
                 RVec3 pos = body.getJoltBody().getPosition();
                 Quat rot = body.getJoltBody().getRotation();
 
-                // Create BodyState directly from the object's components
                 BodyState state = new BodyState(
                         body.getId(),
                         new Vector((double) pos.getX(), (double) pos.getY(), (double) pos.getZ()),
@@ -197,10 +196,32 @@ public class PhysicsManager implements PhysicsWorld {
     }
 
     private void swapBuffers() {
-        // Atomically swap the write buffer with the one the main thread is reading from.
         Map<Integer, BodyState> oldWriteBuffer = this.resultsBuffer.getAndSet(this.writeBuffer);
-        // The old read buffer is now our new write buffer.
         this.writeBuffer = oldWriteBuffer;
+    }
+
+    /**
+     * Queues a command to be executed on the physics thread.
+     * @param command The command to execute.
+     */
+    public void queueCommand(Runnable command) {
+        commandQueue.add(command);
+    }
+
+    /**
+     * Adds a managed body to the PhysicsManager.
+     * @param body The body to add.
+     */
+    public void addBody(InertiaBodyImpl body) {
+        bodies.put(body.getId(), body);
+    }
+
+    /**
+     * Gets the Jolt BodyInterface for direct manipulation (intended for internal use).
+     * @return The BodyInterface.
+     */
+    public BodyInterface getBodyInterface() {
+        return physicsSystem.getBodyInterface();
     }
 
     /**
