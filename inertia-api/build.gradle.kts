@@ -3,9 +3,10 @@ plugins {
 }
 
 group = "com.inertia"
-version = "1.0.0-SNAPSHOT"
+version = "DEV"
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
+    implementation("org.jetbrains:annotations:24.0.1")
 }
 
