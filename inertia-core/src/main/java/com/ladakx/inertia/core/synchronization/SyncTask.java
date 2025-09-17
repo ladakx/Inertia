@@ -9,12 +9,10 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.joml.Quaternionf;
 
 import java.util.Map;
-import java.util.UUID;
 
 /**
- * A BukkitRunnable responsible for synchronizing the state of physical bodies
- * from the physics thread to the main server thread.
- * This task reads the latest transformation data and updates the corresponding Minecraft entities.
+ * A BukkitRunnable task that runs every server tick to synchronize the state of visible Minecraft entities
+ * with their corresponding physical bodies from the Jolt simulation.
  */
 public class SyncTask extends BukkitRunnable {
 
@@ -28,64 +26,36 @@ public class SyncTask extends BukkitRunnable {
 
     @Override
     public void run() {
-        Map<Integer, PhysicsManager.BodyState> latestStates = physicsManager.getLatestBodyStates();
-        if (latestStates.isEmpty()) {
+        // Get the latest snapshot of body states from the physics thread's buffer.
+        // This is a thread-safe operation.
+        Map<Integer, PhysicsManager.BodyState> states = physicsManager.getLatestBodyStates();
+        if (states.isEmpty()) {
             return;
         }
 
-        for (PhysicsManager.BodyState state : latestStates.values()) {
-            UUID entityId = visualizer.getEntityId(state.bodyId());
-            if (entityId == null) {
-                continue;
+        // Get the map of visualized entities.
+        Map<Integer, Entity> visualizedEntities = visualizer.getVisualizedBodies();
+
+        for (PhysicsManager.BodyState state : states.values()) {
+            Entity entity = visualizedEntities.get(state.bodyId());
+
+            if (entity != null && entity.isValid()) {
+                // We must use a synchronous teleport call from the main server thread.
+                Location newLocation = new Location(
+                        entity.getWorld(),
+                        state.position().getX(),
+                        state.position().getY(),
+                        state.position().getZ()
+                );
+
+                // Note: Bukkit doesn't support direct quaternion rotation for most entities.
+                // ArmorStand is an exception, but for general entities, we might need to convert
+                // quaternion to yaw/pitch in the future if needed.
+                // For now, teleporting is sufficient to see the movement.
+
+                entity.teleport(newLocation);
             }
-
-            Entity entity = Bukkit.getEntity(entityId);
-            if (entity == null || !entity.isValid()) {
-                // TODO: Handle cleanup if the entity is no longer valid
-                continue;
-            }
-
-            // Bukkit/Spigot doesn't have a direct rotation API for all entities.
-            // Teleport is the most universal way to update both position and rotation.
-            Location newLocation = state.position().toLocation(entity.getWorld());
-
-            // Convert quaternion to yaw/pitch for Bukkit
-            Quaternionf rotation = state.rotation();
-            double[] euler = toEulerAngles(rotation);
-            newLocation.setYaw((float) Math.toDegrees(euler[1])); // Yaw is around Y
-            newLocation.setPitch((float) Math.toDegrees(euler[0])); // Pitch is around X
-
-            // Perform the teleport on the main thread
-            entity.teleport(newLocation);
         }
-    }
-
-    /**
-     * Converts a quaternion to Euler angles (pitch, yaw, roll).
-     * @param q The quaternion.
-     * @return A double array containing [pitch, yaw, roll] in radians.
-     */
-    private double[] toEulerAngles(Quaternionf q) {
-        double[] angles = new double[3];
-
-        // Roll (x-axis rotation)
-        double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
-        double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
-        angles[2] = Math.atan2(sinr_cosp, cosr_cosp);
-
-        // Pitch (y-axis rotation)
-        double sinp = 2 * (q.w * q.y - q.z * q.x);
-        if (Math.abs(sinp) >= 1) {
-            angles[0] = Math.copySign(Math.PI / 2, sinp); // use 90 degrees if out of range
-        } else {
-            angles[0] = Math.asin(sinp);
-        }
-
-        // Yaw (z-axis rotation)
-        double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
-        double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
-        angles[1] = Math.atan2(siny_cosp, cosy_cosp);
-
-        return angles;
     }
 }
+
