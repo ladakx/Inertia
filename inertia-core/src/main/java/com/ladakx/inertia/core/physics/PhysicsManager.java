@@ -8,23 +8,44 @@ import com.github.stephengold.joltjni.JoltPhysicsObject;
 import com.github.stephengold.joltjni.ObjectLayerPairFilterTable;
 import com.github.stephengold.joltjni.ObjectVsBroadPhaseLayerFilterTable;
 import com.github.stephengold.joltjni.PhysicsSystem;
+import com.github.stephengold.joltjni.Quat;
+import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.TempAllocator;
 import com.github.stephengold.joltjni.TempAllocatorMalloc;
 import com.ladakx.inertia.api.world.PhysicsWorld;
 import com.ladakx.inertia.core.InertiaPluginLogger;
+import com.ladakx.inertia.core.body.InertiaBodyImpl;
 import com.ladakx.inertia.core.nativelib.JoltNatives;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
+import org.joml.Quaternionf;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Manages the entire lifecycle of the Jolt physics simulation.
+ * This class is the heart of the physics engine integration, responsible for:
+ * - Initializing and shutting down Jolt.
+ * - Running the simulation loop in a dedicated thread.
+ * - Managing physics bodies.
+ * - Safely synchronizing data between the physics thread and the main server thread.
  */
 public class PhysicsManager implements PhysicsWorld {
 
+    // Record to hold the state of a body for thread-safe data transfer.
+    public record BodyState(int bodyId, Vector position, Quaternionf rotation) {}
+
     private final JavaPlugin plugin;
     private final ConcurrentLinkedQueue<Runnable> commandQueue = new ConcurrentLinkedQueue<>();
+    private final Map<Integer, InertiaBodyImpl> bodies = new ConcurrentHashMap<>();
+
+    // Double buffering mechanism for simulation results
+    private final AtomicReference<Map<Integer, BodyState>> resultsBuffer = new AtomicReference<>(new ConcurrentHashMap<>());
+    private Map<Integer, BodyState> writeBuffer = new ConcurrentHashMap<>();
 
     private TempAllocator tempAllocator;
     private JobSystem jobSystem;
@@ -124,6 +145,9 @@ public class PhysicsManager implements PhysicsWorld {
             int collisionSteps = 1;
             physicsSystem.update(deltaTime, collisionSteps, tempAllocator, jobSystem);
 
+            prepareResults();
+            swapBuffers();
+
             long currentTime = System.nanoTime();
             long elapsedTime = currentTime - lastTickTime;
             long sleepTime = (tickTimeNanos - elapsedTime) / 1_000_000L;
@@ -151,6 +175,51 @@ public class PhysicsManager implements PhysicsWorld {
                 e.printStackTrace();
             }
         }
+    }
+
+    private void prepareResults() {
+        writeBuffer.clear();
+        for (InertiaBodyImpl body : bodies.values()) {
+            if (body.getJoltBody().isActive()) {
+                // Get position as an RVec3 object and rotation as a Quat object
+                RVec3 pos = body.getJoltBody().getPosition();
+                Quat rot = body.getJoltBody().getRotation();
+
+                // Create BodyState directly from the object's components
+                BodyState state = new BodyState(
+                        body.getId(),
+                        new Vector((double) pos.getX(), (double) pos.getY(), (double) pos.getZ()),
+                        new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW())
+                );
+                writeBuffer.put(body.getId(), state);
+            }
+        }
+    }
+
+    private void swapBuffers() {
+        // Atomically swap the write buffer with the one the main thread is reading from.
+        Map<Integer, BodyState> oldWriteBuffer = this.resultsBuffer.getAndSet(this.writeBuffer);
+        // The old read buffer is now our new write buffer.
+        this.writeBuffer = oldWriteBuffer;
+    }
+
+    /**
+     * Gets the latest snapshot of all body states from the physics simulation.
+     * This is called by the main thread's synchronization task.
+     *
+     * @return A map of body IDs to their current {@link BodyState}.
+     */
+    public Map<Integer, BodyState> getLatestBodyStates() {
+        return resultsBuffer.get();
+    }
+
+    /**
+     * Retrieves a map of all managed physics bodies.
+     *
+     * @return A map of body IDs to their corresponding {@link InertiaBodyImpl} instances.
+     */
+    public Map<Integer, InertiaBodyImpl> getBodies() {
+        return bodies;
     }
 
     public void shutdown() {
