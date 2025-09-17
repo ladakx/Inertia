@@ -2,73 +2,46 @@ package com.ladakx.inertia.core.visualization;
 
 import com.ladakx.inertia.api.body.InertiaBody;
 import org.bukkit.entity.Entity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages the link between physical {@link InertiaBody} objects and their visible
- * representation as Minecraft {@link Entity} objects.
+ * Manages the association between physical {@link InertiaBody} objects and their visible Minecraft {@link Entity} counterparts.
  */
 public class BodyVisualizer {
 
-    private final Map<Integer, UUID> bodyToEntityMap = new ConcurrentHashMap<>();
-    private final Map<UUID, Integer> entityToBodyMap = new ConcurrentHashMap<>();
+    private final Map<Integer, Entity> visualizedBodies = new ConcurrentHashMap<>();
 
     /**
      * Associates a physical body with a Minecraft entity for visualization.
+     * The SyncTask will use this mapping to update the entity's position and rotation.
      *
      * @param body   The InertiaBody to visualize.
-     * @param entity The Minecraft entity that will represent the body.
+     * @param entity The Minecraft entity that will represent the body in the world.
      */
-    public void startVisualizing(@NotNull InertiaBody body, @NotNull Entity entity) {
-        bodyToEntityMap.put(body.getId(), entity.getUniqueId());
-        entityToBodyMap.put(entity.getUniqueId(), body.getId());
+    public void visualizeBody(InertiaBody body, Entity entity) {
+        visualizedBodies.put(body.getId(), entity);
     }
 
     /**
-     * Stops visualizing a physical body, breaking the link to its Minecraft entity.
+     * Removes the visualization mapping for a given body ID.
+     * This should be called when a body is removed from the physics world.
      *
-     * @param body The InertiaBody to stop visualizing.
+     * @param bodyId The ID of the body to stop visualizing.
      */
-    public void stopVisualizing(@NotNull InertiaBody body) {
-        UUID entityId = bodyToEntityMap.remove(body.getId());
-        if (entityId != null) {
-            entityToBodyMap.remove(entityId);
-        }
+    public void unvisualizeBody(int bodyId) {
+        visualizedBodies.remove(bodyId);
     }
 
     /**
-     * Gets the UUID of the entity that represents the given body.
+     * Gets the map of all currently visualized bodies.
+     * The key is the body ID, and the value is the associated Minecraft entity.
      *
-     * @param bodyId The ID of the physical body.
-     * @return The UUID of the associated entity, or {@code null} if not visualized.
+     * @return A map of visualized bodies.
      */
-    @Nullable
-    public UUID getEntityId(int bodyId) {
-        return bodyToEntityMap.get(bodyId);
-    }
-
-    /**
-     * Gets the ID of the body associated with the given entity UUID.
-     *
-     * @param entityId The UUID of the entity.
-     * @return The ID of the associated body, or {@code null} if not tracked.
-     */
-    @Nullable
-    public Integer getBodyId(@NotNull UUID entityId) {
-        return entityToBodyMap.get(entityId);
-    }
-
-    /**
-     * Clears all visualization mappings.
-     */
-    public void clear() {
-        bodyToEntityMap.clear();
-        entityToBodyMap.clear();
+    public Map<Integer, Entity> getVisualizedBodies() {
+        return visualizedBodies;
     }
 }
+

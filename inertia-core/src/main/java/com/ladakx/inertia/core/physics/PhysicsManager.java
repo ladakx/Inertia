@@ -1,6 +1,9 @@
 package com.ladakx.inertia.core.physics;
 
+import com.github.stephengold.joltjni.Body;
+import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.github.stephengold.joltjni.BodyInterface;
+import com.github.stephengold.joltjni.BoxShapeSettings;
 import com.github.stephengold.joltjni.BroadPhaseLayerInterfaceTable;
 import com.github.stephengold.joltjni.JobSystem;
 import com.github.stephengold.joltjni.JobSystemThreadPool;
@@ -13,6 +16,9 @@ import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.TempAllocator;
 import com.github.stephengold.joltjni.TempAllocatorMalloc;
+import com.github.stephengold.joltjni.Vec3;
+import com.github.stephengold.joltjni.enumerate.EActivation;
+import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.api.world.PhysicsWorld;
 import com.ladakx.inertia.core.InertiaPluginLogger;
 import com.ladakx.inertia.core.body.InertiaBodyImpl;
@@ -92,7 +98,7 @@ public class PhysicsManager implements PhysicsWorld {
         createCollisionFilters();
 
         this.physicsSystem = new PhysicsSystem();
-        int maxBodies = 10240;
+        int maxBodies = 65536; // Increased body count
         int numBodyMutexes = 0;
         int maxBodyPairs = 65536;
         int maxContactConstraints = 10240;
@@ -107,6 +113,8 @@ public class PhysicsManager implements PhysicsWorld {
                 objectLayerPairFilter
         );
 
+        createStaticFloor();
+
         this.running = true;
         this.physicsThread = new Thread(this::physicsLoop, "Inertia-Physics-Thread");
         this.physicsThread.start();
@@ -114,6 +122,22 @@ public class PhysicsManager implements PhysicsWorld {
         InertiaPluginLogger.info("PhysicsManager initialized and simulation thread started.");
         return true;
     }
+
+    private void createStaticFloor() {
+        Vec3 halfExtents = new Vec3(1000f, 1f, 1000f);
+        try (BoxShapeSettings floorShapeSettings = new BoxShapeSettings(halfExtents)) {
+            RVec3 position = new RVec3(0f, -1f, 0f);
+            Quat rotation = new Quat(); // Identity rotation
+
+            try (BodyCreationSettings floorSettings = new BodyCreationSettings(
+                    floorShapeSettings, position, rotation, EMotionType.Static, LAYER_NON_MOVING
+            )) {
+                // The floor doesn't need to be activated.
+                this.getBodyInterface().createAndAddBody(floorSettings, EActivation.DontActivate);
+            }
+        }
+    }
+
 
     private void createCollisionFilters() {
         final int numObjectLayers = 2;
@@ -187,7 +211,7 @@ public class PhysicsManager implements PhysicsWorld {
 
                 BodyState state = new BodyState(
                         body.getId(),
-                        new Vector((double) pos.getX(), (double) pos.getY(), (double) pos.getZ()),
+                        new Vector((double)pos.getX(), (double)pos.getY(), (double)pos.getZ()),
                         new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW())
                 );
                 writeBuffer.put(body.getId(), state);
@@ -196,32 +220,10 @@ public class PhysicsManager implements PhysicsWorld {
     }
 
     private void swapBuffers() {
+        // Atomically swap the write buffer with the one the main thread is reading from.
         Map<Integer, BodyState> oldWriteBuffer = this.resultsBuffer.getAndSet(this.writeBuffer);
+        // The old read buffer is now our new write buffer.
         this.writeBuffer = oldWriteBuffer;
-    }
-
-    /**
-     * Queues a command to be executed on the physics thread.
-     * @param command The command to execute.
-     */
-    public void queueCommand(Runnable command) {
-        commandQueue.add(command);
-    }
-
-    /**
-     * Adds a managed body to the PhysicsManager.
-     * @param body The body to add.
-     */
-    public void addBody(InertiaBodyImpl body) {
-        bodies.put(body.getId(), body);
-    }
-
-    /**
-     * Gets the Jolt BodyInterface for direct manipulation (intended for internal use).
-     * @return The BodyInterface.
-     */
-    public BodyInterface getBodyInterface() {
-        return physicsSystem.getBodyInterface();
     }
 
     /**
@@ -242,6 +244,23 @@ public class PhysicsManager implements PhysicsWorld {
     public Map<Integer, InertiaBodyImpl> getBodies() {
         return bodies;
     }
+
+    public void queueCommand(Runnable command) {
+        commandQueue.add(command);
+    }
+
+    public BodyInterface getBodyInterface() {
+        return physicsSystem.getBodyInterface();
+    }
+
+    public void addBody(InertiaBodyImpl body) {
+        bodies.put(body.getId(), body);
+    }
+
+    public void removeBody(int bodyId) {
+        bodies.remove(bodyId);
+    }
+
 
     public void shutdown() {
         if (!running) {
