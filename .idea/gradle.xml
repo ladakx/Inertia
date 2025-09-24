@@ -12,8 +12,8 @@
             <option value="$PROJECT_DIR$/inertia-api" />
             <option value="$PROJECT_DIR$/inertia-core" />
             <option value="$PROJECT_DIR$/inertia-nms-abstraction" />
-            <option value="$PROJECT_DIR$/inertia-nms-v1_12_R1" />
             <option value="$PROJECT_DIR$/inertia-nms-v1_16_R3" />
+            <option value="$PROJECT_DIR$/inertia-nms-v1_17_R1" />
             <option value="$PROJECT_DIR$/inertia-nms-v1_18_R2" />
             <option value="$PROJECT_DIR$/inertia-nms-v1_19_R3" />
             <option value="$PROJECT_DIR$/inertia-nms-v1_20_R1" />
@@ -26,6 +26,7 @@
             <option value="$PROJECT_DIR$/inertia-plugin" />
           </set>
         </option>
+        <option name="resolveExternalAnnotations" value="true" />
       </GradleProjectSettings>
     </option>
     <option name="parallelModelFetch" value="true" />
