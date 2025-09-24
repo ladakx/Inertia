@@ -1,10 +1,6 @@
 package com.ladakx.inertia.api;
 
-import com.ladakx.inertia.api.body.BodyFactory;
-import com.ladakx.inertia.api.world.PhysicsWorld;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The main entry point for the Inertia API.
@@ -13,18 +9,7 @@ import org.jetbrains.annotations.NotNull;
 public abstract class InertiaAPI {
 
     private static InertiaAPI instance;
-    private final PhysicsWorld physicsWorld;
 
-    /**
-     * Internal constructor for the API.
-     * Should only be called by the Inertia plugin itself.
-     *
-     * @param physicsWorld The implementation of the physics world.
-     */
-    @ApiStatus.Internal
-    public InertiaAPI(PhysicsWorld physicsWorld) {
-        this.physicsWorld = physicsWorld;
-    }
 
     /**
      * Gets the singleton instance of the Inertia API.
@@ -38,25 +23,6 @@ public abstract class InertiaAPI {
         }
         return instance;
     }
-
-    /**
-     * Gets the manager for the physics world.
-     * This provides access to all physical bodies and global physics settings.
-     *
-     * @return The PhysicsWorld manager.
-     */
-    @NotNull
-    public PhysicsWorld getPhysicsWorld() {
-        return physicsWorld;
-    }
-
-    /**
-     * Gets the factory for creating new physical bodies.
-     *
-     * @return The BodyFactory instance.
-     */
-    @NotNull
-    public abstract BodyFactory getBodyFactory();
 
     /**
      * Initializes the API instance. This method should only be called by the Inertia plugin.
