@@ -52,6 +52,3 @@ project.txt
 sc_text.py
 sc.py
 gpt_project
-/libs
-/libs/*
-./libs/spigot-1.12.2.jar
