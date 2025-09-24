@@ -19,7 +19,17 @@ dependencies {
     implementation(project(":inertia-api"))
     implementation(project(":inertia-core"))
     implementation(project(":inertia-nms-abstraction"))
+    implementation(project(":inertia-nms-v1_16_R3"))
+    implementation(project(":inertia-nms-v1_17_R1"))
+    implementation(project(":inertia-nms-v1_18_R2"))
+    implementation(project(":inertia-nms-v1_19_R3"))
+    implementation(project(":inertia-nms-v1_20_R1"))
+    implementation(project(":inertia-nms-v1_20_R2"))
+    implementation(project(":inertia-nms-v1_20_R3"))
+    implementation(project(":inertia-nms-v1_20_R4"))
     implementation(project(":inertia-nms-v1_21_R1"))
+    implementation(project(":inertia-nms-v1_21_R2"))
+    implementation(project(":inertia-nms-v1_21_R3"))
 
     // These libraries are safe to shade
     implementation("net.kyori:adventure-api:4.17.0")
