@@ -3,7 +3,7 @@ plugins {
 }
 
 // Define versions in one place for consistency
-val joltVersion = "3.1.0" // Sticking with a known stable version
+val joltVersion = "3.3.0" // Sticking with a known stable version
 
 dependencies {
     // Project Modules
@@ -13,7 +13,6 @@ dependencies {
     // Spigot API
     compileOnly("org.spigotmc:spigot-api:1.21-R0.1-SNAPSHOT")
     implementation("org.jetbrains:annotations:24.0.1")
-// Use the latest stable version
 
     // We only need the main Jolt JNI library now
     implementation("com.github.stephengold:jolt-jni-Windows64:$joltVersion")
