@@ -1,41 +1,42 @@
 package com.ladakx.inertia.core;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * A simple static logger wrapper to avoid passing the plugin logger instance everywhere.
+ * Проста обгортка над логгером Bukkit для додавання
+ * кастомних рівнів або префіксів у майбутньому.
+ * (Без змін з твого коду)
  */
-public final class InertiaPluginLogger {
+public class InertiaPluginLogger {
 
-    private static Logger logger;
+    private final Logger logger;
 
-    private InertiaPluginLogger() {}
-
-    /**
-     * Initializes the logger. Must be called once from the main plugin class.
-     * @param pluginLogger The logger instance from the JavaPlugin.
-     */
-    public static void initialize(Logger pluginLogger) {
-        if (logger == null) {
-            logger = pluginLogger;
-        }
+    public InertiaPluginLogger(Logger logger) {
+        this.logger = logger;
     }
 
-    public static void info(String message) {
-        if (logger != null) {
-            logger.info(message);
-        }
+    public void info(String message) {
+        logger.info(message);
     }
 
-    public static void warning(String message) {
-        if (logger != null) {
-            logger.warning(message);
-        }
+    public void warn(String message) {
+        logger.warning(message);
     }
 
-    public static void severe(String message) {
-        if (logger != null) {
-            logger.severe(message);
-        }
+    public void warning(String message) {
+        logger.warning(message);
+    }
+
+    public void severe(String message) {
+        logger.severe(message);
+    }
+
+    public void severe(String message, Throwable throwable) {
+        logger.log(Level.SEVERE, message, throwable);
+    }
+
+    public void log(Level level, String message) {
+        logger.log(level, message);
     }
 }
