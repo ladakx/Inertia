@@ -3,7 +3,7 @@ plugins {
 }
 
 // Define versions in one place for consistency
-val joltVersion = "3.3.0" // Sticking with a known stable version
+val joltVersion = "3.4.0" // Sticking with a known stable version
 
 dependencies {
     // Project Modules

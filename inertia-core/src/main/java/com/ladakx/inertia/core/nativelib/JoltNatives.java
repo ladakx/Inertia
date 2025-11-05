@@ -1,5 +1,7 @@
 package com.ladakx.inertia.core.nativelib;
 
+import com.github.stephengold.joltjni.Jolt;
+import com.github.stephengold.joltjni.JoltPhysicsObject;
 import com.ladakx.inertia.core.InertiaPluginLogger;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -10,72 +12,100 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
 /**
- * Handles the extraction and loading of the Jolt JNI native library.
- * This approach manually extracts the library from the plugin JAR to a temporary file,
- * which is the most reliable way to load native libraries in a Bukkit/Paper environment.
+ * Утилітарний клас для завантаження та **повної ініціалізації** нативних бібліотек Jolt.
+ * Адаптовано на основі робочого коду `MinecraftPhysics.java`.
  */
 public final class JoltNatives {
 
-    private static boolean loaded = false;
+    private static boolean initialized = false;
+
+    private JoltNatives() {
+        // Утилітарний клас
+    }
 
     /**
-     * Attempts to load the Jolt native library for the current operating system.
+     * Завантажує та ініціалізує нативні бібліотеки Jolt.
      *
-     * @param plugin The JavaPlugin instance, used to access JAR resources.
-     * @return {@code true} if the library was successfully loaded, {@code false} otherwise.
+     * @param plugin Екземпляр плагіна, необхідний для доступу до ресурсів JAR.
+     * @param logger Логгер для запису результатів.
+     * @throws JoltNativeException Якщо не вдалося завантажити/ініціалізувати Jolt.
      */
-    public static boolean load(JavaPlugin plugin) {
-        if (loaded) {
-            return true;
+    public static void loadNatives(JavaPlugin plugin, InertiaPluginLogger logger) throws JoltNativeException {
+        if (initialized) {
+            logger.info("Jolt natives are already loaded and initialized.");
+            return;
         }
 
-        InertiaPluginLogger.info("Attempting to load Jolt JNI native library...");
-
+        // 1. ЗАВАНТАЖЕННЯ БІБЛІОТЕКИ
+        logger.info("Attempting to load Jolt JNI native library file...");
         String nativeResourcePath = getNativeLibraryResourcePath();
         if (nativeResourcePath == null) {
-            InertiaPluginLogger.severe("Unsupported OS or architecture. Cannot load Jolt JNI.");
-            return false;
+            throw new JoltNativeException("Unsupported OS or architecture. Cannot load Jolt JNI.");
         }
+        logger.info("Native library path resolved to: " + nativeResourcePath);
 
         try (InputStream libraryStream = plugin.getResource(nativeResourcePath)) {
             if (libraryStream == null) {
-                InertiaPluginLogger.severe("Could not find the native library inside the JAR at path: " + nativeResourcePath);
-                InertiaPluginLogger.severe("This is a critical error. The plugin JAR may be corrupted or built incorrectly.");
-                return false;
+                logger.severe("Could not find the native library inside the JAR at path: " + nativeResourcePath);
+                throw new JoltNativeException("Native library not found in JAR: " + nativeResourcePath);
             }
 
             File tempFile = File.createTempFile("libjoltjni", getLibrarySuffix());
             tempFile.deleteOnExit();
-
             Files.copy(libraryStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
             System.load(tempFile.getAbsolutePath());
-            loaded = true;
-
-            InertiaPluginLogger.info("Jolt JNI native library loaded successfully!");
-            return true;
+            logger.info("Jolt JNI native library file loaded successfully!");
 
         } catch (IOException e) {
-            InertiaPluginLogger.severe("Could not extract the Jolt JNI native library: " + e.getMessage());
-            e.printStackTrace();
+            throw new JoltNativeException(new IOException("Could not extract the Jolt JNI native library", e));
         } catch (UnsatisfiedLinkError e) {
-            InertiaPluginLogger.severe("Failed to link the Jolt JNI native library. This might be due to a version mismatch or missing dependencies.");
-            InertiaPluginLogger.severe("Error: " + e.getMessage());
-            e.printStackTrace();
+            throw new JoltNativeException(new UnsatisfiedLinkError("Failed to link Jolt JNI. Version mismatch or missing dependencies."));
         } catch (Exception e) {
-            InertiaPluginLogger.severe("An unexpected error occurred while loading the Jolt JNI native library: " + e.getMessage());
-            e.printStackTrace();
+            throw new JoltNativeException(new Exception("An unexpected error occurred while loading Jolt JNI", e));
         }
 
-        return false;
+        // 2. ІНІЦІАЛІЗАЦІЯ JOLT (Адаптовано з робочого коду `MinecraftPhysics.java`)
+        try {
+            logger.info("Initializing Jolt native environment...");
+
+            // (1) Запускаємо очищувач пам'яті
+            JoltPhysicsObject.startCleaner();
+            logger.info("JoltPhysicsObject cleaner started.");
+
+            // (2) Реєструємо алокатор за замовчуванням (malloc/free)
+            Jolt.registerDefaultAllocator();
+            logger.info("Jolt default allocator registered.");
+
+            // (3) Встановлюємо колбеки для логування та помилок
+            Jolt.installDefaultAssertCallback();
+            Jolt.installDefaultTraceCallback();
+            logger.info("Jolt default callbacks installed.");
+
+            // (4) Створюємо "Фабрику" - КРИТИЧНИЙ КРОК
+            if (!Jolt.newFactory()) {
+                throw new JoltNativeException("Jolt.newFactory() failed. Could not create Jolt Factory.");
+            }
+            logger.info("Jolt factory created.");
+
+            // (5) Реєструємо всі фізичні типи
+            Jolt.registerTypes();
+            logger.info("Jolt types registered.");
+
+            // (6) Логуємо версію для підтвердження
+            logger.info("Jolt native environment initialized successfully. Jolt Version: " + Jolt.versionString());
+            initialized = true;
+
+        } catch (UnsatisfiedLinkError e) {
+            logger.severe("CRITICAL: Jolt initialization steps failed AFTER loading library.");
+            logger.severe("This means the loaded .so file is incompatible or corrupted.");
+            throw new JoltNativeException(e);
+        } catch (Throwable t) {
+            logger.severe("CRITICAL: Failed during Jolt static initialization block.");
+            throw new JoltNativeException(t);
+        }
     }
 
-    /**
-     * Determines the correct resource path to the native library within the JAR.
-     * This path is specific to how jolt-jni v3.1.0+ structures its native JARs.
-     *
-     * @return The resource path, or {@code null} if unsupported.
-     */
     private static String getNativeLibraryResourcePath() {
         String os = System.getProperty("os.name").toLowerCase();
         String arch = System.getProperty("os.arch").toLowerCase();
@@ -99,17 +129,10 @@ public final class JoltNatives {
             return null; // Unsupported OS
         }
 
-        // This path is based on the internal structure of the native JARs for v3.1.0
-        // Example: osx/aarch64/com/github/stephengold/libjoltjni.dylib
         String packagePath = "com/github/stephengold";
         return String.format("%s/%s/%s/libjoltjni%s", osName, archName, packagePath, getLibrarySuffix());
     }
 
-    /**
-     * Gets the file suffix for native libraries on the current OS.
-     *
-     * @return The library file suffix (e.g., ".dll", ".so", ".dylib").
-     */
     private static String getLibrarySuffix() {
         String os = System.getProperty("os.name").toLowerCase();
         if (os.contains("win")) {
@@ -120,5 +143,17 @@ public final class JoltNatives {
         }
         return ".so";
     }
-}
 
+    /**
+     * Внутрішній клас винятків для помилок ініціалізації Jolt.
+     */
+    public static class JoltNativeException extends Exception {
+        public JoltNativeException(String message) {
+            super(message);
+        }
+
+        public JoltNativeException(Throwable cause) {
+            super("Failed to load or initialize Jolt natives", cause);
+        }
+    }
+}
