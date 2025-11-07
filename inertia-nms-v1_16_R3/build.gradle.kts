@@ -4,9 +4,9 @@ plugins {
 }
 
 dependencies {
-    api(project(":inertia-api"))
+    compileOnly(project(":inertia-core"))
     compileOnly("org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT")
-    compileOnly(files(file("../../libs/spigot-1.16.5.jar")))
+    compileOnly(files(file("../libs/spigot-1.16.5.jar")))
 
     if (name != "inertia-nms-abstraction") {
         implementation(project(":inertia-nms-abstraction"))

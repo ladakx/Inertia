@@ -1,0 +1,48 @@
+# ===================================================================
+#   Inertia - Префаби (Заготовки) Тіл
+# ===================================================================
+#
+# Тут ви визначаєте заготовки (prefabs) для динамічних об'єктів,
+# які можна створити в грі командою /inertia spawn <назва_префабу>
+#
+# Типи форм (shape):
+#   - box: { type: "box", size: [ширина, висота, глибина] }
+#   - sphere: { type: "sphere", radius: 0.5 }
+#   - capsule: { type: "capsule", height: 1.0, radius: 0.5 }
+#
+# Типи руху (motion_type):
+#   - "dynamic" (повністю симулюється, має масу, реагує на гравітацію)
+#   - "kinematic" (рухається лише програмно, не реагує на сили, але штовхає інші об'єкти)
+#   - "static" (нерухомий, як ландшафт)
+#
+
+prefabs:
+  small_box:
+    display_name: "Маленький Ящик"
+    shape:
+      type: "box"
+      size: [0.5, 0.5, 0.5] # 0.5м x 0.5м x 0.5м
+    motion_type: "dynamic"
+    mass: 5.0 # 5 кг
+    friction: 0.8
+    restitution: 0.1
+
+  large_crate:
+    display_name: "Великий Контейнер"
+    shape:
+      type: "box"
+      size: [1.5, 2.0, 1.5]
+    motion_type: "dynamic"
+    mass: 150.0 # 150 кг
+    friction: 0.6
+    restitution: 0.0
+
+  basketball:
+    display_name: "Баскетбольний м'яч"
+    shape:
+      type: "sphere"
+      radius: 0.3
+    motion_type: "dynamic"
+    mass: 0.6 # 0.6 кг
+    friction: 0.5
+    restitution: 0.7 # Стрибучий

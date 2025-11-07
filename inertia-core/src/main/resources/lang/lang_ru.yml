@@ -1,0 +1,64 @@
+Prefix: "&cRoseCore &l»&r"
+
+No_Perm:
+  - "{prefix} &7Нет прав!"
+Reload_Plugin:
+  - "{prefix} &7Плагин перезагружен!"
+Command_Not_Found:
+  - "{prefix} &7Команда не найдена!"
+Wrong_Args_Command:
+  - "{prefix} &сОшибка в параметрах команды!"
+
+Not_For_Console:
+  - "{prefix} &7Эту команду может выполнять только игрок!"
+Not_For_This_Version:
+  - "{prefix} &7Эта команда не доступна в вашей версии сервера!"
+  - "{prefix} &7Пожалуйста, обновите сервер до версии {version} или выше!"
+Not_For_This_World:
+  - "{prefix} &7Добавьте этот мир в список физических миров в файле config.yml"
+  - "{prefix} &7Чтобы использовать эту команду!"
+
+WorldEdit_Not_Enabled:
+  - "{prefix} &cПлагин WorldEdit не обнаружен на сервере!"
+  - "{prefix} &cЭта команда требует WorldEdit для работы!"
+Select_Region:
+  - "{prefix} &cВыделите область топориком прежде, чем использовать эту команду!"
+DebugShape_Create_Success:
+  - "{prefix} &7Дебаг-Форма &aуспешно&7 создана!"
+
+Debug_Render_Hitboxes:
+  - "{prefix} &7Отладка рендера хитбоксов: {state}"
+
+Debug_Block_Not_Found:
+  - "{prefix} &cБлок не найден!"
+
+Debug_Block_Title:
+  - "{prefix} &7Отладка блока: &c{block}"
+Debug_Block_Info:
+  - "{prefix} &7Размер: &c{size}&7, Центр: &c{center}"
+
+Debug_Blocks_Spawned:
+  - "{prefix} &7Тестовые блоки &aуспешно&7 заспавнены в радиусе &c{radius}!"
+Debug_Blocks_Clear:
+  - "{prefix} &7Тестовые блоки &aуспешно &cудалены&7 на сервере!"
+
+Help_Command:
+  - ' '
+  - '&c&lRose&f&lCore &8&l|&r &7Core'
+  - ' '
+  - '&c&l» Команды&8:'
+  - '&c› &c/rosecore help &7- &fПосмотреть помощь по командам'
+  - ' '
+Help_Command_Admin:
+  - ' '
+  - '&c&lRose&f&lCore &8&l|&r &7Core'
+  - ' '
+  - '&c&l» Команды&8:'
+  - '&c› &c/rosecore help &7- &fПосмотреть помощь по командам'
+  - '&c› &c/rosecore reload &7- &fПерезагрузить плагин.'
+  - '&c› &c/rosecore debug &7- &fВключить дебаг-бар'
+  - '&c› &c/rosecore debug block info &7- &fПоказать хитбокс целевого блока.'
+  - '&c› &c/rosecore debug block spawn <radius> &7- &fСпавн тестовых блоков в заданном радиусе'
+  - '&c› &c/rosecore debug block clear &7- &fУдалить все тестовые блоки'
+  - '&c› &c/rosecore hitbox &7- &fВключить рендер хитбокса физических обьектов.'
+  - ' '
