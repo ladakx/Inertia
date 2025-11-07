@@ -1,0 +1,3546 @@
+DEFAULT:
+  Friction: 1.0
+  Restitution: 0.025
+  Cull_Faces: true
+  Collidable: true
+  Full_Block: true
+AIR:
+  Collidable: false
+  Full_Block: false
+STONE:
+  Collidable: true
+  Full_Block: true
+GRANITE:
+  Collidable: true
+  Full_Block: true
+POLISHED_GRANITE:
+  Collidable: true
+  Full_Block: true
+DIORITE:
+  Collidable: true
+  Full_Block: true
+POLISHED_DIORITE:
+  Collidable: true
+  Full_Block: true
+ANDESITE:
+  Collidable: true
+  Full_Block: true
+POLISHED_ANDESITE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE:
+  Collidable: true
+  Full_Block: true
+COBBLED_DEEPSLATE:
+  Collidable: true
+  Full_Block: true
+POLISHED_DEEPSLATE:
+  Collidable: true
+  Full_Block: true
+CALCITE:
+  Collidable: true
+  Full_Block: true
+TUFF:
+  Collidable: true
+  Full_Block: true
+TUFF_SLAB:
+  Collidable: true
+  Full_Block: false
+TUFF_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+TUFF_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CHISELED_TUFF:
+  Collidable: true
+  Full_Block: true
+POLISHED_TUFF:
+  Collidable: true
+  Full_Block: true
+POLISHED_TUFF_SLAB:
+  Collidable: true
+  Full_Block: false
+POLISHED_TUFF_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+POLISHED_TUFF_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+TUFF_BRICKS:
+  Collidable: true
+  Full_Block: true
+TUFF_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+TUFF_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+TUFF_BRICK_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CHISELED_TUFF_BRICKS:
+  Collidable: true
+  Full_Block: true
+DRIPSTONE_BLOCK:
+  Collidable: true
+  Full_Block: true
+GRASS_BLOCK:
+  Collidable: true
+  Full_Block: true
+DIRT:
+  Collidable: true
+  Full_Block: true
+COARSE_DIRT:
+  Collidable: true
+  Full_Block: true
+PODZOL:
+  Collidable: true
+  Full_Block: true
+ROOTED_DIRT:
+  Collidable: true
+  Full_Block: true
+MUD:
+  Collidable: true
+  Full_Block: true
+CRIMSON_NYLIUM:
+  Collidable: true
+  Full_Block: true
+WARPED_NYLIUM:
+  Collidable: true
+  Full_Block: true
+COBBLESTONE:
+  Collidable: true
+  Full_Block: true
+OAK_PLANKS:
+  Collidable: true
+  Full_Block: true
+SPRUCE_PLANKS:
+  Collidable: true
+  Full_Block: true
+BIRCH_PLANKS:
+  Collidable: true
+  Full_Block: true
+JUNGLE_PLANKS:
+  Collidable: true
+  Full_Block: true
+ACACIA_PLANKS:
+  Collidable: true
+  Full_Block: true
+CHERRY_PLANKS:
+  Collidable: true
+  Full_Block: true
+DARK_OAK_PLANKS:
+  Collidable: true
+  Full_Block: true
+PALE_OAK_PLANKS:
+  Collidable: true
+  Full_Block: true
+MANGROVE_PLANKS:
+  Collidable: true
+  Full_Block: true
+BAMBOO_PLANKS:
+  Collidable: true
+  Full_Block: true
+CRIMSON_PLANKS:
+  Collidable: true
+  Full_Block: true
+WARPED_PLANKS:
+  Collidable: true
+  Full_Block: true
+BAMBOO_MOSAIC:
+  Collidable: true
+  Full_Block: true
+OAK_SAPLING:
+  Collidable: false
+  Full_Block: false
+SPRUCE_SAPLING:
+  Collidable: false
+  Full_Block: false
+BIRCH_SAPLING:
+  Collidable: false
+  Full_Block: false
+JUNGLE_SAPLING:
+  Collidable: false
+  Full_Block: false
+ACACIA_SAPLING:
+  Collidable: false
+  Full_Block: false
+CHERRY_SAPLING:
+  Collidable: false
+  Full_Block: false
+DARK_OAK_SAPLING:
+  Collidable: false
+  Full_Block: false
+PALE_OAK_SAPLING:
+  Collidable: false
+  Full_Block: false
+MANGROVE_PROPAGULE:
+  Collidable: false
+  Full_Block: false
+BEDROCK:
+  Collidable: true
+  Full_Block: true
+SAND:
+  Collidable: true
+  Full_Block: true
+SUSPICIOUS_SAND:
+  Collidable: true
+  Full_Block: true
+SUSPICIOUS_GRAVEL:
+  Collidable: true
+  Full_Block: true
+RED_SAND:
+  Collidable: true
+  Full_Block: true
+GRAVEL:
+  Collidable: true
+  Full_Block: true
+COAL_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_COAL_ORE:
+  Collidable: true
+  Full_Block: true
+IRON_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_IRON_ORE:
+  Collidable: true
+  Full_Block: true
+COPPER_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_COPPER_ORE:
+  Collidable: true
+  Full_Block: true
+GOLD_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_GOLD_ORE:
+  Collidable: true
+  Full_Block: true
+REDSTONE_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_REDSTONE_ORE:
+  Collidable: true
+  Full_Block: true
+EMERALD_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_EMERALD_ORE:
+  Collidable: true
+  Full_Block: true
+LAPIS_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_LAPIS_ORE:
+  Collidable: true
+  Full_Block: true
+DIAMOND_ORE:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_DIAMOND_ORE:
+  Collidable: true
+  Full_Block: true
+NETHER_GOLD_ORE:
+  Collidable: true
+  Full_Block: true
+NETHER_QUARTZ_ORE:
+  Collidable: true
+  Full_Block: true
+ANCIENT_DEBRIS:
+  Collidable: true
+  Full_Block: true
+COAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+RAW_IRON_BLOCK:
+  Collidable: true
+  Full_Block: true
+RAW_COPPER_BLOCK:
+  Collidable: true
+  Full_Block: true
+RAW_GOLD_BLOCK:
+  Collidable: true
+  Full_Block: true
+HEAVY_CORE:
+  Collidable: false
+  Full_Block: false
+AMETHYST_BLOCK:
+  Collidable: true
+  Full_Block: true
+BUDDING_AMETHYST:
+  Collidable: true
+  Full_Block: true
+IRON_BLOCK:
+  Collidable: true
+  Full_Block: true
+COPPER_BLOCK:
+  Collidable: true
+  Full_Block: true
+GOLD_BLOCK:
+  Collidable: true
+  Full_Block: true
+DIAMOND_BLOCK:
+  Collidable: true
+  Full_Block: true
+NETHERITE_BLOCK:
+  Collidable: true
+  Full_Block: true
+EXPOSED_COPPER:
+  Collidable: true
+  Full_Block: true
+WEATHERED_COPPER:
+  Collidable: true
+  Full_Block: true
+OXIDIZED_COPPER:
+  Collidable: true
+  Full_Block: true
+CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+EXPOSED_CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+WEATHERED_CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+OXIDIZED_CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+EXPOSED_CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+WEATHERED_CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+OXIDIZED_CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+EXPOSED_CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+WEATHERED_CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+OXIDIZED_CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+EXPOSED_CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+WEATHERED_CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+OXIDIZED_CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+WAXED_COPPER_BLOCK:
+  Collidable: true
+  Full_Block: true
+WAXED_EXPOSED_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_WEATHERED_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_OXIDIZED_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_EXPOSED_CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_WEATHERED_CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_OXIDIZED_CHISELED_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_EXPOSED_CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_WEATHERED_CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_OXIDIZED_CUT_COPPER:
+  Collidable: true
+  Full_Block: true
+WAXED_CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+WAXED_EXPOSED_CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+WAXED_WEATHERED_CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+WAXED_OXIDIZED_CUT_COPPER_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+WAXED_CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+WAXED_EXPOSED_CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+WAXED_WEATHERED_CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+WAXED_OXIDIZED_CUT_COPPER_SLAB:
+  Collidable: true
+  Full_Block: false
+OAK_LOG:
+  Collidable: true
+  Full_Block: true
+SPRUCE_LOG:
+  Collidable: true
+  Full_Block: true
+BIRCH_LOG:
+  Collidable: true
+  Full_Block: true
+JUNGLE_LOG:
+  Collidable: true
+  Full_Block: true
+ACACIA_LOG:
+  Collidable: true
+  Full_Block: true
+CHERRY_LOG:
+  Collidable: true
+  Full_Block: true
+PALE_OAK_LOG:
+  Collidable: true
+  Full_Block: true
+DARK_OAK_LOG:
+  Collidable: true
+  Full_Block: true
+MANGROVE_LOG:
+  Collidable: true
+  Full_Block: true
+MANGROVE_ROOTS:
+  Collidable: true
+  Full_Block: true
+MUDDY_MANGROVE_ROOTS:
+  Collidable: true
+  Full_Block: true
+CRIMSON_STEM:
+  Collidable: true
+  Full_Block: true
+WARPED_STEM:
+  Collidable: true
+  Full_Block: true
+BAMBOO_BLOCK:
+  Collidable: true
+  Full_Block: true
+STRIPPED_OAK_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_SPRUCE_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_BIRCH_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_JUNGLE_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_ACACIA_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_CHERRY_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_DARK_OAK_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_PALE_OAK_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_MANGROVE_LOG:
+  Collidable: true
+  Full_Block: true
+STRIPPED_CRIMSON_STEM:
+  Collidable: true
+  Full_Block: true
+STRIPPED_WARPED_STEM:
+  Collidable: true
+  Full_Block: true
+STRIPPED_OAK_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_SPRUCE_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_BIRCH_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_JUNGLE_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_ACACIA_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_CHERRY_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_DARK_OAK_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_PALE_OAK_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_MANGROVE_WOOD:
+  Collidable: true
+  Full_Block: true
+STRIPPED_CRIMSON_HYPHAE:
+  Collidable: true
+  Full_Block: true
+STRIPPED_WARPED_HYPHAE:
+  Collidable: true
+  Full_Block: true
+STRIPPED_BAMBOO_BLOCK:
+  Collidable: true
+  Full_Block: true
+OAK_WOOD:
+  Collidable: true
+  Full_Block: true
+SPRUCE_WOOD:
+  Collidable: true
+  Full_Block: true
+BIRCH_WOOD:
+  Collidable: true
+  Full_Block: true
+JUNGLE_WOOD:
+  Collidable: true
+  Full_Block: true
+ACACIA_WOOD:
+  Collidable: true
+  Full_Block: true
+CHERRY_WOOD:
+  Collidable: true
+  Full_Block: true
+PALE_OAK_WOOD:
+  Collidable: true
+  Full_Block: true
+DARK_OAK_WOOD:
+  Collidable: true
+  Full_Block: true
+MANGROVE_WOOD:
+  Collidable: true
+  Full_Block: true
+CRIMSON_HYPHAE:
+  Collidable: true
+  Full_Block: true
+WARPED_HYPHAE:
+  Collidable: true
+  Full_Block: true
+OAK_LEAVES:
+  Collidable: false
+  Full_Block: false
+SPRUCE_LEAVES:
+  Collidable: false
+  Full_Block: false
+BIRCH_LEAVES:
+  Collidable: false
+  Full_Block: false
+JUNGLE_LEAVES:
+  Collidable: false
+  Full_Block: false
+ACACIA_LEAVES:
+  Collidable: false
+  Full_Block: false
+CHERRY_LEAVES:
+  Collidable: false
+  Full_Block: false
+DARK_OAK_LEAVES:
+  Collidable: false
+  Full_Block: false
+PALE_OAK_LEAVES:
+  Collidable: false
+  Full_Block: false
+MANGROVE_LEAVES:
+  Collidable: false
+  Full_Block: false
+AZALEA_LEAVES:
+  Collidable: false
+  Full_Block: false
+FLOWERING_AZALEA_LEAVES:
+  Collidable: false
+  Full_Block: false
+SPONGE:
+  Collidable: true
+  Full_Block: true
+WET_SPONGE:
+  Collidable: true
+  Full_Block: true
+GLASS:
+  Collidable: true
+  Full_Block: false
+TINTED_GLASS:
+  Collidable: true
+  Full_Block: false
+LAPIS_BLOCK:
+  Collidable: true
+  Full_Block: true
+SANDSTONE:
+  Collidable: true
+  Full_Block: true
+CHISELED_SANDSTONE:
+  Collidable: true
+  Full_Block: true
+CUT_SANDSTONE:
+  Collidable: true
+  Full_Block: true
+COBWEB:
+  Collidable: false
+  Full_Block: false
+SHORT_GRASS:
+  Collidable: false
+  Full_Block: false
+FERN:
+  Collidable: false
+  Full_Block: false
+AZALEA:
+  Collidable: false
+  Full_Block: false
+FLOWERING_AZALEA:
+  Collidable: false
+  Full_Block: false
+DEAD_BUSH:
+  Collidable: false
+  Full_Block: false
+SEAGRASS:
+  Collidable: false
+  Full_Block: false
+SEA_PICKLE:
+  Collidable: false
+  Full_Block: false
+WHITE_WOOL:
+  Collidable: true
+  Full_Block: true
+ORANGE_WOOL:
+  Collidable: true
+  Full_Block: true
+MAGENTA_WOOL:
+  Collidable: true
+  Full_Block: true
+LIGHT_BLUE_WOOL:
+  Collidable: true
+  Full_Block: true
+YELLOW_WOOL:
+  Collidable: true
+  Full_Block: true
+LIME_WOOL:
+  Collidable: true
+  Full_Block: true
+PINK_WOOL:
+  Collidable: true
+  Full_Block: true
+GRAY_WOOL:
+  Collidable: true
+  Full_Block: true
+LIGHT_GRAY_WOOL:
+  Collidable: true
+  Full_Block: true
+CYAN_WOOL:
+  Collidable: true
+  Full_Block: true
+PURPLE_WOOL:
+  Collidable: true
+  Full_Block: true
+BLUE_WOOL:
+  Collidable: true
+  Full_Block: true
+BROWN_WOOL:
+  Collidable: true
+  Full_Block: true
+GREEN_WOOL:
+  Collidable: true
+  Full_Block: true
+RED_WOOL:
+  Collidable: true
+  Full_Block: true
+BLACK_WOOL:
+  Collidable: true
+  Full_Block: true
+DANDELION:
+  Collidable: false
+  Full_Block: false
+OPEN_EYEBLOSSOM:
+  Collidable: false
+  Full_Block: false
+CLOSED_EYEBLOSSOM:
+  Collidable: false
+  Full_Block: false
+POPPY:
+  Collidable: false
+  Full_Block: false
+BLUE_ORCHID:
+  Collidable: false
+  Full_Block: false
+ALLIUM:
+  Collidable: false
+  Full_Block: false
+AZURE_BLUET:
+  Collidable: false
+  Full_Block: false
+RED_TULIP:
+  Collidable: false
+  Full_Block: false
+ORANGE_TULIP:
+  Collidable: false
+  Full_Block: false
+WHITE_TULIP:
+  Collidable: false
+  Full_Block: false
+PINK_TULIP:
+  Collidable: false
+  Full_Block: false
+OXEYE_DAISY:
+  Collidable: false
+  Full_Block: false
+CORNFLOWER:
+  Collidable: false
+  Full_Block: false
+LILY_OF_THE_VALLEY:
+  Collidable: false
+  Full_Block: false
+WITHER_ROSE:
+  Collidable: false
+  Full_Block: false
+TORCHFLOWER:
+  Collidable: false
+  Full_Block: false
+PITCHER_PLANT:
+  Collidable: false
+  Full_Block: false
+SPORE_BLOSSOM:
+  Collidable: false
+  Full_Block: false
+BROWN_MUSHROOM:
+  Collidable: false
+  Full_Block: false
+RED_MUSHROOM:
+  Collidable: false
+  Full_Block: false
+CRIMSON_FUNGUS:
+  Collidable: false
+  Full_Block: false
+WARPED_FUNGUS:
+  Collidable: false
+  Full_Block: false
+CRIMSON_ROOTS:
+  Collidable: false
+  Full_Block: false
+WARPED_ROOTS:
+  Collidable: false
+  Full_Block: false
+NETHER_SPROUTS:
+  Collidable: false
+  Full_Block: false
+WEEPING_VINES:
+  Collidable: false
+  Full_Block: false
+TWISTING_VINES:
+  Collidable: false
+  Full_Block: false
+SUGAR_CANE:
+  Collidable: false
+  Full_Block: false
+KELP:
+  Collidable: false
+  Full_Block: false
+PINK_PETALS:
+  Collidable: false
+  Full_Block: false
+MOSS_CARPET:
+  Collidable: false
+  Full_Block: false
+MOSS_BLOCK:
+  Collidable: true
+  Full_Block: true
+PALE_MOSS_CARPET:
+  Collidable: false
+  Full_Block: false
+PALE_HANGING_MOSS:
+  Collidable: false
+  Full_Block: false
+PALE_MOSS_BLOCK:
+  Collidable: true
+  Full_Block: true
+HANGING_ROOTS:
+  Collidable: false
+  Full_Block: false
+BIG_DRIPLEAF:
+  Collidable: false
+  Full_Block: false
+SMALL_DRIPLEAF:
+  Collidable: false
+  Full_Block: false
+BAMBOO:
+  Collidable: false
+  Full_Block: false
+OAK_SLAB:
+  Collidable: true
+  Full_Block: false
+SPRUCE_SLAB:
+  Collidable: true
+  Full_Block: false
+BIRCH_SLAB:
+  Collidable: true
+  Full_Block: false
+JUNGLE_SLAB:
+  Collidable: true
+  Full_Block: false
+ACACIA_SLAB:
+  Collidable: true
+  Full_Block: false
+CHERRY_SLAB:
+  Collidable: true
+  Full_Block: false
+DARK_OAK_SLAB:
+  Collidable: true
+  Full_Block: false
+PALE_OAK_SLAB:
+  Collidable: true
+  Full_Block: false
+MANGROVE_SLAB:
+  Collidable: true
+  Full_Block: false
+BAMBOO_SLAB:
+  Collidable: true
+  Full_Block: false
+BAMBOO_MOSAIC_SLAB:
+  Collidable: true
+  Full_Block: false
+CRIMSON_SLAB:
+  Collidable: true
+  Full_Block: false
+WARPED_SLAB:
+  Collidable: true
+  Full_Block: false
+STONE_SLAB:
+  Collidable: true
+  Full_Block: false
+SMOOTH_STONE_SLAB:
+  Collidable: true
+  Full_Block: false
+SANDSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+CUT_SANDSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+PETRIFIED_OAK_SLAB:
+  Collidable: true
+  Full_Block: false
+COBBLESTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+STONE_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+MUD_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+NETHER_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+QUARTZ_SLAB:
+  Collidable: true
+  Full_Block: false
+RED_SANDSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+CUT_RED_SANDSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+PURPUR_SLAB:
+  Collidable: true
+  Full_Block: false
+PRISMARINE_SLAB:
+  Collidable: true
+  Full_Block: false
+PRISMARINE_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+DARK_PRISMARINE_SLAB:
+  Collidable: true
+  Full_Block: false
+SMOOTH_QUARTZ:
+  Collidable: true
+  Full_Block: true
+SMOOTH_RED_SANDSTONE:
+  Collidable: true
+  Full_Block: true
+SMOOTH_SANDSTONE:
+  Collidable: true
+  Full_Block: true
+SMOOTH_STONE:
+  Collidable: true
+  Full_Block: true
+BRICKS:
+  Collidable: true
+  Full_Block: true
+BOOKSHELF:
+  Collidable: true
+  Full_Block: true
+CHISELED_BOOKSHELF:
+  Collidable: true
+  Full_Block: true
+DECORATED_POT:
+  Collidable: true
+  Full_Block: false
+MOSSY_COBBLESTONE:
+  Collidable: true
+  Full_Block: true
+OBSIDIAN:
+  Collidable: true
+  Full_Block: true
+TORCH:
+  Collidable: false
+  Full_Block: false
+END_ROD:
+  Collidable: false
+  Full_Block: false
+CHORUS_PLANT:
+  Collidable: false
+  Full_Block: false
+CHORUS_FLOWER:
+  Collidable: false
+  Full_Block: false
+PURPUR_BLOCK:
+  Collidable: true
+  Full_Block: true
+PURPUR_PILLAR:
+  Collidable: true
+  Full_Block: true
+PURPUR_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SPAWNER:
+  Collidable: true
+  Full_Block: true
+CREAKING_HEART:
+  Collidable: true
+  Full_Block: true
+CHEST:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CRAFTING_TABLE:
+  Collidable: true
+  Full_Block: true
+FARMLAND:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+FURNACE:
+  Collidable: true
+  Full_Block: true
+LADDER:
+  Collidable: false
+  Full_Block: false
+COBBLESTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SNOW:
+  Collidable: false
+  Full_Block: false
+ICE:
+  Collidable: true
+  Full_Block: false
+SNOW_BLOCK:
+  Collidable: true
+  Full_Block: true
+CACTUS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CLAY:
+  Collidable: true
+  Full_Block: true
+JUKEBOX:
+  Collidable: true
+  Full_Block: true
+OAK_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+SPRUCE_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+BIRCH_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+JUNGLE_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+ACACIA_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+CHERRY_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+DARK_OAK_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+PALE_OAK_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+MANGROVE_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+BAMBOO_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+CRIMSON_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+WARPED_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+PUMPKIN:
+  Collidable: true
+  Full_Block: true
+CARVED_PUMPKIN:
+  Collidable: true
+  Full_Block: true
+JACK_O_LANTERN:
+  Collidable: true
+  Full_Block: true
+NETHERRACK:
+  Collidable: true
+  Full_Block: true
+SOUL_SAND:
+  Collidable: true
+  Full_Block: true
+SOUL_SOIL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+BASALT:
+  Collidable: true
+  Full_Block: true
+POLISHED_BASALT:
+  Collidable: true
+  Full_Block: true
+SMOOTH_BASALT:
+  Collidable: true
+  Full_Block: true
+SOUL_TORCH:
+  Collidable: false
+  Full_Block: false
+GLOWSTONE:
+  Collidable: true
+  Full_Block: false
+INFESTED_STONE:
+  Collidable: true
+  Full_Block: true
+INFESTED_COBBLESTONE:
+  Collidable: true
+  Full_Block: true
+INFESTED_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+INFESTED_MOSSY_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+INFESTED_CRACKED_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+INFESTED_CHISELED_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+INFESTED_DEEPSLATE:
+  Collidable: true
+  Full_Block: true
+STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+MOSSY_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+CRACKED_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+CHISELED_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+PACKED_MUD:
+  Collidable: true
+  Full_Block: true
+MUD_BRICKS:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_BRICKS:
+  Collidable: true
+  Full_Block: true
+CRACKED_DEEPSLATE_BRICKS:
+  Collidable: true
+  Full_Block: true
+DEEPSLATE_TILES:
+  Collidable: true
+  Full_Block: true
+CRACKED_DEEPSLATE_TILES:
+  Collidable: true
+  Full_Block: true
+CHISELED_DEEPSLATE:
+  Collidable: true
+  Full_Block: true
+REINFORCED_DEEPSLATE:
+  Collidable: true
+  Full_Block: true
+BROWN_MUSHROOM_BLOCK:
+  Collidable: true
+  Full_Block: true
+RED_MUSHROOM_BLOCK:
+  Collidable: true
+  Full_Block: true
+MUSHROOM_STEM:
+  Collidable: true
+  Full_Block: true
+IRON_BARS:
+  Collidable: true
+  Full_Block: false
+CHAIN:
+  Collidable: false
+  Full_Block: false
+GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+MELON:
+  Collidable: true
+  Full_Block: true
+VINE:
+  Collidable: false
+  Full_Block: false
+GLOW_LICHEN:
+  Collidable: false
+  Full_Block: false
+RESIN_CLUMP:
+  Collidable: false
+  Full_Block: false
+RESIN_BLOCK:
+  Collidable: true
+  Full_Block: true
+RESIN_BRICKS:
+  Collidable: true
+  Full_Block: true
+RESIN_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+RESIN_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+RESIN_BRICK_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CHISELED_RESIN_BRICKS:
+  Collidable: true
+  Full_Block: true
+BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+STONE_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+MUD_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+MYCELIUM:
+  Collidable: true
+  Full_Block: true
+LILY_PAD:
+  Collidable: false
+  Full_Block: false
+NETHER_BRICKS:
+  Collidable: true
+  Full_Block: true
+CRACKED_NETHER_BRICKS:
+  Collidable: true
+  Full_Block: true
+CHISELED_NETHER_BRICKS:
+  Collidable: true
+  Full_Block: true
+NETHER_BRICK_FENCE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+NETHER_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SCULK:
+  Collidable: true
+  Full_Block: true
+SCULK_VEIN:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SCULK_CATALYST:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SCULK_SHRIEKER:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+ENCHANTING_TABLE:
+  Collidable: true
+  Full_Block: false
+END_PORTAL_FRAME:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+END_STONE:
+  Collidable: true
+  Full_Block: true
+END_STONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+DRAGON_EGG:
+  Collidable: false
+  Full_Block: false
+SANDSTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+ENDER_CHEST:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+EMERALD_BLOCK:
+  Collidable: true
+  Full_Block: true
+OAK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SPRUCE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+BIRCH_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+JUNGLE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+ACACIA_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CHERRY_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+DARK_OAK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+PALE_OAK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+MANGROVE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+BAMBOO_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+BAMBOO_MOSAIC_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CRIMSON_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+WARPED_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+COMMAND_BLOCK:
+  Collidable: true
+  Full_Block: true
+BEACON:
+  Collidable: true
+  Full_Block: false
+COBBLESTONE_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+MOSSY_COBBLESTONE_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+BRICK_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+PRISMARINE_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+RED_SANDSTONE_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+MOSSY_STONE_BRICK_WALL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+GRANITE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+STONE_BRICK_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+MUD_BRICK_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+NETHER_BRICK_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+ANDESITE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+RED_NETHER_BRICK_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+SANDSTONE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+END_STONE_BRICK_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+DIORITE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+BLACKSTONE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+POLISHED_BLACKSTONE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+POLISHED_BLACKSTONE_BRICK_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+COBBLED_DEEPSLATE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+POLISHED_DEEPSLATE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+DEEPSLATE_BRICK_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+DEEPSLATE_TILE_WALL:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+ANVIL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CHIPPED_ANVIL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+DAMAGED_ANVIL:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CHISELED_QUARTZ_BLOCK:
+  Collidable: true
+  Full_Block: true
+QUARTZ_BLOCK:
+  Collidable: true
+  Full_Block: true
+QUARTZ_BRICKS:
+  Collidable: true
+  Full_Block: true
+QUARTZ_PILLAR:
+  Collidable: true
+  Full_Block: true
+QUARTZ_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+WHITE_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+ORANGE_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+MAGENTA_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+LIGHT_BLUE_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+YELLOW_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+LIME_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+PINK_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+GRAY_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+LIGHT_GRAY_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+CYAN_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+PURPLE_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+BLUE_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+BROWN_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+GREEN_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+RED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+BLACK_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+BARRIER:
+  Collidable: true
+  Full_Block: true
+LIGHT:
+  Collidable: false
+  Full_Block: false
+HAY_BLOCK:
+  Collidable: true
+  Full_Block: true
+WHITE_CARPET:
+  Collidable: false
+  Full_Block: false
+ORANGE_CARPET:
+  Collidable: false
+  Full_Block: false
+MAGENTA_CARPET:
+  Collidable: false
+  Full_Block: false
+LIGHT_BLUE_CARPET:
+  Collidable: false
+  Full_Block: false
+YELLOW_CARPET:
+  Collidable: false
+  Full_Block: false
+LIME_CARPET:
+  Collidable: false
+  Full_Block: false
+PINK_CARPET:
+  Collidable: false
+  Full_Block: false
+GRAY_CARPET:
+  Collidable: false
+  Full_Block: false
+LIGHT_GRAY_CARPET:
+  Collidable: false
+  Full_Block: false
+CYAN_CARPET:
+  Collidable: false
+  Full_Block: false
+PURPLE_CARPET:
+  Collidable: false
+  Full_Block: false
+BLUE_CARPET:
+  Collidable: false
+  Full_Block: false
+BROWN_CARPET:
+  Collidable: false
+  Full_Block: false
+GREEN_CARPET:
+  Collidable: false
+  Full_Block: false
+RED_CARPET:
+  Collidable: false
+  Full_Block: false
+BLACK_CARPET:
+  Collidable: false
+  Full_Block: false
+TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+PACKED_ICE:
+  Collidable: true
+  Full_Block: true
+DIRT_PATH:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SUNFLOWER:
+  Collidable: false
+  Full_Block: false
+LILAC:
+  Collidable: false
+  Full_Block: false
+ROSE_BUSH:
+  Collidable: false
+  Full_Block: false
+PEONY:
+  Collidable: false
+  Full_Block: false
+TALL_GRASS:
+  Collidable: false
+  Full_Block: false
+LARGE_FERN:
+  Collidable: false
+  Full_Block: false
+WHITE_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+ORANGE_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+MAGENTA_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+LIGHT_BLUE_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+YELLOW_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+LIME_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+PINK_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+GRAY_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+LIGHT_GRAY_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+CYAN_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+PURPLE_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+BLUE_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+BROWN_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+GREEN_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+RED_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+BLACK_STAINED_GLASS:
+  Collidable: true
+  Full_Block: false
+WHITE_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+ORANGE_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+MAGENTA_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+LIGHT_BLUE_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+YELLOW_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+LIME_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+PINK_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+GRAY_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+LIGHT_GRAY_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+CYAN_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+PURPLE_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+BLUE_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+BROWN_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+GREEN_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+RED_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+BLACK_STAINED_GLASS_PANE:
+  Collidable: false
+  Full_Block: false
+PRISMARINE:
+  Collidable: true
+  Full_Block: true
+PRISMARINE_BRICKS:
+  Collidable: true
+  Full_Block: true
+DARK_PRISMARINE:
+  Collidable: true
+  Full_Block: true
+PRISMARINE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+PRISMARINE_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+DARK_PRISMARINE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SEA_LANTERN:
+  Collidable: false
+  Full_Block: false
+RED_SANDSTONE:
+  Collidable: true
+  Full_Block: true
+CHISELED_RED_SANDSTONE:
+  Collidable: true
+  Full_Block: true
+CUT_RED_SANDSTONE:
+  Collidable: true
+  Full_Block: true
+RED_SANDSTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+REPEATING_COMMAND_BLOCK:
+  Collidable: true
+  Full_Block: true
+CHAIN_COMMAND_BLOCK:
+  Collidable: true
+  Full_Block: true
+MAGMA_BLOCK:
+  Collidable: true
+  Full_Block: true
+NETHER_WART_BLOCK:
+  Collidable: true
+  Full_Block: true
+WARPED_WART_BLOCK:
+  Collidable: true
+  Full_Block: true
+RED_NETHER_BRICKS:
+  Collidable: true
+  Full_Block: true
+BONE_BLOCK:
+  Collidable: true
+  Full_Block: true
+STRUCTURE_VOID:
+  Collidable: false
+  Full_Block: false
+SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+WHITE_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+ORANGE_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+MAGENTA_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+LIGHT_BLUE_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+YELLOW_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+LIME_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+PINK_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+GRAY_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+LIGHT_GRAY_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+CYAN_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+PURPLE_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+BLUE_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+BROWN_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+GREEN_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+RED_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+BLACK_SHULKER_BOX:
+  Collidable: true
+  Full_Block: true
+WHITE_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+ORANGE_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+MAGENTA_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+LIGHT_BLUE_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+YELLOW_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+LIME_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+PINK_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+GRAY_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+LIGHT_GRAY_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+CYAN_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+PURPLE_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+BLUE_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+BROWN_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+GREEN_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+RED_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+BLACK_GLAZED_TERRACOTTA:
+  Collidable: true
+  Full_Block: true
+WHITE_CONCRETE:
+  Collidable: true
+  Full_Block: true
+ORANGE_CONCRETE:
+  Collidable: true
+  Full_Block: true
+MAGENTA_CONCRETE:
+  Collidable: true
+  Full_Block: true
+LIGHT_BLUE_CONCRETE:
+  Collidable: true
+  Full_Block: true
+YELLOW_CONCRETE:
+  Collidable: true
+  Full_Block: true
+LIME_CONCRETE:
+  Collidable: true
+  Full_Block: true
+PINK_CONCRETE:
+  Collidable: true
+  Full_Block: true
+GRAY_CONCRETE:
+  Collidable: true
+  Full_Block: true
+LIGHT_GRAY_CONCRETE:
+  Collidable: true
+  Full_Block: true
+CYAN_CONCRETE:
+  Collidable: true
+  Full_Block: true
+PURPLE_CONCRETE:
+  Collidable: true
+  Full_Block: true
+BLUE_CONCRETE:
+  Collidable: true
+  Full_Block: true
+BROWN_CONCRETE:
+  Collidable: true
+  Full_Block: true
+GREEN_CONCRETE:
+  Collidable: true
+  Full_Block: true
+RED_CONCRETE:
+  Collidable: true
+  Full_Block: true
+BLACK_CONCRETE:
+  Collidable: true
+  Full_Block: true
+WHITE_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+ORANGE_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+MAGENTA_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+LIGHT_BLUE_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+YELLOW_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+LIME_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+PINK_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+GRAY_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+LIGHT_GRAY_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+CYAN_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+PURPLE_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+BLUE_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+BROWN_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+GREEN_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+RED_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+BLACK_CONCRETE_POWDER:
+  Collidable: true
+  Full_Block: true
+TURTLE_EGG:
+  Collidable: false
+  Full_Block: false
+SNIFFER_EGG:
+  Collidable: true
+  Full_Block: false
+DEAD_TUBE_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+DEAD_BRAIN_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+DEAD_BUBBLE_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+DEAD_FIRE_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+DEAD_HORN_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+TUBE_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+BRAIN_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+BUBBLE_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+FIRE_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+HORN_CORAL_BLOCK:
+  Collidable: true
+  Full_Block: true
+TUBE_CORAL:
+  Collidable: false
+  Full_Block: false
+BRAIN_CORAL:
+  Collidable: false
+  Full_Block: false
+BUBBLE_CORAL:
+  Collidable: false
+  Full_Block: false
+FIRE_CORAL:
+  Collidable: false
+  Full_Block: false
+HORN_CORAL:
+  Collidable: false
+  Full_Block: false
+DEAD_BRAIN_CORAL:
+  Collidable: true
+  Full_Block: false
+DEAD_BUBBLE_CORAL:
+  Collidable: true
+  Full_Block: false
+DEAD_FIRE_CORAL:
+  Collidable: true
+  Full_Block: false
+DEAD_HORN_CORAL:
+  Collidable: true
+  Full_Block: false
+DEAD_TUBE_CORAL:
+  Collidable: true
+  Full_Block: false
+TUBE_CORAL_FAN:
+  Collidable: false
+  Full_Block: false
+BRAIN_CORAL_FAN:
+  Collidable: false
+  Full_Block: false
+BUBBLE_CORAL_FAN:
+  Collidable: false
+  Full_Block: false
+FIRE_CORAL_FAN:
+  Collidable: false
+  Full_Block: false
+HORN_CORAL_FAN:
+  Collidable: false
+  Full_Block: false
+DEAD_TUBE_CORAL_FAN:
+  Collidable: true
+  Full_Block: false
+DEAD_BRAIN_CORAL_FAN:
+  Collidable: true
+  Full_Block: false
+DEAD_BUBBLE_CORAL_FAN:
+  Collidable: true
+  Full_Block: false
+DEAD_FIRE_CORAL_FAN:
+  Collidable: true
+  Full_Block: false
+DEAD_HORN_CORAL_FAN:
+  Collidable: true
+  Full_Block: false
+BLUE_ICE:
+  Collidable: true
+  Full_Block: true
+CONDUIT:
+  Collidable: false
+  Full_Block: false
+POLISHED_GRANITE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SMOOTH_RED_SANDSTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+MOSSY_STONE_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+POLISHED_DIORITE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+MOSSY_COBBLESTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+END_STONE_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+STONE_STAIRS:
+  Collidable: true
+  Full_Block: false
+SMOOTH_SANDSTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SMOOTH_QUARTZ_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+GRANITE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+ANDESITE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+RED_NETHER_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+POLISHED_ANDESITE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+DIORITE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+COBBLED_DEEPSLATE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+POLISHED_DEEPSLATE_STAIRS:
+  Collidable: true
+  Full_Block: false
+DEEPSLATE_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+DEEPSLATE_TILE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+POLISHED_GRANITE_SLAB:
+  Collidable: true
+  Full_Block: false
+SMOOTH_RED_SANDSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+MOSSY_STONE_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+POLISHED_DIORITE_SLAB:
+  Collidable: true
+  Full_Block: false
+MOSSY_COBBLESTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+END_STONE_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+SMOOTH_SANDSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+SMOOTH_QUARTZ_SLAB:
+  Collidable: true
+  Full_Block: false
+GRANITE_SLAB:
+  Collidable: true
+  Full_Block: false
+ANDESITE_SLAB:
+  Collidable: true
+  Full_Block: false
+RED_NETHER_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+POLISHED_ANDESITE_SLAB:
+  Collidable: true
+  Full_Block: false
+DIORITE_SLAB:
+  Collidable: true
+  Full_Block: false
+COBBLED_DEEPSLATE_SLAB:
+  Collidable: true
+  Full_Block: false
+POLISHED_DEEPSLATE_SLAB:
+  Collidable: true
+  Full_Block: false
+DEEPSLATE_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+DEEPSLATE_TILE_SLAB:
+  Collidable: true
+  Full_Block: false
+SCAFFOLDING:
+  Collidable: false
+  Full_Block: false
+REDSTONE_TORCH:
+  Collidable: false
+  Full_Block: false
+REDSTONE_BLOCK:
+  Collidable: true
+  Full_Block: false
+REPEATER:
+  Collidable: false
+  Full_Block: false
+COMPARATOR:
+  Collidable: false
+  Full_Block: false
+PISTON:
+  Collidable: true
+  Full_Block: false
+STICKY_PISTON:
+  Collidable: true
+  Full_Block: false
+SLIME_BLOCK:
+  Collidable: true
+  Full_Block: true
+HONEY_BLOCK:
+  Collidable: true
+  Full_Block: false
+OBSERVER:
+  Collidable: true
+  Full_Block: false
+HOPPER:
+  Collidable: true
+  Full_Block: false
+DISPENSER:
+  Collidable: true
+  Full_Block: true
+DROPPER:
+  Collidable: true
+  Full_Block: true
+LECTERN:
+  Collidable: false
+  Full_Block: false
+TARGET:
+  Collidable: true
+  Full_Block: true
+LEVER:
+  Collidable: false
+  Full_Block: false
+LIGHTNING_ROD:
+  Collidable: false
+  Full_Block: false
+DAYLIGHT_DETECTOR:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+SCULK_SENSOR:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CALIBRATED_SCULK_SENSOR:
+  Collidable: true
+  Full_Block: false
+TRIPWIRE_HOOK:
+  Collidable: false
+  Full_Block: false
+TRAPPED_CHEST:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+TNT:
+  Collidable: true
+  Full_Block: false
+REDSTONE_LAMP:
+  Collidable: true
+  Full_Block: true
+NOTE_BLOCK:
+  Collidable: true
+  Full_Block: true
+STONE_BUTTON:
+  Collidable: false
+  Full_Block: false
+POLISHED_BLACKSTONE_BUTTON:
+  Collidable: false
+  Full_Block: false
+OAK_BUTTON:
+  Collidable: false
+  Full_Block: false
+SPRUCE_BUTTON:
+  Collidable: false
+  Full_Block: false
+BIRCH_BUTTON:
+  Collidable: false
+  Full_Block: false
+JUNGLE_BUTTON:
+  Collidable: false
+  Full_Block: false
+ACACIA_BUTTON:
+  Collidable: false
+  Full_Block: false
+CHERRY_BUTTON:
+  Collidable: false
+  Full_Block: false
+DARK_OAK_BUTTON:
+  Collidable: false
+  Full_Block: false
+PALE_OAK_BUTTON:
+  Collidable: false
+  Full_Block: false
+MANGROVE_BUTTON:
+  Collidable: false
+  Full_Block: false
+BAMBOO_BUTTON:
+  Collidable: false
+  Full_Block: false
+CRIMSON_BUTTON:
+  Collidable: false
+  Full_Block: false
+WARPED_BUTTON:
+  Collidable: false
+  Full_Block: false
+STONE_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+POLISHED_BLACKSTONE_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+LIGHT_WEIGHTED_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+HEAVY_WEIGHTED_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+OAK_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+SPRUCE_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+BIRCH_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+JUNGLE_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+ACACIA_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+CHERRY_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+DARK_OAK_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+PALE_OAK_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+MANGROVE_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+BAMBOO_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+CRIMSON_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+WARPED_PRESSURE_PLATE:
+  Collidable: true
+  Full_Block: false
+IRON_DOOR:
+  Collidable: true
+  Full_Block: false
+OAK_DOOR:
+  Collidable: true
+  Full_Block: false
+SPRUCE_DOOR:
+  Collidable: true
+  Full_Block: false
+BIRCH_DOOR:
+  Collidable: true
+  Full_Block: false
+JUNGLE_DOOR:
+  Collidable: true
+  Full_Block: false
+ACACIA_DOOR:
+  Collidable: true
+  Full_Block: false
+CHERRY_DOOR:
+  Collidable: true
+  Full_Block: false
+DARK_OAK_DOOR:
+  Collidable: true
+  Full_Block: false
+PALE_OAK_DOOR:
+  Collidable: true
+  Full_Block: false
+MANGROVE_DOOR:
+  Collidable: true
+  Full_Block: false
+BAMBOO_DOOR:
+  Collidable: true
+  Full_Block: false
+CRIMSON_DOOR:
+  Collidable: true
+  Full_Block: false
+WARPED_DOOR:
+  Collidable: true
+  Full_Block: false
+COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+EXPOSED_COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+WEATHERED_COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+OXIDIZED_COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_EXPOSED_COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_WEATHERED_COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_OXIDIZED_COPPER_DOOR:
+  Collidable: true
+  Full_Block: false
+IRON_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+OAK_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+SPRUCE_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+BIRCH_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+JUNGLE_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+ACACIA_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+CHERRY_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+DARK_OAK_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+PALE_OAK_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+MANGROVE_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+BAMBOO_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+CRIMSON_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+WARPED_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+EXPOSED_COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+WEATHERED_COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+OXIDIZED_COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_EXPOSED_COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_WEATHERED_COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+WAXED_OXIDIZED_COPPER_TRAPDOOR:
+  Collidable: true
+  Full_Block: false
+OAK_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+SPRUCE_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+BIRCH_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+JUNGLE_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+ACACIA_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+CHERRY_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+DARK_OAK_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+PALE_OAK_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+MANGROVE_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+BAMBOO_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+CRIMSON_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+WARPED_FENCE_GATE:
+  Collidable: true
+  Full_Block: false
+  Cull_Faces: false
+POWERED_RAIL:
+  Collidable: false
+  Full_Block: false
+DETECTOR_RAIL:
+  Collidable: false
+  Full_Block: false
+RAIL:
+  Collidable: false
+  Full_Block: false
+ACTIVATOR_RAIL:
+  Collidable: false
+  Full_Block: false
+STRUCTURE_BLOCK:
+  Collidable: true
+  Full_Block: true
+JIGSAW:
+  Collidable: true
+  Full_Block: true
+WHEAT:
+  Collidable: false
+  Full_Block: false
+OAK_SIGN:
+  Collidable: false
+  Full_Block: false
+SPRUCE_SIGN:
+  Collidable: false
+  Full_Block: false
+BIRCH_SIGN:
+  Collidable: false
+  Full_Block: false
+JUNGLE_SIGN:
+  Collidable: false
+  Full_Block: false
+ACACIA_SIGN:
+  Collidable: false
+  Full_Block: false
+CHERRY_SIGN:
+  Collidable: false
+  Full_Block: false
+DARK_OAK_SIGN:
+  Collidable: false
+  Full_Block: false
+PALE_OAK_SIGN:
+  Collidable: false
+  Full_Block: false
+MANGROVE_SIGN:
+  Collidable: false
+  Full_Block: false
+BAMBOO_SIGN:
+  Collidable: false
+  Full_Block: false
+CRIMSON_SIGN:
+  Collidable: false
+  Full_Block: false
+WARPED_SIGN:
+  Collidable: false
+  Full_Block: false
+OAK_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+SPRUCE_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+BIRCH_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+JUNGLE_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+ACACIA_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+CHERRY_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+DARK_OAK_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+PALE_OAK_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+MANGROVE_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+BAMBOO_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+CRIMSON_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+WARPED_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+DRIED_KELP_BLOCK:
+  Collidable: true
+  Full_Block: true
+CAKE:
+  Collidable: false
+  Full_Block: false
+WHITE_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+ORANGE_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+MAGENTA_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+LIGHT_BLUE_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+YELLOW_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+LIME_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+PINK_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+GRAY_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+LIGHT_GRAY_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+CYAN_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+PURPLE_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+BLUE_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+BROWN_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+GREEN_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+RED_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+BLACK_BED:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+CRAFTER:
+  Collidable: true
+  Full_Block: true
+NETHER_WART:
+  Collidable: false
+  Full_Block: false
+BREWING_STAND:
+  Collidable: false
+  Full_Block: false
+CAULDRON:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+FLOWER_POT:
+  Collidable: false
+  Full_Block: false
+SKELETON_SKULL:
+  Collidable: false
+  Full_Block: false
+WITHER_SKELETON_SKULL:
+  Collidable: false
+  Full_Block: false
+PLAYER_HEAD:
+  Collidable: false
+  Full_Block: false
+ZOMBIE_HEAD:
+  Collidable: false
+  Full_Block: false
+CREEPER_HEAD:
+  Collidable: false
+  Full_Block: false
+DRAGON_HEAD:
+  Collidable: false
+  Full_Block: false
+PIGLIN_HEAD:
+  Collidable: false
+  Full_Block: false
+WHITE_BANNER:
+  Collidable: false
+  Full_Block: false
+ORANGE_BANNER:
+  Collidable: false
+  Full_Block: false
+MAGENTA_BANNER:
+  Collidable: false
+  Full_Block: false
+LIGHT_BLUE_BANNER:
+  Collidable: false
+  Full_Block: false
+YELLOW_BANNER:
+  Collidable: false
+  Full_Block: false
+LIME_BANNER:
+  Collidable: false
+  Full_Block: false
+PINK_BANNER:
+  Collidable: false
+  Full_Block: false
+GRAY_BANNER:
+  Collidable: false
+  Full_Block: false
+LIGHT_GRAY_BANNER:
+  Collidable: false
+  Full_Block: false
+CYAN_BANNER:
+  Collidable: false
+  Full_Block: false
+PURPLE_BANNER:
+  Collidable: false
+  Full_Block: false
+BLUE_BANNER:
+  Collidable: false
+  Full_Block: false
+BROWN_BANNER:
+  Collidable: false
+  Full_Block: false
+GREEN_BANNER:
+  Collidable: false
+  Full_Block: false
+RED_BANNER:
+  Collidable: false
+  Full_Block: false
+BLACK_BANNER:
+  Collidable: false
+  Full_Block: false
+LOOM:
+  Collidable: true
+  Full_Block: true
+COMPOSTER:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+BARREL:
+  Collidable: true
+  Full_Block: true
+SMOKER:
+  Collidable: true
+  Full_Block: true
+BLAST_FURNACE:
+  Collidable: true
+  Full_Block: true
+CARTOGRAPHY_TABLE:
+  Collidable: true
+  Full_Block: true
+FLETCHING_TABLE:
+  Collidable: true
+  Full_Block: true
+GRINDSTONE:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+SMITHING_TABLE:
+  Collidable: true
+  Full_Block: true
+STONECUTTER:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+BELL:
+  Collidable: false
+  Full_Block: false
+LANTERN:
+  Collidable: false
+  Full_Block: false
+SOUL_LANTERN:
+  Collidable: false
+  Full_Block: false
+CAMPFIRE:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+SOUL_CAMPFIRE:
+  Collidable: true
+  Full_Block: false
+  BoundingBox:
+    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+SHROOMLIGHT:
+  Collidable: true
+  Full_Block: true
+BEE_NEST:
+  Collidable: true
+  Full_Block: true
+BEEHIVE:
+  Collidable: true
+  Full_Block: true
+HONEYCOMB_BLOCK:
+  Collidable: true
+  Full_Block: true
+LODESTONE:
+  Collidable: true
+  Full_Block: true
+CRYING_OBSIDIAN:
+  Collidable: true
+  Full_Block: true
+BLACKSTONE:
+  Collidable: true
+  Full_Block: true
+BLACKSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+BLACKSTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+GILDED_BLACKSTONE:
+  Collidable: true
+  Full_Block: true
+POLISHED_BLACKSTONE:
+  Collidable: true
+  Full_Block: true
+POLISHED_BLACKSTONE_SLAB:
+  Collidable: true
+  Full_Block: false
+POLISHED_BLACKSTONE_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CHISELED_POLISHED_BLACKSTONE:
+  Collidable: true
+  Full_Block: true
+POLISHED_BLACKSTONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+POLISHED_BLACKSTONE_BRICK_SLAB:
+  Collidable: true
+  Full_Block: false
+POLISHED_BLACKSTONE_BRICK_STAIRS:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+CRACKED_POLISHED_BLACKSTONE_BRICKS:
+  Collidable: true
+  Full_Block: true
+RESPAWN_ANCHOR:
+  Collidable: true
+  Full_Block: true
+CANDLE:
+  Collidable: false
+  Full_Block: false
+WHITE_CANDLE:
+  Collidable: false
+  Full_Block: false
+ORANGE_CANDLE:
+  Collidable: false
+  Full_Block: false
+MAGENTA_CANDLE:
+  Collidable: false
+  Full_Block: false
+LIGHT_BLUE_CANDLE:
+  Collidable: false
+  Full_Block: false
+YELLOW_CANDLE:
+  Collidable: false
+  Full_Block: false
+LIME_CANDLE:
+  Collidable: false
+  Full_Block: false
+PINK_CANDLE:
+  Collidable: false
+  Full_Block: false
+GRAY_CANDLE:
+  Collidable: false
+  Full_Block: false
+LIGHT_GRAY_CANDLE:
+  Collidable: false
+  Full_Block: false
+CYAN_CANDLE:
+  Collidable: false
+  Full_Block: false
+PURPLE_CANDLE:
+  Collidable: false
+  Full_Block: false
+BLUE_CANDLE:
+  Collidable: false
+  Full_Block: false
+BROWN_CANDLE:
+  Collidable: false
+  Full_Block: false
+GREEN_CANDLE:
+  Collidable: false
+  Full_Block: false
+RED_CANDLE:
+  Collidable: false
+  Full_Block: false
+BLACK_CANDLE:
+  Collidable: false
+  Full_Block: false
+SMALL_AMETHYST_BUD:
+  Collidable: false
+  Full_Block: false
+MEDIUM_AMETHYST_BUD:
+  Collidable: false
+  Full_Block: false
+LARGE_AMETHYST_BUD:
+  Collidable: false
+  Full_Block: false
+AMETHYST_CLUSTER:
+  Collidable: false
+  Full_Block: false
+POINTED_DRIPSTONE:
+  Collidable: false
+  Full_Block: false
+OCHRE_FROGLIGHT:
+  Collidable: true
+  Full_Block: true
+VERDANT_FROGLIGHT:
+  Collidable: true
+  Full_Block: true
+PEARLESCENT_FROGLIGHT:
+  Collidable: true
+  Full_Block: true
+FROGSPAWN:
+  Collidable: false
+  Full_Block: false
+COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+EXPOSED_COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+WEATHERED_COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+OXIDIZED_COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+WAXED_COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+WAXED_EXPOSED_COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+WAXED_WEATHERED_COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+WAXED_OXIDIZED_COPPER_GRATE:
+  Collidable: true
+  Full_Block: false
+COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+EXPOSED_COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+WEATHERED_COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+OXIDIZED_COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+WAXED_COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+WAXED_EXPOSED_COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+WAXED_WEATHERED_COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+WAXED_OXIDIZED_COPPER_BULB:
+  Collidable: true
+  Full_Block: true
+TRIAL_SPAWNER:
+  Collidable: true
+  Full_Block: true
+VAULT:
+  Collidable: true
+  Full_Block: true
+WATER:
+  Collidable: false
+  Full_Block: false
+LAVA:
+  Collidable: false
+  Full_Block: false
+TALL_SEAGRASS:
+  Collidable: false
+  Full_Block: false
+PISTON_HEAD:
+  Collidable: false
+  Full_Block: false
+MOVING_PISTON:
+  Collidable: false
+  Full_Block: false
+WALL_TORCH:
+  Collidable: false
+  Full_Block: false
+FIRE:
+  Collidable: false
+  Full_Block: false
+SOUL_FIRE:
+  Collidable: false
+  Full_Block: false
+REDSTONE_WIRE:
+  Collidable: false
+  Full_Block: false
+OAK_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+SPRUCE_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+BIRCH_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+ACACIA_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+CHERRY_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+JUNGLE_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+DARK_OAK_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+PALE_OAK_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+MANGROVE_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+BAMBOO_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+OAK_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+SPRUCE_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+BIRCH_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+ACACIA_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+CHERRY_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+JUNGLE_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+DARK_OAK_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+PALE_OAK_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+MANGROVE_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+CRIMSON_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+WARPED_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+BAMBOO_WALL_HANGING_SIGN:
+  Collidable: false
+  Full_Block: false
+REDSTONE_WALL_TORCH:
+  Collidable: false
+  Full_Block: false
+SOUL_WALL_TORCH:
+  Collidable: false
+  Full_Block: false
+NETHER_PORTAL:
+  Collidable: false
+  Full_Block: false
+ATTACHED_PUMPKIN_STEM:
+  Collidable: false
+  Full_Block: false
+ATTACHED_MELON_STEM:
+  Collidable: false
+  Full_Block: false
+PUMPKIN_STEM:
+  Collidable: false
+  Full_Block: false
+MELON_STEM:
+  Collidable: false
+  Full_Block: false
+WATER_CAULDRON:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+LAVA_CAULDRON:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+POWDER_SNOW_CAULDRON:
+  Collidable: true
+  Full_Block: true
+  BoundingBox:
+    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+END_PORTAL:
+  Collidable: false
+  Full_Block: false
+COCOA:
+  Collidable: false
+  Full_Block: false
+TRIPWIRE:
+  Collidable: false
+  Full_Block: false
+POTTED_TORCHFLOWER:
+  Collidable: false
+  Full_Block: false
+POTTED_OAK_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_SPRUCE_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_BIRCH_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_JUNGLE_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_ACACIA_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_CHERRY_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_DARK_OAK_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_PALE_OAK_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_MANGROVE_PROPAGULE:
+  Collidable: false
+  Full_Block: false
+POTTED_FERN:
+  Collidable: false
+  Full_Block: false
+POTTED_DANDELION:
+  Collidable: false
+  Full_Block: false
+POTTED_POPPY:
+  Collidable: false
+  Full_Block: false
+POTTED_BLUE_ORCHID:
+  Collidable: false
+  Full_Block: false
+POTTED_ALLIUM:
+  Collidable: false
+  Full_Block: false
+POTTED_AZURE_BLUET:
+  Collidable: false
+  Full_Block: false
+POTTED_RED_TULIP:
+  Collidable: false
+  Full_Block: false
+POTTED_ORANGE_TULIP:
+  Collidable: false
+  Full_Block: false
+POTTED_WHITE_TULIP:
+  Collidable: false
+  Full_Block: false
+POTTED_PINK_TULIP:
+  Collidable: false
+  Full_Block: false
+POTTED_OXEYE_DAISY:
+  Collidable: false
+  Full_Block: false
+POTTED_CORNFLOWER:
+  Collidable: false
+  Full_Block: false
+POTTED_LILY_OF_THE_VALLEY:
+  Collidable: false
+  Full_Block: false
+POTTED_WITHER_ROSE:
+  Collidable: false
+  Full_Block: false
+POTTED_RED_MUSHROOM:
+  Collidable: false
+  Full_Block: false
+POTTED_BROWN_MUSHROOM:
+  Collidable: false
+  Full_Block: false
+POTTED_DEAD_BUSH:
+  Collidable: false
+  Full_Block: false
+POTTED_CACTUS:
+  Collidable: false
+  Full_Block: false
+CARROTS:
+  Collidable: false
+  Full_Block: false
+POTATOES:
+  Collidable: false
+  Full_Block: false
+SKELETON_WALL_SKULL:
+  Collidable: false
+  Full_Block: false
+WITHER_SKELETON_WALL_SKULL:
+  Collidable: false
+  Full_Block: false
+ZOMBIE_WALL_HEAD:
+  Collidable: false
+  Full_Block: false
+PLAYER_WALL_HEAD:
+  Collidable: false
+  Full_Block: false
+CREEPER_WALL_HEAD:
+  Collidable: false
+  Full_Block: false
+DRAGON_WALL_HEAD:
+  Collidable: false
+  Full_Block: false
+PIGLIN_WALL_HEAD:
+  Collidable: false
+  Full_Block: false
+WHITE_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+ORANGE_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+MAGENTA_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+LIGHT_BLUE_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+YELLOW_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+LIME_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+PINK_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+GRAY_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+LIGHT_GRAY_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+CYAN_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+PURPLE_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+BLUE_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+BROWN_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+GREEN_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+RED_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+BLACK_WALL_BANNER:
+  Collidable: false
+  Full_Block: false
+TORCHFLOWER_CROP:
+  Collidable: false
+  Full_Block: false
+PITCHER_CROP:
+  Collidable: false
+  Full_Block: false
+BEETROOTS:
+  Collidable: false
+  Full_Block: false
+END_GATEWAY:
+  Collidable: false
+  Full_Block: false
+FROSTED_ICE:
+  Collidable: true
+  Full_Block: true
+KELP_PLANT:
+  Collidable: false
+  Full_Block: false
+DEAD_TUBE_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+DEAD_BRAIN_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+DEAD_BUBBLE_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+DEAD_FIRE_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+DEAD_HORN_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+TUBE_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+BRAIN_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+BUBBLE_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+FIRE_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+HORN_CORAL_WALL_FAN:
+  Collidable: false
+  Full_Block: false
+BAMBOO_SAPLING:
+  Collidable: false
+  Full_Block: false
+POTTED_BAMBOO:
+  Collidable: false
+  Full_Block: false
+VOID_AIR:
+  Collidable: false
+  Full_Block: false
+CAVE_AIR:
+  Collidable: false
+  Full_Block: false
+BUBBLE_COLUMN:
+  Collidable: false
+  Full_Block: false
+SWEET_BERRY_BUSH:
+  Collidable: false
+  Full_Block: false
+WEEPING_VINES_PLANT:
+  Collidable: false
+  Full_Block: false
+TWISTING_VINES_PLANT:
+  Collidable: false
+  Full_Block: false
+CRIMSON_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+WARPED_WALL_SIGN:
+  Collidable: false
+  Full_Block: false
+POTTED_CRIMSON_FUNGUS:
+  Collidable: false
+  Full_Block: false
+POTTED_WARPED_FUNGUS:
+  Collidable: false
+  Full_Block: false
+POTTED_CRIMSON_ROOTS:
+  Collidable: false
+  Full_Block: false
+POTTED_WARPED_ROOTS:
+  Collidable: false
+  Full_Block: false
+CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+WHITE_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+ORANGE_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+MAGENTA_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+LIGHT_BLUE_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+YELLOW_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+LIME_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+PINK_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+GRAY_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+LIGHT_GRAY_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+CYAN_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+PURPLE_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+BLUE_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+BROWN_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+GREEN_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+RED_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+BLACK_CANDLE_CAKE:
+  Collidable: false
+  Full_Block: false
+POWDER_SNOW:
+  Collidable: false
+  Full_Block: false
+CAVE_VINES:
+  Collidable: false
+  Full_Block: false
+CAVE_VINES_PLANT:
+  Collidable: false
+  Full_Block: false
+BIG_DRIPLEAF_STEM:
+  Collidable: false
+  Full_Block: false
+POTTED_AZALEA_BUSH:
+  Collidable: false
+  Full_Block: false
+POTTED_FLOWERING_AZALEA_BUSH:
+  Collidable: false
+  Full_Block: false
+POTTED_OPEN_EYEBLOSSOM:
+  Collidable: false
+  Full_Block: false
+POTTED_CLOSED_EYEBLOSSOM:
+  Collidable: false
+  Full_Block: false

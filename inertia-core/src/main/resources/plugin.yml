@@ -1,0 +1,6 @@
+name: Inertia
+version: 1.0
+author: Ladakx
+main: com.ladakx.inertia.InertiaPlugin
+soft-depend: [WorldGuard, WorldEdit]
+api-version: 1.16

@@ -5,7 +5,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":inertia-api"))
+    compileOnly(project(":inertia-core"))
     compileOnly("org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT")
     paperweight.paperDevBundle("1.18.2-R0.1-SNAPSHOT")
 

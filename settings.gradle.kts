@@ -11,10 +11,16 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") // Spigot API
-        maven("https://repo.papermc.io/repository/maven-public/")
-        maven("https://repo.codemc.io/repository/maven-public/")
-        maven("https://repo.panda-lang.org/releases")
-        maven("https://jitpack.io")
+        maven("https://repo.papermc.io/repository/maven-public/") // paper
+        maven("https://repo.codemc.io/repository/maven-public/") // CodeMC
+        maven("https://repo.panda-lang.org/releases") // Panda
+        maven("https://maven.enginehub.org/repo/") // WorldGuard
+        maven(url = "https://repo.aikar.co/content/groups/aikar/") // aikar
+        maven(url = "https://repo.maven.apache.org/maven2/") // apache
+        maven(url = "https://repo.dmulloy2.net/repository/public/") // protocollib
+        maven(url = "https://s01.oss.sonatype.org/content/repositories/snapshots/") // Adventure Snapshots
+        maven(url = "https://repo.extendedclip.com/content/repositories/placeholderapi/") // PlaceholderAPI
+        maven(url = "https://jitpack.io") // Vault
     }
 }
 
