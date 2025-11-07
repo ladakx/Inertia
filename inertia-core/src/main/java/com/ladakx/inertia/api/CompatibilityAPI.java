@@ -1,9 +1,5 @@
 package com.ladakx.inertia.api;
 
-import org.bukkit.Bukkit;
-
-import java.lang.reflect.Constructor;
-
 /**
  * CompatibilityAPI is used to detect the runtime environment.
  * In this case, it checks if the server is running Paper, a high-performance fork of Spigot.
