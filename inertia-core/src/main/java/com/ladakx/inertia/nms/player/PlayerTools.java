@@ -18,7 +18,7 @@ public class PlayerTools {
      */
     public static PlayerNMSTools get() {
         String version = MinecraftVersions.CURRENT.toProtocolString().toLowerCase(Locale.ROOT);
-        String path = "me.emsockz.rosecore.nms."+version+".PlayerTools";
+        String path = "com.ladakx.inertia.nms."+version+".PlayerTools";
 
         PlayerNMSTools playerTools = null;
 
@@ -27,7 +27,7 @@ public class PlayerTools {
             Constructor<?> constructor = clazz.getConstructor();
             playerTools = (PlayerNMSTools) constructor.newInstance();
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            InertiaPlugin.logSevere("(RoseCore) The server version you are using is not supported.");
+            InertiaPlugin.logSevere("(Inertia) The server version you are using is not supported.");
             e.printStackTrace();
         }
 

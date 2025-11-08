@@ -235,11 +235,11 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     /**
-     * Log debug ([RoseCore] Debug: text)
+     * Log debug ([Inertia] Debug: text)
      * @param str text to log
      */
     public static void debug(String str) {
-        logWarning("[RoseCore] Debug: "+str);
+        logWarning("[Inertia] Debug: "+str);
     }
 
     // ******************

@@ -18,7 +18,7 @@ public class BulletTools {
      */
     public static BulletNMSTools get() {
         String version = MinecraftVersions.CURRENT.toProtocolString().toLowerCase(Locale.ROOT);
-        String path = "me.emsockz.rosecore.nms."+version+".BulletTools";
+        String path = "com.ladakx.inertia.nms."+version+".BulletTools";
 
         BulletNMSTools bulletTools = null;
         
@@ -27,7 +27,7 @@ public class BulletTools {
             Constructor<?> constructor = clazz.getConstructor();
             bulletTools = (BulletNMSTools) constructor.newInstance();
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            InertiaPlugin.logSevere("(RoseCore) The server version you are using is not supported.");
+            InertiaPlugin.logSevere("(Inertia) The server version you are using is not supported.");
             e.printStackTrace();
         }
 
