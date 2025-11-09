@@ -2,6 +2,7 @@ package com.ladakx.inertia;
 
 import co.aikar.commands.PaperCommandManager;
 import com.ladakx.inertia.commands.Commands;
+import com.ladakx.inertia.enums.Precision;
 import com.ladakx.inertia.files.BlocksFile;
 import com.ladakx.inertia.files.MessagesFile;
 import com.ladakx.inertia.files.config.BlocksCFG;
@@ -86,14 +87,6 @@ public final class InertiaPlugin extends JavaPlugin {
         instance = this;
         scheduler = Bukkit.getScheduler();
 
-        // Load native library
-        try {
-            joltNatives = new JoltNatives();
-            joltNatives.init(this);
-        } catch (JoltNatives.JoltNativeException e) {
-            throw new RuntimeException(e);
-        }
-
         // get adventure kyori && init paperCommandManager
         adventure = BukkitAudiences.create(this);
         paperCommandManager = new PaperCommandManager(this);
@@ -111,6 +104,24 @@ public final class InertiaPlugin extends JavaPlugin {
 
         blocksCFG = new BlocksCFG(blocksFile.getConfig());
         pluginCFG = new PluginCFG(config);
+
+        // Load native library
+        try {
+            joltNatives = new JoltNatives();
+            Precision pr = this.getConfig().getString("Jolt.Precision", "SP").equalsIgnoreCase("DP") ? Precision.DP : Precision.SP;
+            if (pr == Precision.DP) {
+                logInfo("Jolt Precision set to Double Precision (DP)");
+            } else if (pr == Precision.SP) {
+                logInfo("Jolt Precision set to Single Precision (SP)");
+            } else {
+                logWarning("Jolt Precision in config.yml is invalid! Defaulting to Single Precision (SP)");
+            }
+
+            joltNatives.init(this, pr);
+        } catch (JoltNatives.JoltNativeException e) {
+            throw new RuntimeException(e);
+        }
+
 
         bulletNMSTools = BulletTools.get();
         playerNMSTools = PlayerTools.get();
