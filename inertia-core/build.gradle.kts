@@ -37,11 +37,19 @@ dependencies {
     implementation("com.github.stephengold:jolt-jni-Windows64:$joltVersion")
 
     // The native libraries are still needed at runtime to be packaged into the JAR
-    runtimeOnly("com.github.stephengold:jolt-jni-Windows64:$joltVersion:ReleaseSp")
-    runtimeOnly("com.github.stephengold:jolt-jni-Linux64:$joltVersion:ReleaseSp")
-    runtimeOnly("com.github.stephengold:jolt-jni-MacOSX64:$joltVersion:ReleaseSp")
-    runtimeOnly("com.github.stephengold:jolt-jni-MacOSX_ARM64:$joltVersion:ReleaseSp")
-    runtimeOnly("com.github.stephengold:jolt-jni-Linux_ARM64:$joltVersion:ReleaseSp") // For Linux on ARM64
+    // Float native libraries
+//    runtimeOnly("com.github.stephengold:jolt-jni-Windows64:$joltVersion:ReleaseSp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-Linux64:$joltVersion:ReleaseSp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-MacOSX64:$joltVersion:ReleaseSp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-MacOSX_ARM64:$joltVersion:ReleaseSp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-Linux_ARM64:$joltVersion:ReleaseSp") // For Linux on ARM64
+//
+//    // Double native libraries
+//    runtimeOnly("com.github.stephengold:jolt-jni-Windows64:$joltVersion:ReleaseDp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-Linux64:$joltVersion:ReleaseDp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-MacOSX64:$joltVersion:ReleaseDp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-MacOSX_ARM64:$joltVersion:ReleaseDp")
+//    runtimeOnly("com.github.stephengold:jolt-jni-Linux_ARM64:$joltVersion:ReleaseDp") // For Linux on ARM64
 }
 
 

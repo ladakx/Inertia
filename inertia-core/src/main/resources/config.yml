@@ -1,3 +1,6 @@
+Jolt:
+  Precision: DP # DP/SP for double/single precision physics calculations (DP is more accurate but slower SP is faster but less accurate)
+
 General:
   Lang: "en" # Language file to use
   Debug:
