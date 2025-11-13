@@ -122,7 +122,6 @@ public final class InertiaPlugin extends JavaPlugin {
             throw new RuntimeException(e);
         }
 
-
         bulletNMSTools = BulletTools.get();
         playerNMSTools = PlayerTools.get();
         nbtPersistent = NBTPersistentTools.get();
