@@ -14,8 +14,7 @@
  */
 package com.ladakx.inertia.utils;
 
-import com.ladakx.inertia.InertiaPlugin;
-import com.ladakx.inertia.api.CompatibilityAPI;
+import com.ladakx.inertia.InertiaLogger;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -62,8 +61,7 @@ public final class ReflectionUtil {
         nmsVersion = "net.minecraft.server." + versionString + '.';
 
         // In 1.20.6+ paper servers, the CraftBukkit package has been remapped
-        boolean isPaper = Bukkit.getServer() != null && CompatibilityAPI.isPaper();
-        if (isPaper && MinecraftVersions.TRAILS_AND_TAILS.get(5).isAtLeast()) {
+        if (MinecraftVersions.TRAILS_AND_TAILS.get(5).isAtLeast()) {
             cbVersion = "org.bukkit.craftbukkit.";
         } else {
             cbVersion = "org.bukkit.craftbukkit." + versionString + '.';
@@ -84,8 +82,8 @@ public final class ReflectionUtil {
             javaVersion1 = Integer.parseInt(version);
         } catch (Throwable throwable) {
             javaVersion1 = -1;
-            InertiaPlugin.logSevere("Could not get Java version for '" + System.getProperty("java.version") + "'");
-            InertiaPlugin.logSevere(throwable.getMessage());
+            InertiaLogger.error("Could not get Java version for '" + System.getProperty("java.version") + "'");
+            InertiaLogger.error(throwable.getMessage());
         }
         javaVersion = javaVersion1;
 
@@ -130,7 +128,7 @@ public final class ReflectionUtil {
         if (MinecraftVersions.CAVES_AND_CLIFFS_1.isAtLeast()) {
             className = "net.minecraft." + pack + '.' + name;
 
-            if (CompatibilityAPI.isPaper() && MinecraftVersions.TRAILS_AND_TAILS.get(5).isAtLeast()) {
+            if (MinecraftVersions.TRAILS_AND_TAILS.get(5).isAtLeast()) {
                 ReflectionRemapper remapper = ReflectionRemapper.forReobfMappingsInPaperJar();
                 className = remapper.remapClassOrArrayName(className);
             }

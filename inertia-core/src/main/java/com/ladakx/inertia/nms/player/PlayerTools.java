@@ -1,5 +1,6 @@
 package com.ladakx.inertia.nms.player;
 
+import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.utils.MinecraftVersions;
 
@@ -27,7 +28,7 @@ public class PlayerTools {
             Constructor<?> constructor = clazz.getConstructor();
             playerTools = (PlayerNMSTools) constructor.newInstance();
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            InertiaPlugin.logSevere("(Inertia) The server version you are using is not supported.");
+            InertiaLogger.error("The server version you are using is not supported.");
             e.printStackTrace();
         }
 

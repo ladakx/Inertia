@@ -1,0 +1,82 @@
+########################
+# Blocks Configuration #
+########################
+blocks:
+  stone:
+    render:
+      model: stone # посилання на модель з render.yml
+    physics:
+      angular-damping: 0.1
+      linear-damping: 0.3
+      friction: 1.0
+      restitution: 0.025
+      mass: 75.0
+      shape:
+        - "x=0.5 y=0.5 z=0.5"
+
+########################
+# Chains Configuration #
+########################
+chains:
+  iron_chain:
+    physics:
+      # Параметри фізики ланцюга
+      angular-damping: 0.1
+      linear-damping: 0.3
+      friction: 1.0
+      restitution: 0.025
+      mass: 75.0
+      # Налаштування з'єднань (PointConstraintSettings)
+      # Відступ від центру для точок кріплення
+      joint-offset: 0.52
+      # Відстань між точками кріплення
+      spacing: 1.04
+      # Розмір фізичного колайдера (BoxShape)
+      shape:
+        - "x=0.1 y=0.5 z=0.1"
+    render:
+      model: iron_chain # посилання на модель з render.yml
+
+##########################
+# Ragdolls Configuration #
+##########################
+ragdolls:
+  steve:
+    render:
+      head:
+        model: "ragdoll_head"
+      right-arm:
+        model: "ragdoll_right_arm"
+      left-arm:
+        model: "ragdoll_left_arm"
+      torso:
+        model: "ragdoll_torso"
+      right-leg:
+        model: "ragdoll_right_leg"
+      left-leg:
+        model: "ragdoll_left_leg"
+    # Налаштування суглобів (Constraints)
+    joints:
+      # Множник зміщення рук від центру тулуба по осі X
+      arm-offset-divisor: 1.35
+      # Зміщення ніг від центру по осі X
+      leg-offset-x: 0.13
+      # Фіксація осей (true = суглоб не може рухатися вздовж цієї осі, тільки крутитися)
+      fixed-axes: [ "TranslationX", "TranslationY", "TranslationZ" ]
+    # Параметри фізики тіла
+    physics:
+      mass: 75.0
+      angular-damping: 0.1
+      linear-damping: 0.3
+      friction: 1.0
+      restitution: 0.025
+      shapes:
+        # 8x12x4 пікселів (розмір / 16 / 2)
+        torso:
+          - "x=0.25, y=0.375, z=0.125"
+        # 8x8x8 пікселів
+        head:
+          - "x=0.25, y=0.25, z=0.25"
+        # 4x12x4 пікселів
+        limb:
+          - "x=0.125, y=0.375, z=0.125"

@@ -14,7 +14,7 @@ java {
 }
 
 dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.21-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
 
     implementation(project(":inertia-api"))
     implementation(project(":inertia-core"))
@@ -32,9 +32,6 @@ dependencies {
     implementation(project(":inertia-nms-v1_21_R3"))
 
     // These libraries are safe to shade
-    implementation("net.kyori:adventure-api:4.17.0")
-    implementation("net.kyori:adventure-platform-bukkit:4.3.3")
-    implementation("net.kyori:adventure-text-minimessage:4.17.0")
     implementation("de.tr7zw:item-nbt-api:2.12.3")
     implementation("org.jetbrains:annotations:24.0.1")
 }

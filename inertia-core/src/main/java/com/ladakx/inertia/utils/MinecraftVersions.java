@@ -110,7 +110,6 @@ public class MinecraftVersions {
         update.add(new Version(update, 4, 3)); // 1.21.4
     });
 
-
     // Lazy initialization for CURRENT in a static block
     public static final Version CURRENT = parseCurrentVersion();
 

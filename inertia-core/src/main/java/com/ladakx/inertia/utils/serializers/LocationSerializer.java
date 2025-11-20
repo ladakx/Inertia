@@ -1,6 +1,6 @@
 package com.ladakx.inertia.utils.serializers;
 
-import com.jme3.math.Vector3f;
+import com.github.stephengold.joltjni.Vec3;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -14,8 +14,8 @@ public class LocationSerializer {
      * @param location The location to serialize
      * @return The serialized Location
      */
-    public static Vector3f serialize(Location location) {
-        return new Vector3f((float) location.getX(), (float) location.getY(), (float) location.getZ());
+    public static Vec3 serialize(Location location) {
+        return new Vec3((float) location.getX(), (float) location.getY(), (float) location.getZ());
     }
 
     /**
@@ -24,7 +24,7 @@ public class LocationSerializer {
      * @param location The location to serialize
      * @return The serialized Location
      */
-    public static Location serialize(World world, Vector3f location) {
+    public static Location serialize(World world, Vec3 location) {
         return new Location(world, location.getX(), location.getY(), location.getZ(), 0.0F, 0.0F);
     }
 }

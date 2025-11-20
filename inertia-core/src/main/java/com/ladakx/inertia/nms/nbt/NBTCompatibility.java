@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * This interface is used to interact with NBT tags of items and entities. It provides methods to get,
+ * This interface is used to interact with NBT tags of items and render.yml. It provides methods to get,
  */
 public interface NBTCompatibility {
 
@@ -386,7 +386,7 @@ public interface NBTCompatibility {
 
     /**
      * Sets the value of an {@link Attribute} for a given item <code>bukkitItem</code>. The attribute
-     * will apply to living entities which hold the item in the given <code>slot</code>. Using this
+     * will apply to living render.yml which hold the item in the given <code>slot</code>. Using this
      * method overrides the value previously set, if applicable.
      *
      * <p>

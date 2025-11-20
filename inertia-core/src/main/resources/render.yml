@@ -1,0 +1,146 @@
+##########
+# Blocks #
+##########
+stone:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: BLOCK_DISPLAY
+      block: STONE
+
+##########
+# Chains #
+##########
+iron_chain:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: ITEM_DISPLAY
+      item-model: IRON_CHAIN  # ItemStack-конфіг
+      display-mode: NONE
+      scale: "1.15 1.15 1.15"
+      show-when:
+        active: true
+        sleeping: true
+
+############
+# Ragdolls #
+############
+ragdoll_head:
+  entities:
+    display:
+      type: ITEM_DISPLAY
+      display-mode: THIRDPERSON_RIGHTHAND
+      translation: "0.0 0.0 0.0"
+      item-model: ragdoll_head
+ragdoll_right_arm:
+  entities:
+    display:
+      type: ITEM_DISPLAY
+      display-mode: THIRDPERSON_RIGHTHAND
+      translation: "0.0 -1024 0.0"
+      item-model: ragdoll_right_arm
+ragdoll_left_arm:
+  entities:
+    display:
+      type: ITEM_DISPLAY
+      display-mode: THIRDPERSON_RIGHTHAND
+      translation: "0.0 -2048 0.0"
+      item-model: ragdoll_left_arm
+ragdoll_torso:
+  entities:
+    display:
+      type: ITEM_DISPLAY
+      display-mode: THIRDPERSON_RIGHTHAND
+      translation: "0.0 -3072 0.0"
+      item-model: ragdoll_torso
+ragdoll_right_leg:
+  entities:
+    display:
+      type: ITEM_DISPLAY
+      display-mode: THIRDPERSON_RIGHTHAND
+      translation: "0.0 -4096 0.0"
+      item-model: ragdoll_right_leg
+ragdoll_left_leg:
+  entities:
+    display:
+      type: ITEM_DISPLAY
+      display-mode: THIRDPERSON_RIGHTHAND
+      translation: "0.0 -5120 0.0"
+      item-model: ragdoll_left_leg
+
+
+####################
+# FORMAT FILE
+#example:
+#  sync:
+#    position: true
+#    rotation: true
+#  entities:
+#    example_armorstand:
+#      type: ARMOR_STAND
+#      item-model: items:example      # ключ items.yml з ItemStack’ами
+#      small: false
+#      invisible: true
+#      marker: true
+#      base-plate: false
+#      arms: false
+#      local-offset: "0.0 0.0 0.0"
+#      local-rotation: "0.0 0.0 0.0" # pitch, yaw, roll
+#      show-when:
+#        active: true
+#        sleeping: true
+#    example2:
+#      type: ARMOR_STAND
+#      item-model: items:example2
+#      small: true
+#      invisible: true
+#      marker: true
+#      local-offset: "0.0 0.8 0.0"
+#      local-rotation: "0.0 0.0 0.0"
+#      show-when:
+#        active: true
+#        sleeping: false
+#    example3:
+#      type: ITEM_DISPLAY
+#      item-model: items:example3
+#      display-mode: HEAD             # FIRSTPERSON_LEFTHAND/FIRSTPERSON_RIGHTHAND/FIXED/GROUND/GUI/HEAD/NONE/THIRDPERSON_LEFTHAND/THIRDPERSON_RIGHTHAND
+#      local-offset: "0.0 0.0 0.0"
+#      local-rotation: "0.0 0.0 0.0"
+#      scale: "1.0 1.0 1.0"
+#      translation: "0.0 0.0 0.0"
+#      view-range: 128
+#      shadow-radius: 4
+#      shadow-strength: 0
+#      interpolation-duration: 3
+#      teleport-duration: 3
+#      billboard: FIXED
+#      brightness:
+#        block: 15
+#        sky: 15
+#      show-when:
+#        active: true
+#        sleeping: true
+#    example4:
+#      type: BLOCK_DISPLAY
+#      block: STONE
+#      local-offset: "0.0 -0.5 0.0"
+#      local-rotation: "0.0 0.0 0.0"
+#      scale: "1.0 1.0 1.0"
+#      translation: "0.0 0.0 0.0"
+#      view-range: 128
+#      shadow-radius: 4
+#      shadow-strength: 0
+#      interpolation-duration: 3
+#      teleport-duration: 3
+#      billboard: FIXED
+#      brightness:
+#        block: 15
+#        sky: 15
+#      show-when:
+#        active: true
+#        sleeping: true

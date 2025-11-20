@@ -1,0 +1,59 @@
+###################
+# FORMAT FILE
+#example:
+#  type: <material>
+#  name: <name>
+#  lore:
+#    - '<lore>'
+#  unbreakable: <true/false>
+#  custom-model-data: <custom model data number>
+#  item-model: minecraft:model_name
+#  hide-flags: <true/false>
+#  enchantment-glint-override: <true/false>
+#  enchantments:
+#    - <Enchantment> <Level>
+#  durability:
+#    damage: <integer>
+#    max-damage: <integer>
+#  skull-owning-player: <UUID> <URL>
+#  potion-color: <Color>
+#  leather-color: <Color>
+#  trim-pattern: <Pattern>
+#  trim-material: <Material>
+#  light-level: <1-16>
+#  tags:
+#    - <String> <Integer>
+iron_chain:
+  type: IRON_CHAIN
+
+## RAGDOLL
+ragdoll_head:
+  type: PLAYER_HEAD
+  skull-owning-player: "steve"
+  custom-model-data: 1
+  item-model: animated_java:blueprint/player_display/head
+ragdoll_right_arm:
+  type: PLAYER_HEAD
+  skull-owning-player: "steve"
+  custom-model-data: 2
+  item-model: animated_java:blueprint/player_display/right_arm
+ragdoll_left_arm:
+  type: PLAYER_HEAD
+  skull-owning-player: "steve"
+  custom-model-data: 3
+  item-model: animated_java:blueprint/player_display/left_arm
+ragdoll_torso:
+  type: PLAYER_HEAD
+  skull-owning-player: "steve"
+  custom-model-data: 4
+  item-model: animated_java:blueprint/player_display/torso
+ragdoll_right_leg:
+  type: PLAYER_HEAD
+  skull-owning-player: "steve"
+  custom-model-data: 5
+  item-model: animated_java:blueprint/player_display/right_leg
+ragdoll_left_leg:
+  type: PLAYER_HEAD
+  skull-owning-player: "steve"
+  custom-model-data: 5
+  item-model: animated_java:blueprint/player_display/left_leg

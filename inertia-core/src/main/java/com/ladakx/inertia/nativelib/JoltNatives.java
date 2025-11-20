@@ -2,8 +2,7 @@ package com.ladakx.inertia.nativelib;
 
 import com.github.stephengold.joltjni.Jolt;
 import com.github.stephengold.joltjni.JoltPhysicsObject;
-import com.ladakx.inertia.InertiaPlugin;
-import com.ladakx.inertia.enums.Precision;
+import com.ladakx.inertia.InertiaLogger;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -28,23 +27,23 @@ public final class JoltNatives {
      */
     public void init(JavaPlugin plugin, Precision precision) throws JoltNativeException {
         if (initialized) {
-            InertiaPlugin.logInfo("Jolt natives are already loaded and initialized.");
+            InertiaLogger.info("Jolt natives are already loaded and initialized.");
             return;
         }
 
         // 1. ЗАВАНТАЖЕННЯ БІБЛІОТЕКИ
-        InertiaPlugin.logInfo("Attempting to load Jolt JNI native library (Precision: " + precision + ")...");
+        InertiaLogger.info("Attempting to load Jolt JNI native library (Precision: " + precision + ")...");
         String nativeResourcePath = getNativeLibraryResourcePath(precision);
 
         if (nativeResourcePath == null) {
             throw new JoltNativeException("Unsupported OS or architecture. Cannot load Jolt JNI.");
         }
-        InertiaPlugin.logInfo("Native library path resolved to: " + nativeResourcePath);
+        InertiaLogger.info("Native library path resolved to: " + nativeResourcePath);
 
         try (InputStream libraryStream = plugin.getResource(nativeResourcePath)) {
             if (libraryStream == null) {
-                InertiaPlugin.logSevere("Could not find the native library inside the JAR at path: " + nativeResourcePath);
-                InertiaPlugin.logSevere("Ensure you have placed the native files in 'src/main/resources/natives/sp' and 'natives/dp'.");
+                InertiaLogger.error("Could not find the native library inside the JAR at path: " + nativeResourcePath);
+                InertiaLogger.error("Ensure you have placed the native files in 'src/main/resources/natives/sp' and 'natives/dp'.");
                 throw new JoltNativeException("Native library not found in JAR: " + nativeResourcePath);
             }
 
@@ -55,7 +54,7 @@ public final class JoltNatives {
             Files.copy(libraryStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
             System.load(tempFile.getAbsolutePath());
-            InertiaPlugin.logInfo("Jolt JNI native library file loaded successfully! (Path: " + tempFile.getAbsolutePath() + ")");
+            InertiaLogger.error("Jolt JNI native library file loaded successfully! (Path: " + tempFile.getAbsolutePath() + ")");
 
         } catch (IOException e) {
             throw new JoltNativeException(new IOException("Could not extract the Jolt JNI native library", e));
@@ -67,41 +66,41 @@ public final class JoltNatives {
 
         // 2. ІНІЦІАЛІЗАЦІЯ JOLT (Залишається без змін)
         try {
-            InertiaPlugin.logInfo("Initializing Jolt native environment...");
+            InertiaLogger.info("Initializing Jolt native environment...");
 
             // (1) Запускаємо очищувач пам'яті
             JoltPhysicsObject.startCleaner();
-            InertiaPlugin.logInfo("JoltPhysicsObject cleaner started.");
+            InertiaLogger.info("JoltPhysicsObject cleaner started.");
 
             // (2) Реєструємо алокатор за замовчуванням (malloc/free)
             Jolt.registerDefaultAllocator();
-            InertiaPlugin.logInfo("Jolt default allocator registered.");
+            InertiaLogger.info("Jolt default allocator registered.");
 
             // (3) Встановлюємо колбеки для логування та помилок
             Jolt.installDefaultAssertCallback();
             Jolt.installDefaultTraceCallback();
-            InertiaPlugin.logInfo("Jolt default callbacks installed.");
+            InertiaLogger.info("Jolt default callbacks installed.");
 
             // (4) Створюємо "Фабрику" - КРИТИЧНИЙ КРОК
             if (!Jolt.newFactory()) {
                 throw new JoltNativeException("Jolt.newFactory() failed. Could not create Jolt Factory.");
             }
-            InertiaPlugin.logInfo("Jolt factory created.");
+            InertiaLogger.info("Jolt factory created.");
 
             // (5) Реєструємо всі фізичні типи
             Jolt.registerTypes();
-            InertiaPlugin.logInfo("Jolt types registered.");
+            InertiaLogger.info("Jolt types registered.");
 
             // (6) Логуємо версію для підтвердження
-            InertiaPlugin.logInfo("JDolt native environment initialized successfully. Jolt Version: " + Jolt.versionString());
+            InertiaLogger.info("JDolt native environment initialized successfully. Jolt Version: " + Jolt.versionString());
             initialized = true;
 
         } catch (UnsatisfiedLinkError e) {
-            InertiaPlugin.logSevere("CRITICAL: Jolt initialization steps failed AFTER loading library.");
-            InertiaPlugin.logSevere("This means the loaded .so file is incompatible or corrupted.");
+            InertiaLogger.error("CRITICAL: Jolt initialization steps failed AFTER loading library.");
+            InertiaLogger.error("This means the loaded .so file is incompatible or corrupted.");
             throw new JoltNativeException(e);
         } catch (Throwable t) {
-            InertiaPlugin.logSevere("CRITICAL: Failed during Jolt static initialization block.");
+            InertiaLogger.error("CRITICAL: Failed during Jolt static initialization block.");
             throw new JoltNativeException(t);
         }
     }
