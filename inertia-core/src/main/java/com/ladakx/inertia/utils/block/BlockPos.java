@@ -1,7 +1,7 @@
 package com.ladakx.inertia.utils.block;
 
-import com.jme3.bounding.BoundingBox;
-import com.jme3.math.Vector3f;
+import com.github.stephengold.joltjni.AaBox;
+import com.github.stephengold.joltjni.Vec3;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -53,13 +53,14 @@ public class BlockPos {
     }
 
     /**
-     * Get the bounding box of the block at this BlockPos.
-     * @return The bounding box of the block
+     * Get the bounding box of the block at this BlockPos using Jolt Physics.
+     * @return The Jolt AABox of the block
      */
-    public BoundingBox boundingBox() {
-        return new BoundingBox(
-                new Vector3f(x, y, z),
-                new Vector3f(x + 1, y + 1, z + 1)
+    public AaBox boundingBox() {
+        // Створення Box 1x1x1 за координатами блоку
+        return new AaBox(
+                new Vec3((float) x, (float) y, (float) z),
+                new Vec3((float) x + 1, (float) y + 1, (float) z + 1)
         );
     }
 

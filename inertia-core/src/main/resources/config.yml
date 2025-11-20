@@ -1,72 +1,13 @@
-Jolt:
-  Precision: DP # DP/SP for double/single precision physics calculations (DP is more accurate but slower SP is faster but less accurate)
+general:
+  lang: "en" # Language file to use
+  debug:
+    boss-bar: "%-4s | Bodies: %-4s | Vehicles: %-4s | Physics MSPT: %-4s | Simulation MSPT: %-4s"
 
-General:
-  Lang: "en" # Language file to use
-  Debug:
-    # worldName, bodies, vehicles, physMSPT, simMSPT
-    Debug_Bar: "%-4s | Bodies: %-4s | Vehicles: %-4s | Physics MSPT: %-4s | Simulation MSPT: %-4s"
-    Block:
-      Max_Radius: 16
-      Blocks:
-        block:
-          Material_Active: GREEN_WOOL
-          Material_Sleep: RED_WOOL
-          Shape:
-            - "x=0.5 y=0.5 z=0.5 center=[0.0 0.0 0.0]"
-          Enable_Sleep: true
-          Angular_Damping: 0.1
-          Linear_Damping: 0.3
-          Friction: 1.0
-          Restitution: 0.025
-          Mass: 75
-        stairs:
-          Material_Active: OAK_STAIRS
-          Material_Sleep: OAK_STAIRS
-          Shape:
-            - "x=0.5 y=0.5 z=0.5 center=[0.0 0.0 0.0]"
-        slab:
-          Material_Active: STONE_SLAB
-          Material_Sleep: STONE_SLAB
-          Shape:
-            - "x=0.5 y=0.25 z=0.5 center=[0.0 -0.25 0.0]"
-    Hitbox:
-      Lines: true
-      Size: 0.25
-      Count: 7
-
-# JBullet Events
-Events:
-  Collision: # Collision event between physics objects
-    Enable: true
-    Threshold: "0.2 0.0 0.1"
-
-# Physics settings
-Physics:
-  Enable: true
-  Performance:
-    Tick_Rate: 20
-    Threads: 1
-  Worlds:
-    world:
-      Gravity: "0.0 -9.81 0.0" # Real world: -9.81 | Minecraft: -31.36
-      Accuracy: 0.0166
-      Size:
-        Min: -200000 -64 -200000
-        Max: 200000 1024 200000
-      Solver:
-        Type: SI
-        Iterations: 10
-      Step:
-        Max_Time: 0.1
-        Max_Sub_Steps: 4
-
-
-# JBullet Simulation world settings
-Simulation:
-  Enable: true
-  Type: RAYON # Chunk simulation
-  Threads: 3 # Number of threads to use
-  Settings:
-    Rayon:
-      Inflate: 3.0
+physics:
+  enable: true
+  precision: DP # DP/SP for double/single precision physics calculations
+  worker-threads: 2 # Number of worker threads for physics calculations
+  simulation:
+    worker-threads: 1
+    rayon:
+      inflate: 3.0

@@ -1,5 +1,6 @@
 package com.ladakx.inertia.nms.nbt;
 
+import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.utils.MinecraftVersions;
 
@@ -18,7 +19,7 @@ public class NBTPersistentTools {
      */
     public static NBTPersistent get() {
         String version = MinecraftVersions.CURRENT.toProtocolString().toLowerCase(Locale.ROOT);
-        String path = "me.emsockz.rosecore.nms."+version+".NBTPersistent";
+        String path = "com.ladakx.inertia.nms."+version+".NBTPersistent";
 
         NBTPersistent nbtPersistentTools = null;
 
@@ -27,7 +28,7 @@ public class NBTPersistentTools {
             Constructor<?> constructor = clazz.getConstructor();
             nbtPersistentTools = (NBTPersistent) constructor.newInstance();
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            InertiaPlugin.logSevere("(RoseCore) The server version you are using is not supported.");
+            InertiaLogger.error("The server version you are using is not supported.");
             e.printStackTrace();
         }
 

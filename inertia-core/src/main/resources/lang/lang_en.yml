@@ -1,62 +1,62 @@
-Prefix: "&cRoseCore &l»&r"
+prefix: "&cInertia &l»&r"
 
-No_Perm: 
+no-permissions:
   - "{prefix} &7No permissions!"
-Reload_Plugin:
+reload-plugin:
   - "{prefix} &7Plugin reloaded!"
-Command_Not_Found:
+command-not-found:
   - "{prefix} &7Command not found!"
-Wrong_Args_Command:
+wrong-args-command:
   - "{prefix} &сWrong command arguments!"
 
-Not_For_Console:
+not-for-console:
   - "{prefix} &7This command can only be executed by a player!"
-Not_For_This_Version:
+not-for-this-version:
   - "{prefix} &7This command is not available in your server version!"
   - "{prefix} &7Please update the server to version {version} or higher!"
-Not_For_This_World:
+not-for-this-world:
   - "{prefix} &7Add this world to the list of physical worlds in the config.yml file"
   - "{prefix} &7To use this command!"
 
-WorldEdit_Not_Enabled:
+worldedit-not-enabled:
   - "{prefix} &cWorldEdit plugin not found on the server!"
   - "{prefix} &cThis command requires WorldEdit to work!"
-Select_Region:
+select-region:
   - "{prefix} &cSelect the region with an axe before using this command!"
-DebugShape_Create_Success:
+debug-shape-create-success:
   - "{prefix} &7Debug shape &asuccessfully &7created!"
 
-Debug_Block_Not_Found:
+debug-block-not-found:
   - "{prefix} &cBlock not found!"
-Debug_Render_Hitboxes:
+debug-render-hitboxes:
   - "{prefix} &7Debug render hitboxes: {state}"
-Debug_Block_Title:
+debug-block-bb-title:
   - "{prefix} &7Debug block: &c{block}"
-Debug_Block_Info:
+debug-block-bb-info:
   - "{prefix} &7Size: &c{size}&7, Center: &c{center}"
 
-Debug_Blocks_Spawned:
+debug-blocks-spawned:
   - "{prefix} &7Debug blocks &asuccessfully&7 spawned in radius &c{radius}!"
-Debug_Blocks_Cleared:
+debug-blocks-cleared:
   - "{prefix} &7Debug blocks &asuccessfully&c cleared!"
 
-Help_Command:
+help-command:
   - ' '
-  - '&c&lRose&f&lCore &8&l|&r &7Core'
-  - ' '
-  - '&c&l» Commands&8:'
-  - '&c› &c/rosecore help &7- &fShow help for commands'
-  - ' '
-Help_Command_Admin:
-  - ' '
-  - '&c&lRose&f&lCore &8&l|&r &7Core'
+  - '&c&lInertia &8&l|&r &7Core'
   - ' '
   - '&c&l» Commands&8:'
-  - '&c› &c/rosecore help &7- &fShow help for commands'
-  - '&c› &c/rosecore reload &7- &fReload the plugin.'
-  - '&c› &c/rosecore debug &7- &fEnable debug bar.'
-  - '&c› &c/rosecore debug block info &7- &fShow bounding box of target block.'
-  - '&c› &c/rosecore debug block spawn <radius> &7- &fSpawn physics blocks for debug.'
-  - '&c› &c/rosecore debug block clear &7- &fClear all physics debug blocks'
-  - '&c› &c/rosecore hitbox &7- &fEnable render physics elements hitbox.'
+  - '&c› &c/inertia help &7- &fShow help for commands'
+  - ' '
+help-command-admin:
+  - ' '
+  - '&c&lInertia &8&l|&r &7Core'
+  - ' '
+  - '&c&l» Commands&8:'
+  - '&c› &c/inertia help &7- &fShow help for commands'
+  - '&c› &c/inertia reload &7- &fReload the plugin.'
+  - '&c› &c/inertia debug &7- &fEnable debug bar.'
+  - '&c› &c/inertia debug block info &7- &fShow bounding box of target block.'
+  - '&c› &c/inertia debug block spawn <radius> &7- &fSpawn physics blocks for debug.'
+  - '&c› &c/inertia debug block clear &7- &fClear all physics debug blocks'
+  - '&c› &c/inertia hitbox &7- &fEnable render physics elements hitbox.'
   - ' '

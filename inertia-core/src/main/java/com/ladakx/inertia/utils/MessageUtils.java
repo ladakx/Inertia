@@ -1,39 +1,37 @@
 package com.ladakx.inertia.utils;
 
-import com.ladakx.inertia.InertiaPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Utility class for messages. Used to retrieve messages from the config.
+ * Pure utility class for parsing strings into Components.
+ * Stateless and independent of Plugin instance.
  */
 public class MessageUtils {
-    /**
-     * Retrieves a String message from a config and converts it to a Component.
-     * @param path The path of the message in the config.
-     * @return true if the message is empty, false otherwise.
-     */
-    public static boolean isEmpty(String path) {
-        return InertiaPlugin.getMessages().getConfig().getStringList(path).isEmpty();
-    }
+
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     /**
-     * Retrieves a List<String> message from a config and converts it to a List<Component>.
-     * @param string The key of the message in the config.
-     * @return The converted List<Component>.
+     * Converts a raw string into a Component, applying replacements and colors.
+     * @param text The raw text from config
+     * @param prefix The prefix to replace "{prefix}" with
+     * @return The parsed Component
      */
-    public static List<Component> getMessage(String string) {
-        String prefix = InertiaPlugin.getMessages().getConfig().getString("Prefix");
-        List<String> text = InertiaPlugin.getMessages().getConfig().getStringList(string);
-        List<Component> result = new ArrayList<>();
-
-        for (String s : text) {
-            result.add(MiniMessage.miniMessage().deserialize(StringUtils.colorAdventure(s.replace("{prefix}", prefix))));
+    public static Component parse(String text, String prefix) {
+        if (text == null || text.isEmpty()) {
+            return Component.empty();
         }
 
-        return result;
+        // 1. Replace prefix
+        // 2. Apply legacy colors (if needed via your StringUtils)
+        // 3. Parse MiniMessage
+        String processed = text.replace("{prefix}", prefix != null ? prefix : "");
+
+        // Припускаємо, що StringUtils.colorAdventure повертає String з legacy кодами, адаптованими для MM
+        if (processed.contains("&") || processed.contains("§")) {
+            processed = StringUtils.colorAdventure(processed);
+        }
+
+        return MINI_MESSAGE.deserialize(processed);
     }
 }
