@@ -50,12 +50,12 @@ TUFF_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 TUFF_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CHISELED_TUFF:
   collidable: true
   full-block: true
@@ -69,12 +69,12 @@ POLISHED_TUFF_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 POLISHED_TUFF_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 TUFF_BRICKS:
   collidable: true
   full-block: true
@@ -85,12 +85,12 @@ TUFF_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 TUFF_BRICK_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CHISELED_TUFF_BRICKS:
   collidable: true
   full-block: true
@@ -338,22 +338,22 @@ CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 EXPOSED_CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 WEATHERED_CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 OXIDIZED_CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CUT_COPPER_SLAB:
   collidable: true
   full-block: false
@@ -406,22 +406,22 @@ WAXED_CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 WAXED_EXPOSED_CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 WAXED_WEATHERED_CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 WAXED_OXIDIZED_CUT_COPPER_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 WAXED_CUT_COPPER_SLAB:
   collidable: true
   full-block: false
@@ -966,7 +966,7 @@ PURPUR_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SPAWNER:
   collidable: true
   full-block: true
@@ -977,7 +977,7 @@ CHEST:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CRAFTING_TABLE:
   collidable: true
   full-block: true
@@ -985,7 +985,7 @@ FARMLAND:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 FURNACE:
   collidable: true
   full-block: true
@@ -996,7 +996,7 @@ COBBLESTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SNOW:
   collidable: false
   full-block: false
@@ -1010,7 +1010,7 @@ CACTUS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CLAY:
   collidable: true
   full-block: true
@@ -1084,7 +1084,7 @@ SOUL_SOIL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 BASALT:
   collidable: true
   full-block: true
@@ -1197,7 +1197,7 @@ RESIN_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 RESIN_BRICK_SLAB:
   collidable: true
   full-block: false
@@ -1205,7 +1205,7 @@ RESIN_BRICK_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CHISELED_RESIN_BRICKS:
   collidable: true
   full-block: true
@@ -1213,17 +1213,17 @@ BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 STONE_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 MUD_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 MYCELIUM:
   collidable: true
   full-block: true
@@ -1247,7 +1247,7 @@ NETHER_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SCULK:
   collidable: true
   full-block: true
@@ -1255,17 +1255,17 @@ SCULK_VEIN:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SCULK_CATALYST:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SCULK_SHRIEKER:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 ENCHANTING_TABLE:
   collidable: true
   full-block: false
@@ -1273,7 +1273,7 @@ END_PORTAL_FRAME:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 END_STONE:
   collidable: true
   full-block: true
@@ -1287,12 +1287,12 @@ SANDSTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 ENDER_CHEST:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 EMERALD_BLOCK:
   collidable: true
   full-block: true
@@ -1300,67 +1300,67 @@ OAK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SPRUCE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 BIRCH_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 JUNGLE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 ACACIA_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CHERRY_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 DARK_OAK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 PALE_OAK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 MANGROVE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 BAMBOO_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 BAMBOO_MOSAIC_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CRIMSON_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 WARPED_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 COMMAND_BLOCK:
   collidable: true
   full-block: true
@@ -1371,32 +1371,32 @@ COBBLESTONE_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 MOSSY_COBBLESTONE_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 BRICK_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 PRISMARINE_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 RED_SANDSTONE_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 MOSSY_STONE_BRICK_WALL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 GRANITE_WALL:
   collidable: true
   full-block: false
@@ -1465,17 +1465,17 @@ ANVIL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CHIPPED_ANVIL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 DAMAGED_ANVIL:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CHISELED_QUARTZ_BLOCK:
   collidable: true
   full-block: true
@@ -1492,7 +1492,7 @@ QUARTZ_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 WHITE_TERRACOTTA:
   collidable: true
   full-block: true
@@ -1608,7 +1608,7 @@ DIRT_PATH:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SUNFLOWER:
   collidable: false
   full-block: false
@@ -1736,17 +1736,17 @@ PRISMARINE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 PRISMARINE_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 DARK_PRISMARINE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SEA_LANTERN:
   collidable: false
   full-block: false
@@ -1763,7 +1763,7 @@ RED_SANDSTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 REPEATING_COMMAND_BLOCK:
   collidable: true
   full-block: true
@@ -2089,32 +2089,32 @@ POLISHED_GRANITE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SMOOTH_RED_SANDSTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 MOSSY_STONE_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 POLISHED_DIORITE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 MOSSY_COBBLESTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 END_STONE_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 STONE_STAIRS:
   collidable: true
   full-block: false
@@ -2122,42 +2122,42 @@ SMOOTH_SANDSTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SMOOTH_QUARTZ_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 GRANITE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 ANDESITE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 RED_NETHER_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 POLISHED_ANDESITE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 DIORITE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 COBBLED_DEEPSLATE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 POLISHED_DEEPSLATE_STAIRS:
   collidable: true
   full-block: false
@@ -2165,12 +2165,12 @@ DEEPSLATE_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 DEEPSLATE_TILE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 POLISHED_GRANITE_SLAB:
   collidable: true
   full-block: false
@@ -2277,12 +2277,12 @@ DAYLIGHT_DETECTOR:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 SCULK_SENSOR:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CALIBRATED_SCULK_SENSOR:
   collidable: true
   full-block: false
@@ -2293,7 +2293,7 @@ TRAPPED_CHEST:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 TNT:
   collidable: true
   full-block: false
@@ -2670,82 +2670,82 @@ WHITE_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 ORANGE_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 MAGENTA_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 LIGHT_BLUE_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 YELLOW_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 LIME_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 PINK_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 GRAY_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 LIGHT_GRAY_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 CYAN_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 PURPLE_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 BLUE_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 BROWN_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 GREEN_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 RED_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 BLACK_BED:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 CRAFTER:
   collidable: true
   full-block: true
@@ -2759,7 +2759,7 @@ CAULDRON:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 FLOWER_POT:
   collidable: false
   full-block: false
@@ -2839,7 +2839,7 @@ COMPOSTER:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 BARREL:
   collidable: true
   full-block: true
@@ -2859,7 +2859,7 @@ GRINDSTONE:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 SMITHING_TABLE:
   collidable: true
   full-block: true
@@ -2867,7 +2867,7 @@ STONECUTTER:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 BELL:
   collidable: false
   full-block: false
@@ -2881,12 +2881,12 @@ CAMPFIRE:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 SOUL_CAMPFIRE:
   collidable: true
   full-block: false
   shape:
-    - x=0.50 y=0.25 z=0.50 center=[0.50 0.25 0.50]
+    - "type=box x=0.25 y=0.5 z=0.5"
 SHROOMLIGHT:
   collidable: true
   full-block: true
@@ -2915,7 +2915,7 @@ BLACKSTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 GILDED_BLACKSTONE:
   collidable: true
   full-block: true
@@ -2929,7 +2929,7 @@ POLISHED_BLACKSTONE_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CHISELED_POLISHED_BLACKSTONE:
   collidable: true
   full-block: true
@@ -2943,7 +2943,7 @@ POLISHED_BLACKSTONE_BRICK_STAIRS:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 CRACKED_POLISHED_BLACKSTONE_BRICKS:
   collidable: true
   full-block: true
@@ -3200,17 +3200,17 @@ WATER_CAULDRON:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 LAVA_CAULDRON:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 POWDER_SNOW_CAULDRON:
   collidable: true
   full-block: true
   shape:
-    - x=0.50 y=0.50 z=0.50 center=[0.50 0.50 0.50]
+    - "type=box x=0.5 y=0.5 z=0.5"
 END_PORTAL:
   collidable: false
   full-block: false
