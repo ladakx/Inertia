@@ -6,6 +6,7 @@ import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.jolt.JoltManager;
 import com.ladakx.inertia.jolt.listeners.WorldLoadListener;
 import com.ladakx.inertia.commands.Commands;
+import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.nativelib.Precision;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.nativelib.JoltNatives;
@@ -15,8 +16,7 @@ import com.ladakx.inertia.nms.nbt.NBTPersistent;
 import com.ladakx.inertia.nms.nbt.NBTPersistentTools;
 import com.ladakx.inertia.nms.player.PlayerNMSTools;
 import com.ladakx.inertia.nms.player.PlayerTools;
-import com.ladakx.inertia.performance.pool.SimulationThreadPool;
-import com.ladakx.inertia.utils.block.BlockUtils;
+import com.ladakx.inertia.utils.mesh.BlockBenchMeshProvider;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -35,8 +35,7 @@ public final class InertiaPlugin extends JavaPlugin {
     // config objects
     private ConfigManager configManager;
 
-    // Systems
-    private SimulationThreadPool simulationThreadPool;
+    // Systems;
     private PaperCommandManager paperCommandManager;
 
     // Jolt
@@ -62,34 +61,30 @@ public final class InertiaPlugin extends JavaPlugin {
         InertiaLogger.init(this);
         InertiaLogger.info("Starting Inertia initialization...");
 
-        // 1. Load Integrations (Adventure, WorldEdit)
+        // Load Integrations (Adventure, WorldEdit)
         setupIntegrations();
 
-        // 2. Load Configurations
+        // Load Configurations
         loadConfigurations();
 
         this.itemManager = new ItemManager(getConfigManager().getItemsFile());
 
-        // 3. Initialize Native Libraries (Jolt)
+        // Initialize Native Libraries (Jolt)
         if (!setupNativeLibraries()) {
             InertiaLogger.error("Failed to initialize Jolt Physics Engine. Disabling plugin.");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
 
-        // 4. Initialize NMS Tools
-        setupNMSTools();
+        JShapeFactory.setMeshProvider(new BlockBenchMeshProvider(this));
 
-        // 5. Initialize Thread Pools & Managers
-        this.simulationThreadPool = new SimulationThreadPool();
+        // Initialize NMS Tools
+        setupNMSTools();
 
         JoltManager.init(this);
         this.spaceManager = new SpaceManager(this);
 
-        // 6. Initialize Cache
-        BlockUtils.initCollidableCache();
-
-        // 7. Register Commands & Listeners
+        // Register Commands & Listeners
         setupCommands();
         registerListeners();
 
@@ -98,18 +93,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-//        if (this.bulletManager != null) {
-////            this.bulletManager.getDebugBlockManager().clearDebugBlocks();
-//            this.bulletManager.stopSchedulers();
-//            if (this.bulletManager.getSpaceManager() != null) {
-//                this.bulletManager.getSpaceManager().unloadSpaces();
-//            }
-//        }
-
-        if (this.simulationThreadPool != null) {
-            this.simulationThreadPool.shutdown();
-        }
-
         InertiaLogger.info("Inertia has been disabled.");
     }
 
@@ -117,15 +100,7 @@ public final class InertiaPlugin extends JavaPlugin {
      * Reloads the plugin configurations and spaces.
      */
     public void reload() {
-//        if (this.bulletManager != null) {
-//            this.bulletManager.getDebugBlockManager().clearDebugBlocks();
-//        }
-
         loadConfigurations(); // Re-use the centralized loading method
-
-//        if (this.bulletManager != null) {
-//            this.bulletManager.getSpaceManager().reloadSpaces();
-//        }
 
         // Update command completions via the existing manager if needed
         registerCommandCompletions();
@@ -187,7 +162,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new WorldLoadListener(), this);
-        Bukkit.getPluginManager().registerEvents(new PlayerQuitListener(), this);
     }
 
     // ==================================================================
@@ -226,10 +200,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     public SpaceManager getSpaceManager() {
         return spaceManager;
-    }
-
-    public SimulationThreadPool getSimulationThreadPool() {
-        return simulationThreadPool;
     }
 
     public boolean isWorldEditEnabled() {

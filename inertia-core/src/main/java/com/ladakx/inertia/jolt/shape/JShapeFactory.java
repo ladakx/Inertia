@@ -2,6 +2,7 @@ package com.ladakx.inertia.jolt.shape;
 
 import com.github.stephengold.joltjni.BoxShape;
 import com.github.stephengold.joltjni.CapsuleShape;
+import com.github.stephengold.joltjni.ConvexHullShapeSettings;
 import com.github.stephengold.joltjni.CylinderShape;
 import com.github.stephengold.joltjni.OffsetCenterOfMassShapeSettings;
 import com.github.stephengold.joltjni.Quat;
@@ -10,8 +11,11 @@ import com.github.stephengold.joltjni.ShapeRefC;
 import com.github.stephengold.joltjni.ShapeResult;
 import com.github.stephengold.joltjni.SphereShape;
 import com.github.stephengold.joltjni.StaticCompoundShapeSettings;
+import com.github.stephengold.joltjni.TaperedCapsuleShapeSettings;
+import com.github.stephengold.joltjni.TaperedCylinderShapeSettings;
 import com.github.stephengold.joltjni.Vec3;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.utils.mesh.MeshProvider;
 import com.ladakx.inertia.utils.serializers.TransformSerializer;
 import com.ladakx.inertia.utils.serializers.TransformSerializer.JoltTransform;
 
@@ -19,27 +23,68 @@ import java.util.*;
 
 /**
  * Фабрика, яка з текстових описів у конфізі створює Jolt CollisionShape.
- * <p>
- * Приклад:
+ *
+ * Вхід:
  *   shape:
  *     - "type=box x=0.5 y=0.5 z=0.5"
  *     - "type=sphere radius=0.25"
  *     - "type=capsule radius=0.2 height=1.0"
  *     - "type=cylinder radius=0.2 height=1.0"
- * <p>
+ *     - "type=tapered_capsule height=2.0 topRadius=0.3 bottomRadius=0.5"
+ *     - "type=tapered_cylinder height=2.0 topRadius=0.4 bottomRadius=0.6"
+ *     - "type=convex_hull mesh=models/vehicle_body.obj convexRadius=0.05"
+ *     - ...
+ *
  * Якщо одна лінія:
  *   - створюється один шейп;
- *   - якщо є px/py/pz або rot/pitch/yaw/roll — шейп загортається в RotatedTranslatedShape;
- *   - якщо є com / comx / comy / comz — шейп додатково загортається в OffsetCenterOfMassShape.
- * <p>
+ *   - якщо є px/py/pz або rot/pitch/yaw/roll — шейп загортається
+ *     в RotatedTranslatedShape;
+ *   - якщо є com / comx / comy / comz — шейп додатково загортається
+ *     в OffsetCenterOfMassShape.
+ *
  * Якщо кілька ліній:
  *   - створюється StaticCompoundShape;
  *   - кожен підшейп має свій локальний position + rotation (через addShape);
- *   - для кожного підшейпа окремо можна задати
+
  */
 public final class JShapeFactory {
 
+    /**
+     * Глобальний провайдер мешів для type=convex_hull.
+     * Налаштовується ззовні, наприклад у onEnable плагіна.
+     */
+    private static volatile MeshProvider meshProvider;
+
     private JShapeFactory() {
+    }
+
+    /**
+     * Зареєструвати MeshProvider для завантаження мешів (BlockBench, OBJ тощо).
+     */
+    public static void setMeshProvider(MeshProvider provider) {
+        meshProvider = provider;
+    }
+
+    /**
+     * Опціонально дістати поточний MeshProvider.
+     */
+    public static Optional<MeshProvider> getMeshProvider() {
+        return Optional.ofNullable(meshProvider);
+    }
+
+    /**
+     * Внутрішньо: отримати MeshProvider або впасти з помилкою, якщо його не налаштовано.
+     */
+    private static MeshProvider requireMeshProvider() {
+        MeshProvider provider = meshProvider;
+        if (provider == null) {
+            throw new IllegalStateException(
+                    "MeshProvider is not set. " +
+                            "It is required for type=convex_hull shapes. " +
+                            "Call ShapeConfigFactory.setMeshProvider(...) on startup."
+            );
+        }
+        return provider;
     }
 
     /**
@@ -167,10 +212,13 @@ public final class JShapeFactory {
         ComOffset com = parseCenterOfMassOffset(kv);
 
         ConstShape shape = switch (type) {
-            case "box"      -> parseBox(kv, line);
-            case "sphere"   -> parseSphere(kv, line);
-            case "capsule"  -> parseCapsule(kv, line);
-            case "cylinder" -> parseCylinder(kv, line);
+            case "box"              -> parseBox(kv, line);
+            case "sphere"           -> parseSphere(kv, line);
+            case "capsule"          -> parseCapsule(kv, line);
+            case "cylinder"         -> parseCylinder(kv, line);
+            case "tapered_capsule"  -> parseTaperedCapsule(kv, line);
+            case "tapered_cylinder" -> parseTaperedCylinder(kv, line);
+            case "convex_hull"      -> parseConvexHull(kv, line);
             default -> throw new IllegalArgumentException(
                     "Unknown shape type '" + rawType + "' in line: " + line
             );
@@ -277,6 +325,109 @@ public final class JShapeFactory {
         } else {
             return new CylinderShape(halfHeight, radius);
         }
+    }
+
+    /**
+     * TaperedCapsuleShape:
+     *   height      -> повна висота (ми ділимо на 2 для halfHeight),
+     *   topRadius   -> радіус верхньої "сфери",
+     *   bottomRadius-> радіус нижньої.
+     *
+     * У Jolt-JNI це робиться через TaperedCapsuleShapeSettings(halfHeight, topRadius, bottomRadius)
+     * і далі settings.create() [2].
+     */
+    private static ConstShape parseTaperedCapsule(Map<String, String> kv, String line) {
+        float height       = parseFloat(require(kv, "height", line));
+        float halfHeight   = height * 0.5f;
+        float topRadius    = parseFloat(require(kv, "topradius", line));
+        float bottomRadius = parseFloat(require(kv, "bottomradius", line));
+
+        TaperedCapsuleShapeSettings settings =
+                new TaperedCapsuleShapeSettings(halfHeight, topRadius, bottomRadius);
+
+        ShapeResult result = settings.create();
+        if (result.hasError()) {
+            throw new IllegalStateException(
+                    "Failed to create TaperedCapsuleShape: " + result.getError()
+            );
+        }
+        return result.get();
+    }
+
+    /**
+     * TaperedCylinderShape:
+     *   height      -> повна висота (halfHeight = height/2),
+     *   topRadius   -> радіус зверху,
+     *   bottomRadius-> радіус знизу,
+     *   convexRadius (опційно) -> товщина "margin"/convex-radius [2].
+     */
+    private static ConstShape parseTaperedCylinder(Map<String, String> kv, String line) {
+        float height       = parseFloat(require(kv, "height", line));
+        float halfHeight   = height * 0.5f;
+        float topRadius    = parseFloat(require(kv, "topradius", line));
+        float bottomRadius = parseFloat(require(kv, "bottomradius", line));
+
+        String convexRadiusStr = kv.get("convexradius");
+        TaperedCylinderShapeSettings settings;
+        if (convexRadiusStr != null) {
+            float convexRadius = parseFloat(convexRadiusStr);
+            settings = new TaperedCylinderShapeSettings(
+                    halfHeight, topRadius, bottomRadius, convexRadius
+            );
+        } else {
+            settings = new TaperedCylinderShapeSettings(
+                    halfHeight, topRadius, bottomRadius
+            );
+        }
+
+        ShapeResult result = settings.create();
+        if (result.hasError()) {
+            throw new IllegalStateException(
+                    "Failed to create TaperedCylinderShape: " + result.getError()
+            );
+        }
+        return result.get();
+    }
+
+    /**
+     * ConvexHullShape:
+     *   - очікує mesh=<id>, який MeshProvider потім конвертує в список вершин;
+     *   - convexRadius (опційно) -> maxConvexRadius для ConvexHullShapeSettings [2].
+     *
+     * Це дозволяє, наприклад, експортувати модель із BlockBench у OBJ/JSON
+     * і в MeshProvider перетворити її в Collection<Vec3>, яку ми тут просто
+     * підсунемо ConvexHullShapeSettings(points).create().
+     */
+    private static ConstShape parseConvexHull(Map<String, String> kv, String line) {
+        String meshId = require(kv, "mesh", line);
+
+        MeshProvider provider = requireMeshProvider();
+        Collection<Vec3> points = provider.loadConvexHullPoints(meshId);
+
+        if (points == null || points.isEmpty()) {
+            throw new IllegalStateException(
+                    "MeshProvider returned no points for mesh='" + meshId + "'"
+            );
+        }
+
+        String convexRadiusStr = kv.get("convexradius");
+
+        ConvexHullShapeSettings settings;
+        if (convexRadiusStr != null) {
+            float maxConvexRadius = parseFloat(convexRadiusStr);
+            settings = new ConvexHullShapeSettings(points, maxConvexRadius);
+        } else {
+            // Використає Jolt.cDefaultConvexRadius за замовчуванням [2]
+            settings = new ConvexHullShapeSettings(points);
+        }
+
+        ShapeResult result = settings.create();
+        if (result.hasError()) {
+            throw new IllegalStateException(
+                    "Failed to create ConvexHullShape: " + result.getError()
+            );
+        }
+        return result.get();
     }
 
     // ---------- Утиліти парсингу ----------
