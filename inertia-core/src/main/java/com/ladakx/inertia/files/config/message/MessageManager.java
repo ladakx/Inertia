@@ -5,7 +5,6 @@ import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.utils.MessageUtils;
 import com.ladakx.inertia.utils.StringUtils;
 import net.kyori.adventure.audience.Audience;
-import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -19,14 +18,12 @@ import java.util.Map;
 public class MessageManager {
 
     private final InertiaPlugin plugin;
-    private final BukkitAudiences adventure;
 
     // Cache: Зберігаємо вже готові Component, щоб не парсити їх щоразу при відправці
     private final Map<MessageKey, List<Component>> messageCache = new EnumMap<>(MessageKey.class);
 
     public MessageManager(InertiaPlugin plugin) {
         this.plugin = plugin;
-        this.adventure = plugin.getAdventure();
     }
 
     /**
@@ -74,11 +71,11 @@ public class MessageManager {
     // --- Sending Methods ---
 
     public void send(CommandSender sender, MessageKey key, String... replacements) {
-        send(adventure.sender(sender), key, replacements);
+        send(sender, key, replacements);
     }
 
     public void send(Player player, MessageKey key, String... replacements) {
-        send(adventure.player(player), key, replacements);
+        send(player, key, replacements);
     }
 
     public void send(Audience audience, MessageKey key, String... replacements) {

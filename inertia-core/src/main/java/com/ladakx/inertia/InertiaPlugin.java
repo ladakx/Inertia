@@ -101,10 +101,6 @@ public final class InertiaPlugin extends JavaPlugin {
      */
     public void reload() {
         loadConfigurations(); // Re-use the centralized loading method
-
-        // Update command completions via the existing manager if needed
-        registerCommandCompletions();
-
         InertiaLogger.info("Inertia configuration reloaded.");
     }
 
@@ -149,15 +145,7 @@ public final class InertiaPlugin extends JavaPlugin {
         this.paperCommandManager.enableUnstableAPI("HelpEntry");
         this.paperCommandManager.enableUnstableAPI("brigadier");
         this.paperCommandManager.enableUnstableAPI("CommandHelp");
-
-        registerCommandCompletions();
         this.paperCommandManager.registerCommand(new Commands());
-    }
-
-    private void registerCommandCompletions() {
-        if (this.paperCommandManager == null) return;
-
-        this.paperCommandManager.getCommandCompletions().registerCompletion("debug-blocks", c -> getConfigManager().getInertiaConfig().GENERAL.DEBUG.debugBlocks.keySet());
     }
 
     private void registerListeners() {
