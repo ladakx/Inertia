@@ -6,7 +6,7 @@ stone:
     position: true
     rotation: true
   entities:
-    display:
+    display_1:
       type: BLOCK_DISPLAY
       block: STONE
 
@@ -18,7 +18,7 @@ iron_chain:
     position: true
     rotation: true
   entities:
-    display:
+    display_1:
       type: ITEM_DISPLAY
       item-model: IRON_CHAIN  # ItemStack-конфіг
       display-mode: NONE

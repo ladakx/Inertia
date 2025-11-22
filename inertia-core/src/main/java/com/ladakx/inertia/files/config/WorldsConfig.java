@@ -56,7 +56,7 @@ public class WorldsConfig {
         ConfigurationSection floorSec = section.getConfigurationSection("floor-plane");
         FloorPlaneSettings floorPlane = new FloorPlaneSettings(
                 floorSec != null && floorSec.getBoolean("enable", true),
-                floorSec != null ? floorSec.getDouble("y-level", 0.0) : 0.0
+                (float) (floorSec != null ? floorSec.getDouble("y-level", 0.0) : 0.0)
         );
 
         // --- Simulation ---
@@ -120,7 +120,7 @@ public class WorldsConfig {
             WorldSizeSettings size
     ) {}
 
-    public record FloorPlaneSettings(boolean enabled, double yLevel) {}
+    public record FloorPlaneSettings(boolean enabled, float yLevel) {}
 
     public record SimulationSettings(boolean enabled, SimulationType type) {}
 

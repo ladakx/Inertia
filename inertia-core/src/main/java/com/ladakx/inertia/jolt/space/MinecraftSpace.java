@@ -9,7 +9,7 @@ import com.github.stephengold.joltjni.readonly.ConstPlane;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.github.stephengold.joltjni.readonly.Vec3Arg;
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.files.config.InertiaConfig.PhysicsSettings.WorldSettings; // Імпорт WorldSettings
+import com.ladakx.inertia.files.config.WorldsConfig;
 import com.ladakx.inertia.jolt.PhysicsLayers;
 import com.ladakx.inertia.jolt.object.MinecraftPhysicsObject;
 import org.bukkit.World;
@@ -25,7 +25,7 @@ public class MinecraftSpace implements AutoCloseable {
 
     private final String worldName;
     private final World worldBukkit;
-    private final WorldSettings settings; // Додано посилання на налаштування
+    private final WorldsConfig.WorldProfile settings; // Додано посилання на налаштування
     private final PhysicsSystem physicsSystem;
 
     // Посилання на глобальні ресурси
@@ -40,7 +40,7 @@ public class MinecraftSpace implements AutoCloseable {
     private final @NotNull List<MinecraftPhysicsObject> objects = new CopyOnWriteArrayList<>();
     private final @NotNull Map<Long, MinecraftPhysicsObject> objectMap = new ConcurrentHashMap<>();
 
-    public MinecraftSpace(World world, WorldSettings settings, JobSystem jobSystem, TempAllocator tempAllocator) {
+    public MinecraftSpace(World world, WorldsConfig.WorldProfile settings, JobSystem jobSystem, TempAllocator tempAllocator) {
         this.worldBukkit = world;
         this.worldName = world.getName();
         this.settings = settings;
@@ -64,7 +64,7 @@ public class MinecraftSpace implements AutoCloseable {
         this.physicsSystem = new PhysicsSystem();
 
         // Використовуємо велику константу, оскільки maxBodies не було у WorldSettings
-        final int MAX_BODIES = settings.maxBodies;
+        final int MAX_BODIES = settings.maxBodies();
 
         this.physicsSystem.init(
                 MAX_BODIES,
@@ -77,7 +77,7 @@ public class MinecraftSpace implements AutoCloseable {
         );
 
         // Використовуємо Gravity з WorldSettings
-        this.physicsSystem.setGravity(this.settings.gravity.x, this.settings.gravity.y, this.settings.gravity.z);
+        this.physicsSystem.setGravity(this.settings.gravity());
         this.physicsSystem.optimizeBroadPhase();
 
         // Створення окремого потоку для цього світу
@@ -87,12 +87,12 @@ public class MinecraftSpace implements AutoCloseable {
             return t;
         });
 
-        if (this.settings.floorPlaneEnable) {
-            addFloorPlane(this.settings);
+        if (this.settings.floorPlane().enabled()) {
+            addFloorPlane(this.settings.floorPlane());
         }
 
         // Використовуємо tickRate з WorldSettings
-        startSimulationLoop(this.settings.tickRate);
+        startSimulationLoop(this.settings.tickRate());
     }
 
     private void startSimulationLoop(int fps) {
@@ -109,7 +109,7 @@ public class MinecraftSpace implements AutoCloseable {
 
             try {
                 // Оновлення фізики (крок симуляції)
-                int errors = physicsSystem.update(deltaTime, this.settings.collisionSteps, tempAllocator, jobSystem);
+                int errors = physicsSystem.update(deltaTime, this.settings.collisionSteps(), tempAllocator, jobSystem);
 
                 if (errors != EPhysicsUpdateError.None) {
                     InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
@@ -132,7 +132,7 @@ public class MinecraftSpace implements AutoCloseable {
     }
 
     // Додаємо геттер для WorldSettings
-    public WorldSettings getSettings() {
+    public WorldsConfig.WorldProfile getSettings() {
         return settings;
     }
 
@@ -154,10 +154,10 @@ public class MinecraftSpace implements AutoCloseable {
         }
     }
 
-    private void addFloorPlane(WorldSettings settings) {
+    private void addFloorPlane(WorldsConfig.FloorPlaneSettings settings) {
         BodyInterface bi = physicsSystem.getBodyInterface();
 
-        float groundY = settings.floorPlaneY;
+        float groundY = settings.yLevel();
         Vec3Arg normal = Vec3.sAxisY();
         ConstPlane plane = new Plane(normal, -groundY);
         ConstShape floorShape = new PlaneShape(plane);

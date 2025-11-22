@@ -1,15 +1,15 @@
 /**
  * This class was taken from the GitHub repository:
  * https://github.com/WeaponMechanics/MechanicsMain
- *
+ * <p>
  * Original author: [CJCrafter]
- *
+ * <p>
  * License: MIT License
  * You are free to use, modify, and distribute this code as long as this license notice is retained.
- *
+ * <p>
  * The original license file can be found in the repository or at:
  * https://opensource.org/licenses/MIT
- *
+ * <p>
  * Copyright (c) [2025] [CJCrafter]
  */
 
