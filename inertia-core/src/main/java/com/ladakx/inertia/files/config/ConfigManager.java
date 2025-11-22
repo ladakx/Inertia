@@ -12,14 +12,14 @@ public class ConfigManager {
 
     // Зберігаємо завантажені об'єкти конфігурації
     private InertiaConfig inertiaConfig;
-    private BlocksConfig blocksConfig;
+//    private BlocksConfig blocksConfig;
     private BodiesConfig bodiesConfig;
 //    private RagdollConfig ragdollConfig;
     private RenderConfig renderConfig;
     private WorldsConfig worldsConfig;
 
     // Файлові обгортки (твої старі класи, або просто Files)
-    private BlocksFile blocksFile;
+//    private BlocksFile blocksFile;
     private BodiesFile bodiesFile;
     private ItemsFile itemsFile;
     private RenderFile renderFile;
@@ -45,11 +45,14 @@ public class ConfigManager {
             this.inertiaConfig = new InertiaConfig(plugin.getConfig());
 
             // Load blocks.yml
-            this.blocksFile = new BlocksFile(plugin);
-            this.blocksConfig = new BlocksConfig(blocksFile.getConfig());
+//            this.blocksFile = new BlocksFile(plugin);
+//            this.blocksConfig = new BlocksConfig(blocksFile.getConfig());
 
             this.renderFile = new RenderFile(plugin);
             this.renderConfig = new RenderConfig(renderFile.getConfig());
+
+            this.bodiesFile = new BodiesFile(plugin);
+            this.bodiesConfig = new BodiesConfig(bodiesFile.getConfig());
 
             this.itemsFile = new ItemsFile(plugin);
 
@@ -91,18 +94,18 @@ public class ConfigManager {
         return inertiaConfig;
     }
 
-    public BlocksConfig getBlocksConfig() {
-        if (blocksConfig == null) reload();
-        return blocksConfig;
-    }
+//    public BlocksConfig getBlocksConfig() {
+//        if (blocksConfig == null) reload();
+//        return blocksConfig;
+//    }
 
     public MessageManager getMessageManager() {
         return messageManager;
     }
 
-    public BlocksFile getBlocksFile() {
-        return blocksFile;
-    }
+//    public BlocksFile getBlocksFile() {
+//        return blocksFile;
+//    }
 
     public ItemsFile getItemsFile() {
         return itemsFile;

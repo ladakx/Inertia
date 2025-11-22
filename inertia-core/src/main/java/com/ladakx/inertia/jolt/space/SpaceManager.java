@@ -4,6 +4,7 @@ import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.config.InertiaConfig;
+import com.ladakx.inertia.files.config.WorldsConfig;
 import com.ladakx.inertia.jolt.JoltManager;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -48,8 +49,7 @@ public class SpaceManager {
 
     private MinecraftSpace createSpaceInternal(World world) {
         InertiaLogger.info("Creating physics space for world: " + world.getName());
-        InertiaConfig.PhysicsSettings.WorldSettings settings =
-                plugin.getConfigManager().getInertiaConfig().PHYSICS.getWorld(world.getName());
+        WorldsConfig.WorldProfile settings = plugin.getConfigManager().getWorldsConfig().getWorldSettings(world.getName());
         return new MinecraftSpace(
                 world,
                 settings,
