@@ -5,7 +5,7 @@ world:
   max-bodies: 5000; # Maximum number of physics bodies allowed in the world //65536
   floor-plane:
     enable: true
-    y-level: 0
+    y-level: 128
   simulation:
     enable: true
     type: RAYON # Chunk simulation

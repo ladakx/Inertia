@@ -21,9 +21,12 @@ dependencies {
     implementation("net.kyori:adventure-text-serializer-gson:4.18.0")
     implementation("net.kyori:adventure-text-serializer-legacy:4.18.0")
 
+    // Cloud Commands Framework
+    implementation("org.incendo:cloud-paper:2.0.0-beta.10")
+    implementation("org.incendo:cloud-annotations:2.0.0")
+
     // Other Libraries
     implementation("de.tr7zw:item-nbt-api:2.14.1")
-    implementation("co.aikar:acf-paper:0.5.1-SNAPSHOT")
     implementation("org.joml:joml:1.10.8")
     implementation("xyz.jpenilla:reflection-remapper:0.1.1")
 

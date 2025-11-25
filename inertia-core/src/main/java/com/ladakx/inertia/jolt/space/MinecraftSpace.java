@@ -11,7 +11,7 @@ import com.github.stephengold.joltjni.readonly.Vec3Arg;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.files.config.WorldsConfig;
 import com.ladakx.inertia.jolt.PhysicsLayers;
-import com.ladakx.inertia.jolt.object.MinecraftPhysicsObject;
+import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -37,8 +37,8 @@ public class MinecraftSpace implements AutoCloseable {
     private final AtomicBoolean isActive = new AtomicBoolean(true);
 
     // Списки об'єктів у цьому просторі
-    private final @NotNull List<MinecraftPhysicsObject> objects = new CopyOnWriteArrayList<>();
-    private final @NotNull Map<Long, MinecraftPhysicsObject> objectMap = new ConcurrentHashMap<>();
+    private final @NotNull List<AbstractPhysicsObject> objects = new CopyOnWriteArrayList<>();
+    private final @NotNull Map<Long, AbstractPhysicsObject> objectMap = new ConcurrentHashMap<>();
 
     public MinecraftSpace(World world, WorldsConfig.WorldProfile settings, JobSystem jobSystem, TempAllocator tempAllocator) {
         this.worldBukkit = world;
@@ -176,7 +176,7 @@ public class MinecraftSpace implements AutoCloseable {
         return worldBukkit;
     }
 
-    public @NotNull List<MinecraftPhysicsObject> getObjects() {
+    public @NotNull List<AbstractPhysicsObject> getObjects() {
         return objects;
     }
 
@@ -184,11 +184,11 @@ public class MinecraftSpace implements AutoCloseable {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
     }
 
-    public void addObject(MinecraftPhysicsObject object) {
+    public void addObject(AbstractPhysicsObject object) {
         objects.add(object);
         objectMap.put(object.getBody().va(), object);
     }
-    public void removeObject(MinecraftPhysicsObject object) {
+    public void removeObject(AbstractPhysicsObject object) {
         objects.remove(object);
         objectMap.remove(object.getBody().va());
     }
@@ -196,10 +196,10 @@ public class MinecraftSpace implements AutoCloseable {
     public void addConstraint(Constraint constraint) {
         physicsSystem.addConstraint(constraint);
         if (constraint instanceof TwoBodyConstraint twoBodyConstraint) {
-            MinecraftPhysicsObject obj1 = getObjectByVa(twoBodyConstraint.getBody1().va());
+            AbstractPhysicsObject obj1 = getObjectByVa(twoBodyConstraint.getBody1().va());
             TwoBodyConstraintRef ref = twoBodyConstraint.toRef();
             if (obj1 != null) obj1.addRelatedConstraint(ref);
-            MinecraftPhysicsObject obj2 = getObjectByVa(twoBodyConstraint.getBody2().va());
+            AbstractPhysicsObject obj2 = getObjectByVa(twoBodyConstraint.getBody2().va());
             if (obj2 != null) obj2.addRelatedConstraint(ref);
         }
     }
@@ -208,14 +208,14 @@ public class MinecraftSpace implements AutoCloseable {
         physicsSystem.removeConstraint(constraint);
         if (constraint instanceof TwoBodyConstraint twoBodyConstraint) {
             TwoBodyConstraintRef ref = twoBodyConstraint.toRef();
-            MinecraftPhysicsObject obj1 = getObjectByVa(twoBodyConstraint.getBody1().va());
+            AbstractPhysicsObject obj1 = getObjectByVa(twoBodyConstraint.getBody1().va());
             if (obj1 != null) obj1.removeRelatedConstraint(ref);
-            MinecraftPhysicsObject obj2 = getObjectByVa(twoBodyConstraint.getBody2().va());
+            AbstractPhysicsObject obj2 = getObjectByVa(twoBodyConstraint.getBody2().va());
             if (obj2 != null) obj2.removeRelatedConstraint(ref);
         }
     }
 
-    public @Nullable MinecraftPhysicsObject getObjectByVa(Long va) {
+    public @Nullable AbstractPhysicsObject getObjectByVa(Long va) {
         return objectMap.get(va);
     }
 }

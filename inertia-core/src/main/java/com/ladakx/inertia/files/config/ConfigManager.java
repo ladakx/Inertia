@@ -4,34 +4,36 @@ import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.*;
 import com.ladakx.inertia.files.config.message.MessageManager;
-import com.ladakx.inertia.items.ItemManager;
+import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
 
 public class ConfigManager {
 
     private final InertiaPlugin plugin;
+    private final PhysicsModelRegistry physicsModelRegistry;
 
     // Зберігаємо завантажені об'єкти конфігурації
     private InertiaConfig inertiaConfig;
-//    private BlocksConfig blocksConfig;
+    //    private BlocksConfig blocksConfig;
     private BodiesConfig bodiesConfig;
-//    private RagdollConfig ragdollConfig;
+    //    private RagdollConfig ragdollConfig;
     private RenderConfig renderConfig;
     private WorldsConfig worldsConfig;
 
-    // Файлові обгортки (твої старі класи, або просто Files)
+    // Файлові обгортки
 //    private BlocksFile blocksFile;
     private BodiesFile bodiesFile;
     private ItemsFile itemsFile;
     private RenderFile renderFile;
-//    private RagdollFile ragdollFile;
+    //    private RagdollFile ragdollFile;
     private WorldsFile worldsFile;
     private MessagesFile messagesFile;
 
     // message manager
-    private MessageManager messageManager;
+    private final MessageManager messageManager;
 
-    public ConfigManager(InertiaPlugin plugin) {
+    public ConfigManager(InertiaPlugin plugin, PhysicsModelRegistry physicsModelRegistry) {
         this.plugin = plugin;
+        this.physicsModelRegistry = physicsModelRegistry;
         this.messageManager = new MessageManager(plugin);
     }
 
@@ -39,32 +41,32 @@ public class ConfigManager {
         InertiaLogger.info("Loading configurations...");
 
         try {
-            // Load main config.yml
+            // main config.yml
             plugin.saveDefaultConfig();
             plugin.reloadConfig();
             this.inertiaConfig = new InertiaConfig(plugin.getConfig());
 
-            // Load blocks.yml
-//            this.blocksFile = new BlocksFile(plugin);
-//            this.blocksConfig = new BlocksConfig(blocksFile.getConfig());
-
-            this.renderFile = new RenderFile(plugin);
-            this.renderConfig = new RenderConfig(renderFile.getConfig());
-
+            // bodies.yml
             this.bodiesFile = new BodiesFile(plugin);
             this.bodiesConfig = new BodiesConfig(bodiesFile.getConfig());
 
+            // render.yml
+            this.renderFile = new RenderFile(plugin);
+            this.renderConfig = new RenderConfig(renderFile.getConfig());
+
+            // items.yml
             this.itemsFile = new ItemsFile(plugin);
 
-//            this.ragdollFile = new RagdollFile(plugin);
-//            this.ragdollConfig = new RagdollConfig(ragdollConfig.getConfig());
-
+            // worlds.yml
             this.worldsFile = new WorldsFile(plugin);
             this.worldsConfig = new WorldsConfig(worldsFile.getConfig());
 
-            // Load messages.yml
+            // messages.yml
             this.messagesFile = new MessagesFile(plugin);
             this.messageManager.reload(messagesFile.getConfig());
+
+            // оновити реєстр моделей атомарно
+            physicsModelRegistry.reload(bodiesConfig, renderConfig);
 
             InertiaLogger.info("Configurations loaded successfully.");
 

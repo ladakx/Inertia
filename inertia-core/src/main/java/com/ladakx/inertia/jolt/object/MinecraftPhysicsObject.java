@@ -1,133 +1,100 @@
 package com.ladakx.inertia.jolt.object;
 
-import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.BodyCreationSettings;
+import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
-import com.github.stephengold.joltjni.TwoBodyConstraintRef;
-import com.github.stephengold.joltjni.enumerate.EActivation;
+import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
-import org.bukkit.Location;
-import org.bukkit.entity.Entity;
+import com.ladakx.inertia.physics.config.BodyDefinition;
+import com.ladakx.inertia.physics.config.BodyPhysicsSettings;
+import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.render.DisplayEntityFactory;
+import com.ladakx.inertia.render.runtime.PhysicsDisplayComposite;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Optional;
 
 /**
- * Абстрактний клас для фізичних об’єктів Minecraft, пов’язаних з Jolt Body.
- * Забезпечує створення тіла, керування життєвим циклом та оновлення позиції Bukkit-сутності.
+ * Фізичний об'єкт, який повністю конфігурується через bodies.yml + render.yml.
  */
-public abstract class MinecraftPhysicsObject {
+public class MinecraftPhysicsObject extends AbstractPhysicsObject {
 
-    private final List<Integer> relatedBodies = new CopyOnWriteArrayList<>();
-    private final List<TwoBodyConstraintRef> constraints = new CopyOnWriteArrayList<>();
+    private final String bodyId;
+    private final PhysicsDisplayComposite displayComposite;
 
-    private final @NotNull MinecraftSpace space;
-    private final @NotNull BodyCreationSettings bodySettings;
-    private final @NotNull Body body;
+    public MinecraftPhysicsObject(@NotNull MinecraftSpace space,
+                                  @NotNull String bodyId,
+                                  @NotNull PhysicsModelRegistry modelRegistry,
+                                  @NotNull DisplayEntityFactory displayFactory,
+                                  @NotNull RVec3 initialPosition,
+                                  @NotNull Quat initialRotation) {
+        super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
+        this.bodyId = bodyId;
 
-    private @Nullable Entity entity;
+        PhysicsModelRegistry.BodyModel model = modelRegistry.require(bodyId);
+        Optional<com.ladakx.inertia.render.config.RenderModelDefinition> renderOpt = model.renderModel();
 
-    public MinecraftPhysicsObject(@NotNull MinecraftSpace space, @NotNull BodyCreationSettings bodySettings) {
-        this.space = space;
-        this.bodySettings = bodySettings;
-
-        this.body = space.getBodyInterface().createBody(this.bodySettings);
-        space.getBodyInterface().addBody(body, EActivation.Activate);
-        space.addObject(this);
-    }
-
-    /**
-     * Створює та зберігає Bukkit-сутність, пов’язану з цим фізичним тілом.
-     * Можна викликати після створення об’єкта.
-     */
-    public @Nullable Entity setInstance() {
-        this.entity = createEntity();
-        if (this.entity != null) {
-            RVec3 pos = body.getPosition();
-
-            Location location = new Location(
+        if (renderOpt.isPresent()) {
+            this.displayComposite = displayFactory.createComposite(
+                    renderOpt.get(),
                     space.getWorldBukkit(),
-                    pos.xx(),
-                    pos.yy(),
-                    pos.zz()
+                    getBody()
             );
-            this.entity.teleport(location);
+        } else {
+            this.displayComposite = null;
         }
-        return this.entity;
     }
 
-    public void addRelated(@NotNull Body related) {
-        this.relatedBodies.add(related.getId());
+    private static BodyCreationSettings createBodySettings(String bodyId,
+                                                           PhysicsModelRegistry modelRegistry,
+                                                           RVec3 initialPosition,
+                                                           Quat initialRotation) {
+        PhysicsModelRegistry.BodyModel model = modelRegistry.require(bodyId);
+        BodyDefinition def = model.bodyDefinition();
+        BodyPhysicsSettings phys = def.physicsSettings();
+
+        List<String> shapeLines = def.shapeLines();
+        ConstShape shape = JShapeFactory.createShape(shapeLines);
+
+        BodyCreationSettings settings = new BodyCreationSettings()
+                .setShape(shape)
+                .setMotionType(phys.motionType())
+                .setObjectLayer(phys.objectLayer())
+                .setLinearDamping(phys.linearDamping())
+                .setAngularDamping(phys.angularDamping());
+
+        settings.getMassProperties().setMass(phys.mass());
+        settings.setFriction(phys.friction());
+        settings.setRestitution(phys.restitution());
+
+        settings.setPosition(initialPosition);
+        settings.setRotation(initialRotation);
+
+        return settings;
     }
 
-    public void addRelatedConstraint(@NotNull TwoBodyConstraintRef related) {
-        this.constraints.add(related);
+    @Override
+    public @Nullable PhysicsDisplayComposite getDisplay() {
+        return displayComposite;
     }
 
-    public void removeRelatedConstraint(@NotNull TwoBodyConstraintRef related) {
-        this.constraints.remove(related);
+    @Override
+    public void update() {
+        if (displayComposite != null) {
+            displayComposite.update();
+        }
     }
 
     public void destroy() {
-        // Видаляємо всі констрейнти
-        for (TwoBodyConstraintRef constraint : constraints) {
-            space.removeConstraint(constraint.getPtr());
-        }
-
-        // Видаляємо пов’язані тіла
-        var bi = space.getPhysicsSystem().getBodyInterface();
-        for (int relatedObject : relatedBodies) {
-            bi.removeBody(relatedObject);
-            bi.destroyBody(relatedObject);
-        }
-
-        // Видаляємо основне тіло
-        bi.removeBody(body.getId());
-        bi.destroyBody(body.getId());
-
-        // Прибираємо з менеджера простору
-        space.removeObject(this);
-
-        // Видаляємо Bukkit-сутність
-        if (entity != null) {
-            entity.remove();
-            entity = null;
+        if (displayComposite != null) {
+            displayComposite.destroy();
         }
     }
 
-    public void activate() {
-        space.getPhysicsSystem().getBodyInterface().activateBody(body.getId());
-    }
-
-    public boolean isActive() {
-        return body.isActive();
-    }
-
-    public @NotNull Body getBody() {
-        return body;
-    }
-
-    /**
-     * Створення Bukkit-сутності (звичайно через World#spawnEntity).
-     * Місце спавна / тип сутності вирішується в реалізації.
-     */
-    public abstract @Nullable Entity createEntity();
-
-    public @Nullable Entity getEntity() {
-        return entity;
-    }
-
-    /**
-     * Оновити позицію та орієнтацію Bukkit-сутності згідно з Jolt-тілом.
-     * Викликається щотік з тік-лупу плагіна.
-     */
-    public void update() {
-
-    }
-
-    protected @NotNull MinecraftSpace getSpace() {
-        return space;
+    public String getBodyId() {
+        return bodyId;
     }
 }
