@@ -32,7 +32,6 @@ dependencies {
     implementation(project(":inertia-nms-v1_21_R3"))
 
     // These libraries are safe to shade
-    implementation("de.tr7zw:item-nbt-api:2.12.3")
     implementation("org.jetbrains:annotations:24.0.1")
 }
 
@@ -47,12 +46,6 @@ tasks {
         archiveBaseName.set("Inertia")
         archiveClassifier.set("")
         archiveVersion.set("1.0-DEV")
-
-        // Relocate only safe, non-native libraries
-        relocate("net.kyori.adventure", "com.ladakx.inertia.libs.adventure")
-        relocate("de.tr7zw.changeme.nbtapi", "com.ladakx.inertia.libs.nbtapi")
-
-        // We DO NOT relocate Jolt, as that breaks JNI
 
         mergeServiceFiles()
 

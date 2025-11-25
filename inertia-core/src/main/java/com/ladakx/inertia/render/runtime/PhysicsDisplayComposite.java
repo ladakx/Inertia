@@ -1,6 +1,5 @@
 package com.ladakx.inertia.render.runtime;
 
-import com.ladakx.inertia.render.DisplayEntityFactory;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
 import com.github.stephengold.joltjni.Body;
@@ -10,7 +9,6 @@ import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;

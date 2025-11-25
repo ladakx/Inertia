@@ -6,18 +6,13 @@ import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.items.ItemManager;
 import com.ladakx.inertia.jolt.JoltManager;
 import com.ladakx.inertia.jolt.listeners.WorldLoadListener;
-import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.nativelib.JoltNatives;
 import com.ladakx.inertia.nativelib.Precision;
 import com.ladakx.inertia.nms.jolt.JoltNMSTools;
 import com.ladakx.inertia.nms.jolt.JoltTools;
-import com.ladakx.inertia.nms.nbt.NBTPersistent;
-import com.ladakx.inertia.nms.nbt.NBTPersistentTools;
 import com.ladakx.inertia.nms.player.PlayerNMSTools;
 import com.ladakx.inertia.nms.player.PlayerTools;
-import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
-import com.ladakx.inertia.utils.mesh.BlockBenchMeshProvider;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -53,7 +48,6 @@ public final class InertiaPlugin extends JavaPlugin {
     // NMS & Tools
     private PlayerNMSTools playerNMSTools;
     private JoltNMSTools joltNMSTools;
-    private NBTPersistent nbtPersistent;
 
     private boolean worldEditEnabled;
 
@@ -133,7 +127,6 @@ public final class InertiaPlugin extends JavaPlugin {
     private void setupNMSTools() {
         this.joltNMSTools = JoltTools.get();
         this.playerNMSTools = PlayerTools.get();
-        this.nbtPersistent = NBTPersistentTools.get();
     }
 
     private void setupCommands() {
@@ -202,10 +195,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     public JoltNMSTools getJoltNMSTools() {
         return joltNMSTools;
-    }
-
-    public NBTPersistent getNBTPersistent() {
-        return nbtPersistent;
     }
 
     public boolean isWorldEditEnabled() {
