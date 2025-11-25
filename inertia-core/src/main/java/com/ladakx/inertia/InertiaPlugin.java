@@ -48,11 +48,7 @@ public final class InertiaPlugin extends JavaPlugin {
 
     // Jolt
     private JoltNatives joltNatives;
-
-    private JoltManager joltManager;
     private SpaceManager spaceManager;
-
-    private ItemManager itemManager;
 
     // NMS & Tools
     private PlayerNMSTools playerNMSTools;
@@ -73,9 +69,8 @@ public final class InertiaPlugin extends JavaPlugin {
         setupIntegrations();
 
         // Load Configurations
-        loadConfigurations();
-
-        this.itemManager = new ItemManager(getConfigManager().getItemsFile());
+        ConfigManager.init(this);
+        ItemManager.init();
 
         // Initialize Native Libraries (Jolt)
         if (!setupNativeLibraries()) {
@@ -84,14 +79,11 @@ public final class InertiaPlugin extends JavaPlugin {
             return;
         }
 
-        // Shape
-        JShapeFactory.setMeshProvider(new BlockBenchMeshProvider(this));
-
         // Initialize NMS Tools
         setupNMSTools();
 
         JoltManager.init(this);
-        this.spaceManager = new SpaceManager(this);
+        SpaceManager.init(this);
 
         // Register Commands & Listeners
         setupCommands();
@@ -109,7 +101,7 @@ public final class InertiaPlugin extends JavaPlugin {
      * Reloads the plugin configurations and spaces.
      */
     public void reload() {
-        loadConfigurations(); // Re-use the centralized loading method
+        ConfigManager.getInstance().reload();
         InertiaLogger.info("Inertia configuration reloaded.");
     }
 
@@ -120,12 +112,6 @@ public final class InertiaPlugin extends JavaPlugin {
     private void setupIntegrations() {
         var pm = Bukkit.getPluginManager();
         this.worldEditEnabled = pm.isPluginEnabled("WorldEdit") || pm.isPluginEnabled("FastAsyncWorldEdit");
-    }
-
-    private void loadConfigurations() {
-        PhysicsModelRegistry physicsModelRegistry = new PhysicsModelRegistry();
-        this.configManager = new ConfigManager(this, physicsModelRegistry);
-        this.configManager.reload();
     }
 
     private boolean setupNativeLibraries() {
@@ -185,14 +171,14 @@ public final class InertiaPlugin extends JavaPlugin {
         // Handle No Permission
         this.commandManager.exceptionController().registerHandler(NoPermissionException.class, context -> {
             CommandSender sender = context.context().sender();
-            getConfigManager().getMessageManager().send(sender, MessageKey.NO_PERMISSIONS);
+            ConfigManager.getInstance().getMessageManager().send(sender, MessageKey.NO_PERMISSIONS);
         });
 
         // Handle Invalid Syntax (Unknown command or wrong arguments)
         this.commandManager.exceptionController().registerHandler(InvalidSyntaxException.class, context -> {
             CommandSender sender = context.context().sender();
             // Optional: Send help message or specific error
-            getConfigManager().getMessageManager().send(sender, MessageKey.HELP_COMMAND);
+            ConfigManager.getInstance().getMessageManager().send(sender, MessageKey.HELP_COMMAND);
         });
     }
 
@@ -220,22 +206,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     public NBTPersistent getNBTPersistent() {
         return nbtPersistent;
-    }
-
-    public ConfigManager getConfigManager() {
-        return configManager;
-    }
-
-    public ItemManager getItemManager() {
-        return itemManager;
-    }
-
-    public JoltManager getJoltManager() {
-        return joltManager;
-    }
-
-    public SpaceManager getSpaceManager() {
-        return spaceManager;
     }
 
     public boolean isWorldEditEnabled() {

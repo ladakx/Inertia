@@ -3,6 +3,9 @@ package com.ladakx.inertia.jolt;
 import com.github.stephengold.joltjni.*;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
+import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.jolt.shape.JShapeFactory;
+import com.ladakx.inertia.utils.mesh.BlockBenchMeshProvider;
 
 public class JoltManager {
 
@@ -24,7 +27,7 @@ public class JoltManager {
         // 2. Налаштування потоків
         // Залишаємо 1 ядро для головного потоку сервера (Main Thread), решту - для фізики
         int availableProcessors = Runtime.getRuntime().availableProcessors();
-        int numThreads = Math.max(plugin.getConfigManager().getInertiaConfig().PHYSICS.workerThreads, availableProcessors - 1);
+        int numThreads = Math.max(ConfigManager.getInstance().getInertiaConfig().PHYSICS.workerThreads, availableProcessors - 1);
 
         this.jobSystem = new JobSystemThreadPool(
                 Jolt.cMaxPhysicsJobs,
@@ -38,6 +41,7 @@ public class JoltManager {
     public static void init(InertiaPlugin plugin) {
         if (instance == null) {
             instance = new JoltManager(plugin);
+            JShapeFactory.setMeshProvider(new BlockBenchMeshProvider(plugin));
         }
     }
 

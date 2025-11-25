@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     compileOnly(project(":inertia-core"))
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
     paperweight.paperDevBundle("1.21.4-R0.1-SNAPSHOT")
 
     if (name != "inertia-nms-abstraction") {

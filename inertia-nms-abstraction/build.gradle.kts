@@ -10,7 +10,7 @@ java {
 
 dependencies {
     api(project(":inertia-api"))
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
 
     if (name != "inertia-nms-abstraction") {
         implementation(project(":inertia-nms-abstraction"))
