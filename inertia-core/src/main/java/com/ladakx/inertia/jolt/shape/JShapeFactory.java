@@ -93,7 +93,7 @@ public final class JShapeFactory {
      * @param shapeLines список рядків із конфігурації (getStringList("shape"))
      * @return ShapeRefC (можна використовувати всюди, де очікується ConstShape)
      */
-    public static ShapeRefC createShapeFromConfig(List<String> shapeLines) {
+    public static ShapeRefC createShape(List<String> shapeLines) {
         if (shapeLines == null || shapeLines.isEmpty()) {
             throw new IllegalArgumentException("shape list is empty");
         }
