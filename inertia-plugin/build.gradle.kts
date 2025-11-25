@@ -10,14 +10,13 @@ group = "com.ladakx"
 version = "1.0-DEV"
 
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(16))
 }
 
 dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.21-R0.1-SNAPSHOT")
-
     implementation(project(":inertia-api"))
     implementation(project(":inertia-core"))
+    implementation(project(":inertia-common"))
     implementation(project(":inertia-nms-abstraction"))
     implementation(project(":inertia-nms-v1_16_R3"))
     implementation(project(":inertia-nms-v1_17_R1"))
@@ -47,6 +46,9 @@ tasks {
         archiveClassifier.set("")
         archiveVersion.set("1.0-DEV")
 
+        relocate("net.kyori.adventure", "com.ladakx.inertia.libs.adventure")
+        relocate("org.joml", "com.ladakx.inertia.libs.joml")
+
         mergeServiceFiles()
 
         exclude("META-INF/LICENSE*")
@@ -54,12 +56,19 @@ tasks {
         exclude("META-INF/LGPL2.1")
         exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 
+        minimize()
+
         finalizedBy("copyJarToDesktop")
     }
 
     build {
         dependsOn(shadowJar)
     }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set(16)
 }
 
 val properties = Properties().apply {

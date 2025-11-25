@@ -10,6 +10,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/inertia-api" />
+            <option value="$PROJECT_DIR$/inertia-common" />
             <option value="$PROJECT_DIR$/inertia-core" />
             <option value="$PROJECT_DIR$/inertia-nms-abstraction" />
             <option value="$PROJECT_DIR$/inertia-nms-v1_16_R3" />
