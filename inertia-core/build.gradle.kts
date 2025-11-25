@@ -26,7 +26,6 @@ dependencies {
     implementation("org.incendo:cloud-annotations:2.0.0")
 
     // Other Libraries
-    implementation("de.tr7zw:item-nbt-api:2.14.1")
     implementation("org.joml:joml:1.10.8")
     implementation("xyz.jpenilla:reflection-remapper:0.1.1")
 
