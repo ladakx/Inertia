@@ -2,16 +2,14 @@ plugins {
     `java-library`
 }
 
-group = "com.inertia"
-version = "1.0-DEV"
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(16))
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(16))
-    }
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding= "UTF-8"
+    options.release.set(16)
 }
 
 dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT")
-    implementation("org.jetbrains:annotations:24.0.1")
+    api(project(":inertia-common"))
+    compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
 }

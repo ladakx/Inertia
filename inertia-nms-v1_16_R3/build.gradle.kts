@@ -5,7 +5,9 @@ plugins {
 
 dependencies {
     compileOnly(project(":inertia-core"))
-    compileOnly("org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT")
+    compileOnly(project(":inertia-common"))
+
+    compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
     compileOnly(files(file("../libs/spigot-1.16.5.jar")))
 
     if (name != "inertia-nms-abstraction") {
@@ -14,10 +16,7 @@ dependencies {
 }
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(16))
-
-tasks {
-    compileJava {
-        options.encoding = Charsets.UTF_8.name() // We want UTF-8 for everything
-        options.release.set(16)
-    }
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set(16)
 }

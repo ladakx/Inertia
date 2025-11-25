@@ -2,17 +2,14 @@ plugins {
     `java-library`
 }
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(16))
-    }
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(16))
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set(16)
 }
 
 dependencies {
-    api(project(":inertia-api"))
-    compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
-
-    if (name != "inertia-nms-abstraction") {
-        implementation(project(":inertia-nms-abstraction"))
-    }
+    api(project(":inertia-common"))
+    compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
 }
