@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     compileOnly(project(":inertia-core"))
-    compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
+    compileOnly("org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT")
     paperweight.paperDevBundle("1.18.2-R0.1-SNAPSHOT")
 
     if (name != "inertia-nms-abstraction") {
@@ -14,7 +14,7 @@ dependencies {
     }
 }
 
-java.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(16))
 paperweight.reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.REOBF_PRODUCTION
 
 tasks.assemble {
@@ -24,6 +24,6 @@ tasks.assemble {
 tasks {
     compileJava {
         options.encoding = Charsets.UTF_8.name() // We want UTF-8 for everything
-        options.release.set(17)
+        options.release.set(16)
     }
 }

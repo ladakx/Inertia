@@ -16,7 +16,7 @@ public class WorldLoadListener implements Listener {
     private final SpaceManager spaceManager;
 
     public WorldLoadListener() {
-        this.spaceManager = InertiaPlugin.getInstance().getSpaceManager();
+        this.spaceManager = SpaceManager.getInstance();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

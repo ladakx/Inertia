@@ -3,8 +3,10 @@ package com.ladakx.inertia.jolt.space;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
+import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.files.config.InertiaConfig;
 import com.ladakx.inertia.files.config.WorldsConfig;
+import com.ladakx.inertia.items.ItemManager;
 import com.ladakx.inertia.jolt.JoltManager;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -16,20 +18,26 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SpaceManager {
 
-    private final JoltManager joltManager;
+    private static SpaceManager instance;
+
     private final InertiaPlugin plugin;
 
     // Карта: UUID світу Bukkit -> Фізичний простір
     private final Map<UUID, MinecraftSpace> spaces = new ConcurrentHashMap<>();
 
-    public SpaceManager(InertiaPlugin plugin) {
-        this.joltManager = JoltManager.getInstance();
+    private SpaceManager(InertiaPlugin plugin) {
         this.plugin = plugin;
 
         // 1. Підгружаємо світи, які вже є на сервері при запуску плагіна
         InertiaLogger.info("Loading existing worlds into Inertia Jolt...");
         for (World world : Bukkit.getWorlds()) {
             createSpace(world);
+        }
+    }
+
+    public static void init(InertiaPlugin plugin) {
+        if (instance == null) {
+            instance = new SpaceManager(plugin);
         }
     }
 
@@ -49,12 +57,12 @@ public class SpaceManager {
 
     private MinecraftSpace createSpaceInternal(World world) {
         InertiaLogger.info("Creating physics space for world: " + world.getName());
-        WorldsConfig.WorldProfile settings = plugin.getConfigManager().getWorldsConfig().getWorldSettings(world.getName());
+        WorldsConfig.WorldProfile settings = ConfigManager.getInstance().getWorldsConfig().getWorldSettings(world.getName());
         return new MinecraftSpace(
                 world,
                 settings,
-                joltManager.getJobSystem(),
-                joltManager.getTempAllocator()
+                JoltManager.getInstance().getJobSystem(),
+                JoltManager.getInstance().getTempAllocator()
         );
     }
 
@@ -79,6 +87,13 @@ public class SpaceManager {
         spaces.clear();
 
         // Вимикаємо і сам Jolt
-        joltManager.shutdown();
+        JoltManager.getInstance().shutdown();
+    }
+
+    public static SpaceManager getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("SpaceManager not initialized! Call init() first.");
+        }
+        return instance;
     }
 }

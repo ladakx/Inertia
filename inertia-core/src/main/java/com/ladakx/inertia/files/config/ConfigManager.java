@@ -8,8 +8,13 @@ import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
 
 public class ConfigManager {
 
+    private static ConfigManager instance;
+
     private final InertiaPlugin plugin;
     private final PhysicsModelRegistry physicsModelRegistry;
+
+    // message manager
+    private final MessageManager messageManager;
 
     // Зберігаємо завантажені об'єкти конфігурації
     private InertiaConfig inertiaConfig;
@@ -20,7 +25,7 @@ public class ConfigManager {
     private WorldsConfig worldsConfig;
 
     // Файлові обгортки
-//    private BlocksFile blocksFile;
+    //    private BlocksFile blocksFile;
     private BodiesFile bodiesFile;
     private ItemsFile itemsFile;
     private RenderFile renderFile;
@@ -28,13 +33,17 @@ public class ConfigManager {
     private WorldsFile worldsFile;
     private MessagesFile messagesFile;
 
-    // message manager
-    private final MessageManager messageManager;
-
-    public ConfigManager(InertiaPlugin plugin, PhysicsModelRegistry physicsModelRegistry) {
+    private ConfigManager(InertiaPlugin plugin) {
         this.plugin = plugin;
-        this.physicsModelRegistry = physicsModelRegistry;
-        this.messageManager = new MessageManager(plugin);
+        this.physicsModelRegistry = new PhysicsModelRegistry();
+        this.messageManager = new MessageManager();
+    }
+
+    public static void init(InertiaPlugin plugin) {
+        if (instance == null) {
+            instance = new ConfigManager(plugin);
+            instance.reload();
+        }
     }
 
     public void reload() {
@@ -101,10 +110,6 @@ public class ConfigManager {
 //        return blocksConfig;
 //    }
 
-    public MessageManager getMessageManager() {
-        return messageManager;
-    }
-
 //    public BlocksFile getBlocksFile() {
 //        return blocksFile;
 //    }
@@ -131,5 +136,20 @@ public class ConfigManager {
 
     public MessagesFile getMessagesFile() {
         return messagesFile;
+    }
+
+    public PhysicsModelRegistry getPhysicsModelRegistry() {
+        return physicsModelRegistry;
+    }
+
+    public MessageManager getMessageManager() {
+        return messageManager;
+    }
+
+    public static ConfigManager getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("ConfigManager not initialized! Call init() first.");
+        }
+        return instance;
     }
 }

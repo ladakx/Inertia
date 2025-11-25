@@ -1,9 +1,13 @@
 package com.ladakx.inertia.items;
 
 import com.ladakx.inertia.InertiaLogger;
+import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.ItemsFile;
+import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.jolt.JoltManager;
 import com.ladakx.inertia.utils.serializers.ItemSerializer;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -15,12 +19,20 @@ import java.util.Set;
 
 public class ItemManager {
 
+    private static ItemManager instance;
+
     private final ItemsFile itemsFile;
     private final Map<String, ItemStack> items = new HashMap<>();
 
-    public ItemManager(ItemsFile itemsFile) {
-        this.itemsFile = itemsFile;
+    private ItemManager() {
+        this.itemsFile = ConfigManager.getInstance().getItemsFile();
         reload(); // Завантажуємо одразу при створенні
+    }
+
+    public static void init() {
+        if (instance == null) {
+            instance = new ItemManager();
+        }
     }
 
     public void reload() {
@@ -57,6 +69,13 @@ public class ItemManager {
     }
 
     // --- API ---
+
+    public static ItemManager getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("ItemManager not initialized! Call init() first.");
+        }
+        return instance;
+    }
 
     @Nullable
     public ItemStack getItem(@NotNull String id) {

@@ -17,13 +17,10 @@ import java.util.Map;
 
 public class MessageManager {
 
-    private final InertiaPlugin plugin;
-
     // Cache: Зберігаємо вже готові Component, щоб не парсити їх щоразу при відправці
     private final Map<MessageKey, List<Component>> messageCache = new EnumMap<>(MessageKey.class);
 
-    public MessageManager(InertiaPlugin plugin) {
-        this.plugin = plugin;
+    public MessageManager() {
     }
 
     /**

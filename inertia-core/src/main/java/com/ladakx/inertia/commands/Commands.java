@@ -1,6 +1,7 @@
 package com.ladakx.inertia.commands;
 
 import com.ladakx.inertia.InertiaPlugin;
+import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.files.config.message.MessageKey;
 import org.bukkit.command.CommandSender;
 import org.incendo.cloud.annotations.Command;
@@ -46,6 +47,6 @@ public class Commands { // Більше не extends BaseCommand
 
     // --- Helper Method ---
     private void send(CommandSender sender, MessageKey key, String... replacements) {
-        plugin.getConfigManager().getMessageManager().send(sender, key, replacements);
+        ConfigManager.getInstance().getMessageManager().send(sender, key, replacements);
     }
 }
