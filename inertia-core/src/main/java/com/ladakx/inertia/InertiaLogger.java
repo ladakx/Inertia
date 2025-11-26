@@ -13,7 +13,6 @@ public class InertiaLogger {
     private static Logger logger;
     private static final String DEBUG_PREFIX = "[Inertia-Debug] ";
 
-    // Приватний конструктор, щоб заборонити створення екземплярів
     private InertiaLogger() {}
 
     /**

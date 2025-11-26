@@ -11,6 +11,10 @@ public class MessageUtils {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
+    private MessageUtils () {
+        // utility class
+    }
+
     /**
      * Converts a raw string into a Component, applying replacements and colors.
      * @param text The raw text from config

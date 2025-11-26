@@ -8,6 +8,10 @@ import org.bukkit.Location;
  */
 public class MiscUtils {
 
+    private MiscUtils () {
+        // Utility class
+    }
+
     /**
      * Returns a location object with the given coordinates in the specified world.
      *

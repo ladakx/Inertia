@@ -43,7 +43,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     // Jolt
     private JoltNatives joltNatives;
-    private SpaceManager spaceManager;
 
     // NMS & Tools
     private PlayerNMSTools playerNMSTools;
@@ -76,6 +75,7 @@ public final class InertiaPlugin extends JavaPlugin {
         // Initialize NMS Tools
         setupNMSTools();
 
+        // Initialize Jolt Manager & Space Manager
         JoltManager.init(this);
         SpaceManager.init(this);
 
