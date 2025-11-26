@@ -9,6 +9,10 @@ import org.bukkit.World;
  */
 public class LocationSerializer {
 
+    private LocationSerializer () {
+        // utility class
+    }
+
     /**
      * Serialize Location to string
      * @param location The location to serialize

@@ -8,6 +8,10 @@ import org.joml.Vector3f;
  */
 public class ScaleSerializer {
 
+	private ScaleSerializer() {
+		// utility class
+	}
+
 	/**
 	 * Serialize Vector3f to string
 	 * @param x The x value

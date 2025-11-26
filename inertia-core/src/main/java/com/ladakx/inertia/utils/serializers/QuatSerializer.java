@@ -8,6 +8,10 @@ import org.bukkit.configuration.file.FileConfiguration;
  */
 public class QuatSerializer {
 
+	private QuatSerializer () {
+		// utility class
+	}
+
 	/**
 	 * Створити Quat з кутів (у радіанах).
 	 *
