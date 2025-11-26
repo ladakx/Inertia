@@ -1,6 +1,5 @@
 package com.ladakx.inertia.nms.v1_16_r3;
 
-import com.ladakx.inertia.nms.player.PlayerNMSTools;
 import net.minecraft.server.v1_16_R3.*;
 import org.bukkit.SoundCategory;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftPlayer;
@@ -10,7 +9,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class PlayerTools implements PlayerNMSTools {
+public class PlayerTools implements com.ladakx.inertia.nms.player.PlayerTools {
 
     private final Set<PacketPlayOutPosition.EnumPlayerTeleportFlags> RELATIVE_FLAGS = new HashSet<>(Arrays.asList(PacketPlayOutPosition.EnumPlayerTeleportFlags.X,
             PacketPlayOutPosition.EnumPlayerTeleportFlags.Y,
@@ -22,7 +21,9 @@ public class PlayerTools implements PlayerNMSTools {
             PacketPlayOutPosition.EnumPlayerTeleportFlags.Y,
             PacketPlayOutPosition.EnumPlayerTeleportFlags.Z));
 
-
+    public PlayerTools() {
+        // Constructor
+    }
 
     @Override
     public void modifyCameraRotation(Player player, float yaw, float pitch, boolean absolute) {

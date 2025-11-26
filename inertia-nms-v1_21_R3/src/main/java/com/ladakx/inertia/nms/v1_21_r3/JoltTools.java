@@ -1,7 +1,6 @@
 package com.ladakx.inertia.nms.v1_21_r3;
 
 import com.github.stephengold.joltjni.AaBox;
-import com.ladakx.inertia.nms.jolt.JoltNMSTools;
 import com.ladakx.inertia.nms.v1_21_r3.utils.JoltWrapUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -22,7 +21,11 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class JoltTools implements JoltNMSTools {
+public class JoltTools implements com.ladakx.inertia.nms.jolt.JoltTools {
+
+    public JoltTools() {
+        // Constructor
+    }
 
     @Override
     public List<AaBox> boundingBoxes(BlockState blockState) {
@@ -81,7 +84,7 @@ public class JoltTools implements JoltNMSTools {
     }
 
     @Override
-    public boolean renderFace(World world, Block block, com.ladakx.inertia.utils.Direction face) {
+    public boolean renderFace(World world, Block block, com.ladakx.inertia.enums.Direction face) {
         ServerLevel level = ((CraftWorld) world).getHandle();
         net.minecraft.world.level.block.state.BlockState base = ((CraftBlockState)block.getState()).getHandle();
         net.minecraft.world.level.block.state.BlockState other = level.getBlockState(new BlockPos(block.getX()+face.dx, block.getY()+face.dy, block.getZ()+face.dz));

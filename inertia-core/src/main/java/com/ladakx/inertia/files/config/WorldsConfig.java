@@ -3,7 +3,7 @@ package com.ladakx.inertia.files.config;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.jolt.generator.SimulationType;
-import com.ladakx.inertia.utils.ConfigUtil;
+import com.ladakx.inertia.utils.ConfigUtils;
 import com.ladakx.inertia.utils.serializers.Vec3Serializer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -50,7 +50,7 @@ public class WorldsConfig {
 
         // Обробка "5000;" та парсинг int
         String maxBodiesRaw = section.getString("max-bodies", "5000").replace(";", "").trim();
-        int maxBodies = ConfigUtil.parseIntSafe(maxBodiesRaw, 5000);
+        int maxBodies = ConfigUtils.parseIntSafe(maxBodiesRaw, 5000);
 
         // --- Floor Plane ---
         ConfigurationSection floorSec = section.getConfigurationSection("floor-plane");

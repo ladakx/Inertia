@@ -1,7 +1,6 @@
 package com.ladakx.inertia.files.config.message;
 
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.utils.MessageUtils;
 import com.ladakx.inertia.utils.StringUtils;
 import net.kyori.adventure.audience.Audience;

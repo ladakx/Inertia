@@ -6,19 +6,26 @@ import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
+import com.ladakx.inertia.nms.render.RenderFactory;
+import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import com.ladakx.inertia.physics.config.BodyDefinition;
 import com.ladakx.inertia.physics.config.BodyPhysicsSettings;
 import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
-import com.ladakx.inertia.render.DisplayEntityFactory;
+import com.ladakx.inertia.render.config.RenderEntityDefinition;
+import com.ladakx.inertia.render.config.RenderModelDefinition;
 import com.ladakx.inertia.render.runtime.PhysicsDisplayComposite;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
  * Фізичний об'єкт, який повністю конфігурується через bodies.yml + render.yml.
+ * Тепер використовує RenderFactory для підтримки мультиверсійності.
  */
 public class MinecraftPhysicsObject extends AbstractPhysicsObject {
 
@@ -28,21 +35,38 @@ public class MinecraftPhysicsObject extends AbstractPhysicsObject {
     public MinecraftPhysicsObject(@NotNull MinecraftSpace space,
                                   @NotNull String bodyId,
                                   @NotNull PhysicsModelRegistry modelRegistry,
-                                  @NotNull DisplayEntityFactory displayFactory,
+                                  @NotNull RenderFactory renderFactory,
                                   @NotNull RVec3 initialPosition,
                                   @NotNull Quat initialRotation) {
         super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
         this.bodyId = bodyId;
 
         PhysicsModelRegistry.BodyModel model = modelRegistry.require(bodyId);
-        Optional<com.ladakx.inertia.render.config.RenderModelDefinition> renderOpt = model.renderModel();
+        Optional<RenderModelDefinition> renderOpt = model.renderModel();
 
         if (renderOpt.isPresent()) {
-            this.displayComposite = displayFactory.createComposite(
-                    renderOpt.get(),
-                    space.getWorldBukkit(),
-                    getBody()
-            );
+            RenderModelDefinition renderDef = renderOpt.get();
+            World world = space.getWorldBukkit();
+
+            // Створюємо початкову локацію для спавну візуалів
+            Location spawnLocation = new Location(world, initialPosition.xx(), initialPosition.yy(), initialPosition.zz());
+
+            // Збираємо частини композиту
+            List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
+            for (RenderEntityDefinition entityDef : renderDef.entities().values()) {
+                // Фабрика створює конкретну реалізацію (ArmorStand або Display)
+                VisualObject visual = renderFactory.create(world, spawnLocation, entityDef);
+
+                if (visual.isValid()) {
+                    parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
+                }
+            }
+
+            // Створюємо композит, передаючи світ та частини
+            this.displayComposite = new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
+
+            // Одразу оновлюємо позиції, щоб врахувати offset-и частин
+            this.displayComposite.update();
         } else {
             this.displayComposite = null;
         }

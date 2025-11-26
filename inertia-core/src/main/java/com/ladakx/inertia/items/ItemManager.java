@@ -1,13 +1,11 @@
 package com.ladakx.inertia.items;
 
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.ItemsFile;
 import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.jolt.JoltManager;
+import com.ladakx.inertia.render.ItemModelResolver;
 import com.ladakx.inertia.utils.serializers.ItemSerializer;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,6 +19,7 @@ public class ItemManager {
 
     private static ItemManager instance;
 
+    // Data
     private final ItemsFile itemsFile;
     private final Map<String, ItemStack> items = new HashMap<>();
 

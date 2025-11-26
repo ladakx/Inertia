@@ -4,13 +4,19 @@ import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.*;
 import com.ladakx.inertia.files.config.message.MessageManager;
+import com.ladakx.inertia.items.InertiaItemResolver;
 import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.render.ItemModelResolver;
 
 public class ConfigManager {
 
+    // instance
     private static ConfigManager instance;
 
+    // plugin
     private final InertiaPlugin plugin;
+
+    // physics model registry
     private final PhysicsModelRegistry physicsModelRegistry;
 
     // message manager

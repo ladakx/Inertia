@@ -1,6 +1,5 @@
 package com.ladakx.inertia.nms.v1_17_r1;
 
-import com.ladakx.inertia.nms.player.PlayerNMSTools;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.resources.ResourceLocation;
@@ -14,7 +13,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class PlayerTools implements PlayerNMSTools {
+public class PlayerTools implements com.ladakx.inertia.nms.player.PlayerTools {
 
     private final Set<ClientboundPlayerPositionPacket.RelativeArgument> RELATIVE_FLAGS = new HashSet<>(Arrays.asList(
             ClientboundPlayerPositionPacket.RelativeArgument.X,
@@ -28,6 +27,9 @@ public class PlayerTools implements PlayerNMSTools {
             ClientboundPlayerPositionPacket.RelativeArgument.Y,
             ClientboundPlayerPositionPacket.RelativeArgument.Z));
 
+    public PlayerTools(){
+        // Constructor
+    }
 
     @Override
     public void modifyCameraRotation(Player player, float yaw, float pitch, boolean absolute) {
