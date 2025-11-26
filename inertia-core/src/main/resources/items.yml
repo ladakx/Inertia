@@ -24,7 +24,7 @@
 #  tags:
 #    - <String> <Integer>
 iron_chain:
-  type: IRON_CHAIN
+  type: CHAIN
 
 ## RAGDOLL
 ragdoll_head:

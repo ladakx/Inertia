@@ -6,6 +6,6 @@ public class MessagesFile extends CustomConfiguration {
 
     /** Create file */
     public MessagesFile(InertiaPlugin plugin) {
-        super(plugin, plugin.getConfig().getString("general.lang", "en") +".yml");
+        super(plugin, "lang/lang_"+plugin.getConfig().getString("general.lang", "en") +".yml");
     }
 }

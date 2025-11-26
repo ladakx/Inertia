@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.logging.Level;
 
 public abstract class CustomConfiguration {
+
     protected final JavaPlugin plugin;
     protected final String fileName;
     protected final File file;
