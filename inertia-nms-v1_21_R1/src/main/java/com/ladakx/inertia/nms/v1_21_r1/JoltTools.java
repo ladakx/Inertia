@@ -1,7 +1,6 @@
 package com.ladakx.inertia.nms.v1_21_r1;
 
 import com.github.stephengold.joltjni.AaBox;
-import com.ladakx.inertia.nms.jolt.JoltNMSTools;
 import com.ladakx.inertia.nms.v1_21_r1.utils.JoltWrapUtils;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -21,7 +20,11 @@ import org.bukkit.craftbukkit.block.CraftBlockState;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class JoltTools implements JoltNMSTools {
+public class JoltTools implements com.ladakx.inertia.nms.jolt.JoltTools {
+
+    public JoltTools() {
+        // Constructor
+    }
 
     @Override
     public List<AaBox> boundingBoxes(BlockState blockState) {
@@ -76,7 +79,7 @@ public class JoltTools implements JoltNMSTools {
     }
 
     @Override
-    public boolean renderFace(World world, Block block, com.ladakx.inertia.utils.Direction face) {
+    public boolean renderFace(World world, Block block, com.ladakx.inertia.enums.Direction face) {
         return false;
     }
 

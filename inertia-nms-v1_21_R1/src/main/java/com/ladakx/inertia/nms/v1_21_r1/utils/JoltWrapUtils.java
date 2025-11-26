@@ -6,6 +6,10 @@ import net.minecraft.world.phys.AABB;
 
 public class JoltWrapUtils {
 
+    private JoltWrapUtils() {
+        // utility class
+    }
+
     public static AaBox convert(AABB aabb) {
         return new AaBox(
                 new Vec3((float) aabb.minX, (float) aabb.minY, (float) aabb.minZ),

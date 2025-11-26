@@ -1,6 +1,5 @@
 package com.ladakx.inertia;
 
-import com.ladakx.inertia.commands.Commands;
 import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.items.ItemManager;
@@ -9,20 +8,20 @@ import com.ladakx.inertia.jolt.listeners.WorldLoadListener;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.nativelib.JoltNatives;
 import com.ladakx.inertia.nativelib.Precision;
-import com.ladakx.inertia.nms.jolt.JoltNMSTools;
 import com.ladakx.inertia.nms.jolt.JoltTools;
-import com.ladakx.inertia.nms.player.PlayerNMSTools;
+import com.ladakx.inertia.nms.jolt.JoltToolsInit;
 import com.ladakx.inertia.nms.player.PlayerTools;
+import com.ladakx.inertia.nms.player.PlayerToolsInit;
+import com.ladakx.inertia.nms.render.RenderFactory;
+import com.ladakx.inertia.nms.render.RenderFactoryInit;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
 // Cloud Framework Imports
-import org.incendo.cloud.SenderMapper;
 import org.incendo.cloud.annotations.AnnotationParser;
 import org.incendo.cloud.exception.InvalidSyntaxException;
 import org.incendo.cloud.exception.NoPermissionException;
-import org.incendo.cloud.execution.ExecutionCoordinator;
 import org.incendo.cloud.paper.PaperCommandManager;
 
 /**
@@ -34,9 +33,6 @@ public final class InertiaPlugin extends JavaPlugin {
     // Singleton instance
     private static InertiaPlugin instance;
 
-    // config objects
-    private ConfigManager configManager;
-
     // Systems
     private PaperCommandManager<CommandSender> commandManager;
     private AnnotationParser<CommandSender> annotationParser;
@@ -45,8 +41,9 @@ public final class InertiaPlugin extends JavaPlugin {
     private JoltNatives joltNatives;
 
     // NMS & Tools
-    private PlayerNMSTools playerNMSTools;
-    private JoltNMSTools joltNMSTools;
+    private PlayerTools playerTools;
+    private JoltTools joltTools;
+    private RenderFactory renderFactory;
 
     private boolean worldEditEnabled;
 
@@ -125,39 +122,13 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     private void setupNMSTools() {
-        this.joltNMSTools = JoltTools.get();
-        this.playerNMSTools = PlayerTools.get();
+        this.joltTools = JoltToolsInit.get();
+        this.playerTools = PlayerToolsInit.get();
+        this.renderFactory = RenderFactoryInit.get();
     }
 
     private void setupCommands() {
-        try {
-            // 1. Initialize Command Manager
-            // Ми додаємо SenderMapper, щоб перетворити Paper CommandSourceStack -> Bukkit CommandSender
-            this.commandManager = PaperCommandManager.builder(
-                            SenderMapper.create(
-                                    (stack) -> stack.getSender(), // Як отримати Sender зі стеку
-                                    (sender) -> null // Зворотнє перетворення (зазвичай не потрібне для простих команд)
-                            )
-                    )
-                    .executionCoordinator(ExecutionCoordinator.asyncCoordinator())
-                    .buildOnEnable(this);
 
-            // 2. Exception Handling (Обробка помилок)
-            registerCommandExceptionHandlers();
-
-            // 3. Initialize Annotation Parser
-            this.annotationParser = new AnnotationParser<>(
-                    this.commandManager,
-                    CommandSender.class
-            );
-
-            // 4. Register Commands
-            this.annotationParser.parse(new Commands(this));
-
-        } catch (Exception e) {
-            InertiaLogger.error("Failed to initialize Cloud Command Framework", e);
-            Bukkit.getPluginManager().disablePlugin(this);
-        }
     }
 
     private void registerCommandExceptionHandlers() {
@@ -189,12 +160,16 @@ public final class InertiaPlugin extends JavaPlugin {
         return instance;
     }
 
-    public PlayerNMSTools getPlayerNMSTools() {
-        return instance.playerNMSTools;
+    public PlayerTools getPlayerTools() {
+        return instance.playerTools;
     }
 
-    public JoltNMSTools getJoltNMSTools() {
-        return joltNMSTools;
+    public JoltTools getJoltTools() {
+        return joltTools;
+    }
+
+    public RenderFactory getRenderFactory() {
+        return renderFactory;
     }
 
     public boolean isWorldEditEnabled() {
