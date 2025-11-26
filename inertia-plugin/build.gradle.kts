@@ -29,9 +29,6 @@ dependencies {
     implementation(project(":inertia-nms-v1_21_R1"))
     implementation(project(":inertia-nms-v1_21_R2"))
     implementation(project(":inertia-nms-v1_21_R3"))
-
-    // These libraries are safe to shade
-    implementation("org.jetbrains:annotations:24.0.1")
 }
 
 tasks {
@@ -55,8 +52,6 @@ tasks {
         exclude("META-INF/AL2.0")
         exclude("META-INF/LGPL2.1")
         exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
-
-        minimize()
 
         finalizedBy("copyJarToDesktop")
     }

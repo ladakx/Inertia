@@ -1,7 +1,7 @@
 package com.ladakx.inertia.utils.serializers;
 
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.utils.MinecraftVersions; // Ваш пакет
+import com.ladakx.inertia.utils.MinecraftVersions;
 import com.ladakx.inertia.utils.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -13,7 +13,6 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.*;
-import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.lang.reflect.Constructor;
@@ -24,7 +23,7 @@ import java.util.regex.Pattern;
 
 public class ItemSerializer {
 
-    public static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+    private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
 
     private ItemSerializer() {
         // utility class
@@ -47,14 +46,14 @@ public class ItemSerializer {
 
         // 1. Name
         if (section.contains("name")) {
-            Component name = StringUtils.parseString(section.getString("name"));
-            setDisplayName(meta, name);
+            Component nameComp = StringUtils.parseString(section.getString("name"));
+            setDisplayNameSafe(meta, nameComp);
         }
 
         // 2. Lore
         if (section.contains("lore")) {
             List<Component> lore = StringUtils.parseStringList(section.getStringList("lore"));
-            setLore(meta, lore);
+            setLoreSafe(meta, lore);
         }
 
         // 3. Unbreakable
@@ -64,15 +63,34 @@ public class ItemSerializer {
 
         // 4. Custom Model Data
         if (section.contains("custom-model-data")) {
-            meta.setCustomModelData(section.getInt("custom-model-data"));
+            if (meta.hasCustomModelData()) {
+                meta.setCustomModelData(section.getInt("custom-model-data"));
+            } else {
+                try {
+                    Method setCMD = meta.getClass().getMethod("setCustomModelData", Integer.class);
+                    setCMD.setAccessible(true);
+                    setCMD.invoke(meta, section.getInt("custom-model-data"));
+                } catch (Exception ignored) {}
+            }
         }
 
-        // 5. Item Model (1.21.2 / 1.21.3+) – через рефлексію
+        // 5. Item Model (1.21.2 / 1.21.3+)
         if (section.contains("item-model")) {
             if (MinecraftVersions.TRICKY_TRIALS.isAtLeast() &&
                     MinecraftVersions.CURRENT.compareTo(MinecraftVersions.TRICKY_TRIALS.get(2)) >= 0) {
-                String modelKey = section.getString("item-model");
-                setItemModel(meta, modelKey); // рефлексія всередині
+                try {
+                    String modelKey = section.getString("item-model");
+                    if (modelKey != null && modelKey.contains(":")) {
+                        String[] parts = modelKey.split(":");
+                        NamespacedKey key = new NamespacedKey(parts[0], parts[1]);
+
+                        Method setItemModel = meta.getClass().getMethod("setItemModel", NamespacedKey.class);
+                        setItemModel.setAccessible(true);
+                        setItemModel.invoke(meta, key);
+                    }
+                } catch (Exception e) {
+                    InertiaLogger.warn("Failed to set item model: " + e.getMessage());
+                }
             }
         }
 
@@ -81,11 +99,21 @@ public class ItemSerializer {
             meta.addItemFlags(ItemFlag.values());
         }
 
-        // 7. Enchantment Glint Override (1.20.5+) – через рефлексію
+        // 7. Enchantment Glint Override (1.20.5+)
         if (section.contains("enchantment-glint-override")) {
             if (MinecraftVersions.TRAILS_AND_TAILS.isAtLeast() &&
                     MinecraftVersions.CURRENT.compareTo(MinecraftVersions.TRAILS_AND_TAILS.get(5)) >= 0) {
-                setEnchantmentGlintOverride(meta, section.getBoolean("enchantment-glint-override"));
+                try {
+                    Method setGlint = meta.getClass().getMethod("setEnchantmentGlintOverride", Boolean.class);
+                    setGlint.setAccessible(true);
+                    setGlint.invoke(meta, section.getBoolean("enchantment-glint-override"));
+                } catch (Exception e) {
+                    try {
+                        Method setGlint = meta.getClass().getMethod("setEnchantmentGlintOverride", boolean.class);
+                        setGlint.setAccessible(true);
+                        setGlint.invoke(meta, section.getBoolean("enchantment-glint-override"));
+                    } catch (Exception ignored) {}
+                }
             }
         }
 
@@ -95,13 +123,9 @@ public class ItemSerializer {
                 String[] parts = enchantEntry.split(" ");
                 if (parts.length >= 2) {
                     Enchantment enchantment = getEnchantment(parts[0]);
-                    try {
-                        int level = Integer.parseInt(parts[1]);
-                        if (enchantment != null) {
-                            meta.addEnchant(enchantment, level, true);
-                        }
-                    } catch (NumberFormatException ignore) {
-                        InertiaLogger.warn("Invalid enchantment level: " + enchantEntry);
+                    int level = Integer.parseInt(parts[1]);
+                    if (enchantment != null) {
+                        meta.addEnchant(enchantment, level, true);
                     }
                 }
             }
@@ -110,55 +134,57 @@ public class ItemSerializer {
         // 9. Durability (Damage & Max Damage)
         if (section.contains("durability.damage")) {
             if (meta instanceof Damageable) {
-                Damageable damageable = (Damageable) meta;
-                damageable.setDamage(section.getInt("durability.damage"));
+                ((Damageable) meta).setDamage(section.getInt("durability.damage"));
             }
         }
-
-        // Max Damage (1.20.5+) – через рефлексію
+        // Max Damage (1.20.5+)
         if (section.contains("durability.max-damage")) {
             if (MinecraftVersions.TRAILS_AND_TAILS.isAtLeast() &&
                     MinecraftVersions.CURRENT.compareTo(MinecraftVersions.TRAILS_AND_TAILS.get(5)) >= 0) {
-                if (meta instanceof Damageable) {
-                    setMaxDamage((Damageable) meta, section.getInt("durability.max-damage"));
-                }
+                try {
+                    Method setMaxDamage = meta.getClass().getMethod("setMaxDamage", Integer.class);
+                    setMaxDamage.setAccessible(true);
+                    setMaxDamage.invoke(meta, section.getInt("durability.max-damage"));
+                } catch (Exception ignored) {}
             }
         }
 
         // 10. Skull Owner
-        if (section.contains("skull-owning-player") && meta instanceof SkullMeta) {
-            SkullMeta skullMeta = (SkullMeta) meta;
+        if (meta instanceof SkullMeta && section.contains("skull-owning-player")) {
             String skullData = section.getString("skull-owning-player");
             if (skullData != null) {
-                applySkullTexture(skullMeta, skullData);
+                applySkullTexture((SkullMeta) meta, skullData);
             }
         }
 
-        // 11. Colors (Potion & Leather)
+        // 11. Colors
         if (section.contains("potion-color") && meta instanceof PotionMeta) {
-            PotionMeta potionMeta = (PotionMeta) meta;
-            potionMeta.setColor(parseColorFromConfig(section.getString("potion-color")));
+            ((PotionMeta) meta).setColor(parseColorFromConfig(section.getString("potion-color")));
         }
         if (section.contains("leather-color") && meta instanceof LeatherArmorMeta) {
-            LeatherArmorMeta leatherMeta = (LeatherArmorMeta) meta;
-            leatherMeta.setColor(parseColorFromConfig(section.getString("leather-color")));
+            ((LeatherArmorMeta) meta).setColor(parseColorFromConfig(section.getString("leather-color")));
         }
 
-        // 12. Armor Trims (1.20+) – через рефлексію, без прямого ArmorMeta
-        if (MinecraftVersions.TRAILS_AND_TAILS.isAtLeast()
-                && section.contains("trim-pattern") && section.contains("trim-material")) {
-            applyArmorTrim(meta,
-                    section.getString("trim-pattern"),
-                    section.getString("trim-material"));
+        // 12. Armor Trims (1.20+)
+        // FIX: Removed 'meta instanceof ArmorMeta' because ArmorMeta does not exist in 1.16.5
+        if (MinecraftVersions.TRAILS_AND_TAILS.isAtLeast()) {
+            if (section.contains("trim-pattern") && section.contains("trim-material")) {
+                try {
+                    // We pass generic ItemMeta, the check happens inside via reflection
+                    applyArmorTrim(meta, section.getString("trim-pattern"), section.getString("trim-material"));
+                } catch (Exception e) {
+                    InertiaLogger.warn("Failed to apply armor trim: " + e.getMessage());
+                }
+            }
         }
 
         // 13. PDC Tags
         if (section.contains("tags")) {
-            PersistentDataContainer container = meta.getPersistentDataContainer();
+            var container = meta.getPersistentDataContainer();
             for (String tagEntry : section.getStringList("tags")) {
                 String[] parts = tagEntry.split(" ");
                 if (parts.length >= 2) {
-                    NamespacedKey key = new NamespacedKey("inertia", parts[0]); // Using 'inertia' namespace
+                    NamespacedKey key = new NamespacedKey("inertia", parts[0]);
                     try {
                         int value = Integer.parseInt(parts[1]);
                         container.set(key, PersistentDataType.INTEGER, value);
@@ -171,16 +197,14 @@ public class ItemSerializer {
 
         item.setItemMeta(meta);
 
-        // 14. Light Level (BlockData handling for Light blocks; працює тільки там, де LIGHT існує)
-        if (section.contains("light-level") && isLightMaterial(material)) {
-            ItemMeta currentMeta = item.getItemMeta();
-            if (currentMeta instanceof BlockDataMeta) {
-                BlockDataMeta blockDataMeta = (BlockDataMeta) currentMeta;
+        // 14. Light Level
+        if (section.contains("light-level") && material.name().equals("LIGHT")) {
+            if (item.getItemMeta() instanceof BlockDataMeta) {
+                BlockDataMeta blockDataMeta = (BlockDataMeta) item.getItemMeta();
                 BlockData data = material.createBlockData();
                 if (data instanceof Levelled) {
-                    Levelled levelled = (Levelled) data;
-                    levelled.setLevel(section.getInt("light-level"));
-                    blockDataMeta.setBlockData(levelled);
+                    ((Levelled) data).setLevel(section.getInt("light-level"));
+                    blockDataMeta.setBlockData(data);
                     item.setItemMeta(blockDataMeta);
                 }
             }
@@ -191,17 +215,38 @@ public class ItemSerializer {
 
     // --- Helper Methods ---
 
+    private static void setDisplayNameSafe(ItemMeta meta, Component component) {
+        try {
+            Method displayNameMethod = meta.getClass().getMethod("displayName", Component.class);
+            displayNameMethod.setAccessible(true);
+            displayNameMethod.invoke(meta, component);
+        } catch (Exception e) {
+            String legacyName = LegacyComponentSerializer.legacySection().serialize(component);
+            meta.setDisplayName(legacyName);
+        }
+    }
+
+    private static void setLoreSafe(ItemMeta meta, List<Component> lore) {
+        try {
+            Method loreMethod = meta.getClass().getMethod("lore", List.class);
+            loreMethod.setAccessible(true);
+            loreMethod.invoke(meta, lore);
+        } catch (Exception e) {
+            List<String> legacyLore = new ArrayList<>();
+            for (Component comp : lore) {
+                legacyLore.add(LegacyComponentSerializer.legacySection().serialize(comp));
+            }
+            meta.setLore(legacyLore);
+        }
+    }
+
     public static Color parseColorFromConfig(String colorStr) {
         if (colorStr == null) return Color.WHITE;
         if (colorStr.contains(",")) {
             String[] rgb = colorStr.split(",");
             try {
-                return Color.fromRGB(
-                        Integer.parseInt(rgb[0].trim()),
-                        Integer.parseInt(rgb[1].trim()),
-                        Integer.parseInt(rgb[2].trim())
-                );
-            } catch (NumberFormatException e) {
+                return Color.fromRGB(Integer.parseInt(rgb[0]), Integer.parseInt(rgb[1]), Integer.parseInt(rgb[2]));
+            } catch (Exception e) {
                 return Color.WHITE;
             }
         }
@@ -216,144 +261,12 @@ public class ItemSerializer {
         NamespacedKey namespacedKey = NamespacedKey.minecraft(key.toLowerCase());
         Enchantment enchantment = Enchantment.getByKey(namespacedKey);
         if (enchantment == null) {
-            // Fallback for legacy names if needed
-            enchantment = Enchantment.getByName(key.toUpperCase());
+            return Enchantment.getByName(key.toUpperCase());
         }
         return enchantment;
     }
 
-    // --- Adventure name / lore cross-version ---
-
-    /**
-     * Встановлює displayName, працює як з Adventure API (нові версії),
-     * так і з legacy String (1.16.5).
-     */
-    private static void setDisplayName(ItemMeta meta, Component component) {
-        if (meta == null || component == null) return;
-
-        // Спробувати новий API: ItemMeta#displayName(Component)
-        try {
-            Method method = meta.getClass().getMethod("displayName", Component.class);
-            method.invoke(meta, component);
-            return;
-        } catch (NoSuchMethodException ignored) {
-            // старі версії – fallback нижче
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to set display name via Adventure API: " + e.getMessage());
-        }
-
-        // Legacy API – setDisplayName(String)
-        try {
-            String legacy = LegacyComponentSerializer.legacySection().serialize(component);
-            Method legacyMethod = meta.getClass().getMethod("setDisplayName", String.class);
-            legacyMethod.invoke(meta, legacy);
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to set legacy display name: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Встановлює lore, працює і з Adventure API, і з legacy String API.
-     */
-    private static void setLore(ItemMeta meta, List<Component> lore) {
-        if (meta == null || lore == null) return;
-
-        // Спробувати новий API: ItemMeta#lore(List<Component>)
-        try {
-            Method method = meta.getClass().getMethod("lore", List.class);
-            method.invoke(meta, lore);
-            return;
-        } catch (NoSuchMethodException ignored) {
-            // старі версії – fallback нижче
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to set lore via Adventure API: " + e.getMessage());
-        }
-
-        // Legacy API – setLore(List<String>)
-        try {
-            List<String> legacyLore = new ArrayList<>();
-            LegacyComponentSerializer serializer = LegacyComponentSerializer.legacySection();
-            for (Component line : lore) {
-                legacyLore.add(serializer.serialize(line));
-            }
-            Method legacyMethod = meta.getClass().getMethod("setLore", List.class);
-            legacyMethod.invoke(meta, legacyLore);
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to set legacy lore: " + e.getMessage());
-        }
-    }
-
-    // --- Версійні фічі через рефлексію ---
-
-    /**
-     * Item Model (1.21.2+) – використовує рефлексію, щоб не ламати компіляцію на 1.16.5.
-     */
-    private static void setItemModel(ItemMeta meta, String modelKey) {
-        if (meta == null || modelKey == null || !modelKey.contains(":")) return;
-
-        String[] parts = modelKey.split(":", 2);
-        NamespacedKey key = new NamespacedKey(parts[0], parts[1]);
-
-        try {
-            Method method = meta.getClass().getMethod("setItemModel", NamespacedKey.class);
-            method.invoke(meta, key);
-        } catch (NoSuchMethodException ignored) {
-            // Версія без ItemModel – просто ігноруємо
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to set item model: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Enchantment glint override (1.20.5+) – через рефлексію.
-     */
-    private static void setEnchantmentGlintOverride(ItemMeta meta, boolean value) {
-        if (meta == null) return;
-        try {
-            Method m = meta.getClass().getMethod("setEnchantmentGlintOverride", boolean.class);
-            m.invoke(meta, value);
-        } catch (NoSuchMethodException ignored) {
-            // старі версії – немає такої функції
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to set enchantment glint override: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Max damage (1.20.5+) – через рефлексію.
-     */
-    private static void setMaxDamage(Damageable damageable, int maxDamage) {
-        if (damageable == null) return;
-        try {
-            Method m = damageable.getClass().getMethod("setMaxDamage", int.class);
-            m.invoke(damageable, maxDamage);
-        } catch (NoSuchMethodException ignored) {
-            // старі версії
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to set max damage: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Перевірка, що Material – LIGHT, але без прямого посилання на Material.LIGHT
-     * (щоб компілювалось на 1.16.5, де LIGHT ще немає).
-     */
-    private static boolean isLightMaterial(Material material) {
-        if (material == null) return false;
-        try {
-            return "LIGHT".equalsIgnoreCase(material.name());
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    // --- Specific Feature Handlers ---
-
-    /**
-     * Handles Skull Textures (URL) and UUIDs safely across versions using Reflection/Paper API.
-     */
     public static void applySkullTexture(SkullMeta meta, String data) {
-        // If it's just a name or UUID
         if (data.length() <= 16 || (data.length() == 36 && data.contains("-"))) {
             try {
                 UUID uuid = UUID.fromString(data);
@@ -364,22 +277,16 @@ public class ItemSerializer {
             return;
         }
 
-        // If it's a URL (Texture)
-        // We use GameProfile reflection to be compatible with 1.16.5 -> 1.21+ without strict NMS version imports
         try {
             com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(UUID.randomUUID(), null);
             String base64;
             if (data.startsWith("http")) {
-                String encodedData = Base64.getEncoder().encodeToString(
-                        String.format("{textures:{SKIN:{url:\"%s\"}}}", data).getBytes()
-                );
-                base64 = encodedData;
+                base64 = Base64.getEncoder().encodeToString(String.format("{textures:{SKIN:{url:\"%s\"}}}", data).getBytes());
             } else {
-                base64 = data; // Assume already Base64
+                base64 = data;
             }
 
-            profile.getProperties().put("textures",
-                    new com.mojang.authlib.properties.Property("textures", base64));
+            profile.getProperties().put("textures", new com.mojang.authlib.properties.Property("textures", base64));
 
             Field profileField = meta.getClass().getDeclaredField("profile");
             profileField.setAccessible(true);
@@ -390,59 +297,49 @@ public class ItemSerializer {
     }
 
     /**
-     * Applies Armor Trims (1.20+).
-     * Реалізація через рефлексію, щоб клас компілювався на 1.16.5.
-     *
-     * УВАГА: сигнатура змінена на ItemMeta, без ArmorMeta –
-     * якщо ти викликав цей метод десь ще, просто передавай туди ItemMeta.
+     * Applies Armor Trims via Reflection for 1.20+ compatibility while compiling on 1.16.5.
+     * Changed parameter from ArmorMeta to ItemMeta to avoid ClassNotFoundException during compilation.
      */
-    public static void applyArmorTrim(ItemMeta meta, String patternStr, String materialStr) {
-        if (meta == null || patternStr == null || materialStr == null) return;
-
+    public static void applyArmorTrim(ItemMeta meta, String patternStr, String materialStr) throws Exception {
+        // 1. Check if meta is actually an instance of ArmorMeta (which exists only at runtime on 1.20+)
+        Class<?> armorMetaClass;
         try {
-            // Class<?> armorMetaClass = org.bukkit.inventory.meta.ArmorMeta
-            Class<?> armorMetaClass = Class.forName("org.bukkit.inventory.meta.ArmorMeta");
-            if (!armorMetaClass.isInstance(meta)) {
-                return; // item не є бронею з тримами
-            }
+            armorMetaClass = Class.forName("org.bukkit.inventory.meta.ArmorMeta");
+        } catch (ClassNotFoundException e) {
+            return; // Not on 1.20+, cannot apply trims
+        }
 
-            // org.bukkit.Registry
-            Class<?> registryClass = Class.forName("org.bukkit.Registry");
+        if (!armorMetaClass.isInstance(meta)) {
+            return; // Item is not armor
+        }
 
-            // TRIM_PATTERN / TRIM_MATERIAL
-            Field trimPatternField = registryClass.getField("TRIM_PATTERN");
-            Field trimMaterialField = registryClass.getField("TRIM_MATERIAL");
+        // Reflection magic
+        Class<?> registryClass = Class.forName("org.bukkit.Registry");
 
-            Object patternRegistry = trimPatternField.get(null);
-            Object materialRegistry = trimMaterialField.get(null);
+        Field trimPatternRegistryField = registryClass.getField("TRIM_PATTERN");
+        Field trimMaterialRegistryField = registryClass.getField("TRIM_MATERIAL");
 
-            Method getMethod = registryClass.getMethod("get", NamespacedKey.class);
+        Object trimPatternRegistry = trimPatternRegistryField.get(null);
+        Object trimMaterialRegistry = trimMaterialRegistryField.get(null);
 
-            NamespacedKey patternKey = NamespacedKey.minecraft(patternStr.toLowerCase());
-            NamespacedKey materialKey = NamespacedKey.minecraft(materialStr.toLowerCase());
+        Method getMethod = registryClass.getMethod("get", NamespacedKey.class);
+        getMethod.setAccessible(true);
 
-            Object pattern = getMethod.invoke(patternRegistry, patternKey);
-            Object material = getMethod.invoke(materialRegistry, materialKey);
+        Object pattern = getMethod.invoke(trimPatternRegistry, NamespacedKey.minecraft(patternStr.toLowerCase()));
+        Object material = getMethod.invoke(trimMaterialRegistry, NamespacedKey.minecraft(materialStr.toLowerCase()));
 
-            if (pattern == null || material == null) {
-                return;
-            }
-
+        if (pattern != null && material != null) {
+            Class<?> armorTrimClass = Class.forName("org.bukkit.inventory.meta.trim.ArmorTrim");
             Class<?> trimMaterialClass = Class.forName("org.bukkit.inventory.meta.trim.TrimMaterial");
             Class<?> trimPatternClass = Class.forName("org.bukkit.inventory.meta.trim.TrimPattern");
-            Class<?> armorTrimClass = Class.forName("org.bukkit.inventory.meta.trim.ArmorTrim");
 
-            Constructor<?> armorTrimCtor = armorTrimClass.getConstructor(trimMaterialClass, trimPatternClass);
-            Object armorTrim = armorTrimCtor.newInstance(material, pattern);
+            Constructor<?> armorTrimConstructor = armorTrimClass.getConstructor(trimMaterialClass, trimPatternClass);
+            armorTrimConstructor.setAccessible(true);
+            Object armorTrim = armorTrimConstructor.newInstance(material, pattern);
 
-            Method setTrim = armorMetaClass.getMethod("setTrim", armorTrimClass);
-            setTrim.invoke(meta, armorTrim);
-        } catch (ClassNotFoundException e) {
-            // Версія < 1.20, немає цих класів – просто ігноруємо
-        } catch (NoSuchFieldException | NoSuchMethodException ignored) {
-            // Щось змінилось в API – ігноруємо тихо
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to apply armor trim: " + e.getMessage());
+            Method setTrimMethod = meta.getClass().getMethod("setTrim", armorTrimClass);
+            setTrimMethod.setAccessible(true);
+            setTrimMethod.invoke(meta, armorTrim);
         }
     }
 }

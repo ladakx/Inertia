@@ -1,7 +1,6 @@
 package com.ladakx.inertia;
 
 import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.items.ItemManager;
 import com.ladakx.inertia.jolt.JoltManager;
 import com.ladakx.inertia.jolt.listeners.WorldLoadListener;
@@ -15,14 +14,7 @@ import com.ladakx.inertia.nms.player.PlayerToolsInit;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.RenderFactoryInit;
 import org.bukkit.Bukkit;
-import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
-
-// Cloud Framework Imports
-import org.incendo.cloud.annotations.AnnotationParser;
-import org.incendo.cloud.exception.InvalidSyntaxException;
-import org.incendo.cloud.exception.NoPermissionException;
-import org.incendo.cloud.paper.PaperCommandManager;
 
 /**
  * Main class of the Inertia plugin.
@@ -32,10 +24,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     // Singleton instance
     private static InertiaPlugin instance;
-
-    // Systems
-    private PaperCommandManager<CommandSender> commandManager;
-    private AnnotationParser<CommandSender> annotationParser;
 
     // Jolt
     private JoltNatives joltNatives;
@@ -129,21 +117,6 @@ public final class InertiaPlugin extends JavaPlugin {
 
     private void setupCommands() {
 
-    }
-
-    private void registerCommandExceptionHandlers() {
-        // Handle No Permission
-        this.commandManager.exceptionController().registerHandler(NoPermissionException.class, context -> {
-            CommandSender sender = context.context().sender();
-            ConfigManager.getInstance().getMessageManager().send(sender, MessageKey.NO_PERMISSIONS);
-        });
-
-        // Handle Invalid Syntax (Unknown command or wrong arguments)
-        this.commandManager.exceptionController().registerHandler(InvalidSyntaxException.class, context -> {
-            CommandSender sender = context.context().sender();
-            // Optional: Send help message or specific error
-            ConfigManager.getInstance().getMessageManager().send(sender, MessageKey.HELP_COMMAND);
-        });
     }
 
     private void registerListeners() {

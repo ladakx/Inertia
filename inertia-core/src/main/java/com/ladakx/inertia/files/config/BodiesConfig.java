@@ -1,9 +1,9 @@
 package com.ladakx.inertia.files.config;
 
+import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.physics.config.BodyDefinition;
 import com.ladakx.inertia.physics.config.BodyPhysicsSettings;
-import com.github.stephengold.joltjni.enumerate.EMotionType;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -11,21 +11,6 @@ import java.util.*;
 
 /**
  * Immutable-конфіг для bodies.yml.
- *
- * Формат (приклад):
- *
- * blocks:
- *   stone:
- *     mass: 1.0
- *     friction: 0.8
- *     restitution: 0.0
- *     linear-damping: 0.1
- *     angular-damping: 0.1
- *     motion-type: Dynamic
- *     object-layer: 0
- *     render-model: stone
- *     shape:
- *       - "type=box x=0.5 y=0.5 z=0.5"
  */
 public final class BodiesConfig {
 
@@ -39,69 +24,86 @@ public final class BodiesConfig {
     private Map<String, BodyDefinition> parse(FileConfiguration config) {
         Map<String, BodyDefinition> result = new LinkedHashMap<>();
 
-        for (String rootKey : config.getKeys(false)) {
-            ConfigurationSection rootSection = config.getConfigurationSection(rootKey);
-            if (rootSection == null) {
-                continue;
-            }
+        // Обробляємо основні категорії, які є поодинокими фізичними тілами
+        parseCategory(config, "blocks", result);
+        parseCategory(config, "chains", result);
 
-            if (isBodySection(rootSection)) {
-                parseBodySection(result, null, rootKey, rootSection);
-            } else {
-                for (String childKey : rootSection.getKeys(false)) {
-                    ConfigurationSection bodySection = rootSection.getConfigurationSection(childKey);
-                    if (bodySection == null) {
-                        continue;
-                    }
-                    parseBodySection(result, rootKey, childKey, bodySection);
-                }
-            }
+        // Примітка: Ragdolls мають складну структуру (joints, multiple shapes),
+        // тому вони не можуть бути збережені як простий BodyDefinition.
+        // Їх слід обробляти окремим методом або класом (наприклад, RagdollConfig).
+        if (config.contains("ragdolls")) {
+            InertiaLogger.info("Detected 'ragdolls' section. These require a separate loader definition.");
         }
 
         return result;
     }
 
-    private boolean isBodySection(ConfigurationSection section) {
-        return section.contains("shape")
-                || section.contains("mass")
-                || section.contains("render-model");
-    }
-
-    private void parseBodySection(Map<String, BodyDefinition> result,
-                                  String prefix,
-                                  String localKey,
-                                  ConfigurationSection section) {
-        String id = (prefix == null || prefix.isEmpty())
-                ? localKey
-                : prefix + "." + localKey;
-
-        List<String> shapeLines = section.getStringList("shape");
-        if (shapeLines.isEmpty()) {
-            InertiaLogger.warn("Body '" + id + "' has no 'shape' section in bodies.yml");
+    private void parseCategory(FileConfiguration config, String category, Map<String, BodyDefinition> result) {
+        ConfigurationSection categorySection = config.getConfigurationSection(category);
+        if (categorySection == null) {
+            return;
         }
 
-        float mass = (float) section.getDouble("mass", 1.0d);
+        for (String key : categorySection.getKeys(false)) {
+            ConfigurationSection bodySection = categorySection.getConfigurationSection(key);
+            if (bodySection == null) continue;
+
+            // Формуємо повний ID (наприклад, "blocks.stone" або просто "stone", залежно від вашої логіки)
+            // У попередньому коді ви використовували префікси, тут залишимо просто ключ, якщо імена унікальні,
+            // або category + "." + key, якщо хочете розділяти їх.
+            String fullId = category + "." + key;
+
+            try {
+                BodyDefinition def = parseSingleBody(fullId, bodySection);
+                if (result.put(fullId, def) != null) {
+                    InertiaLogger.warn("Duplicate body id '" + fullId + "' in bodies.yml, overriding.");
+                }
+            } catch (Exception e) {
+                InertiaLogger.error("Failed to parse body '" + fullId + "': " + e.getMessage());
+            }
+        }
+    }
+
+    private BodyDefinition parseSingleBody(String id, ConfigurationSection section) {
+        // --- 1. Render Section ---
+        // Якщо модель не вказана, використовуємо ID тіла як fallback
+        String renderModelId = section.getString("render.model", id);
+
+        // --- 2. Physics Section ---
+        ConfigurationSection physSection = section.getConfigurationSection("physics");
+        if (physSection == null) {
+            InertiaLogger.warn("Body '" + id + "' has no 'physics' section. Using defaults.");
+            // Можна створити пусту секцію, щоб уникнути NullPointerException, або викинути помилку
+            physSection = section.createSection("physics");
+        }
+
+        List<String> shapeLines = physSection.getStringList("shape");
+        if (shapeLines.isEmpty()) {
+            InertiaLogger.warn("Body '" + id + "' physics has no 'shape' defined!");
+        }
+
+        float mass = (float) physSection.getDouble("mass", 1.0d);
         if (mass <= 0f) {
             InertiaLogger.warn("Body '" + id + "' has non-positive mass: " + mass + ", clamping to 0.001");
             mass = 0.001f;
         }
 
-        float friction = (float) section.getDouble("friction", 0.5d);
+        float friction = (float) physSection.getDouble("friction", 0.5d);
         if (friction < 0f) {
             InertiaLogger.warn("Body '" + id + "' has negative friction: " + friction + ", clamping to 0");
             friction = 0f;
         }
 
-        float restitution = (float) section.getDouble("restitution", 0.0d);
+        float restitution = (float) physSection.getDouble("restitution", 0.0d);
         if (restitution < 0f) {
             InertiaLogger.warn("Body '" + id + "' has negative restitution: " + restitution + ", clamping to 0");
             restitution = 0f;
         }
 
-        float linearDamping = (float) section.getDouble("linear-damping", 0.05d);
-        float angularDamping = (float) section.getDouble("angular-damping", 0.05d);
+        float linearDamping = (float) physSection.getDouble("linear-damping", 0.05d);
+        float angularDamping = (float) physSection.getDouble("angular-damping", 0.05d);
 
-        String motionTypeName = section.getString("motion-type", "Dynamic");
+        String motionTypeName = physSection.getString("motion-type", "Dynamic");
         EMotionType motionType;
         try {
             motionType = EMotionType.valueOf(motionTypeName);
@@ -111,11 +113,13 @@ public final class BodiesConfig {
             motionType = EMotionType.Dynamic;
         }
 
-        int objectLayer = section.getInt("object-layer", 0);
+        int objectLayer = physSection.getInt("object-layer", 0);
 
-        String renderModelId = section.getString("render-model", id);
+        // Примітка: Chain-specific параметри (spacing, joint-offset) наразі ігноруються,
+        // оскільки BodyPhysicsSettings не має для них полів у вашому попередньому коді.
+        // Якщо вони потрібні, треба розширити клас BodyPhysicsSettings.
 
-        BodyPhysicsSettings physics = new BodyPhysicsSettings(
+        BodyPhysicsSettings physicsSettings = new BodyPhysicsSettings(
                 mass,
                 friction,
                 restitution,
@@ -125,16 +129,12 @@ public final class BodiesConfig {
                 objectLayer
         );
 
-        BodyDefinition definition = new BodyDefinition(
+        return new BodyDefinition(
                 id,
-                physics,
+                physicsSettings,
                 List.copyOf(shapeLines),
                 renderModelId
         );
-
-        if (result.put(id, definition) != null) {
-            InertiaLogger.warn("Duplicate body id '" + id + "' in bodies.yml, overriding previous definition");
-        }
     }
 
     public Optional<BodyDefinition> find(String id) {

@@ -20,10 +20,6 @@ subprojects {
     }
 
     dependencies {
-        // Cloud Commands Framework
-        "implementation"("org.incendo:cloud-paper:2.0.0-beta.10")
-        "implementation"("org.incendo:cloud-annotations:2.0.0")
-
         // Jolt-JNI
         "implementation"("com.github.stephengold:jolt-jni-Windows64:$joltVersion")
 
