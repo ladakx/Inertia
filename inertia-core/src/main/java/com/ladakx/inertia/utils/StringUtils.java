@@ -34,6 +34,10 @@ public class StringUtils {
      */
     private static final String[] SUFFIXES = {"th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th"};
 
+    private StringUtils () {
+        // utility class
+    }
+
     /**
      * Counts the occurrences of a character in a string.
      * @param str The string to count the occurrences in.
