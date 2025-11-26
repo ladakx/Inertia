@@ -1,7 +1,6 @@
 package com.ladakx.inertia.nms.v1_18_r2;
 
 import com.ladakx.inertia.nms.player.PlayerNMSTools;
-import net.minecraft.core.Holder;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.resources.ResourceLocation;
