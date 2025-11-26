@@ -18,7 +18,11 @@ import java.io.IOException;
  * Serialize Inventory to string and back using Base64 encoding
  */
 public class InventorySerializer {
-	
+
+	private InventorySerializer () {
+		// utility class
+	}
+
     /**
 	 * A method to serialize an inventory to Base64 string.
 	 *

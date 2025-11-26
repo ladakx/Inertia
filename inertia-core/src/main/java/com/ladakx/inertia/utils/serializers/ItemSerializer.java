@@ -22,6 +22,10 @@ public class ItemSerializer {
 
     private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
 
+    private ItemSerializer () {
+        // utility class
+    }
+
     public static ItemStack deserialize(ConfigurationSection section) {
         if (section == null) return new ItemStack(Material.AIR);
 
