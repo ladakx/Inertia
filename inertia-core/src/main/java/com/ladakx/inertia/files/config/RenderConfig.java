@@ -90,7 +90,7 @@ public final class RenderConfig {
         Vector localOffset = parseVector(section.getString("local-offset"), new Vector(0, 0, 0));
         Quaternionf localRotation = parseRotation(section.getString("local-rotation"));
         Vector scale = parseVector(section.getString("scale"), new Vector(1, 1, 1));
-//        Vector translation = parseVector(section.getString("translation"), new Vector(0, 0, 0));
+        Vector translation = parseVector(section.getString("translation"), new Vector(0, 0, 0));
 
         boolean showWhenActive = section.getBoolean("show-when.active", true);
         boolean showWhenSleeping = section.getBoolean("show-when.sleeping", true);
@@ -110,7 +110,7 @@ public final class RenderConfig {
 
         return new RenderEntityDefinition(
                 key, kind, itemModelKey, blockType, displayMode,
-                localOffset, localRotation, scale,
+                localOffset, localRotation, scale, translation,
                 showWhenActive, showWhenSleeping, viewRange, shadowRadius, shadowStrength,
                 interpolationDuration, teleportDuration, billboard, brightnessBlock, brightnessSky,
                 section.getBoolean("small"), section.getBoolean("invisible"),

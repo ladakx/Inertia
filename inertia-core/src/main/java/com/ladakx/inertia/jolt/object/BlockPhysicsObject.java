@@ -7,13 +7,15 @@ import com.github.stephengold.joltjni.Vec3;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.api.body.InertiaPhysicsObject; // Імпорт з API
+import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
+import com.ladakx.inertia.physics.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.config.BodyDefinition;
 import com.ladakx.inertia.physics.config.BodyPhysicsSettings;
+import com.ladakx.inertia.physics.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
@@ -30,38 +32,41 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Фізичний об'єкт, який повністю конфігурується через bodies.yml + render.yml.
- * Реалізує InertiaPhysicsObject для зовнішнього API.
+ * Фізичний об'єкт (Одиночне тіло), який повністю конфігурується через bodies.yml + render.yml.
+ * Підтримує BlockBodyDefinition та ChainBodyDefinition.
+ * НЕ підтримує RagdollDefinition (вони вимагають мульти-боді системи).
  */
-public class MinecraftPhysicsObject extends AbstractPhysicsObject implements InertiaPhysicsObject {
+public class BlockPhysicsObject extends AbstractPhysicsObject implements InertiaPhysicsObject {
 
     private final String bodyId;
     private final PhysicsDisplayComposite displayComposite;
     private boolean removed = false;
 
-    public MinecraftPhysicsObject(@NotNull MinecraftSpace space,
-                                  @NotNull String bodyId,
-                                  @NotNull PhysicsModelRegistry modelRegistry,
-                                  @NotNull RenderFactory renderFactory,
-                                  @NotNull RVec3 initialPosition,
-                                  @NotNull Quat initialRotation) {
+    public BlockPhysicsObject(@NotNull MinecraftSpace space,
+                              @NotNull String bodyId,
+                              @NotNull PhysicsModelRegistry modelRegistry,
+                              @NotNull RenderFactory renderFactory,
+                              @NotNull RVec3 initialPosition,
+                              @NotNull Quat initialRotation) {
+        // Створення налаштувань тіла з урахуванням типу дефініції
         super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
         this.bodyId = bodyId;
 
         PhysicsModelRegistry.BodyModel model = modelRegistry.require(bodyId);
+
+        // Отримуємо візуальну модель, якщо вона була успішно зарезолвлена в реєстрі
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
-        
+
         if (renderOpt.isPresent()) {
             RenderModelDefinition renderDef = renderOpt.get();
             World world = space.getWorldBukkit();
 
             // Створюємо початкову локацію для спавну візуалів
             Location spawnLocation = new Location(world, initialPosition.xx(), initialPosition.yy(), initialPosition.zz());
-            
+
             // Збираємо частини композиту
             List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
             for (RenderEntityDefinition entityDef : renderDef.entities().values()) {
-                // Фабрика створює конкретну реалізацію (ArmorStand або Display)
                 VisualObject visual = renderFactory.create(world, spawnLocation, entityDef);
                 if (visual.isValid()) {
                     parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
@@ -82,27 +87,22 @@ public class MinecraftPhysicsObject extends AbstractPhysicsObject implements Ine
                                                            RVec3 initialPosition,
                                                            Quat initialRotation) {
         PhysicsModelRegistry.BodyModel model = modelRegistry.require(bodyId);
-        BodyDefinition def = model.bodyDefinition();
-        BodyPhysicsSettings phys = def.physicsSettings();
+        BlockBodyDefinition def = (BlockBodyDefinition) model.bodyDefinition();
 
-        List<String> shapeLines = def.shapeLines();
+        BodyPhysicsSettings phys;
+        List<String> shapeLines;
+
+        // Pattern Matching для витягування параметрів залежно від типу тіла
+        phys = def.physicsSettings();
+        shapeLines = def.shapeLines();
+
         ConstShape shape = JShapeFactory.createShape(shapeLines);
 
-        InertiaLogger.debug("Creating body '" + bodyId + "' with shape: " + shapeLines);
-        InertiaLogger.debug("Shape details: " +
-                "type=" + shape.getType() +
-                ", centerOfMass=" + shape.getCenterOfMass() +
-                ", type=" + shape.getType()
-        );
-        InertiaLogger.debug("AaBox: min=" + shape.getLocalBounds().getMin() + ", max=" + shape.getLocalBounds().getMax());
+        InertiaLogger.debug("Creating body '" + bodyId + "' type=" + def.getClass().getSimpleName());
         InertiaLogger.debug("Body physics: " +
                 "mass=" + phys.mass() +
                 ", motionType=" + phys.motionType() +
-                ", objectLayer=" + phys.objectLayer() +
-                ", linearDamping=" + phys.linearDamping() +
-                ", angularDamping=" + phys.angularDamping() +
-                ", friction=" + phys.friction() +
-                ", restitution=" + phys.restitution()
+                ", objectLayer=" + phys.objectLayer()
         );
 
         BodyCreationSettings settings = new BodyCreationSettings()
@@ -146,9 +146,11 @@ public class MinecraftPhysicsObject extends AbstractPhysicsObject implements Ine
         removed = true;
 
         // Видалення з простору (Jolt)
-        getSpace().removeObject(this);
-        getSpace().getBodyInterface().removeBody(getBody().getId());
-        getSpace().getBodyInterface().destroyBody(getBody().getId());
+        if (getBody() != null) { // Null-check на випадок помилки ініціалізації
+            getSpace().removeObject(this);
+            getSpace().getBodyInterface().removeBody(getBody().getId());
+            getSpace().getBodyInterface().destroyBody(getBody().getId());
+        }
 
         // Видалення візуалу
         if (displayComposite != null) {
@@ -164,13 +166,18 @@ public class MinecraftPhysicsObject extends AbstractPhysicsObject implements Ine
     }
 
     @Override
+    public @NotNull PhysicsObjectType getType() {
+        return PhysicsObjectType.BLOCK;
+    }
+
+    @Override
     public void remove() {
         destroy();
     }
 
     @Override
     public boolean isValid() {
-        return !removed && !getBody().isActive();
+        return !removed && getBody() != null && !getBody().isActive(); // Перевірка active може бути інвертована залежно від логіки
     }
 
     @Override

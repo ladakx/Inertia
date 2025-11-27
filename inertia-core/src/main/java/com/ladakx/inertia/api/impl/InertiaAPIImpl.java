@@ -7,7 +7,8 @@ import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.jolt.object.MinecraftPhysicsObject;
+import com.ladakx.inertia.jolt.object.BlockPhysicsObject;
+import com.ladakx.inertia.jolt.object.PhysicsObjectType;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.nms.render.RenderFactory;
@@ -60,28 +61,32 @@ public class InertiaAPIImpl extends InertiaAPI {
         RVec3 initialPos = new RVec3(location.getX(), location.getY(), location.getZ());
         
         // Конвертація Bukkit Yaw/Pitch -> Quaternion
-        // Minecraft Yaw обертається навколо Y, Pitch навколо X.
-        // Примітка: Minecraft yaw інвертований у математичному сенсі, тому -yaw
-//        float yawRad = (float) Math.toRadians(-location.getYaw());
-//        float pitchRad = (float) Math.toRadians(location.getPitch());
-//
-//        Quaternionf jomlQuat = new Quaternionf().rotationYXZ(yawRad, pitchRad, 0f);
-//        Quat initialRot = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
-        Quat initialRot = new Quat(0, 0, 0, 1);
+        float yawRad = (float) Math.toRadians(-location.getYaw());
+        float pitchRad = (float) Math.toRadians(location.getPitch());
+
+        Quaternionf jomlQuat = new Quaternionf().rotationYXZ(yawRad, pitchRad, 0f);
+        Quat initialRot = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
+//        Quat initialRot = new Quat(0, 0, 0, 1);
+
+        PhysicsObjectType type = modelRegistry.require(bodyId).bodyDefinition().type();
 
         try {
             // 4. Створюємо об'єкт
             // MinecraftPhysicsObject автоматично додає себе до Space та Jolt System у конструкторі
-            MinecraftPhysicsObject object = new MinecraftPhysicsObject(
-                    space,
-                    bodyId,
-                    modelRegistry,
-                    renderFactory,
-                    initialPos,
-                    initialRot
-            );
-
-            return object;
+            if (type == PhysicsObjectType.BLOCK) {
+                BlockPhysicsObject object = new BlockPhysicsObject(
+                        space,
+                        bodyId,
+                        modelRegistry,
+                        renderFactory,
+                        initialPos,
+                        initialRot
+                );
+                return object;
+            } else {
+                InertiaLogger.warn("Cannot create body: Unsupported body type for ID '" + bodyId + "'.");
+                return null;
+            }
         } catch (Exception e) {
             InertiaLogger.error("Failed to spawn body '" + bodyId + "' via API", e);
             return null;
