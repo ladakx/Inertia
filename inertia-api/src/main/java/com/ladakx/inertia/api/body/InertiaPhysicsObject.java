@@ -1,5 +1,6 @@
 package com.ladakx.inertia.api.body;
 
+import com.ladakx.inertia.jolt.object.PhysicsObjectType;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -15,6 +16,12 @@ public interface InertiaPhysicsObject {
      */
     @NotNull
     String getBodyId();
+
+    /**
+     * Отримати тип фізичного об'єкта (BLOCK, CHAIN, RAGDOLL).
+     */
+    @NotNull
+    PhysicsObjectType getType();
 
     /**
      * Повністю видаляє фізичне тіло та його візуальну частину зі світу.

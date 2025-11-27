@@ -1,22 +1,12 @@
 package com.ladakx.inertia.physics.config;
 
-import java.util.List;
-import java.util.Objects;
+import com.ladakx.inertia.jolt.object.PhysicsObjectType;
 
 /**
- * Опис одного тіла з bodies.yml.
+ * Маркерний інтерфейс для всіх типів фізичних визначень.
+ * Дозволяє зберігати блоки, ланцюги та регдоли в одній колекції.
  */
-public record BodyDefinition(
-        String id,
-        BodyPhysicsSettings physicsSettings,
-        List<String> shapeLines,
-        String renderModel
-) {
-    public BodyDefinition {
-        Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(physicsSettings, "physicsSettings");
-        Objects.requireNonNull(shapeLines, "shapeLines");
-        Objects.requireNonNull(renderModel, "renderModel");
-        shapeLines = List.copyOf(shapeLines);
-    }
+public interface BodyDefinition {
+    String id();
+    PhysicsObjectType type();
 }

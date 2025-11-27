@@ -22,7 +22,7 @@ public record RenderEntityDefinition(
         Vector localOffset,
         Quaternionf localRotation,
         Vector scale,
-//        Vector translation,
+        Vector translation,
         boolean showWhenActive,
         boolean showWhenSleeping,
         Float viewRange,
@@ -30,7 +30,7 @@ public record RenderEntityDefinition(
         Float shadowStrength,
         Integer interpolationDuration,
         Integer teleportDuration,
-        InertiaBillboard billboard, // Абстракція
+        InertiaBillboard billboard,
         Integer brightnessBlock,
         Integer brightnessSky,
         boolean small,
@@ -52,6 +52,6 @@ public record RenderEntityDefinition(
         Objects.requireNonNull(localOffset, "localOffset");
         Objects.requireNonNull(localRotation, "localRotation");
         Objects.requireNonNull(scale, "scale");
-//        Objects.requireNonNull(translation, "translation");
+        Objects.requireNonNull(translation, "translation");
     }
 }

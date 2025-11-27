@@ -21,6 +21,12 @@ blocks:
 ########################
 chains:
   iron_chain:
+    chain:
+      # Налаштування з'єднань (PointConstraintSettings)
+      # Відступ від центру для точок кріплення
+      joint-offset: 0.52
+      # Відстань між точками кріплення
+      spacing: 1.04
     physics:
       # Параметри фізики ланцюга
       angular-damping: 0.1
@@ -28,11 +34,6 @@ chains:
       friction: 1.0
       restitution: 0.025
       mass: 75.0
-      # Налаштування з'єднань (PointConstraintSettings)
-      # Відступ від центру для точок кріплення
-      joint-offset: 0.52
-      # Відстань між точками кріплення
-      spacing: 1.04
       # Розмір фізичного колайдера (BoxShape)
       shape:
         - "type=box x=0.1 y=0.5 z=0.1"

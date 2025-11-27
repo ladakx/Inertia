@@ -25,7 +25,7 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
         return switch (def.kind()) {
             case BLOCK_DISPLAY -> spawnBlockDisplay(world, origin, def);
             case ITEM_DISPLAY -> spawnItemDisplay(world, origin, def);
-            case ARMOR_STAND -> spawnArmorStand(world, origin, def); // Fallback for specific requests
+            case ARMOR_STAND -> spawnArmorStand(world, origin, def);
         };
     }
 

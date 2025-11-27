@@ -22,17 +22,29 @@ public class DisplayObject implements VisualObject {
         display.teleport(location);
 
         Transformation current = display.getTransformation();
-        Vector3f translation = new Vector3f(-0.5f, -0.5f, -0.5f).rotate(rotation);
+//        if (current.getTranslation().x == 0.0f && current.getTranslation().y == 0.0f && current.getTranslation().z == 0.0f) {
+            Transformation newTrans = new Transformation(
+                    new Vector3f(-0.5f, -0.5f, -0.5f).rotate(rotation),
+                    rotation,
+                    current.getScale(),
+                    current.getRightRotation()
+            );
 
-        Transformation newTrans = new Transformation(
-                translation,
-                rotation,
-                current.getScale(),
-                current.getRightRotation()
-        );
+            display.setInterpolationDelay(0);
+            display.setTransformation(newTrans);
 
-        display.setInterpolationDelay(0);
-        display.setTransformation(newTrans);
+//            return;
+//        }
+//
+//        Transformation newTrans = new Transformation(
+//                current.getTranslation(),
+//                rotation,
+//                current.getScale(),
+//                current.getRightRotation()
+//        );
+
+//        display.setInterpolationDelay(0);
+//        display.setTransformation(newTrans);
     }
 
     @Override

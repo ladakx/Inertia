@@ -7,13 +7,12 @@ import com.github.stephengold.joltjni.enumerate.EPhysicsUpdateError;
 import com.github.stephengold.joltjni.readonly.ConstBody;
 import com.github.stephengold.joltjni.readonly.ConstPlane;
 import com.github.stephengold.joltjni.readonly.ConstShape;
-import com.github.stephengold.joltjni.readonly.Vec3Arg;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.config.WorldsConfig;
 import com.ladakx.inertia.jolt.PhysicsLayers;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
-import com.ladakx.inertia.jolt.object.MinecraftPhysicsObject;
+import com.ladakx.inertia.jolt.object.BlockPhysicsObject;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
@@ -264,7 +263,7 @@ public class MinecraftSpace implements AutoCloseable {
 
         int count = 0;
         for (AbstractPhysicsObject obj : snapshot) {
-            if (obj instanceof MinecraftPhysicsObject mcObj) {
+            if (obj instanceof BlockPhysicsObject mcObj) {
                 mcObj.destroy();
                 count++;
             }
