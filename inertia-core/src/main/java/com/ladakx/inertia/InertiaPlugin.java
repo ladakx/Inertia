@@ -1,5 +1,7 @@
 package com.ladakx.inertia;
 
+import co.aikar.commands.PaperCommandManager;
+import com.ladakx.inertia.commands.Commands;
 import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.items.ItemManager;
 import com.ladakx.inertia.jolt.JoltManager;
@@ -27,6 +29,9 @@ public final class InertiaPlugin extends JavaPlugin {
 
     // Jolt
     private JoltNatives joltNatives;
+
+    // Command Manager
+    private PaperCommandManager paperCommandManager;
 
     // NMS & Tools
     private PlayerTools playerTools;
@@ -116,7 +121,11 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     private void setupCommands() {
-
+        this.paperCommandManager = new PaperCommandManager(this);
+        this.paperCommandManager.enableUnstableAPI("HelpEntry");
+        this.paperCommandManager.enableUnstableAPI("brigadier");
+        this.paperCommandManager.enableUnstableAPI("CommandHelp");
+        this.paperCommandManager.registerCommand(new Commands());
     }
 
     private void registerListeners() {
