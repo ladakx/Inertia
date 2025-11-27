@@ -1,6 +1,8 @@
 package com.ladakx.inertia;
 
 import co.aikar.commands.PaperCommandManager;
+import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.api.impl.InertiaAPIImpl;
 import com.ladakx.inertia.commands.Commands;
 import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.items.ItemManager;
@@ -15,8 +17,11 @@ import com.ladakx.inertia.nms.player.PlayerTools;
 import com.ladakx.inertia.nms.player.PlayerToolsInit;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.RenderFactoryInit;
+import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.stream.Collectors;
 
 /**
  * Main class of the Inertia plugin.
@@ -69,6 +74,10 @@ public final class InertiaPlugin extends JavaPlugin {
         JoltManager.init(this);
         SpaceManager.init(this);
 
+        // API Registration
+        InertiaAPI.setImplementation(new InertiaAPIImpl(this));
+        InertiaLogger.info("Inertia API registered.");
+
         // Register Commands & Listeners
         setupCommands();
         registerListeners();
@@ -78,6 +87,8 @@ public final class InertiaPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        SpaceManager.getInstance().shutdown();
+        JoltManager.getInstance().shutdown();
         InertiaLogger.info("Inertia has been disabled.");
     }
 
@@ -126,6 +137,13 @@ public final class InertiaPlugin extends JavaPlugin {
         this.paperCommandManager.enableUnstableAPI("brigadier");
         this.paperCommandManager.enableUnstableAPI("CommandHelp");
         this.paperCommandManager.registerCommand(new Commands());
+
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c -> {
+            return ConfigManager.getInstance().getPhysicsModelRegistry().all().stream()
+                    .map(PhysicsModelRegistry.BodyModel::bodyDefinition)
+                    .map(com.ladakx.inertia.physics.config.BodyDefinition::id)
+                    .collect(Collectors.toList());
+        });
     }
 
     private void registerListeners() {

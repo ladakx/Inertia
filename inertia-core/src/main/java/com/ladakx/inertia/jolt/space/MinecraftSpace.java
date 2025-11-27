@@ -9,13 +9,17 @@ import com.github.stephengold.joltjni.readonly.ConstPlane;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.github.stephengold.joltjni.readonly.Vec3Arg;
 import com.ladakx.inertia.InertiaLogger;
+import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.config.WorldsConfig;
 import com.ladakx.inertia.jolt.PhysicsLayers;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
+import com.ladakx.inertia.jolt.object.MinecraftPhysicsObject;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -35,6 +39,8 @@ public class MinecraftSpace implements AutoCloseable {
     // Екзек'ютор для фізичного циклу
     private final ScheduledExecutorService tickExecutor;
     private final AtomicBoolean isActive = new AtomicBoolean(true);
+    // Прапорець для запобігання переповнення черги основного потоку
+    private final AtomicBoolean isRenderScheduled = new AtomicBoolean(false);
 
     // Списки об'єктів у цьому просторі
     private final @NotNull List<AbstractPhysicsObject> objects = new CopyOnWriteArrayList<>();
@@ -48,17 +54,23 @@ public class MinecraftSpace implements AutoCloseable {
         this.tempAllocator = tempAllocator;
 
         // --- Налаштування шарів (Layers) ---
-        ObjectLayerPairFilterTable objectLayerFilter = new ObjectLayerPairFilterTable(PhysicsLayers.NUM_OBJ_LAYERS);
-        objectLayerFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_MOVING);
-        objectLayerFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_STATIC);
+        ObjectLayerPairFilterTable ovoFilter = new ObjectLayerPairFilterTable(PhysicsLayers.NUM_OBJ_LAYERS);
+        // Enable collisions between 2 moving bodies:
+        ovoFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_MOVING);
+        // Enable collisions between a moving body and a non-moving one:
+        ovoFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_STATIC);
+        // Disable collisions between 2 non-moving bodies:
+        ovoFilter.disableCollision(PhysicsLayers.OBJ_STATIC, PhysicsLayers.OBJ_STATIC);
 
-        BroadPhaseLayerInterfaceTable bpLayerMap = new BroadPhaseLayerInterfaceTable(PhysicsLayers.NUM_OBJ_LAYERS, PhysicsLayers.NUM_BP_LAYERS);
-        bpLayerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_MOVING, PhysicsLayers.BP_MOVING);
-        bpLayerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_STATIC, PhysicsLayers.BP_STATIC);
+        // Map both object layers to broadphase layer 0:
+        BroadPhaseLayerInterfaceTable layerMap = new BroadPhaseLayerInterfaceTable(PhysicsLayers.NUM_OBJ_LAYERS, PhysicsLayers.NUM_BP_LAYERS);
+        layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_MOVING, 0);
+        layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_STATIC, 0);
 
-        ObjectVsBroadPhaseLayerFilterTable objectVsBpFilter = new ObjectVsBroadPhaseLayerFilterTable(
-                bpLayerMap, PhysicsLayers.NUM_BP_LAYERS, objectLayerFilter, PhysicsLayers.NUM_OBJ_LAYERS
-        );
+        // Rules for colliding object layers with broadphase layers:
+        ObjectVsBroadPhaseLayerFilter ovbFilter = new ObjectVsBroadPhaseLayerFilterTable(layerMap, PhysicsLayers.NUM_BP_LAYERS, ovoFilter, PhysicsLayers.NUM_OBJ_LAYERS);
+
+
 
         // --- Ініціалізація системи ---
         this.physicsSystem = new PhysicsSystem();
@@ -69,11 +81,11 @@ public class MinecraftSpace implements AutoCloseable {
         this.physicsSystem.init(
                 MAX_BODIES,
                 0, // Max bodies with correct world transform (usually 0)
-                MAX_BODIES * 4, // Max contacts
-                MAX_BODIES * 2, // Max body pairs
-                bpLayerMap,
-                objectVsBpFilter,
-                objectLayerFilter
+                20_480, // Max contacts
+                65_536, // Max body pairs
+                layerMap,
+                ovbFilter,
+                ovoFilter
         );
 
         // Використовуємо Gravity з WorldSettings
@@ -108,14 +120,36 @@ public class MinecraftSpace implements AutoCloseable {
             if (!isActive.get()) return;
 
             try {
-                // Оновлення фізики (крок симуляції)
+                // 1. Крок фізичної симуляції (Jolt Thread)
                 int errors = physicsSystem.update(deltaTime, this.settings.collisionSteps(), tempAllocator, jobSystem);
 
                 if (errors != EPhysicsUpdateError.None) {
                     InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
                 }
 
-                // ТУТ: Логіка синхронізації (якщо потрібна)
+                // 2. Логіка синхронізації з Bukkit (Main Thread)
+                // Використовуємо compareAndSet, щоб не створювати нову задачу, якщо попередня ще не виконалась.
+                // Це захищає Main Thread від перевантаження, якщо фізика працює швидше за сервер.
+                if (!isRenderScheduled.getAndSet(true)) {
+                    Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+                        try {
+                            // Перевірка активності потрібна, бо світ міг закритися поки задача чекала в черзі
+                            if (!isActive.get()) return;
+
+                            // Оновлення візуальних позицій
+                            for (AbstractPhysicsObject obj : objects) {
+                                // obj.update() викликає методи Bukkit API (teleport/setTransformation),
+                                // тому це безпечно робити ТІЛЬКИ тут.
+                                obj.update();
+                            }
+                        } catch (Exception e) {
+                            InertiaLogger.error("Error updating visuals for world " + worldName, e);
+                        } finally {
+                            // Звільняємо прапорець, дозволяючи планувати наступне оновлення
+                            isRenderScheduled.set(false);
+                        }
+                    });
+                }
 
             } catch (Exception e) {
                 InertiaLogger.error("Error in physics tick for world " + worldName, e);
@@ -131,7 +165,6 @@ public class MinecraftSpace implements AutoCloseable {
         return physicsSystem.getBodyInterface();
     }
 
-    // Додаємо геттер для WorldSettings
     public WorldsConfig.WorldProfile getSettings() {
         return settings;
     }
@@ -140,6 +173,8 @@ public class MinecraftSpace implements AutoCloseable {
     public void close() {
         if (isActive.compareAndSet(true, false)) {
             InertiaLogger.info("Closing physics space for world: " + worldName);
+
+            removeAllObjects();
 
             tickExecutor.shutdown();
             try {
@@ -155,13 +190,14 @@ public class MinecraftSpace implements AutoCloseable {
     }
 
     private void addFloorPlane(WorldsConfig.FloorPlaneSettings settings) {
+        InertiaLogger.info("Adding floor plane at Y=" + settings.yLevel() + " in world [" + worldName+"]");
         BodyInterface bi = physicsSystem.getBodyInterface();
 
         float groundY = settings.yLevel();
         Vec3Arg normal = Vec3.sAxisY();
+
         ConstPlane plane = new Plane(normal, -groundY);
         ConstShape floorShape = new PlaneShape(plane);
-
         BodyCreationSettings bcs = new BodyCreationSettings();
 
         bcs.setMotionType(EMotionType.Static);
@@ -182,6 +218,26 @@ public class MinecraftSpace implements AutoCloseable {
 
     public @Nullable ConstBody getBodyById(int id) {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
+    }
+
+    /**
+     * Видаляє всі динамічні об'єкти з цього світу.
+     * Статичні об'єкти (як підлога) залишаються, якщо вони не є частиною списку objects.
+     */
+    public void removeAllObjects() {
+        // Створюємо копію списку, щоб уникнути ConcurrentModificationException під час ітерації,
+        // хоча CopyOnWriteArrayList дозволяє ітерацію, destroy() змінює колекцію.
+        List<AbstractPhysicsObject> snapshot = new ArrayList<>(objects);
+
+        int count = 0;
+        for (AbstractPhysicsObject obj : snapshot) {
+            if (obj instanceof MinecraftPhysicsObject mcObj) {
+                mcObj.destroy();
+                count++;
+            }
+        }
+
+        InertiaLogger.info("Cleared " + count + " physics objects from world " + worldName);
     }
 
     public void addObject(AbstractPhysicsObject object) {

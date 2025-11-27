@@ -54,7 +54,7 @@ public final class JoltNatives {
             Files.copy(libraryStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
             System.load(tempFile.getAbsolutePath());
-            InertiaLogger.error("Jolt JNI native library file loaded successfully! (Path: " + tempFile.getAbsolutePath() + ")");
+            InertiaLogger.info("Jolt JNI native library file loaded successfully! (Path: " + tempFile.getAbsolutePath() + ")");
 
         } catch (IOException e) {
             throw new JoltNativeException(new IOException("Could not extract the Jolt JNI native library", e));

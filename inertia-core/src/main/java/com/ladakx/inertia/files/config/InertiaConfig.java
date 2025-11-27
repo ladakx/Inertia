@@ -37,6 +37,7 @@ public class InertiaConfig {
 
         public static class DebugSettings {
 
+            public boolean consoleDebug = true;
             public final String debugPlaceholderBar;
 
             public DebugSettings(ConfigurationSection section, FileConfiguration root) {
@@ -45,6 +46,7 @@ public class InertiaConfig {
                     return;
                 }
 
+                this.consoleDebug = section.getBoolean("console", true);
                 this.debugPlaceholderBar = section.getString("boss-bar", "%-4s | Bodies: %-4s | Vehicles: %-4s");
             }
         }

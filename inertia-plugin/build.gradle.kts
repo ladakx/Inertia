@@ -43,9 +43,6 @@ tasks {
         archiveClassifier.set("")
         archiveVersion.set("1.0-DEV")
 
-        relocate("net.kyori.adventure", "com.ladakx.inertia.libs.adventure")
-        relocate("org.joml", "com.ladakx.inertia.libs.joml")
-
         mergeServiceFiles()
 
         exclude("META-INF/LICENSE*")

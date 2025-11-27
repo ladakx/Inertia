@@ -23,22 +23,13 @@ worldedit-not-enabled:
   - "{prefix} &cThis command requires WorldEdit to work!"
 select-region:
   - "{prefix} &cSelect the region with an axe before using this command!"
-debug-shape-create-success:
-  - "{prefix} &7Debug shape &asuccessfully &7created!"
 
-debug-block-not-found:
-  - "{prefix} &cBlock not found!"
-debug-render-hitboxes:
-  - "{prefix} &7Debug render hitboxes: {state}"
-debug-block-bb-title:
-  - "{prefix} &7Debug block: &c{block}"
-debug-block-bb-info:
-  - "{prefix} &7Size: &c{size}&7, Center: &c{center}"
-
-debug-blocks-spawned:
-  - "{prefix} &7Debug blocks &asuccessfully&7 spawned in radius &c{radius}!"
-debug-blocks-cleared:
-  - "{prefix} &7Debug blocks &asuccessfully&c cleared!"
+spawn-success:
+  - "{prefix} &7Physics body &f{id} &7spawned successfully!"
+spawn-fail-invalid-id:
+  - "{prefix} &cPhysics body with ID '{id}' not found in bodies.yml!"
+clear-success:
+  - "{prefix} &7Removed &c{count} &7physics objects from this world."
 
 help-command:
   - ' '

@@ -1,6 +1,7 @@
 general:
   lang: "en" # Language file to use
   debug:
+    console: true
     boss-bar: "%-4s | Bodies: %-4s | Vehicles: %-4s | Physics MSPT: %-4s | Simulation MSPT: %-4s"
 
 physics:
