@@ -5,6 +5,7 @@ import com.ladakx.inertia.render.config.enums.InertiaDisplayMode;
 import org.bukkit.Material;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.Objects;
 
@@ -21,7 +22,7 @@ public record RenderEntityDefinition(
         Vector localOffset,
         Quaternionf localRotation,
         Vector scale,
-        Vector translation,
+//        Vector translation,
         boolean showWhenActive,
         boolean showWhenSleeping,
         Float viewRange,
@@ -51,6 +52,6 @@ public record RenderEntityDefinition(
         Objects.requireNonNull(localOffset, "localOffset");
         Objects.requireNonNull(localRotation, "localRotation");
         Objects.requireNonNull(scale, "scale");
-        Objects.requireNonNull(translation, "translation");
+//        Objects.requireNonNull(translation, "translation");
     }
 }
