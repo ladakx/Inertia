@@ -65,15 +65,6 @@ public class MessageManager {
     }
 
     // --- Sending Methods ---
-
-    public void send(CommandSender sender, MessageKey key, String... replacements) {
-        send(sender, key, replacements);
-    }
-
-    public void send(Player player, MessageKey key, String... replacements) {
-        send(player, key, replacements);
-    }
-
     public void send(Audience audience, MessageKey key, String... replacements) {
         List<Component> lines = messageCache.get(key);
 
@@ -82,7 +73,6 @@ public class MessageManager {
 
         for (Component line : lines) {
             if (replacements.length > 0) {
-                // Використовуємо твій StringUtils для заміни плейсхолдерів у вже готовому компоненті
                 audience.sendMessage(StringUtils.replace(line, replacements));
             } else {
                 audience.sendMessage(line);

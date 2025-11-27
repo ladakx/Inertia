@@ -23,22 +23,6 @@ worldedit-not-enabled:
   - "{prefix} &cЭта команда требует WorldEdit для работы!"
 select-region:
   - "{prefix} &cВыделите область топориком прежде, чем использовать эту команду!"
-debug-shape-create-success:
-  - "{prefix} &7Дебаг-Форма &aуспешно&7 создана!"
-
-debug-block-not-found:
-  - "{prefix} &cБлок не найден!"
-debug-render-hitboxes:
-  - "{prefix} &7Отладка рендера хитбоксов: {state}"
-debug-block-bb-title:
-  - "{prefix} &7Отладка блока: &c{block}"
-debug-block-bb-info:
-  - "{prefix} &7Размер: &c{size}&7, Центр: &c{center}"
-
-debug-blocks-spawned:
-  - "{prefix} &7Тестовые блоки &aуспешно&7 заспавнены в радиусе &c{radius}!"
-debug-blocks-cleared:
-  - "{prefix} &7Тестовые блоки &aуспешно &cудалены&7 на сервере!"
 
 help-command:
   - ' '
