@@ -45,6 +45,7 @@ public class MinecraftSpace implements AutoCloseable {
     // Списки об'єктів у цьому просторі
     private final @NotNull List<AbstractPhysicsObject> objects = new CopyOnWriteArrayList<>();
     private final @NotNull Map<Long, AbstractPhysicsObject> objectMap = new ConcurrentHashMap<>();
+    private final List<Body> staticBodies = new CopyOnWriteArrayList<>();
 
     public MinecraftSpace(World world, WorldsConfig.WorldProfile settings, JobSystem jobSystem, TempAllocator tempAllocator) {
         this.worldBukkit = world;
@@ -176,6 +177,13 @@ public class MinecraftSpace implements AutoCloseable {
 
             removeAllObjects();
 
+            BodyInterface bi = physicsSystem.getBodyInterface();
+            for (Body b : staticBodies) {
+                bi.removeBody(b.getId());
+                bi.destroyBody(b.getId());
+            }
+            staticBodies.clear();
+
             tickExecutor.shutdown();
             try {
                 if (!tickExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
@@ -189,23 +197,45 @@ public class MinecraftSpace implements AutoCloseable {
         }
     }
 
-    private void addFloorPlane(WorldsConfig.FloorPlaneSettings settings) {
-        InertiaLogger.info("Adding floor plane at Y=" + settings.yLevel() + " in world [" + worldName+"]");
+    private void addFloorPlane(WorldsConfig.FloorPlaneSettings floorSettings) {
+        InertiaLogger.info("Adding floor BOX at Y=" + floorSettings.yLevel() + " in world [" + worldName + "]");
         BodyInterface bi = physicsSystem.getBodyInterface();
 
-        float groundY = settings.yLevel();
-        Vec3Arg normal = Vec3.sAxisY();
+        // 1. Отримуємо межі світу з конфігу (worlds.yml -> size)
+        WorldsConfig.WorldSizeSettings sizeSettings = this.settings.size();
+        Vec3 min = sizeSettings.min();
+        Vec3 max = sizeSettings.max();
 
-        ConstPlane plane = new Plane(normal, -groundY);
-        ConstShape floorShape = new PlaneShape(plane);
+        // 2. Розраховуємо Half Extents (половину ширини/довжини)
+        // width = max - min; half = width / 2
+        float halfX = Math.abs(max.getX() - min.getX()) * 0.5f;
+        float halfZ = Math.abs(max.getZ() - min.getZ()) * 0.5f;
+
+        float halfY = floorSettings.ySize();
+
+        ConstShape floorShape = new com.github.stephengold.joltjni.BoxShape(new Vec3(halfX, halfY, halfZ));
+
+        // 4. Розраховуємо центр коробки
+        // Центр по X/Z = min + half
+        double centerX = min.getX() + halfX;
+        double centerZ = min.getZ() + halfZ;
+        double centerY = floorSettings.yLevel() - halfY;
+
+        RVec3 position = new RVec3(centerX, centerY, centerZ);
+
+        // 5. Налаштування тіла
         BodyCreationSettings bcs = new BodyCreationSettings();
-
+        bcs.setPosition(position);
         bcs.setMotionType(EMotionType.Static);
         bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
         bcs.setShape(floorShape);
+        bcs.setFriction(floorSettings.friction());
+        bcs.setRestitution(floorSettings.restitution());
 
         Body floor = bi.createBody(bcs);
         bi.addBody(floor, EActivation.DontActivate);
+
+        staticBodies.add(floor);
     }
 
     public World getWorldBukkit() {

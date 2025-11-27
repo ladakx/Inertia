@@ -4,6 +4,7 @@ import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.Vec3;
+import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.api.body.InertiaPhysicsObject; // Імпорт з API
@@ -110,7 +111,11 @@ public class MinecraftPhysicsObject extends AbstractPhysicsObject implements Ine
                 .setObjectLayer(phys.objectLayer())
                 .setLinearDamping(phys.linearDamping())
                 .setAngularDamping(phys.angularDamping());
-        
+
+        if (phys.motionType() == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {
+            settings.setMotionQuality(EMotionQuality.LinearCast);
+        }
+
         settings.getMassProperties().setMass(phys.mass());
         settings.setFriction(phys.friction());
         settings.setRestitution(phys.restitution());

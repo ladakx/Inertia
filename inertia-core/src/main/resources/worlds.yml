@@ -1,14 +1,17 @@
 world:
   gravity: "0.0 -17.18 0.0" # "x y z" Real world: y = "-9.81" | Minecraft: y = "-31.36"
-  tick-rate: 20 # Physics tick rate (TPS)
-  collision-steps: 2 # Number of collision iterations per tick
+  tick-rate: 60 # Physics tick rate (TPS)
+  collision-steps: 4 # Number of collision iterations per tick
   max-bodies: 5000; # Maximum number of physics bodies allowed in the world //65536
   floor-plane:
     enable: true
     y-level: 0
+    y-size: 1
+    friction: 1.0
+    restitution: 0.025
   simulation:
     enable: true
     type: RAYON # Chunk simulation
   size:
-    min: "-200000 0 -200000"
+    min: "-200000 -64 -200000"
     max: "200000 1024 200000"
