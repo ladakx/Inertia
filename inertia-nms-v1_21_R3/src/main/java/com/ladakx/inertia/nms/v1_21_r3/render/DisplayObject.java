@@ -16,19 +16,22 @@ public class DisplayObject implements VisualObject {
     }
 
     @Override
-    public void update(Location location, Quaternionf rotation, Vector3f scale) {
+    public void update(Location location, Quaternionf rotation) {
         if (!display.isValid()) return;
 
         display.teleport(location);
 
         Transformation current = display.getTransformation();
+        Vector3f translation = new Vector3f(-0.5f, -0.5f, -0.5f).rotate(rotation);
+
         Transformation newTrans = new Transformation(
-                current.getTranslation(),
+                translation,
                 rotation,
-                scale,
+                current.getScale(),
                 current.getRightRotation()
         );
-        
+
+        display.setInterpolationDelay(0);
         display.setTransformation(newTrans);
     }
 

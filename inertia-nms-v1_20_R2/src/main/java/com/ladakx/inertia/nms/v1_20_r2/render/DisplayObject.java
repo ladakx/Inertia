@@ -16,7 +16,7 @@ public class DisplayObject implements VisualObject {
     }
 
     @Override
-    public void update(Location location, Quaternionf rotation, Vector3f scale) {
+    public void update(Location location, Quaternionf rotation) {
         if (!display.isValid()) return;
         display.teleport(location);
 
@@ -24,7 +24,7 @@ public class DisplayObject implements VisualObject {
         Transformation newTrans = new Transformation(
                 current.getTranslation(),
                 rotation,
-                scale,
+                current.getScale(),
                 current.getRightRotation()
         );
         

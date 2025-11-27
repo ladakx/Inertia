@@ -9,6 +9,8 @@ stone:
     display_1:
       type: BLOCK_DISPLAY
       block: STONE
+      interpolation-duration: 1
+      teleport-duration: 1
 
 ##########
 # Chains #
@@ -112,7 +114,6 @@ ragdoll_left_leg:
 #      local-offset: "0.0 0.0 0.0"
 #      local-rotation: "0.0 0.0 0.0"
 #      scale: "1.0 1.0 1.0"
-#      translation: "0.0 0.0 0.0"
 #      view-range: 128
 #      shadow-radius: 4
 #      shadow-strength: 0
@@ -131,7 +132,6 @@ ragdoll_left_leg:
 #      local-offset: "0.0 -0.5 0.0"
 #      local-rotation: "0.0 0.0 0.0"
 #      scale: "1.0 1.0 1.0"
-#      translation: "0.0 0.0 0.0"
 #      view-range: 128
 #      shadow-radius: 4
 #      shadow-strength: 0

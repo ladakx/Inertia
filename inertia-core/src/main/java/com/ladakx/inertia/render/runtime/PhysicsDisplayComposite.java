@@ -3,6 +3,7 @@ package com.ladakx.inertia.render.runtime;
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
+import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
@@ -63,16 +64,15 @@ public final class PhysicsDisplayComposite {
         RVec3 pos = body.getPosition();
         Quat rot = body.getRotation();
 
-        // Основна ротація тіла
         Quaternionf bodyRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
-
-        // Базова локація (Jolt coordinate -> Bukkit coordinate)
-        // Примітка: Обережно з потоками, Location створення має бути sync або безпечним
         Location baseLoc = new Location(world, pos.xx(), pos.yy(), pos.zz());
 
         for (DisplayPart part : parts) {
             VisualObject visual = part.visual();
-            if (!visual.isValid()) continue;
+
+            if (!visual.isValid()) {
+                continue;
+            }
 
             RenderEntityDefinition def = part.definition();
             Location target = baseLoc.clone();
@@ -83,11 +83,11 @@ public final class PhysicsDisplayComposite {
                 Vector3f off = new Vector3f(
                         (float) offset.getX(), (float) offset.getY(), (float) offset.getZ()
                 );
+
                 bodyRot.transform(off); // Rotate offset by body rotation
                 target.add(off.x, off.y, off.z);
             }
 
-            // 2. Rotation & Scale Sync
             Quaternionf finalRot = new Quaternionf();
             if (model.syncRotation()) {
                 finalRot.set(bodyRot).mul(def.localRotation());
@@ -95,11 +95,7 @@ public final class PhysicsDisplayComposite {
                 finalRot.set(def.localRotation());
             }
 
-            Vector s = def.scale();
-            Vector3f finalScale = new Vector3f((float)s.getX(), (float)s.getY(), (float)s.getZ());
-
-            // Делегуємо оновлення реалізації (ArmorStand або DisplayEntity знають як це обробити)
-            visual.update(target, finalRot, finalScale);
+            visual.update(target, finalRot);
         }
 
         refreshVisibility();

@@ -198,40 +198,43 @@ public class MinecraftSpace implements AutoCloseable {
     }
 
     private void addFloorPlane(WorldsConfig.FloorPlaneSettings floorSettings) {
-        InertiaLogger.info("Adding floor BOX at Y=" + floorSettings.yLevel() + " in world [" + worldName + "]");
+        InertiaLogger.info("Adding floor PLANE at Y=" + floorSettings.yLevel() + " in world [" + worldName + "]");
         BodyInterface bi = physicsSystem.getBodyInterface();
 
-        // 1. Отримуємо межі світу з конфігу (worlds.yml -> size)
+        // 1. Отримуємо розміри світу з конфігу (worlds.yml)
         WorldsConfig.WorldSizeSettings sizeSettings = this.settings.size();
         Vec3 min = sizeSettings.min();
         Vec3 max = sizeSettings.max();
 
-        // 2. Розраховуємо Half Extents (половину ширини/довжини)
-        // width = max - min; half = width / 2
-        float halfX = Math.abs(max.getX() - min.getX()) * 0.5f;
-        float halfZ = Math.abs(max.getZ() - min.getZ()) * 0.5f;
+        // 2. Розраховуємо Half Extents (радіус світу)
+        // PlaneShape приймає лише одне число float для розміру (квадрат), тому беремо більшу сторону
+        float sizeX = Math.abs(max.getX() - min.getX()) * 0.5f;
+        float sizeZ = Math.abs(max.getZ() - min.getZ()) * 0.5f;
+        float halfExtent = Math.max(sizeX, sizeZ);
 
-        float halfY = floorSettings.ySize();
+        // 3. Розраховуємо центр світу
+        double centerX = min.getX() + sizeX;
+        double centerZ = min.getZ() + sizeZ;
 
-        ConstShape floorShape = new com.github.stephengold.joltjni.BoxShape(new Vec3(halfX, halfY, halfZ));
+        // 4. Створюємо PlaneShape
+        // Normal = Y-Up (0, 1, 0), Constant = 0 (відносно центру тіла)
+        // halfExtent обмежує AABB (Bounding Box), щоб не рахувати фізику за межами світу
+        ConstPlane plane = new Plane(Vec3.sAxisY(), 0.0f);
+        ConstShape floorShape = new com.github.stephengold.joltjni.PlaneShape(plane, null, halfExtent);
 
-        // 4. Розраховуємо центр коробки
-        // Центр по X/Z = min + half
-        double centerX = min.getX() + halfX;
-        double centerZ = min.getZ() + halfZ;
-        double centerY = floorSettings.yLevel() - halfY;
+        // 5. Позиціонуємо тіло
+        // Ставимо тіло в центр світу на висоту yLevel
+        RVec3 position = new RVec3(centerX, floorSettings.yLevel(), centerZ);
 
-        RVec3 position = new RVec3(centerX, centerY, centerZ);
-
-        // 5. Налаштування тіла
         BodyCreationSettings bcs = new BodyCreationSettings();
         bcs.setPosition(position);
         bcs.setMotionType(EMotionType.Static);
         bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
         bcs.setShape(floorShape);
-        bcs.setFriction(floorSettings.friction());
-        bcs.setRestitution(floorSettings.restitution());
+        bcs.setFriction(1.0f);
+        bcs.setRestitution(0.0f);
 
+        // 6. Створюємо тіло
         Body floor = bi.createBody(bcs);
         bi.addBody(floor, EActivation.DontActivate);
 

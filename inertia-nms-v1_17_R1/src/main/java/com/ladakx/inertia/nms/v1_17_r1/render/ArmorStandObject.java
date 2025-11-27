@@ -18,7 +18,7 @@ public class ArmorStandObject implements VisualObject {
     }
 
     @Override
-    public void update(Location location, Quaternionf rotation, Vector3f scale) {
+    public void update(Location location, Quaternionf rotation) {
         if (!stand.isValid()) return;
 
         stand.teleport(location);

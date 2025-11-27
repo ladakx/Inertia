@@ -23,7 +23,7 @@ import java.util.*;
 
 /**
  * Фабрика, яка з текстових описів у конфізі створює Jolt CollisionShape.
- *
+ * <p>
  * Вхід:
  *   shape:
  *     - "type=box x=0.5 y=0.5 z=0.5"
@@ -34,14 +34,14 @@ import java.util.*;
  *     - "type=tapered_cylinder height=2.0 topRadius=0.4 bottomRadius=0.6"
  *     - "type=convex_hull mesh=models/vehicle_body.obj convexRadius=0.05"
  *     - ...
- *
+ * <p>
  * Якщо одна лінія:
  *   - створюється один шейп;
  *   - якщо є px/py/pz або rot/pitch/yaw/roll — шейп загортається
  *     в RotatedTranslatedShape;
  *   - якщо є com / comx / comy / comz — шейп додатково загортається
  *     в OffsetCenterOfMassShape.
- *
+ * <p>
  * Якщо кілька ліній:
  *   - створюється StaticCompoundShape;
  *   - кожен підшейп має свій локальний position + rotation (через addShape);
