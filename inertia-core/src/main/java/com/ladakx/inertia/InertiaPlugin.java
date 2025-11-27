@@ -18,6 +18,7 @@ import com.ladakx.inertia.nms.player.PlayerToolsInit;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.RenderFactoryInit;
 import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.tools.ToolManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -73,6 +74,9 @@ public final class InertiaPlugin extends JavaPlugin {
         // Initialize Jolt Manager & Space Manager
         JoltManager.init(this);
         SpaceManager.init(this);
+
+        // Initialize Tool Manager
+        ToolManager.init(this);
 
         // API Registration
         InertiaAPI.setImplementation(new InertiaAPIImpl(this));

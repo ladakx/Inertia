@@ -3,7 +3,6 @@ package com.ladakx.inertia.items;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.files.ItemsFile;
 import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.render.ItemModelResolver;
 import com.ladakx.inertia.utils.serializers.ItemSerializer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
@@ -78,6 +77,10 @@ public class ItemManager {
 
     @Nullable
     public ItemStack getItem(@NotNull String id) {
+        if (id.startsWith("item.")) {
+            id = id.substring(5);
+        }
+
         ItemStack item = items.get(id);
         return item != null ? item.clone() : null;
     }
@@ -86,6 +89,10 @@ public class ItemManager {
     public ItemStack getItemOrDefault(@NotNull String id, @NotNull ItemStack fallback) {
         ItemStack item = getItem(id);
         return item != null ? item : fallback;
+    }
+
+    public boolean hasItem(@NotNull String id) {
+        return items.containsKey(id);
     }
 
     public Set<String> getItemIds() {

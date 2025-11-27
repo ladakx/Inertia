@@ -6,7 +6,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Абстракція над джерелом item-моделей (items.yml / ItemManager).
  */
-@FunctionalInterface
 public interface ItemModelResolver {
 
     /**
@@ -15,4 +14,6 @@ public interface ItemModelResolver {
      */
     @Nullable
     ItemStack resolve(String itemModelKey);
+
+    boolean canResolve(String itemModelKey);
 }

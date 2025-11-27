@@ -31,12 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Фізичний об'єкт (Одиночне тіло), який повністю конфігурується через bodies.yml + render.yml.
- * Підтримує BlockBodyDefinition та ChainBodyDefinition.
- * НЕ підтримує RagdollDefinition (вони вимагають мульти-боді системи).
- */
-public class BlockPhysicsObject extends AbstractPhysicsObject implements InertiaPhysicsObject {
+public class BlockPhysicsObject extends AbstractPhysicsObject {
 
     private final String bodyId;
     private final PhysicsDisplayComposite displayComposite;

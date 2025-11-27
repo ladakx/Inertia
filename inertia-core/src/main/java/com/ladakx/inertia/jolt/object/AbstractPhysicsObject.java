@@ -3,6 +3,7 @@ package com.ladakx.inertia.jolt.object;
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.github.stephengold.joltjni.enumerate.EActivation;
+import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.render.runtime.PhysicsDisplayComposite;
 import org.jetbrains.annotations.NotNull;
@@ -14,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Абстрактний клас для фізичних об'єктів Minecraft, пов'язаних з Jolt Body. [3]
  */
-public abstract class AbstractPhysicsObject {
+public abstract class AbstractPhysicsObject implements InertiaPhysicsObject {
 
 
     private final List<Integer> relatedBodies = new CopyOnWriteArrayList<>();

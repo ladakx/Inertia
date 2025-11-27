@@ -14,4 +14,9 @@ public class InertiaItemResolver implements ItemModelResolver {
     public @Nullable ItemStack resolve(String key) {
         return ItemManager.getInstance().getItem(key);
     }
+
+    @Override
+    public boolean canResolve(String itemModelKey) {
+        return ItemManager.getInstance().hasItem(itemModelKey);
+    }
 }
