@@ -11,6 +11,8 @@ blocks:
       friction: 1.0
       restitution: 0.025
       mass: 75.0
+      motion-type: Dynamic
+      object-layer: 0
       shape:
         - "type=box x=0.5 y=0.5 z=0.5"
 

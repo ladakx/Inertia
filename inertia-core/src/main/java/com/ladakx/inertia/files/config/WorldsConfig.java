@@ -56,7 +56,10 @@ public class WorldsConfig {
         ConfigurationSection floorSec = section.getConfigurationSection("floor-plane");
         FloorPlaneSettings floorPlane = new FloorPlaneSettings(
                 floorSec != null && floorSec.getBoolean("enable", true),
-                (float) (floorSec != null ? floorSec.getDouble("y-level", 0.0) : 0.0)
+                (float) (floorSec != null ? floorSec.getDouble("y-level", 0.0) : 0.0),
+                (float) (floorSec != null ? floorSec.getDouble("y-size", 1.0) : 1.0),
+                (float) (floorSec != null ? floorSec.getDouble("friction", 1.0) : 1.0),
+                (float) (floorSec != null ? floorSec.getDouble("restitution", 0.025) : 0.025)
         );
 
         // --- Simulation ---
@@ -120,7 +123,7 @@ public class WorldsConfig {
             WorldSizeSettings size
     ) {}
 
-    public record FloorPlaneSettings(boolean enabled, float yLevel) {}
+    public record FloorPlaneSettings(boolean enabled, float yLevel, float ySize, float friction, float restitution) {}
 
     public record SimulationSettings(boolean enabled, SimulationType type) {}
 
