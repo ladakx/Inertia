@@ -16,7 +16,7 @@ public record RenderEntityDefinition(
         String key,
         EntityKind kind,
         String itemModelKey,
-        Material blockType, // Material існує в 1.16.5, але нові блоки будуть NULL або потребують обробки
+        Material blockType,
         InertiaDisplayMode displayMode, // Абстракція
         Vector localOffset,
         Quaternionf localRotation,
