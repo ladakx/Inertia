@@ -11,6 +11,26 @@ stone:
       block: STONE
       interpolation-duration: 1
       teleport-duration: 1
+grass:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display_1:
+      type: BLOCK_DISPLAY
+      block: GRASS
+      interpolation-duration: 1
+      teleport-duration: 1
+slab:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display_1:
+      type: BLOCK_DISPLAY
+      block: OAK_SLAB
+      interpolation-duration: 1
+      teleport-duration: 1
 
 ##########
 # Chains #
@@ -22,7 +42,7 @@ iron_chain:
   entities:
     display_1:
       type: ITEM_DISPLAY
-      item-model: IRON_CHAIN  # ItemStack-конфіг
+      item-model: CHAIN  # ItemStack-конфіг
       display-mode: NONE
       scale: "1.15 1.15 1.15"
       show-when:

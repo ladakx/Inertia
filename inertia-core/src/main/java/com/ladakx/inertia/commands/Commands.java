@@ -8,8 +8,15 @@ import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
+import com.ladakx.inertia.tools.Tool;
+import com.ladakx.inertia.tools.ToolManager;
+import com.ladakx.inertia.tools.impl.ChainTool;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.util.RayTraceResult;
 
 @CommandAlias("inertia")
 @Description("Main inertia plugin command.")
@@ -39,26 +46,23 @@ public class Commands extends BaseCommand {
         }
     }
 
-    @Subcommand("spawn")
+    @Subcommand("spawn body")
     @CommandPermission("inertia.commands.spawn")
-    @CommandCompletion("@bodies") // Використовує зареєстрований комплішн з Main класу
-    @Description("Spawn a physics body at your location")
+    @CommandCompletion("@bodies")
+    @Description("Spawn a generic physics body")
     public void onSpawnCommand(Player player, String bodyId) {
         if (!checkPermission(player, "inertia.commands.spawn", true)) return;
 
-        // Перевіряємо, чи світ є фізичним
         if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) {
             send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return;
         }
 
-        // Створюємо об'єкт через API
         InertiaPhysicsObject obj = InertiaAPI.get().createBody(player.getLocation(), bodyId);
 
         if (obj != null) {
             send(player, MessageKey.SPAWN_SUCCESS, "{id}", bodyId);
         } else {
-            // Якщо об'єкт null, але світ симулюється, значить ID неправильний
             send(player, MessageKey.SPAWN_FAIL_INVALID_ID, "{id}", bodyId);
         }
     }
@@ -82,13 +86,22 @@ public class Commands extends BaseCommand {
         send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(countBefore));
     }
 
-    @Subcommand("debug bar")
-    @Description("Debug command")
-    public void onDebugCommand(CommandSender sender) {
-        if (!checkPermission(sender, "inertia.commands.debug.bar", true)) return;
-        if (!(sender instanceof Player player)) return;
+    @Subcommand("tool chain")
+    @CommandPermission("inertia.commands.tool")
+    @CommandCompletion("@bodies")
+    @Description("Get a tool to spawn chains between two points")
+    public void onToolChain(Player player, String bodyId) {
+        if (!checkPermission(player, "inertia.commands.tool", true)) return;
 
-        // logic here (TODO: Implement debug bar toggle logic later)
+        ToolManager tm = ToolManager.getInstance();
+        Tool tool = tm.getTool("chain_tool"); // Переконайтесь що ID в конструкторі ChainTool співпадає
+
+        if (tool instanceof ChainTool chainTool) {
+            player.getInventory().addItem(chainTool.getToolItem(bodyId));
+            player.sendMessage(Component.text("Received Chain Tool for: " + bodyId, NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text("Chain tool not registered!", NamedTextColor.RED));
+        }
     }
 
     // --- Helper Method ---

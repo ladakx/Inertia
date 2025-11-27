@@ -12,6 +12,8 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.Objects;
+
 public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactory {
 
     private final ItemModelResolver itemModelResolver;
@@ -46,12 +48,18 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
             applyCommonDisplayTraits(entity, def);
             
             ItemStack stack = null;
-            if (def.itemModelKey() != null) {
+            if (def.itemModelKey() != null && itemModelResolver.canResolve(def.itemModelKey())) {
                 stack = itemModelResolver.resolve(def.itemModelKey());
             }
+
+            if (def.itemModelKey() != null && Material.getMaterial(def.itemModelKey()) != null) {
+                stack = new ItemStack(Objects.requireNonNull(Material.getMaterial(def.itemModelKey())));
+            }
+
             if (stack == null) {
                 stack = new ItemStack(Material.BARRIER);
             }
+
             entity.setItemStack(stack);
 
             if (def.displayMode() != null) {
