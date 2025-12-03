@@ -14,7 +14,7 @@ import com.ladakx.inertia.jolt.object.PhysicsObjectType;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.physics.config.ChainBodyDefinition;
-import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.tools.Tool;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -107,8 +107,8 @@ public class ChainTool extends Tool {
      * Основна логіка розрахунку та спавну ланцюга між двома точками.
      */
     public static void buildChainBetweenPoints(Player player, Location start, Location end, String bodyId) {
-        PhysicsModelRegistry registry = ConfigManager.getInstance().getPhysicsModelRegistry();
-        Optional<PhysicsModelRegistry.BodyModel> modelOpt = registry.find(bodyId);
+        PhysicsBodyRegistry registry = ConfigManager.getInstance().getPhysicsBodyRegistry();
+        Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
 
         if (modelOpt.isEmpty() || modelOpt.get().bodyDefinition().type() != PhysicsObjectType.CHAIN) {
             player.sendMessage(Component.text("Invalid chain body definition: " + bodyId, NamedTextColor.RED));

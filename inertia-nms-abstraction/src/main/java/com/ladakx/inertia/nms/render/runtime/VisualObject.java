@@ -13,7 +13,7 @@ public interface VisualObject {
     /**
      * Повне оновлення позиції та трансформації.
      */
-    void update(Location location, Quaternionf rotation);
+    void update(Location location, Quaternionf rotation, Vector3f center, boolean rotLocalOff);
 
     void setVisible(boolean visible);
 

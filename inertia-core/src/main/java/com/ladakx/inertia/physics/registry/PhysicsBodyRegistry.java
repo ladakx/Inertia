@@ -13,18 +13,32 @@ import java.util.*;
 
 /**
  * Реєстр bodyId → (physics definition + optional render model).
- * Адаптовано під поліморфну структуру BodyDefinition.
+ * Зберігає зв'язок між фізичним описом тіла та його візуальною моделлю (або частинами).
  */
-public final class PhysicsModelRegistry {
+public final class PhysicsBodyRegistry {
 
     /**
      * Контейнер для пари: фізичне визначення та (опціонально) модель відображення.
-     * Примітка: Для Ragdoll renderModel буде порожнім, оскільки вони мають множину моделей.
      */
     public record BodyModel(
             BodyDefinition bodyDefinition,
-            Optional<RenderModelDefinition> renderModel
+            // Для простих об'єктів (BLOCK, CHAIN) - одна модель
+            Optional<RenderModelDefinition> renderModel,
+            // Для складених об'єктів (RAGDOLL) - мапа частин (назва частини -> модель)
+            Map<String, RenderModelDefinition> parts
     ) {
+        public BodyModel {
+            Objects.requireNonNull(bodyDefinition, "bodyDefinition cannot be null");
+            Objects.requireNonNull(renderModel, "renderModel cannot be null");
+            parts = parts != null ? Map.copyOf(parts) : Map.of();
+        }
+
+        /**
+         * Зручний конструктор для простих тіл.
+         */
+        public BodyModel(BodyDefinition bodyDefinition, Optional<RenderModelDefinition> renderModel) {
+            this(bodyDefinition, renderModel, Map.of());
+        }
     }
 
     private volatile Map<String, BodyModel> models = Map.of();
@@ -37,19 +51,29 @@ public final class PhysicsModelRegistry {
 
         for (BodyDefinition body : bodiesConfig.all()) {
             Optional<RenderModelDefinition> renderOpt = Optional.empty();
+            Map<String, RenderModelDefinition> partsMap = new HashMap<>();
 
             // Логіка резолвінгу рендер-моделі залежить від типу тіла
             if (body instanceof BlockBodyDefinition blockDef) {
                 renderOpt = resolveRender(blockDef.id(), blockDef.renderModel(), renderConfig);
             } else if (body instanceof ChainBodyDefinition chainDef) {
                 renderOpt = resolveRender(chainDef.id(), chainDef.renderModel(), renderConfig);
-            } else if (body instanceof RagdollDefinition) {
-                // Ragdoll має складну структуру render (map), тому тут ми не кешуємо одну модель.
-                // Спавнер Ragdoll-ів повинен сам запитувати RenderConfig.
-                // Log debug if needed: InertiaLogger.debug("Skipping single render resolve for Ragdoll: " + body.id());
+            } else if (body instanceof RagdollDefinition ragdollDef) {
+                // Для Ragdoll перебираємо всі частини, визначені в конфігу
+                for (Map.Entry<String, String> entry : ragdollDef.renderModels().entrySet()) {
+                    String partName = entry.getKey();
+                    String renderModelId = entry.getValue();
+
+                    Optional<RenderModelDefinition> partRender = renderConfig.find(renderModelId);
+                    if (partRender.isPresent()) {
+                        partsMap.put(partName, partRender.get());
+                    } else {
+                        InertiaLogger.warn("Ragdoll '" + body.id() + "' part '" + partName + "' references missing render model '" + renderModelId + "'");
+                    }
+                }
             }
 
-            BodyModel model = new BodyModel(body, renderOpt);
+            BodyModel model = new BodyModel(body, renderOpt, partsMap);
             newMap.put(body.id(), model);
         }
 

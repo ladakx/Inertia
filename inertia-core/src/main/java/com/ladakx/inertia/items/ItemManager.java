@@ -4,6 +4,7 @@ import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.files.ItemsFile;
 import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.utils.serializers.ItemSerializer;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -81,8 +82,20 @@ public class ItemManager {
             id = id.substring(5);
         }
 
-        ItemStack item = items.get(id);
-        return item != null ? item.clone() : null;
+        else if (id.startsWith("items.")) {
+            id = id.substring(6);
+        }
+
+        ItemStack item = items.get(id).clone();
+        if (!items.containsKey(id)) {
+            if (Material.matchMaterial(id) != null) {
+                item = new ItemStack(Material.matchMaterial(id));
+            } else {
+                item = new ItemStack(Material.BARRIER);
+            }
+        }
+
+        return item;
     }
 
     @NotNull
@@ -92,6 +105,14 @@ public class ItemManager {
     }
 
     public boolean hasItem(@NotNull String id) {
+        if (id.startsWith("item.")) {
+            id = id.substring(5);
+        }
+
+        else if (id.startsWith("items.")) {
+            id = id.substring(6);
+        }
+
         return items.containsKey(id);
     }
 

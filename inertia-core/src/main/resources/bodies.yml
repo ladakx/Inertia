@@ -102,10 +102,16 @@ ragdolls:
       shapes:
         # 8x12x4 пікселів (розмір / 16 / 2)
         torso:
-          - "type=box x=0.25, y=0.375, z=0.125"
+          - "type=box x=0.25 y=0.375 z=0.125"
         # 8x8x8 пікселів
         head:
-          - "type=box x=0.25, y=0.25, z=0.25"
+          - "type=box x=0.25 y=0.25 z=0.25"
         # 4x12x4 пікселів
-        limb:
-          - "type=box x=0.125, y=0.375, z=0.125"
+        right-arm:
+          - "type=box x=0.125 y=0.375 z=0.125"
+        left-arm:
+          - "type=box x=0.125 y=0.375 z=0.125"
+        right-leg:
+          - "type=box x=0.125 y=0.375 z=0.125"
+        left-leg:
+          - "type=box x=0.125 y=0.375 z=0.125"

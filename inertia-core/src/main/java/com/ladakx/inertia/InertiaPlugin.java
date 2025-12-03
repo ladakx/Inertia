@@ -17,7 +17,7 @@ import com.ladakx.inertia.nms.player.PlayerTools;
 import com.ladakx.inertia.nms.player.PlayerToolsInit;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.RenderFactoryInit;
-import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.tools.ToolManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -143,10 +143,14 @@ public final class InertiaPlugin extends JavaPlugin {
         this.paperCommandManager.registerCommand(new Commands());
 
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c -> {
-            return ConfigManager.getInstance().getPhysicsModelRegistry().all().stream()
-                    .map(PhysicsModelRegistry.BodyModel::bodyDefinition)
+            return ConfigManager.getInstance().getPhysicsBodyRegistry().all().stream()
+                    .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
                     .map(com.ladakx.inertia.physics.config.BodyDefinition::id)
                     .collect(Collectors.toList());
+        });
+
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> {
+            return ItemManager.getInstance().getItemIds();
         });
     }
 

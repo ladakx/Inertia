@@ -47,19 +47,7 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
         ItemDisplay display = world.spawn(origin, ItemDisplay.class, entity -> {
             applyCommonDisplayTraits(entity, def);
             
-            ItemStack stack = null;
-            if (def.itemModelKey() != null && itemModelResolver.canResolve(def.itemModelKey())) {
-                stack = itemModelResolver.resolve(def.itemModelKey());
-            }
-
-            if (def.itemModelKey() != null && Material.getMaterial(def.itemModelKey()) != null) {
-                stack = new ItemStack(Objects.requireNonNull(Material.getMaterial(def.itemModelKey())));
-            }
-
-            if (stack == null) {
-                stack = new ItemStack(Material.BARRIER);
-            }
-
+            ItemStack stack = itemModelResolver.resolve(def.itemModelKey());
             entity.setItemStack(stack);
 
             if (def.displayMode() != null) {
@@ -111,9 +99,12 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
             display.setBrightness(new Display.Brightness(b, s));
         }
 
+        display.setDisplayWidth(2f);
+        display.setDisplayHeight(2f);
+
         display.setTransformation(new Transformation(
-                new Vector3f(0,0,0),
-                new Quaternionf(),
+                new Vector3f((float) def.translation().getX(), (float) def.translation().getY(), (float) def.translation().getZ()),
+                new Quaternionf(def.localRotation().x(), def.localRotation().y(), def.localRotation().z(), def.localRotation().w()),
                 new Vector3f((float)def.scale().getX(), (float)def.scale().getY(), (float)def.scale().getZ()),
                 new Quaternionf()
         ));

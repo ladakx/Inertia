@@ -17,7 +17,7 @@ public class ArmorStandObject implements VisualObject {
     }
 
     @Override
-    public void update(Location location, Quaternionf rotation) {
+    public void update(Location location, Quaternionf rotation, Vector3f center, boolean rotLocalOff) {
         if (!stand.isValid()) return;
         stand.teleport(location);
         EulerAngle angle = toEulerAngle(rotation);

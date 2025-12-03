@@ -107,11 +107,13 @@ public class WeldTool extends Tool {
 
             firstObject = null;
 
+            player.sendMessage(Component.text("Connected"));
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 2.0f);
             return;
         }
 
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 1.5f);
+        player.sendMessage(Component.text("First object selected"));
         firstObject = obj;
     }
 

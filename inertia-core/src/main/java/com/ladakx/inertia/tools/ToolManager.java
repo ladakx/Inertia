@@ -1,10 +1,7 @@
 package com.ladakx.inertia.tools;
 
 import com.ladakx.inertia.InertiaPlugin;
-import com.ladakx.inertia.tools.impl.ChainTool;
-import com.ladakx.inertia.tools.impl.DeleteTool;
-import com.ladakx.inertia.tools.impl.GrabberTool;
-import com.ladakx.inertia.tools.impl.WeldTool;
+import com.ladakx.inertia.tools.impl.*;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -25,11 +22,12 @@ public class ToolManager implements Listener {
     private ToolManager(InertiaPlugin plugin) {
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        // Реєстрація інструментів
+        // Registration of tools
         register(new ChainTool());
         register(new DeleteTool());
         register(new WeldTool());
         register(new GrabberTool());
+        register(new RagdollTool());
     }
 
     public static void init(InertiaPlugin plugin) {
@@ -71,7 +69,7 @@ public class ToolManager implements Listener {
 
     @EventHandler
     public void onSwap(PlayerSwapHandItemsEvent event) {
-        Tool tool = getToolFromItem(event.getOffHandItem()); // Item being swapped to offhand (was in main)
+        Tool tool = getToolFromItem(event.getOffHandItem());
         if (tool != null) {
             event.setCancelled(true);
             tool.onSwapHands(event.getPlayer());
@@ -87,27 +85,21 @@ public class ToolManager implements Listener {
             int newSlot = event.getNewSlot();
             int oldSlot = event.getPreviousSlot();
 
-            // Розрахунок різниці з урахуванням переходу 0 <-> 8
             int diff = newSlot - oldSlot;
             if (diff == -8) diff = 1;
             if (diff == 8) diff = -1;
 
             if (tool.onHotbarChange(event, diff)) {
-                event.setCancelled(true); // Скасувати зміну слота, якщо інструмент використав цю подію
+                event.setCancelled(true);
             }
         }
     }
 
     @EventHandler
     public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
-        // Проходимось по тулам і чистимо дані гравця, якщо тул підтримує це
-        // В нашому випадку ChainTool зберігає дані в собі.
-        // В ідеальній архітектурі Tool має метод clearData(UUID), але
-        // оскільки ChainTool - це конкретна реалізація, можна зробити каст або додати метод в абстракцію.
-
         Tool chainTool = getTool("chain_tool");
         if (chainTool instanceof ChainTool ct) {
-            ct.onSwapHands(event.getPlayer()); // Цей метод вже має логіку очищення
+            ct.onSwapHands(event.getPlayer());
         }
     }
 }

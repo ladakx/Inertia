@@ -26,34 +26,52 @@
 iron_chain:
   type: CHAIN
 
-## RAGDOLL
+## RAGDOLL (1.21.4) +
 ragdoll_head:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "emsockz"
   custom-model-data: 1
-  item-model: animated_java:blueprint/player_display/head
+#  item-model: animated_java:blueprint/player_display/head
+#  custom-model-data:
+#    strings:
+#      - "physics"
 ragdoll_right_arm:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "emsockz"
   custom-model-data: 2
-  item-model: animated_java:blueprint/player_display/right_arm
+#  item-model: animated_java:blueprint/player_display/right_arm
+#  custom-model-data:
+#    strings:
+#      - "physics"
 ragdoll_left_arm:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "emsockz"
   custom-model-data: 3
-  item-model: animated_java:blueprint/player_display/left_arm
+#  item-model: animated_java:blueprint/player_display/left_arm
+#  custom-model-data:
+#    strings:
+#      - "physics"
 ragdoll_torso:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "emsockz"
   custom-model-data: 4
-  item-model: animated_java:blueprint/player_display/torso
+#  item-model: animated_java:blueprint/player_display/torso
+#  custom-model-data:
+#    strings:
+#      - "physics"
 ragdoll_right_leg:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "emsockz"
   custom-model-data: 5
-  item-model: animated_java:blueprint/player_display/right_leg
+#  item-model: animated_java:blueprint/player_display/right_leg
+#  custom-model-data:
+#    strings:
+#      - "physics"
 ragdoll_left_leg:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
-  custom-model-data: 5
-  item-model: animated_java:blueprint/player_display/left_leg
+  skull-owning-player: "emsockz"
+  custom-model-data: 6
+#  item-model: animated_java:blueprint/player_display/left_leg
+#  custom-model-data:
+#    strings:
+#     - "physics"

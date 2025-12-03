@@ -4,9 +4,7 @@ import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.*;
 import com.ladakx.inertia.files.config.message.MessageManager;
-import com.ladakx.inertia.items.InertiaItemResolver;
-import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
-import com.ladakx.inertia.render.ItemModelResolver;
+import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
 
 public class ConfigManager {
 
@@ -17,7 +15,7 @@ public class ConfigManager {
     private final InertiaPlugin plugin;
 
     // physics model registry
-    private final PhysicsModelRegistry physicsModelRegistry;
+    private final PhysicsBodyRegistry physicsBodyRegistry;
 
     // message manager
     private final MessageManager messageManager;
@@ -41,7 +39,7 @@ public class ConfigManager {
 
     private ConfigManager(InertiaPlugin plugin) {
         this.plugin = plugin;
-        this.physicsModelRegistry = new PhysicsModelRegistry();
+        this.physicsBodyRegistry = new PhysicsBodyRegistry();
         this.messageManager = new MessageManager();
     }
 
@@ -61,6 +59,9 @@ public class ConfigManager {
             plugin.reloadConfig();
             this.inertiaConfig = new InertiaConfig(plugin.getConfig());
 
+            // items.yml
+            this.itemsFile = new ItemsFile(plugin);
+
             // bodies.yml
             this.bodiesFile = new BodiesFile(plugin);
             this.bodiesConfig = new BodiesConfig(bodiesFile.getConfig());
@@ -68,9 +69,6 @@ public class ConfigManager {
             // render.yml
             this.renderFile = new RenderFile(plugin);
             this.renderConfig = new RenderConfig(renderFile.getConfig());
-
-            // items.yml
-            this.itemsFile = new ItemsFile(plugin);
 
             // worlds.yml
             this.worldsFile = new WorldsFile(plugin);
@@ -81,7 +79,7 @@ public class ConfigManager {
             this.messageManager.reload(messagesFile.getConfig());
 
             // оновити реєстр моделей атомарно
-            physicsModelRegistry.reload(bodiesConfig, renderConfig);
+            physicsBodyRegistry.reload(bodiesConfig, renderConfig);
 
             InertiaLogger.info("Configurations loaded successfully.");
 
@@ -144,8 +142,8 @@ public class ConfigManager {
         return messagesFile;
     }
 
-    public PhysicsModelRegistry getPhysicsModelRegistry() {
-        return physicsModelRegistry;
+    public PhysicsBodyRegistry getPhysicsBodyRegistry() {
+        return physicsBodyRegistry;
     }
 
     public MessageManager getMessageManager() {

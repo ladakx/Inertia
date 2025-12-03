@@ -14,7 +14,7 @@ import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import com.ladakx.inertia.physics.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.config.BodyPhysicsSettings;
-import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
 import com.ladakx.inertia.render.runtime.PhysicsDisplayComposite;
@@ -37,7 +37,7 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
 
     public BlockPhysicsObject(@NotNull MinecraftSpace space,
                               @NotNull String bodyId,
-                              @NotNull PhysicsModelRegistry modelRegistry,
+                              @NotNull PhysicsBodyRegistry modelRegistry,
                               @NotNull RenderFactory renderFactory,
                               @NotNull RVec3 initialPosition,
                               @NotNull Quat initialRotation) {
@@ -45,7 +45,7 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
         super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
         this.bodyId = bodyId;
 
-        PhysicsModelRegistry.BodyModel model = modelRegistry.require(bodyId);
+        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
 
         // Отримуємо візуальну модель, якщо вона була успішно зарезолвлена в реєстрі
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
@@ -76,10 +76,10 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
     // --- Static Helpers ---
 
     private static BodyCreationSettings createBodySettings(String bodyId,
-                                                           PhysicsModelRegistry modelRegistry,
+                                                           PhysicsBodyRegistry modelRegistry,
                                                            RVec3 initialPosition,
                                                            Quat initialRotation) {
-        PhysicsModelRegistry.BodyModel model = modelRegistry.require(bodyId);
+        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
         BlockBodyDefinition def = (BlockBodyDefinition) model.bodyDefinition();
 
         BodyPhysicsSettings phys;

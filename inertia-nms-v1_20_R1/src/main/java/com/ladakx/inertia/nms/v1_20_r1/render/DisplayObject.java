@@ -16,7 +16,7 @@ public class DisplayObject implements VisualObject {
     }
 
     @Override
-    public void update(Location location, Quaternionf rotation) {
+    public void update(Location location, Quaternionf rotation, Vector3f center, boolean rotLocalOff) {
         if (!display.isValid()) return;
 
         display.teleport(location);
