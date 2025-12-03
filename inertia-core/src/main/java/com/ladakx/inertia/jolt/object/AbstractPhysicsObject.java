@@ -2,6 +2,7 @@ package com.ladakx.inertia.jolt.object;
 
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.BodyCreationSettings;
+import com.github.stephengold.joltjni.TwoBodyConstraintRef;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
@@ -57,5 +58,20 @@ public abstract class AbstractPhysicsObject implements InertiaPhysicsObject {
 
     public @NotNull MinecraftSpace getSpace() {
         return space;
+    }
+
+    public void destroy() {
+        for (TwoBodyConstraintRef constraint : constraints) {
+            space.removeConstraint(constraint.getPtr());
+        }
+
+        for (int relatedObject : relatedBodies) {
+            space.getPhysicsSystem().getBodyInterface().removeBody(relatedObject);
+            space.getPhysicsSystem().getBodyInterface().destroyBody(relatedObject);
+        }
+
+        space.getPhysicsSystem().getBodyInterface().removeBody(body.getId());
+        space.getPhysicsSystem().getBodyInterface().destroyBody(body.getId());
+        space.removeObject(this);
     }
 }

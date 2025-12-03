@@ -25,27 +25,18 @@ public class DeleteTool extends Tool {
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) return;
-
         MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
-        if (space == null) return;
 
-        // Рейкаст
-        List<MinecraftSpace.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 100f);
+        List<MinecraftSpace.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 16);
+        if (results.isEmpty()) return;
 
-        if (!results.isEmpty()) {
-            MinecraftSpace.RaycastResult result = results.get(0);
-            AbstractPhysicsObject obj = space.getObjectByVa(result.va());
+        MinecraftSpace.RaycastResult result = results.get(0);
+        Long obj = result.va();
 
-            if (obj != null) {
-                // Візуальні ефекти перед видаленням
-                Location loc = new Location(player.getWorld(), result.hitPos().xx(), result.hitPos().yy(), result.hitPos().zz());
-                player.playSound(player.getLocation(), Sound.BLOCK_STONE_BREAK, SoundCategory.MASTER, 1f, 0.6f);
-                player.spawnParticle(Particle.BLOCK_CRACK, loc, 10, 0.2, 0.2, 0.2, Material.STONE.createBlockData());
-
-                // Видалення
-                obj.remove();
-            }
+        AbstractPhysicsObject mcObj = space.getObjectByVa(obj);
+        if (mcObj != null) {
+            player.playSound(player.getLocation(), Sound.BLOCK_STONE_BREAK, SoundCategory.MASTER, 0.5F, 0.6F);
+            mcObj.destroy();
         }
     }
 
