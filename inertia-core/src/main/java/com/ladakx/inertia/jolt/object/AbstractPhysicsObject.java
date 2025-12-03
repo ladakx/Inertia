@@ -58,15 +58,4 @@ public abstract class AbstractPhysicsObject implements InertiaPhysicsObject {
     public @NotNull MinecraftSpace getSpace() {
         return space;
     }
-
-    /**
-     * Повертає збережену Bukkit-сутність, пов'язану з цим фізичним тілом.
-     */
-    public abstract @Nullable PhysicsDisplayComposite getDisplay();
-
-    /**
-     * Оновити стан об'єкта (позиція/орієнтація сутностей).
-     * За замовчуванням — нічого не робить; реалізується в підкласах.
-     */
-    public abstract void update();
 }

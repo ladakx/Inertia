@@ -5,7 +5,6 @@ import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
-import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
@@ -33,7 +32,7 @@ import java.util.Optional;
  * Наслідує AbstractPhysicsObject, керує власним візуальним відображенням
  * та створює Constraint з батьківським тілом.
  */
-public class ChainPhysicsObject extends AbstractPhysicsObject implements InertiaPhysicsObject {
+public class ChainPhysicsObject extends DisplayedPhysicsObject implements InertiaPhysicsObject {
 
     private final String bodyId;
     private final PhysicsDisplayComposite displayComposite;
@@ -207,7 +206,7 @@ public class ChainPhysicsObject extends AbstractPhysicsObject implements Inertia
     @Override
     public void setLinearVelocity(@NotNull Vector velocity) {
         if (!isValid()) return;
-        getSpace().getBodyInterface().setLinearVelocity(getBody().getId(), ConvertUtils.toJolt(velocity));
+        getSpace().getBodyInterface().setLinearVelocity(getBody().getId(), ConvertUtils.toVec3(velocity));
     }
 
     @Override

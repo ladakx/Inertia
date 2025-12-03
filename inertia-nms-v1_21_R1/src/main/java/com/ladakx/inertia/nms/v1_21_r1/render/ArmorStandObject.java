@@ -40,4 +40,9 @@ public class ArmorStandObject implements VisualObject {
     public boolean isValid() {
         return stand.isValid();
     }
+
+    @Override
+    public void setGlowing(boolean glowing) {
+        stand.setGlowing(glowing);
+    }
 }

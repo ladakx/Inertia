@@ -19,5 +19,7 @@ public interface VisualObject {
 
     void remove();
 
+    void setGlowing(boolean glowing);
+
     boolean isValid();
 }

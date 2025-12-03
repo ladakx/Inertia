@@ -46,6 +46,8 @@ public class Commands extends BaseCommand {
         }
     }
 
+    // --- Spawn Commands ---
+
     @Subcommand("spawn body")
     @CommandPermission("inertia.commands.spawn")
     @CommandCompletion("@bodies")
@@ -67,6 +69,31 @@ public class Commands extends BaseCommand {
         }
     }
 
+    @Subcommand("spawn chain")
+    @CommandPermission("inertia.commands.spawn")
+    @CommandCompletion("@bodies")
+    @Description("Spawn a physics chain structure directly")
+    public void onSpawnChain(Player player, String bodyId) {
+        if (!checkPermission(player, "inertia.commands.spawn", true)) return;
+
+        if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) {
+            send(player, MessageKey.NOT_FOR_THIS_WORLD);
+            return;
+        }
+
+        Location startLoc = player.getEyeLocation();
+        RayTraceResult result = player.getWorld().rayTraceBlocks(startLoc, startLoc.getDirection(), 10);
+
+        Location targetLoc;
+        if (result != null && result.getHitPosition() != null) {
+            targetLoc = result.getHitPosition().toLocation(player.getWorld()).subtract(startLoc.getDirection().multiply(0.2));
+        } else {
+            targetLoc = startLoc.add(startLoc.getDirection().multiply(3));
+        }
+
+        ChainTool.buildChainBetweenPoints(player, targetLoc.clone().add(0, 5, 0), targetLoc, bodyId);
+    }
+
     @Subcommand("clear")
     @CommandPermission("inertia.commands.clear")
     @Description("Clear all physics bodies in the current world")
@@ -86,15 +113,17 @@ public class Commands extends BaseCommand {
         send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(countBefore));
     }
 
+    // --- Tools Commands ---
+
     @Subcommand("tool chain")
     @CommandPermission("inertia.commands.tool")
     @CommandCompletion("@bodies")
-    @Description("Get a tool to spawn chains between two points")
+    @Description("Get a tool to spawn chains")
     public void onToolChain(Player player, String bodyId) {
         if (!checkPermission(player, "inertia.commands.tool", true)) return;
 
         ToolManager tm = ToolManager.getInstance();
-        Tool tool = tm.getTool("chain_tool"); // Переконайтесь що ID в конструкторі ChainTool співпадає
+        Tool tool = tm.getTool("chain_tool");
 
         if (tool instanceof ChainTool chainTool) {
             player.getInventory().addItem(chainTool.getToolItem(bodyId));
@@ -104,7 +133,43 @@ public class Commands extends BaseCommand {
         }
     }
 
-    // --- Helper Method ---
+    @Subcommand("tool grabber")
+    @CommandPermission("inertia.commands.tool")
+    @Description("Get the Gravity Grabber tool")
+    public void onToolGrabber(Player player) {
+        giveSimpleTool(player, "grabber", "Gravity Grabber");
+    }
+
+    @Subcommand("tool welder")
+    @CommandPermission("inertia.commands.tool")
+    @Description("Get the Welder tool")
+    public void onToolWelder(Player player) {
+        giveSimpleTool(player, "welder", "Welder");
+    }
+
+    @Subcommand("tool remover")
+    @CommandPermission("inertia.commands.tool")
+    @Description("Get the Remover tool")
+    public void onToolRemover(Player player) {
+        giveSimpleTool(player, "remover", "Remover");
+    }
+
+    // --- Helper Methods ---
+
+    private void giveSimpleTool(Player player, String toolId, String toolName) {
+        if (!checkPermission(player, "inertia.commands.tool", true)) return;
+
+        ToolManager tm = ToolManager.getInstance();
+        Tool tool = tm.getTool(toolId);
+
+        if (tool != null) {
+            player.getInventory().addItem(tool.buildItem());
+            player.sendMessage(Component.text("Received tool: " + toolName, NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text("Tool '" + toolId + "' is not registered.", NamedTextColor.RED));
+        }
+    }
+
     private void send(CommandSender sender, MessageKey key, String... replacements) {
         ConfigManager.getInstance().getMessageManager().send(sender, key, replacements);
     }

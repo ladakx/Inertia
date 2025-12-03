@@ -2,11 +2,15 @@ package com.ladakx.inertia.tools;
 
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.tools.impl.ChainTool;
+import com.ladakx.inertia.tools.impl.DeleteTool;
+import com.ladakx.inertia.tools.impl.GrabberTool;
+import com.ladakx.inertia.tools.impl.WeldTool;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -18,25 +22,21 @@ public class ToolManager implements Listener {
     private static ToolManager instance;
     private final Map<String, Tool> tools = new HashMap<>();
 
-    // Private constructor called only by init()
-    public ToolManager(InertiaPlugin plugin) {
+    private ToolManager(InertiaPlugin plugin) {
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        // Реєстрація доступних інструментів
+        // Реєстрація інструментів
         register(new ChainTool());
+        register(new DeleteTool());
+        register(new WeldTool());
+        register(new GrabberTool());
     }
 
-    // Статичний ініціалізатор (викликається з Main класу)
     public static void init(InertiaPlugin plugin) {
-        if (instance == null) {
-            instance = new ToolManager(plugin);
-        }
+        if (instance == null) instance = new ToolManager(plugin);
     }
 
     public static ToolManager getInstance() {
-        if (instance == null) {
-            throw new IllegalStateException("ToolManager not initialized!");
-        }
         return instance;
     }
 
@@ -71,10 +71,30 @@ public class ToolManager implements Listener {
 
     @EventHandler
     public void onSwap(PlayerSwapHandItemsEvent event) {
-        Tool tool = getToolFromItem(event.getOffHandItem());
+        Tool tool = getToolFromItem(event.getOffHandItem()); // Item being swapped to offhand (was in main)
         if (tool != null) {
             event.setCancelled(true);
             tool.onSwapHands(event.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onHotbarChange(PlayerItemHeldEvent event) {
+        ItemStack item = event.getPlayer().getInventory().getItem(event.getPreviousSlot());
+        Tool tool = getToolFromItem(item);
+
+        if (tool != null) {
+            int newSlot = event.getNewSlot();
+            int oldSlot = event.getPreviousSlot();
+
+            // Розрахунок різниці з урахуванням переходу 0 <-> 8
+            int diff = newSlot - oldSlot;
+            if (diff == -8) diff = 1;
+            if (diff == 8) diff = -1;
+
+            if (tool.onHotbarChange(event, diff)) {
+                event.setCancelled(true); // Скасувати зміну слота, якщо інструмент використав цю подію
+            }
         }
     }
 

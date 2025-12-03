@@ -47,6 +47,11 @@ public class DisplayObject implements VisualObject {
     }
 
     @Override
+    public void setGlowing(boolean glowing) {
+        display.setGlowing(glowing);
+    }
+
+    @Override
     public boolean isValid() {
         return display.isValid();
     }

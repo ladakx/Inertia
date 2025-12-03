@@ -101,6 +101,23 @@ public final class PhysicsDisplayComposite {
         refreshVisibility();
     }
 
+    public VisualObject getVisualObjectByPartName(String partName) {
+        for (DisplayPart part : parts) {
+            if (part.definition().key().equals(partName)) {
+                return part.visual();
+            }
+        }
+
+        InertiaLogger.warn("No VisualObject found for part name: " + partName);
+        return null;
+    }
+
+    public void setGlowing(boolean glowing) {
+        for (DisplayPart part : parts) {
+            part.visual().setGlowing(glowing);
+        }
+    }
+
     public void destroy() {
         for (DisplayPart part : parts) {
             part.visual().remove();

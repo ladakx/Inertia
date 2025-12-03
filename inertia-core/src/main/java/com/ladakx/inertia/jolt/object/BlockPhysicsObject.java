@@ -13,9 +13,7 @@ import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import com.ladakx.inertia.physics.config.BlockBodyDefinition;
-import com.ladakx.inertia.physics.config.BodyDefinition;
 import com.ladakx.inertia.physics.config.BodyPhysicsSettings;
-import com.ladakx.inertia.physics.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
@@ -31,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class BlockPhysicsObject extends AbstractPhysicsObject {
+public class BlockPhysicsObject extends DisplayedPhysicsObject implements InertiaPhysicsObject {
 
     private final String bodyId;
     private final PhysicsDisplayComposite displayComposite;
@@ -185,13 +183,13 @@ public class BlockPhysicsObject extends AbstractPhysicsObject {
     @Override
     public void setLinearVelocity(@NotNull Vector velocity) {
         if (!isValid()) return;
-        Vec3 joltVel = ConvertUtils.toJolt(velocity);
+        Vec3 joltVel = ConvertUtils.toVec3(velocity);
         getSpace().getBodyInterface().setLinearVelocity(getBody().getId(), joltVel);
     }
 
     @Override
     public @NotNull Location getLocation() {
-        if (!isValid()) return new Location(getSpace().getWorldBukkit(), 0, 0, 0); // Fallback
+        if (!isValid()) return new Location(getSpace().getWorldBukkit(), 0, 0, 0);
         RVec3 pos = getBody().getPosition();
         return new Location(getSpace().getWorldBukkit(), pos.xx(), pos.yy(), pos.zz());
     }
