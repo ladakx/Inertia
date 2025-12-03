@@ -6,16 +6,19 @@ import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.items.ItemManager;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.tools.Tool;
 import com.ladakx.inertia.tools.ToolManager;
 import com.ladakx.inertia.tools.impl.ChainTool;
+import com.ladakx.inertia.tools.impl.RagdollTool;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.RayTraceResult;
 
 @CommandAlias("inertia")
@@ -133,6 +136,24 @@ public class Commands extends BaseCommand {
         }
     }
 
+    @Subcommand("tool ragdoll")
+    @CommandPermission("inertia.commands.tool")
+    @CommandCompletion("@bodies")
+    @Description("Get a tool to spawn ragdolls")
+    public void onToolRagdoll(Player player, String bodyId) {
+        if (!checkPermission(player, "inertia.commands.tool", true)) return;
+
+        ToolManager tm = ToolManager.getInstance();
+        Tool tool = tm.getTool("ragdoll_tool");
+
+        if (tool instanceof RagdollTool ragdollTool) {
+            player.getInventory().addItem(ragdollTool.getToolItem(bodyId));
+            player.sendMessage(Component.text("Received Ragdoll Tool for: " + bodyId, NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text("Ragdoll tool not registered!", NamedTextColor.RED));
+        }
+    }
+
     @Subcommand("tool grabber")
     @CommandPermission("inertia.commands.tool")
     @Description("Get the Gravity Grabber tool")
@@ -152,6 +173,25 @@ public class Commands extends BaseCommand {
     @Description("Get the Remover tool")
     public void onToolRemover(Player player) {
         giveSimpleTool(player, "remover", "Remover");
+    }
+
+    // --- Item Commands ---
+
+    @Subcommand("give")
+    @CommandPermission("inertia.commands.give")
+    @CommandCompletion("@items")
+    @Description("Get a custom item from items.yml")
+    public void onGiveItem(Player player, String itemId) {
+        if (!checkPermission(player, "inertia.commands.give", true)) return;
+
+        ItemStack item = ItemManager.getInstance().getItem(itemId);
+
+        if (item != null) {
+            player.getInventory().addItem(item);
+            player.sendMessage(Component.text("Received item: " + itemId, NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text("Item '" + itemId + "' not found.", NamedTextColor.RED));
+        }
     }
 
     // --- Helper Methods ---

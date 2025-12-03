@@ -5,14 +5,13 @@ import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
-import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import com.ladakx.inertia.physics.config.BodyPhysicsSettings;
 import com.ladakx.inertia.physics.config.ChainBodyDefinition;
-import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
 import com.ladakx.inertia.render.runtime.PhysicsDisplayComposite;
@@ -40,7 +39,7 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
 
     public ChainPhysicsObject(@NotNull MinecraftSpace space,
                               @NotNull String bodyId,
-                              @NotNull PhysicsModelRegistry modelRegistry,
+                              @NotNull PhysicsBodyRegistry modelRegistry,
                               @NotNull RenderFactory renderFactory,
                               @NotNull RVec3 initialPosition,
                               @NotNull Quat initialRotation,
@@ -59,8 +58,8 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
         update(); // Перше оновлення позиції візуалів
     }
 
-    private void createConstraint(PhysicsModelRegistry registry, String bodyId, Body parentBody) {
-        PhysicsModelRegistry.BodyModel model = registry.require(bodyId);
+    private void createConstraint(PhysicsBodyRegistry registry, String bodyId, Body parentBody) {
+        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition chainDef)) {
             return;
         }
@@ -91,9 +90,9 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
     }
 
     private PhysicsDisplayComposite createVisuals(MinecraftSpace space, String bodyId,
-                                                  PhysicsModelRegistry registry, RenderFactory factory,
+                                                  PhysicsBodyRegistry registry, RenderFactory factory,
                                                   RVec3 initialPos) {
-        PhysicsModelRegistry.BodyModel model = registry.require(bodyId);
+        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
 
         if (renderOpt.isEmpty()) return null;
@@ -112,9 +111,9 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
     }
 
-    private static BodyCreationSettings createBodySettings(String bodyId, PhysicsModelRegistry registry,
+    private static BodyCreationSettings createBodySettings(String bodyId, PhysicsBodyRegistry registry,
                                                            RVec3 pos, Quat rot) {
-        PhysicsModelRegistry.BodyModel model = registry.require(bodyId);
+        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
 
         // Перевіряємо, чи це дійсно ланцюг
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) {

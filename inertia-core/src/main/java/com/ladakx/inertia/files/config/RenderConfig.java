@@ -108,14 +108,16 @@ public final class RenderConfig {
         if (section.contains("brightness.block")) brightnessBlock = section.getInt("brightness.block");
         if (section.contains("brightness.sky")) brightnessSky = section.getInt("brightness.sky");
 
+        boolean rotateTranslation = section.getBoolean("rotate-translation", true);
+
         return new RenderEntityDefinition(
                 key, kind, itemModelKey, blockType, displayMode,
                 localOffset, localRotation, scale, translation,
-                showWhenActive, showWhenSleeping, viewRange, shadowRadius, shadowStrength,
+                showWhenActive, showWhenSleeping, rotateTranslation, viewRange, shadowRadius, shadowStrength,
                 interpolationDuration, teleportDuration, billboard, brightnessBlock, brightnessSky,
-                section.getBoolean("small"), section.getBoolean("invisible"),
-                section.getBoolean("marker"), section.getBoolean("base-plate", true),
-                section.getBoolean("arms")
+                section.getBoolean("small", false), section.getBoolean("invisible", true),
+                section.getBoolean("marker", true), section.getBoolean("base-plate", false),
+                section.getBoolean("arms", false)
         );
     }
 

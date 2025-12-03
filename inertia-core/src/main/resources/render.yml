@@ -18,7 +18,7 @@ grass:
   entities:
     display_1:
       type: BLOCK_DISPLAY
-      block: GRASS
+      block: GRASS_BLOCK
       interpolation-duration: 1
       teleport-duration: 1
 slab:
@@ -42,7 +42,7 @@ iron_chain:
   entities:
     display_1:
       type: ITEM_DISPLAY
-      item-model: CHAIN  # ItemStack-конфіг
+      item-model: items.iron_chain  # ItemStack-конфіг
       display-mode: NONE
       scale: "1.15 1.15 1.15"
       show-when:
@@ -58,42 +58,48 @@ ragdoll_head:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
       translation: "0.0 0.0 0.0"
-      item-model: ragdoll_head
+      item-model: items.ragdoll_head
+      rotate-translation: false
 ragdoll_right_arm:
   entities:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
       translation: "0.0 -1024 0.0"
-      item-model: ragdoll_right_arm
+      item-model: items.ragdoll_right_arm
+      rotate-translation: false
 ragdoll_left_arm:
   entities:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
       translation: "0.0 -2048 0.0"
-      item-model: ragdoll_left_arm
+      item-model: items.ragdoll_left_arm
+      rotate-translation: false
 ragdoll_torso:
   entities:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
-      translation: "0.0 -3072 0.0"
-      item-model: ragdoll_torso
+      translation: "0.0 -5120 0.0"
+      item-model: items.ragdoll_torso
+      rotate-translation: false
 ragdoll_right_leg:
   entities:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
-      translation: "0.0 -4096 0.0"
-      item-model: ragdoll_right_leg
+      translation: "0.0 -6144 0.0"
+      item-model: items.ragdoll_right_leg
+      rotate-translation: false
 ragdoll_left_leg:
   entities:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
-      translation: "0.0 -5120 0.0"
-      item-model: ragdoll_left_leg
+      translation: "0.0 -7168 0.0"
+      item-model: items.ragdoll_left_leg
+      rotate-translation: false
 
 
 ####################

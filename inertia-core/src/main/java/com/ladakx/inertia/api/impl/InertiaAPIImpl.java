@@ -12,7 +12,7 @@ import com.ladakx.inertia.jolt.object.PhysicsObjectType;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.nms.render.RenderFactory;
-import com.ladakx.inertia.physics.registry.PhysicsModelRegistry;
+import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,13 +26,13 @@ public class InertiaAPIImpl extends InertiaAPI {
 
     private final InertiaPlugin plugin;
     private final SpaceManager spaceManager;
-    private final PhysicsModelRegistry modelRegistry;
+    private final PhysicsBodyRegistry modelRegistry;
     private final RenderFactory renderFactory;
 
     public InertiaAPIImpl(InertiaPlugin plugin) {
         this.plugin = plugin;
         this.spaceManager = SpaceManager.getInstance();
-        this.modelRegistry = ConfigManager.getInstance().getPhysicsModelRegistry();
+        this.modelRegistry = ConfigManager.getInstance().getPhysicsBodyRegistry();
         this.renderFactory = plugin.getRenderFactory();
     }
 

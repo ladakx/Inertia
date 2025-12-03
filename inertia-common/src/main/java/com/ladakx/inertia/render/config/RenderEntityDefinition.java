@@ -5,13 +5,11 @@ import com.ladakx.inertia.render.config.enums.InertiaDisplayMode;
 import org.bukkit.Material;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import java.util.Objects;
 
 /**
  * Опис однієї локальної сутності.
- * Цей клас повністю безпечний для API 1.16.5.
  */
 public record RenderEntityDefinition(
         String key,
@@ -25,6 +23,7 @@ public record RenderEntityDefinition(
         Vector translation,
         boolean showWhenActive,
         boolean showWhenSleeping,
+        boolean rotTranslation,
         Float viewRange,
         Float shadowRadius,
         Float shadowStrength,

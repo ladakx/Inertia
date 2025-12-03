@@ -61,16 +61,26 @@ public class ItemSerializer {
             meta.setUnbreakable(section.getBoolean("unbreakable"));
         }
 
-        // 4. Custom Model Data
+        // 4. Custom Model Data (Updated for Component Support)
         if (section.contains("custom-model-data")) {
-            if (meta.hasCustomModelData()) {
-                meta.setCustomModelData(section.getInt("custom-model-data"));
-            } else {
-                try {
-                    Method setCMD = meta.getClass().getMethod("setCustomModelData", Integer.class);
-                    setCMD.setAccessible(true);
-                    setCMD.invoke(meta, section.getInt("custom-model-data"));
-                } catch (Exception ignored) {}
+            // Варіант 1: Класичне число (Integer)
+            if (section.isInt("custom-model-data")) {
+                int data = section.getInt("custom-model-data");
+                if (meta.hasCustomModelData()) {
+                    meta.setCustomModelData(data);
+                } else {
+                    try {
+                        Method setCMD = meta.getClass().getMethod("setCustomModelData", Integer.class);
+                        setCMD.setAccessible(true);
+                        setCMD.invoke(meta, data);
+                    } catch (Exception ignored) {}
+                }
+            }
+            // Варіант 2: Компонент (Section з floats, strings, flags) - 1.21.4+
+            else if (section.isConfigurationSection("custom-model-data")) {
+                if (MinecraftVersions.TRICKY_TRIALS.isAtLeast()) {
+                    applyCustomModelDataComponent(meta, section.getConfigurationSection("custom-model-data"));
+                }
             }
         }
 
@@ -214,6 +224,58 @@ public class ItemSerializer {
     }
 
     // --- Helper Methods ---
+
+    /**
+     * Applies CustomModelDataComponent via Reflection (Paper 1.21.4+).
+     */
+    private static void applyCustomModelDataComponent(ItemMeta meta, ConfigurationSection section) {
+        try {
+            // 1. Get the component from the meta using the Interface method (ItemMeta)
+            Method getComponentMethod = ItemMeta.class.getMethod("getCustomModelDataComponent");
+            Object component = getComponentMethod.invoke(meta);
+
+            if (component == null) return;
+
+            // 2. Get the CustomModelDataComponent interface class to call methods on the component object
+            Class<?> componentInterface = Class.forName("org.bukkit.inventory.meta.components.CustomModelDataComponent");
+
+            // Set Floats
+            if (section.contains("floats")) {
+                List<Float> floats = section.getFloatList("floats");
+                Method setFloats = componentInterface.getMethod("setFloats", List.class);
+                setFloats.invoke(component, floats);
+            }
+
+            // Set Strings
+            if (section.contains("strings")) {
+                List<String> strings = section.getStringList("strings");
+                Method setStrings = componentInterface.getMethod("setStrings", List.class);
+                setStrings.invoke(component, strings);
+            }
+
+            // Set Flags
+            if (section.contains("flags")) {
+                List<Boolean> flags = section.getBooleanList("flags");
+                Method setFlags = componentInterface.getMethod("setFlags", List.class);
+                setFlags.invoke(component, flags);
+            }
+
+            // 3. Set the component back to the meta using setCustomModelDataComponent (if available via reflection)
+            try {
+                // We use reflection to call setCustomModelDataComponent(CustomModelDataComponent) on ItemMeta interface
+                Method setComponentMethod = ItemMeta.class.getMethod("setCustomModelDataComponent", componentInterface);
+                setComponentMethod.invoke(meta, component);
+            } catch (NoSuchMethodException e) {
+                // Method might not exist in older versions or specific implementations, but since get exists, set likely does too in 1.21.4+ API
+                // If it doesn't exist, modifications to the component object (view) might be sufficient depending on implementation
+                InertiaLogger.debug("setCustomModelDataComponent method not found, relying on mutable view.");
+            }
+
+        } catch (Exception e) {
+            InertiaLogger.warn("Failed to apply CustomModelDataComponent: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
     private static void setDisplayNameSafe(ItemMeta meta, Component component) {
         try {

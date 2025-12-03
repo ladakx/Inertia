@@ -11,46 +11,45 @@ public class DisplayObject implements VisualObject {
 
     private final Display display;
 
+    private final float originalViewRange;
+
+    private final Vector3f originalTrans;
+    private final Vector3f originalScale;
+    private final Quaternionf originalRightRot;
+
     public DisplayObject(Display display) {
         this.display = display;
+        this.originalViewRange = display.getViewRange();
+        this.originalTrans = display.getTransformation().getTranslation();
+        this.originalScale = display.getTransformation().getScale();
+        this.originalRightRot = display.getTransformation().getRightRotation();
     }
 
     @Override
-    public void update(Location location, Quaternionf rotation) {
+    public void update(Location location, Quaternionf rotation, Vector3f center, boolean rotateTranslation) {
         if (!display.isValid()) return;
 
         display.teleport(location);
 
-        Transformation current = display.getTransformation();
-//        if (current.getTranslation().x == 0.0f && current.getTranslation().y == 0.0f && current.getTranslation().z == 0.0f) {
-            Transformation newTrans = new Transformation(
-                    new Vector3f(-0.5f, -0.5f, -0.5f).rotate(rotation),
-                    rotation,
-                    current.getScale(),
-                    current.getRightRotation()
-            );
+        Vector3f translation;
+        if (rotateTranslation) translation = center.add(originalTrans).rotate(rotation);
+        else translation = center.rotate(rotation).add(originalTrans);
 
-            display.setInterpolationDelay(0);
-            display.setTransformation(newTrans);
+        Transformation newTrans = new Transformation(
+                translation,
+                rotation,
+                originalScale,
+                originalRightRot
+        );
 
-//            return;
-//        }
-//
-//        Transformation newTrans = new Transformation(
-//                current.getTranslation(),
-//                rotation,
-//                current.getScale(),
-//                current.getRightRotation()
-//        );
-
-//        display.setInterpolationDelay(0);
-//        display.setTransformation(newTrans);
+        display.setInterpolationDelay(0);
+        display.setTransformation(newTrans);
     }
 
     @Override
     public void setVisible(boolean visible) {
         if (display.isValid()) {
-//            display.setViewRange(visible ? originalRange : 0);
+            display.setViewRange(visible ? originalViewRange : 0);
         }
     }
 

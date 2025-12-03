@@ -3,6 +3,7 @@ package com.ladakx.inertia.utils.jolt;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.Vec3;
+import com.github.stephengold.joltjni.readonly.RVec3Arg;
 import com.ladakx.inertia.enums.Direction;
 import com.ladakx.inertia.utils.block.BlockPos;
 import org.bukkit.Location;
@@ -11,6 +12,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
  * Utility class for converting between Jolt-JNI and Bukkit
@@ -70,6 +72,20 @@ public final class ConvertUtils {
 
     public static Vector toBukkit(RVec3 vec) {
         return new Vector(vec.xx(), vec.yy(), vec.zz());
+    }
+
+    /**
+     * Convert a Jolt Vec3 to a Bukkit Vector.
+     *
+     * @param vec The vector to convert
+     * @return The converted Vector
+     */
+    public static Vector3f toJOML(Vec3 vec) {
+        return new Vector3f(vec.getX(), vec.getY(), vec.getZ());
+    }
+
+    public static Vector3f toJOML(RVec3 vec) {
+        return new Vector3f((float) vec.xx(), (float) vec.yy(), (float) vec.zz());
     }
 
     /**

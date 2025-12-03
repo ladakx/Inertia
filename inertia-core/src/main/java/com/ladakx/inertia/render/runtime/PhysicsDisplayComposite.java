@@ -7,6 +7,7 @@ import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
+import com.ladakx.inertia.utils.jolt.ConvertUtils;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
@@ -61,8 +62,10 @@ public final class PhysicsDisplayComposite {
     public void update() {
         if (parts.isEmpty()) return;
 
-        RVec3 pos = body.getPosition();
-        Quat rot = body.getRotation();
+        RVec3 pos = new RVec3();
+        Quat rot = new Quat();
+
+        body.getPositionAndRotation(pos, rot);
 
         Quaternionf bodyRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
         Location baseLoc = new Location(world, pos.xx(), pos.yy(), pos.zz());
@@ -95,7 +98,8 @@ public final class PhysicsDisplayComposite {
                 finalRot.set(def.localRotation());
             }
 
-            visual.update(target, finalRot);
+            Vector3f center = ConvertUtils.toJOML(body.getShape().getLocalBounds().getExtent()).mul(new Vector3f(-1));
+            visual.update(target, finalRot, center, def.rotTranslation());
         }
 
         refreshVisibility();
