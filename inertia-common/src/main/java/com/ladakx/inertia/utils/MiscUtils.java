@@ -1,7 +1,10 @@
 package com.ladakx.inertia.utils;
 
+import com.github.stephengold.joltjni.Vec3;
+import com.github.stephengold.joltjni.readonly.Vec3Arg;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.util.Vector;
 
 /**
  * A utility class containing miscellaneous utility methods.
@@ -36,5 +39,25 @@ public class MiscUtils {
         }
 
         return new Location(Bukkit.getWorld(world), x_, y_, z_);
+    }
+
+    public static Vector lerpVec(Vector a, Vector b, double f) {
+        return new Vector(
+                lerp(a.getX(), b.getX(), f),
+                lerp(a.getY(), b.getY(), f),
+                lerp(a.getZ(), b.getZ(), f)
+        );
+    }
+
+    public static double lerp(double a, double b, double f) {
+        return a + f * (b - a);
+    }
+
+    public static Vec3 mul(Vec3 source, float scalar) {
+        return new Vec3(source.getX() * scalar, source.getY() * scalar, source.getZ() * scalar);
+    }
+
+    public static Vec3 mul(Vec3 source, Vec3Arg other) {
+        return new Vec3(source.getX() * other.getX(), source.getY() * other.getY(), source.getZ() * other.getZ());
     }
 }

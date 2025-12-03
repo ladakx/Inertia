@@ -4,6 +4,7 @@ import com.ladakx.inertia.InertiaPlugin;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -21,18 +22,21 @@ public abstract class Tool {
     public abstract void onLeftClick(PlayerInteractEvent event);
     public abstract void onSwapHands(Player player);
 
+    /**
+     * Викликається при зміні слота (скрол миші).
+     * @param diff різниця слотів (-1 або +1, з урахуванням зациклення хотбару)
+     * @return true, якщо подію оброблено (інструмент активний)
+     */
+    public boolean onHotbarChange(PlayerItemHeldEvent event, int diff) {
+        return false;
+    }
+
     protected abstract ItemStack getBaseItem();
 
-    /**
-     * Базовий метод отримання інструмента (без специфічних даних).
-     */
     public ItemStack buildItem() {
         return markItemAsTool(getBaseItem());
     }
 
-    /**
-     * Додає NBT тег інструмента до ItemStack.
-     */
     protected ItemStack markItemAsTool(ItemStack stack) {
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {

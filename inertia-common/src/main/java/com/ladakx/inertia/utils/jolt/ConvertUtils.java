@@ -1,6 +1,7 @@
 package com.ladakx.inertia.utils.jolt;
 
 import com.github.stephengold.joltjni.Quat;
+import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.enums.Direction;
 import com.ladakx.inertia.utils.block.BlockPos;
@@ -26,8 +27,16 @@ public final class ConvertUtils {
      * @param blockPos The block position to convert
      * @return The converted Vec3
      */
-    public static Vec3 toJolt(BlockPos blockPos) {
+    public static Vec3 toVec3(BlockPos blockPos) {
         return new Vec3(
+                blockPos.getX() + 0.5f,
+                blockPos.getY() + 0.5f,
+                blockPos.getZ() + 0.5f
+        );
+    }
+
+    public static RVec3 toRVec3(BlockPos blockPos) {
+        return new RVec3(
                 blockPos.getX() + 0.5f,
                 blockPos.getY() + 0.5f,
                 blockPos.getZ() + 0.5f
@@ -45,6 +54,10 @@ public final class ConvertUtils {
         return new EulerAngle(vec.getX(), vec.getY(), vec.getZ());
     }
 
+    public static EulerAngle toEulerAngle(RVec3 vec) {
+        return new EulerAngle(vec.xx(), vec.yy(), vec.zz());
+    }
+
     /**
      * Convert a Jolt Vec3 to a Bukkit Vector.
      *
@@ -53,6 +66,10 @@ public final class ConvertUtils {
      */
     public static Vector toBukkit(Vec3 vec) {
         return new Vector(vec.getX(), vec.getY(), vec.getZ());
+    }
+
+    public static Vector toBukkit(RVec3 vec) {
+        return new Vector(vec.xx(), vec.yy(), vec.zz());
     }
 
     /**
@@ -66,6 +83,10 @@ public final class ConvertUtils {
         return new Location(world, vec.getX(), vec.getY(), vec.getZ());
     }
 
+    public static Location toBukkitLoc(RVec3 vec, World world) {
+        return new Location(world, vec.xx(), vec.yy(), vec.zz());
+    }
+
     /**
      * Convert a Bukkit EulerAngle to a Jolt Vec3
      * (XYZ rotations in radians).
@@ -73,11 +94,19 @@ public final class ConvertUtils {
      * @param angle The EulerAngle to convert
      * @return The converted Vec3
      */
-    public static Vec3 toJolt(EulerAngle angle) {
+    public static Vec3 toVec3(EulerAngle angle) {
         return new Vec3(
                 (float) angle.getX(),
                 (float) angle.getY(),
                 (float) angle.getZ()
+        );
+    }
+
+    public static RVec3 toRVec3(EulerAngle angle) {
+        return new RVec3(
+                angle.getX(),
+                angle.getY(),
+                angle.getZ()
         );
     }
 
@@ -87,11 +116,19 @@ public final class ConvertUtils {
      * @param vector The vector to convert
      * @return The converted Vec3
      */
-    public static Vec3 toJolt(Vector vector) {
+    public static Vec3 toVec3(Vector vector) {
         return new Vec3(
                 (float) vector.getX(),
                 (float) vector.getY(),
                 (float) vector.getZ()
+        );
+    }
+
+    public static RVec3 toRVec3(Vector vector) {
+        return new RVec3(
+                vector.getX(),
+                vector.getY(),
+                vector.getZ()
         );
     }
 
@@ -101,11 +138,19 @@ public final class ConvertUtils {
      * @param location The location to convert
      * @return The converted Vec3
      */
-    public static Vec3 toJolt(Location location) {
+    public static Vec3 toVec3(Location location) {
         return new Vec3(
                 (float) location.getX(),
                 (float) location.getY(),
                 (float) location.getZ()
+        );
+    }
+
+    public static RVec3 toRVec3(Location location) {
+        return new RVec3(
+                location.getX(),
+                location.getY(),
+                location.getZ()
         );
     }
 
@@ -115,7 +160,7 @@ public final class ConvertUtils {
      * @param rotation The quaternion to convert
      * @return The converted Quat
      */
-    public static Quat toJolt(Quaternionf rotation) {
+    public static Quat toQuat(Quaternionf rotation) {
         return new Quat(
                 rotation.x,
                 rotation.y,
@@ -155,7 +200,7 @@ public final class ConvertUtils {
      * @param dir The BlockFace to convert
      * @return The converted Direction
      */
-    public static Direction toJolt(BlockFace dir) {
+    public static Direction toDirection(BlockFace dir) {
         return Direction.valueOf(dir.name());
     }
 
@@ -179,7 +224,7 @@ public final class ConvertUtils {
      * @param dirs The array of BlockFaces to convert
      * @return The converted array of Directions
      */
-    public static Direction[] toJolt(BlockFace[] dirs) {
+    public static Direction[] toDirection(BlockFace[] dirs) {
         Direction[] directions = new Direction[dirs.length];
         for (int i = 0; i < dirs.length; i++) {
             directions[i] = Direction.valueOf(dirs[i].name());

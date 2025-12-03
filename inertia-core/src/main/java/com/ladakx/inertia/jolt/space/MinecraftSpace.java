@@ -13,14 +13,20 @@ import com.ladakx.inertia.files.config.WorldsConfig;
 import com.ladakx.inertia.jolt.PhysicsLayers;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.object.BlockPhysicsObject;
+import com.ladakx.inertia.jolt.object.DisplayedPhysicsObject;
+import com.ladakx.inertia.utils.MiscUtils;
+import com.ladakx.inertia.utils.jolt.ConvertUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -37,8 +43,9 @@ public class MinecraftSpace implements AutoCloseable {
 
     // Екзек'ютор для фізичного циклу
     private final ScheduledExecutorService tickExecutor;
+    private final Map<UUID, Runnable> tickTasks = new ConcurrentHashMap<>();
+
     private final AtomicBoolean isActive = new AtomicBoolean(true);
-    // Прапорець для запобігання переповнення черги основного потоку
     private final AtomicBoolean isRenderScheduled = new AtomicBoolean(false);
 
     // Списки об'єктів у цьому просторі
@@ -136,11 +143,15 @@ public class MinecraftSpace implements AutoCloseable {
                             // Перевірка активності потрібна, бо світ міг закритися поки задача чекала в черзі
                             if (!isActive.get()) return;
 
+                            // Tick tasks
+                            for (Runnable value : tickTasks.values()) {
+                                value.run();
+                            }
+
                             // Оновлення візуальних позицій
                             for (AbstractPhysicsObject obj : objects) {
-                                // obj.update() викликає методи Bukkit API (teleport/setTransformation),
-                                // тому це безпечно робити ТІЛЬКИ тут.
-                                obj.update();
+                                if (obj instanceof DisplayedPhysicsObject displayedPhysicsObject)
+                                    displayedPhysicsObject.update();
                             }
                         } catch (Exception e) {
                             InertiaLogger.error("Error updating visuals for world " + worldName, e);
@@ -252,6 +263,16 @@ public class MinecraftSpace implements AutoCloseable {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
     }
 
+    public UUID addTickTask(Runnable runnable) {
+        UUID random = UUID.randomUUID();
+        tickTasks.put(random, runnable);
+        return random;
+    }
+
+    public void removeTickTask(UUID uuid) {
+        tickTasks.remove(uuid);
+    }
+
     /**
      * Видаляє всі динамічні об'єкти з цього світу.
      * Статичні об'єкти (як підлога) залишаються, якщо вони не є частиною списку objects.
@@ -275,10 +296,13 @@ public class MinecraftSpace implements AutoCloseable {
     public void addObject(AbstractPhysicsObject object) {
         objects.add(object);
         objectMap.put(object.getBody().va(), object);
+        InertiaLogger.debug("Added object VA=" + object.getBody().va() + " to space of world " + worldName);
     }
+
     public void removeObject(AbstractPhysicsObject object) {
         objects.remove(object);
         objectMap.remove(object.getBody().va());
+        InertiaLogger.debug("Removed object VA=" + object.getBody().va() + " from space of world " + worldName);
     }
 
     public void addConstraint(Constraint constraint) {
@@ -305,5 +329,51 @@ public class MinecraftSpace implements AutoCloseable {
 
     public @Nullable AbstractPhysicsObject getObjectByVa(Long va) {
         return objectMap.get(va);
+    }
+
+    /**
+     * Результат рейкасту.
+     */
+    public record RaycastResult(Long va, RVec3 hitPos) {}
+
+    /**
+     * Виконує рейкаст у фізичному просторі з дебагом.
+     *
+     * @param startPoint Точка початку (очі).
+     * @param direction Вектор погляду.
+     * @param maxDistance Максимальна дистанція.
+     * @return Список результатів, відсортований від найближчого.
+     */
+    public List<RaycastResult> raycastEntity(@NotNull Location startPoint, @NotNull Vector direction, double maxDistance) {
+        Vector endOffset = direction.clone().normalize().multiply(maxDistance);
+        Vector endPoint = startPoint.clone().add(endOffset).toVector();
+
+        AllHitRayCastBodyCollector collector = new AllHitRayCastBodyCollector();
+
+        getPhysicsSystem().getBroadPhaseQuery().castRay(
+                new RayCast(ConvertUtils.toVec3(startPoint), ConvertUtils.toVec3(endOffset)),
+                collector
+        );
+
+        List<RaycastResult> results = new ArrayList<>();
+
+        for (BroadPhaseCastResult hit : collector.getHits()) {
+            ConstBody body = getBodyById(hit.getBodyId());
+
+            if (body == null) {
+                continue;
+            }
+
+            AbstractPhysicsObject obj = getObjectByVa(body.targetVa());
+
+            if (obj != null) {
+                Vector hitPos0 = MiscUtils.lerpVec(startPoint.toVector(), endPoint, hit.getFraction());
+                RVec3 hitPos = ConvertUtils.toRVec3(hitPos0);
+
+                results.add(new RaycastResult(body.targetVa(), hitPos));
+            }
+        }
+
+        return results;
     }
 }
