@@ -98,6 +98,7 @@ public class WeldTool extends Tool {
                 settings.setPosition1(firstObjectPos);
                 settings.setPosition2(secondObjectPos);
             }
+
             TwoBodyConstraint constraint = settings.create(firstObject, obj);
             space.addConstraint(constraint);
 

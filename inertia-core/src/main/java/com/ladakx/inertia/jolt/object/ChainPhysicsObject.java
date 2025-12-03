@@ -32,7 +32,7 @@ import java.util.Optional;
  * Наслідує AbstractPhysicsObject, керує власним візуальним відображенням
  * та створює Constraint з батьківським тілом.
  */
-public class ChainPhysicsObject extends DisplayedPhysicsObject implements InertiaPhysicsObject {
+public class ChainPhysicsObject extends DisplayedPhysicsObject {
 
     private final String bodyId;
     private final PhysicsDisplayComposite displayComposite;
@@ -171,21 +171,17 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject implements Inerti
 
     @Override
     public void remove() {
+        destroy();
+    }
+
+    @Override
+    public void destroy() {
         if (removed) return;
         removed = true;
 
-        // 1. Видаляємо constraint-и (AbstractPhysicsObject тримає посилання, але SpaceManager має видалити з Jolt)
-        // Логіка видалення constraint-ів реалізована в SpaceManager.removeObject,
-        // але тут ми викликаємо явне видалення самого тіла.
+        super.destroy();
 
-        if (getBody() != null) {
-            // Видаляємо тіло з симуляції
-            getSpace().removeObject(this);
-            getSpace().getBodyInterface().removeBody(getBody().getId());
-            getSpace().getBodyInterface().destroyBody(getBody().getId());
-        }
-
-        // 2. Видаляємо візуали
+        // Видалення візуалу
         if (displayComposite != null) {
             displayComposite.destroy();
         }

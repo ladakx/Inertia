@@ -134,16 +134,12 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
         }
     }
 
+    @Override
     public void destroy() {
         if (removed) return;
         removed = true;
 
-        // Видалення з простору (Jolt)
-        if (getBody() != null) { // Null-check на випадок помилки ініціалізації
-            getSpace().removeObject(this);
-            getSpace().getBodyInterface().removeBody(getBody().getId());
-            getSpace().getBodyInterface().destroyBody(getBody().getId());
-        }
+        super.destroy();
 
         // Видалення візуалу
         if (displayComposite != null) {
