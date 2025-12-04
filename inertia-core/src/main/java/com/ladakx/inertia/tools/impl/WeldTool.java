@@ -2,12 +2,12 @@ package com.ladakx.inertia.tools.impl;
 
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EAxis;
-import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
-import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.tools.Tool;
+import com.ladakx.inertia.utils.InteractionUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -18,7 +18,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -35,7 +34,7 @@ public class WeldTool extends Tool {
     @Override
     public void onSwapHands(Player player) {
         keepDistance = !keepDistance;
-        player.sendMessage(Component.text("Weld Mode: " + (keepDistance ? "Keep Distance" : "Snap Center"), NamedTextColor.YELLOW));
+        send(player, MessageKey.WELD_MODE_CHANGE, "{mode}", (keepDistance ? "Keep Distance" : "Snap Center"));
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.5f);
     }
 
@@ -46,20 +45,16 @@ public class WeldTool extends Tool {
 
         if (firstObject != null) {
             firstObject = null;
-            player.sendMessage("Deselected first object");
+            send(player, MessageKey.WELD_DESELECTED);
         }
 
         List<MinecraftSpace.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 16);
         if (results.isEmpty()) return;
 
-        MinecraftSpace.RaycastResult result = results.get(0);
-        Long va = result.va();
-
-        // TODO: unsure
-//        for (PhysicsJoint physicsJoint : rigidBody.listJoints()) {
-//            rigidBody.removeJoint(physicsJoint);
-//        }
-        player.sendMessage(Component.text("Weld removed.", NamedTextColor.RED));
+        // TODO: Logic to remove constraints (joints)
+        // Currently not implemented fully in SpaceManager to remove specific joints by raycast
+        // Just simulating feedback
+        send(player, MessageKey.WELD_REMOVED);
         player.playSound(event.getPlayer().getLocation(), Sound.UI_BUTTON_CLICK, 1f, 0.5f);
     }
 
@@ -107,13 +102,13 @@ public class WeldTool extends Tool {
 
             firstObject = null;
 
-            player.sendMessage(Component.text("Connected"));
+            send(player, MessageKey.WELD_CONNECTED);
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 2.0f);
             return;
         }
 
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 1.5f);
-        player.sendMessage(Component.text("First object selected"));
+        send(player, MessageKey.WELD_FIRST_SELECTED);
         firstObject = obj;
     }
 

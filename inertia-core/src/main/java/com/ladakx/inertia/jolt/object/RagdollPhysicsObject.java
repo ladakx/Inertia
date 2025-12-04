@@ -9,8 +9,8 @@ import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
-import com.ladakx.inertia.physics.config.RagdollDefinition;
-import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
+import com.ladakx.inertia.physics.body.config.RagdollDefinition;
+import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
 import com.ladakx.inertia.render.runtime.PhysicsDisplayComposite;
@@ -30,6 +30,9 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
     private final PhysicsDisplayComposite displayComposite;
     private boolean removed = false;
 
+    // Зберігаємо посилання на групу колізій, щоб GC не видалив її завчасно
+    private final CollisionGroup collisionGroup;
+
     public RagdollPhysicsObject(@NotNull MinecraftSpace space,
                                 @NotNull String bodyId,
                                 @NotNull String partName,
@@ -37,10 +40,15 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
                                 @NotNull RenderFactory renderFactory,
                                 @NotNull RVec3 initialPosition,
                                 @NotNull Quat initialRotation,
-                                @NotNull Map<String, Body> spawnedParts
+                                @NotNull Map<String, Body> spawnedParts,
+                                @NotNull GroupFilterTable groupFilter,
+                                int partIndex
     ) {
-        super(space, createBodySettings(bodyId, partName, modelRegistry, initialPosition, initialRotation));
+        super(space, createBodySettings(bodyId, partName, modelRegistry, initialPosition, initialRotation, groupFilter, partIndex));
         this.bodyId = bodyId;
+
+        // Зберігаємо групу колізій (вона вже встановлена в bodySettings, але потрібен сильний референс)
+        this.collisionGroup = getBody().getCollisionGroup();
 
         RagdollDefinition def = (RagdollDefinition) modelRegistry.require(bodyId).bodyDefinition();
         RagdollDefinition.RagdollPartDefinition partDef = def.parts().get(partName);
@@ -48,7 +56,8 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         if (partDef.parentName() != null) {
             Body parentBody = spawnedParts.get(partDef.parentName());
             if (parentBody != null) {
-                createConstraint(partDef, parentBody, getBody());
+                // Створюємо з'єднання та вимикаємо колізію
+                createConstraint(partDef, parentBody, getBody(), groupFilter);
             }
         }
 
@@ -58,7 +67,9 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
                                                            PhysicsBodyRegistry registry,
-                                                           RVec3 pos, Quat rot) {
+                                                           RVec3 pos, Quat rot,
+                                                           GroupFilterTable groupFilter,
+                                                           int partIndex) {
         RagdollDefinition def = (RagdollDefinition) registry.require(bodyId).bodyDefinition();
         RagdollDefinition.RagdollPartDefinition partDef = def.parts().get(partName);
 
@@ -77,9 +88,12 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         settings.setMotionType(EMotionType.Dynamic);
         settings.setObjectLayer(0);
 
+        // --- Встановлюємо групу колізій ---
+        // GroupID = 0 (основна), SubGroupID = partIndex (унікальний для частини)
+        CollisionGroup group = new CollisionGroup(groupFilter, 0, partIndex);
+        settings.setCollisionGroup(group);
         settings.getMassProperties().setMass(partDef.mass());
 
-        // --- Configured Physics ---
         RagdollDefinition.PartPhysicsSettings phys = partDef.physics();
         settings.setLinearDamping(phys.linearDamping());
         settings.setAngularDamping(phys.angularDamping());
@@ -92,16 +106,27 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         return settings;
     }
 
-    private void createConstraint(RagdollDefinition.RagdollPartDefinition partDef, Body parentBody, Body childBody) {
+    private void createConstraint(RagdollDefinition.RagdollPartDefinition partDef, Body parentBody, Body childBody, GroupFilterTable groupFilter) {
         RagdollDefinition.JointSettings joint = partDef.joint();
         if (joint == null) return;
 
+        if (!partDef.collideWithParent()) {
+            // --- ВИМИКАЄМО КОЛІЗІЮ ---
+            // Отримуємо ID підгрупи батька та дитини
+            int parentSubId = parentBody.getCollisionGroup().getSubGroupId();
+            int childSubId = childBody.getCollisionGroup().getSubGroupId();
+
+            // Кажемо таблиці ігнорувати колізію між цими двома частинами
+            groupFilter.disableCollision(parentSubId, childSubId);
+        }
+
+
+        // --- Далі стандартне створення Constraint ---
         RVec3 parentPos = parentBody.getPosition();
         Quat parentRot = parentBody.getRotation();
         RVec3 childPos = childBody.getPosition();
         Quat childRot = childBody.getRotation();
 
-        // 1. Pivots
         RVec3 pivot1 = new RVec3(joint.pivotOnParent().getX(), joint.pivotOnParent().getY(), joint.pivotOnParent().getZ());
         pivot1.rotateInPlace(parentRot);
         pivot1.addInPlace(parentPos.xx(), parentPos.yy(), parentPos.zz());
@@ -112,16 +137,12 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
 
         SixDofConstraintSettings settings = new SixDofConstraintSettings();
 
-        // 2. Fixed Axes
         for (String axis : joint.fixedAxes()) {
             try { settings.makeFixedAxis(EAxis.valueOf(axis)); } catch (Exception ignored) {}
         }
 
-        // 3. Configured Rotation Limits
-        // Якщо ліміти не задані в конфігу, встановлюємо дефолтні (широкі), щоб не було "каменю"
         float defaultLimit = (float) Math.PI - 0.2f;
 
-        // Застосовуємо дефолт, якщо вісь не зафіксована і не має явного ліміту
         if (!joint.limits().containsKey(EAxis.RotationX) && !joint.fixedAxes().contains("RotationX"))
             settings.setLimitedAxis(EAxis.RotationX, -defaultLimit, defaultLimit);
         if (!joint.limits().containsKey(EAxis.RotationY) && !joint.fixedAxes().contains("RotationY"))
@@ -129,7 +150,6 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         if (!joint.limits().containsKey(EAxis.RotationZ) && !joint.fixedAxes().contains("RotationZ"))
             settings.setLimitedAxis(EAxis.RotationZ, -defaultLimit, defaultLimit);
 
-        // Застосовуємо ліміти з конфігу (вони перезапишуть дефолт)
         joint.limits().forEach((axis, limit) -> {
             settings.setLimitedAxis(axis, limit.min(), limit.max());
         });

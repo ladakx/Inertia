@@ -1,6 +1,6 @@
 package com.ladakx.inertia.tools.impl;
 
-import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
@@ -37,6 +37,7 @@ public class DeleteTool extends Tool {
         if (mcObj != null) {
             player.playSound(player.getLocation(), Sound.BLOCK_STONE_BREAK, SoundCategory.MASTER, 0.5F, 0.6F);
             mcObj.destroy();
+            send(player, MessageKey.REMOVER_USED);
         }
     }
 

@@ -1,4 +1,4 @@
-package com.ladakx.inertia.physics.config;
+package com.ladakx.inertia.physics.body.config;
 
 import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.ladakx.inertia.jolt.object.PhysicsObjectType;
@@ -33,6 +33,7 @@ public record RagdollDefinition(
             Vector size,
             String shapeString,
             String parentName,
+            boolean collideWithParent,
             JointSettings joint,
             PartPhysicsSettings physics // Нове поле для фізики (тертя, damping)
     ) {}

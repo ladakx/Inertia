@@ -1,12 +1,12 @@
-package com.ladakx.inertia.physics.registry;
+package com.ladakx.inertia.physics.body.registry;
 
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.files.config.BodiesConfig;
 import com.ladakx.inertia.files.config.RenderConfig;
-import com.ladakx.inertia.physics.config.BlockBodyDefinition;
-import com.ladakx.inertia.physics.config.BodyDefinition;
-import com.ladakx.inertia.physics.config.ChainBodyDefinition;
-import com.ladakx.inertia.physics.config.RagdollDefinition;
+import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
+import com.ladakx.inertia.physics.body.config.BodyDefinition;
+import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
+import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.render.config.RenderModelDefinition;
 
 import java.util.*;

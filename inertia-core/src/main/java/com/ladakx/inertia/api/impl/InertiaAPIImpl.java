@@ -12,7 +12,7 @@ import com.ladakx.inertia.jolt.object.PhysicsObjectType;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.nms.render.RenderFactory;
-import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
+import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

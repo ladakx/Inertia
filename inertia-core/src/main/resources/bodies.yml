@@ -155,13 +155,14 @@ ragdolls:
         shape: "type=box x=0.0625 y=0.375 z=0.0625"
         render-model: "ragdoll_left_leg"
         parent: "torso"
+        collide-with-parent: false
         physics:
           linear-damping: 0.05
           angular-damping: 0.05
           friction: 0.6
         joint:
           # Ваші координати
-          parent-pivot: "-0.145 -0.39 0.0"
+          parent-pivot: "-0.145 -0.12 0.0"
           child-pivot: "0.0 0.375 0.0"
           fixed-axes: ["TranslationX", "TranslationY", "TranslationZ"]
           limits:
@@ -176,13 +177,14 @@ ragdolls:
         shape: "type=box x=0.0625 y=0.375 z=0.0625"
         render-model: "ragdoll_right_leg"
         parent: "torso"
+        collide-with-parent: false
         physics:
           linear-damping: 0.05
           angular-damping: 0.05
           friction: 0.6
         joint:
           # Ваші координати
-          parent-pivot: "0.145 -0.39 0.0"
+          parent-pivot: "0.145 -0.12 0.0"
           child-pivot: "0.0 0.375 0.0"
           fixed-axes: ["TranslationX", "TranslationY", "TranslationZ"]
           limits:

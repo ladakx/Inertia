@@ -2,7 +2,7 @@ package com.ladakx.inertia.files.config;
 
 import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.physics.config.*;
+import com.ladakx.inertia.physics.body.config.*;
 import com.ladakx.inertia.utils.serializers.Vec3Serializer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -51,11 +51,35 @@ public final class BodiesConfig {
         }
     }
 
+    /**
+     * Helper method to safely retrieve the shape definition.
+     * It handles both List<String> and single String formats in YAML.
+     */
+    private List<String> readShapes(ConfigurationSection physSection) {
+        if (physSection == null || !physSection.contains("shape")) {
+            return Collections.emptyList();
+        }
+
+        if (physSection.isList("shape")) {
+            return physSection.getStringList("shape");
+        } else if (physSection.isString("shape")) {
+            String singleLine = physSection.getString("shape");
+            if (singleLine != null && !singleLine.isBlank()) {
+                return List.of(singleLine);
+            }
+        }
+
+        return Collections.emptyList();
+    }
+
     private BlockBodyDefinition parseBlock(String id, ConfigurationSection section) {
         String renderModel = section.getString("render.model", id);
         ConfigurationSection physSection = section.getConfigurationSection("physics");
         BodyPhysicsSettings physicsSettings = BodyPhysicsSettings.fromConfig(physSection, id);
-        List<String> shapes = physSection != null ? physSection.getStringList("shape") : Collections.emptyList();
+
+        // Use helper to read shapes
+        List<String> shapes = readShapes(physSection);
+
         return new BlockBodyDefinition(id, physicsSettings, shapes, renderModel);
     }
 
@@ -63,7 +87,10 @@ public final class BodiesConfig {
         String renderModel = section.getString("render.model", id);
         ConfigurationSection physSection = section.getConfigurationSection("physics");
         BodyPhysicsSettings physicsSettings = BodyPhysicsSettings.fromConfig(physSection, id);
-        List<String> shapes = physSection != null ? physSection.getStringList("shape") : Collections.emptyList();
+
+        // Use helper to read shapes
+        List<String> shapes = readShapes(physSection);
+
         ConfigurationSection chainSec = section.getConfigurationSection("chain");
         double offset = chainSec != null ? chainSec.getDouble("joint-offset", 0.5) : 0.5;
         double spacing = chainSec != null ? chainSec.getDouble("spacing", 1.0) : 1.0;
@@ -89,6 +116,7 @@ public final class BodiesConfig {
             Vector size = Vec3Serializer.toBukkit(Vec3Serializer.serialize(sizeStr));
             String shapeStr = partSec.getString("shape");
             String parentName = partSec.getString("parent");
+            boolean collideWithParent = partSec.getBoolean("collide-with-parent", true);
 
             // --- Parsing Physics Settings ---
             ConfigurationSection physSec = partSec.getConfigurationSection("physics");
@@ -153,7 +181,7 @@ public final class BodiesConfig {
             }
 
             parts.put(partKey, new RagdollDefinition.RagdollPartDefinition(
-                    renderModel, mass, size, shapeStr, parentName, joint, physSettings
+                    renderModel, mass, size, shapeStr, parentName, collideWithParent, joint, physSettings
             ));
         }
 
