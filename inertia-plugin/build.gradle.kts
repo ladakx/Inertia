@@ -73,12 +73,14 @@ tasks.register<Copy>("copyJarToDesktop") {
     dependsOn(tasks.shadowJar)
     from(tasks.shadowJar.get().archiveFile)
     into("/Users/vladislav/Desktop/dev/plugins")
+
     doLast {
         val jarFile = tasks.shadowJar.get().archiveFile.get().asFile
         println("JAR file copied to: /Users/vladislav/Desktop/dev/plugins/${jarFile.name}")
     }
 
     val pluginFile = file("build/libs/Inertia-${version}.jar")
+    // Получаем свойства один раз, чтобы использовать их в doLast
     val serverIp = properties["serverIp"] as String
     val remotePath = properties["remotePath"] as String
     val username = properties["username"] as String
@@ -86,9 +88,20 @@ tasks.register<Copy>("copyJarToDesktop") {
 
     doLast {
         if (pluginFile.exists()) {
+            println("Deploying to $serverIp...")
+
+            // --- НОВОЕ: Удаление папки Inertia перед загрузкой ---
+            exec {
+                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "rm -rf ${remotePath}/Inertia")
+            }
+            println("Remote config folder 'Inertia' deleted.")
+            // ----------------------------------------------------
+
             exec {
                 commandLine("scp", "-i", privateKeyPath, pluginFile.absolutePath, "$username@$serverIp:$remotePath")
             }
+
+            // Если нужно, чтобы сервер увидел изменения конфига сразу, возможно, стоит делать перезагрузку плагина здесь
             exec {
                 commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dev -X stuff '\n'")
             }
@@ -102,7 +115,6 @@ tasks.register<Copy>("copyJarToDesktop") {
         }
     }
 }
-
 tasks.register("deployToDesktop") {
     group = "deployment"
     description = "Build and copy JAR to the desktop dev folder"

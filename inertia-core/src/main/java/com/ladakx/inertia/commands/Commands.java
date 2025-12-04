@@ -9,6 +9,9 @@ import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.items.ItemManager;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
+import com.ladakx.inertia.physics.config.BodyDefinition;
+import com.ladakx.inertia.physics.config.RagdollDefinition;
+import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.tools.Tool;
 import com.ladakx.inertia.tools.ToolManager;
 import com.ladakx.inertia.tools.impl.ChainTool;
@@ -20,6 +23,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.RayTraceResult;
+
+import java.util.Optional;
 
 @CommandAlias("inertia")
 @Description("Main inertia plugin command.")
@@ -57,14 +62,12 @@ public class Commands extends BaseCommand {
     @Description("Spawn a generic physics body")
     public void onSpawnCommand(Player player, String bodyId) {
         if (!checkPermission(player, "inertia.commands.spawn", true)) return;
-
         if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) {
             send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return;
         }
 
         InertiaPhysicsObject obj = InertiaAPI.get().createBody(player.getLocation(), bodyId);
-
         if (obj != null) {
             send(player, MessageKey.SPAWN_SUCCESS, "{id}", bodyId);
         } else {
@@ -78,7 +81,6 @@ public class Commands extends BaseCommand {
     @Description("Spawn a physics chain structure directly")
     public void onSpawnChain(Player player, String bodyId) {
         if (!checkPermission(player, "inertia.commands.spawn", true)) return;
-
         if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) {
             send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return;
@@ -102,7 +104,6 @@ public class Commands extends BaseCommand {
     @Description("Clear all physics bodies in the current world")
     public void onClearCommand(Player player) {
         if (!checkPermission(player, "inertia.commands.clear", true)) return;
-
         MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
 
         if (space == null) {
@@ -124,7 +125,6 @@ public class Commands extends BaseCommand {
     @Description("Get a tool to spawn chains")
     public void onToolChain(Player player, String bodyId) {
         if (!checkPermission(player, "inertia.commands.tool", true)) return;
-
         ToolManager tm = ToolManager.getInstance();
         Tool tool = tm.getTool("chain_tool");
 
@@ -142,6 +142,15 @@ public class Commands extends BaseCommand {
     @Description("Get a tool to spawn ragdolls")
     public void onToolRagdoll(Player player, String bodyId) {
         if (!checkPermission(player, "inertia.commands.tool", true)) return;
+
+        // Validate Body ID
+        PhysicsBodyRegistry registry = ConfigManager.getInstance().getPhysicsBodyRegistry();
+        Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
+
+        if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition)) {
+            player.sendMessage(Component.text("Invalid or unknown ragdoll body: " + bodyId, NamedTextColor.RED));
+            return;
+        }
 
         ToolManager tm = ToolManager.getInstance();
         Tool tool = tm.getTool("ragdoll_tool");
@@ -183,7 +192,6 @@ public class Commands extends BaseCommand {
     @Description("Get a custom item from items.yml")
     public void onGiveItem(Player player, String itemId) {
         if (!checkPermission(player, "inertia.commands.give", true)) return;
-
         ItemStack item = ItemManager.getInstance().getItem(itemId);
 
         if (item != null) {
@@ -198,7 +206,6 @@ public class Commands extends BaseCommand {
 
     private void giveSimpleTool(Player player, String toolId, String toolName) {
         if (!checkPermission(player, "inertia.commands.tool", true)) return;
-
         ToolManager tm = ToolManager.getInstance();
         Tool tool = tm.getTool(toolId);
 

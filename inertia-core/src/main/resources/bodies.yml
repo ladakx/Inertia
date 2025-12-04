@@ -61,8 +61,7 @@ chains:
       restitution: 0.025
       mass: 75.0
       # Розмір фізичного колайдера (BoxShape)
-      shape:
-        - "type=box x=0.1 y=0.5 z=0.1"
+      shape: "type=box x=0.1 y=0.5 z=0.1"
     render:
       model: iron_chain # посилання на модель з render.yml
 
@@ -71,47 +70,122 @@ chains:
 ##########################
 ragdolls:
   steve:
-    render:
-      head:
-        model: "ragdoll_head"
-      right-arm:
-        model: "ragdoll_right_arm"
-      left-arm:
-        model: "ragdoll_left_arm"
+    parts:
+      # --- TORSO ---
       torso:
-        model: "ragdoll_torso"
-      right-leg:
-        model: "ragdoll_right_leg"
+        mass: 30.0
+        size: "0.5 0.75 0.25"
+        # Зберігаємо ваш налаштований шейп
+        shape: "type=box x=0.25 y=0.375 z=0.125"
+        render-model: "ragdoll_torso"
+        physics:
+          linear-damping: 0.05
+          angular-damping: 0.05
+          friction: 0.6
+          restitution: 0.0
+
+      # --- HEAD ---
+      head:
+        mass: 8.0
+        size: "0.5 0.5 0.5"
+        shape: "type=box x=0.1875 y=0.1875 z=0.1875"
+        render-model: "ragdoll_head"
+        parent: "torso"
+        physics:
+          linear-damping: 0.05
+          angular-damping: 0.05
+          friction: 0.6
+        joint:
+          # Ваші координати
+          parent-pivot: "0.0 0.375 0.0"
+          child-pivot: "0.0 -0.25 0.0"
+          fixed-axes: ["TranslationX", "TranslationY", "TranslationZ"]
+          limits:
+            # Обмеження шиї (в градусах)
+            rotation-x: "-45 45"  # Кивок
+            rotation-y: "-50 50"  # Поворот голови
+            rotation-z: "-30 30"  # Нахил до плеча
+
+      # --- ARMS ---
+      left-arm:
+        mass: 6.0
+        size: "0.25 0.75 0.25"
+        shape: "type=box x=0.0625 y=0.375 z=0.0625"
+        render-model: "ragdoll_left_arm"
+        parent: "torso"
+        physics:
+          linear-damping: 0.05
+          angular-damping: 0.05
+          friction: 0.6
+        joint:
+          # Ваші координати
+          parent-pivot: "-0.37 0.52 0.0"
+          child-pivot: "-0.0 0.375 0.0"
+          fixed-axes: ["TranslationX", "TranslationY", "TranslationZ"]
+          limits:
+            # Руки мають велику свободу
+            rotation-x: "-160 160" # Мах вперед/назад
+            rotation-y: "-90 90"   # Обертання навколо осі
+            rotation-z: "-160 160" # Підняття/опускання
+
+      right-arm:
+        mass: 6.0
+        size: "0.25 0.75 0.25"
+        shape: "type=box x=0.0625 y=0.375 z=0.0625"
+        render-model: "ragdoll_right_arm"
+        parent: "torso"
+        physics:
+          linear-damping: 0.05
+          angular-damping: 0.05
+          friction: 0.6
+        joint:
+          # Ваші координати
+          parent-pivot: "0.37 0.52 0.0"
+          child-pivot: "0.0 0.375 0.0"
+          fixed-axes: ["TranslationX", "TranslationY", "TranslationZ"]
+          limits:
+            rotation-x: "-160 160"
+            rotation-y: "-90 90"
+            rotation-z: "-160 160"
+
+      # --- LEGS ---
       left-leg:
-        model: "ragdoll_left_leg"
-    # Налаштування суглобів (Constraints)
-    joints:
-      # Множник зміщення рук від центру тулуба по осі X
-      arm-offset-divisor: 1.35
-      # Зміщення ніг від центру по осі X
-      leg-offset-x: 0.13
-      # Фіксація осей (true = суглоб не може рухатися вздовж цієї осі, тільки крутитися)
-      fixed-axes: [ "TranslationX", "TranslationY", "TranslationZ" ]
-    # Параметри фізики тіла
-    physics:
-      mass: 75.0
-      angular-damping: 0.1
-      linear-damping: 0.3
-      friction: 1.0
-      restitution: 0.025
-      shapes:
-        # 8x12x4 пікселів (розмір / 16 / 2)
-        torso:
-          - "type=box x=0.25 y=0.375 z=0.125"
-        # 8x8x8 пікселів
-        head:
-          - "type=box x=0.25 y=0.25 z=0.25"
-        # 4x12x4 пікселів
-        right-arm:
-          - "type=box x=0.125 y=0.375 z=0.125"
-        left-arm:
-          - "type=box x=0.125 y=0.375 z=0.125"
-        right-leg:
-          - "type=box x=0.125 y=0.375 z=0.125"
-        left-leg:
-          - "type=box x=0.125 y=0.375 z=0.125"
+        mass: 7.0
+        size: "0.25 0.75 0.25"
+        shape: "type=box x=0.0625 y=0.375 z=0.0625"
+        render-model: "ragdoll_left_leg"
+        parent: "torso"
+        physics:
+          linear-damping: 0.05
+          angular-damping: 0.05
+          friction: 0.6
+        joint:
+          # Ваші координати
+          parent-pivot: "-0.145 -0.39 0.0"
+          child-pivot: "0.0 0.375 0.0"
+          fixed-axes: ["TranslationX", "TranslationY", "TranslationZ"]
+          limits:
+            # Ноги обмежені, щоб коліна не вивертались
+            rotation-x: "-30 110" # Крок: трохи назад, сильно вперед (сидячи)
+            rotation-y: "-10 10"  # Стопа майже не крутиться
+            rotation-z: "-20 20"  # Шпагат обмежений
+
+      right-leg:
+        mass: 7.0
+        size: "0.25 0.75 0.25"
+        shape: "type=box x=0.0625 y=0.375 z=0.0625"
+        render-model: "ragdoll_right_leg"
+        parent: "torso"
+        physics:
+          linear-damping: 0.05
+          angular-damping: 0.05
+          friction: 0.6
+        joint:
+          # Ваші координати
+          parent-pivot: "0.145 -0.39 0.0"
+          child-pivot: "0.0 0.375 0.0"
+          fixed-axes: ["TranslationX", "TranslationY", "TranslationZ"]
+          limits:
+            rotation-x: "-30 110"
+            rotation-y: "-10 10"
+            rotation-z: "-20 20"

@@ -1,16 +1,15 @@
 package com.ladakx.inertia.files.config;
 
+import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.physics.config.*;
+import com.ladakx.inertia.utils.serializers.Vec3Serializer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.util.Vector;
 
 import java.util.*;
 
-/**
- * Парсер конфігурації bodies.yml.
- * Підтримує блоки, ланцюги та Ragdoll структури.
- */
 public final class BodiesConfig {
 
     private final Map<String, BodyDefinition> bodies;
@@ -22,16 +21,9 @@ public final class BodiesConfig {
 
     private Map<String, BodyDefinition> parse(FileConfiguration config) {
         Map<String, BodyDefinition> result = new LinkedHashMap<>();
-
-        // 1. Blocks Parsing
         parseCategory(config, "blocks", result, this::parseBlock);
-
-        // 2. Chains Parsing
         parseCategory(config, "chains", result, this::parseChain);
-
-        // 3. Ragdolls Parsing
         parseCategory(config, "ragdolls", result, this::parseRagdoll);
-
         InertiaLogger.info("Loaded " + result.size() + " body definitions.");
         return result;
     }
@@ -48,15 +40,10 @@ public final class BodiesConfig {
         for (String key : categorySection.getKeys(false)) {
             ConfigurationSection bodySection = categorySection.getConfigurationSection(key);
             if (bodySection == null) continue;
-
-            // Використовуємо category.key як ID для унікальності
-            String fullId = categoryName + "." + key; 
-
+            String fullId = categoryName + "." + key;
             try {
                 BodyDefinition def = parser.parse(fullId, bodySection);
-                if (result.put(fullId, def) != null) {
-                    InertiaLogger.warn("Duplicate body id '" + fullId + "' in bodies.yml, overriding.");
-                }
+                result.put(fullId, def);
             } catch (Exception e) {
                 InertiaLogger.error("Failed to parse body '" + fullId + "': " + e.getMessage());
                 e.printStackTrace();
@@ -64,110 +51,120 @@ public final class BodiesConfig {
         }
     }
 
-    // --- Specific Parsers ---
-
     private BlockBodyDefinition parseBlock(String id, ConfigurationSection section) {
         String renderModel = section.getString("render.model", id);
         ConfigurationSection physSection = section.getConfigurationSection("physics");
-        
         BodyPhysicsSettings physicsSettings = BodyPhysicsSettings.fromConfig(physSection, id);
         List<String> shapes = physSection != null ? physSection.getStringList("shape") : Collections.emptyList();
-
-        if (shapes.isEmpty()) {
-            InertiaLogger.warn("Block '" + id + "' has no physics shapes defined.");
-        }
-
         return new BlockBodyDefinition(id, physicsSettings, shapes, renderModel);
     }
 
     private ChainBodyDefinition parseChain(String id, ConfigurationSection section) {
-        // Базова логіка блоку
         String renderModel = section.getString("render.model", id);
         ConfigurationSection physSection = section.getConfigurationSection("physics");
         BodyPhysicsSettings physicsSettings = BodyPhysicsSettings.fromConfig(physSection, id);
         List<String> shapes = physSection != null ? physSection.getStringList("shape") : Collections.emptyList();
-
-        // Специфіка ланцюга
         ConfigurationSection chainSec = section.getConfigurationSection("chain");
         double offset = chainSec != null ? chainSec.getDouble("joint-offset", 0.5) : 0.5;
         double spacing = chainSec != null ? chainSec.getDouble("spacing", 1.0) : 1.0;
-
-        return new ChainBodyDefinition(
-                id, 
-                physicsSettings, 
-                shapes, 
-                renderModel, 
-                new ChainBodyDefinition.ChainSettings(offset, spacing)
-        );
+        return new ChainBodyDefinition(id, physicsSettings, shapes, renderModel, new ChainBodyDefinition.ChainSettings(offset, spacing));
     }
 
+    // --- Ragdoll Parser ---
     private RagdollDefinition parseRagdoll(String id, ConfigurationSection section) {
-        // 1. Render Map (Parts -> Models)
-        Map<String, String> renderModels = new HashMap<>();
-        ConfigurationSection renderSec = section.getConfigurationSection("render");
-        if (renderSec != null) {
-            for (String part : renderSec.getKeys(false)) {
-                String model = renderSec.getString(part + ".model");
-                if (model != null) renderModels.put(part, model);
-            }
+        Map<String, RagdollDefinition.RagdollPartDefinition> parts = new HashMap<>();
+        ConfigurationSection partsSection = section.getConfigurationSection("parts");
+
+        if (partsSection == null) {
+            throw new IllegalArgumentException("Ragdoll '" + id + "' missing 'parts' section.");
         }
 
-        // 2. Joints Settings
-        ConfigurationSection jointsSec = section.getConfigurationSection("joints");
-        double armOffsetDiv = jointsSec != null ? jointsSec.getDouble("arm-offset-divisor", 1.0) : 1.0;
-        double legOffsetX = jointsSec != null ? jointsSec.getDouble("leg-offset-x", 0.0) : 0.0;
-        List<String> fixedAxes = jointsSec != null ? jointsSec.getStringList("fixed-axes") : Collections.emptyList();
-        
-        RagdollDefinition.RagdollJointSettings jointSettings = new RagdollDefinition.RagdollJointSettings(
-                armOffsetDiv, legOffsetX, fixedAxes
-        );
+        for (String partKey : partsSection.getKeys(false)) {
+            ConfigurationSection partSec = partsSection.getConfigurationSection(partKey);
+            if (partSec == null) continue;
 
-        // 3. Physics Settings (Complex)
-        ConfigurationSection physSec = section.getConfigurationSection("physics");
-        
-        // Base physics (friction, restitution, etc.)
-        // Note: Ragdolls might not have shapes list in root of physics, but inside 'shapes' section
-        BodyPhysicsSettings baseSettings = BodyPhysicsSettings.fromConfig(physSec, id);
-        
-        // Ragdoll shapes map
-        Map<String, List<String>> shapesMap = new HashMap<>();
-        if (physSec != null && physSec.isConfigurationSection("shapes")) {
-            ConfigurationSection shapesSec = physSec.getConfigurationSection("shapes");
-            for (String partKey : shapesSec.getKeys(false)) {
-                List<String> partShapes = shapesSec.getStringList(partKey);
-                shapesMap.put(partKey, partShapes);
+            String renderModel = partSec.getString("render-model");
+            float mass = (float) partSec.getDouble("mass", 10.0);
+            String sizeStr = partSec.getString("size", "0.5 0.5 0.5");
+            Vector size = Vec3Serializer.toBukkit(Vec3Serializer.serialize(sizeStr));
+            String shapeStr = partSec.getString("shape");
+            String parentName = partSec.getString("parent");
+
+            // --- Parsing Physics Settings ---
+            ConfigurationSection physSec = partSec.getConfigurationSection("physics");
+            // Default values that worked well in testing
+            float linDamp = 0.05f;
+            float angDamp = 0.05f;
+            float friction = 0.6f;
+            float restitution = 0.0f;
+
+            if (physSec != null) {
+                linDamp = (float) physSec.getDouble("linear-damping", linDamp);
+                angDamp = (float) physSec.getDouble("angular-damping", angDamp);
+                friction = (float) physSec.getDouble("friction", friction);
+                restitution = (float) physSec.getDouble("restitution", restitution);
             }
+            RagdollDefinition.PartPhysicsSettings physSettings = new RagdollDefinition.PartPhysicsSettings(linDamp, angDamp, friction, restitution);
+
+            // --- Parsing Joint Settings ---
+            RagdollDefinition.JointSettings joint = null;
+            if (parentName != null) {
+                ConfigurationSection jointSec = partSec.getConfigurationSection("joint");
+                Vector pivotParent = new Vector();
+                Vector pivotChild = new Vector();
+                List<String> fixedAxes = List.of("TranslationX", "TranslationY", "TranslationZ");
+                Map<EAxis, RagdollDefinition.RotationLimit> limits = new HashMap<>();
+
+                if (jointSec != null) {
+                    pivotParent = Vec3Serializer.toBukkit(Vec3Serializer.serialize(jointSec.getString("parent-pivot", "0 0 0")));
+                    pivotChild = Vec3Serializer.toBukkit(Vec3Serializer.serialize(jointSec.getString("child-pivot", "0 0 0")));
+
+                    if (jointSec.contains("fixed-axes")) {
+                        fixedAxes = jointSec.getStringList("fixed-axes");
+                    }
+
+                    // Limits parsing
+                    ConfigurationSection limitSec = jointSec.getConfigurationSection("limits");
+                    if (limitSec != null) {
+                        for (String axisKey : limitSec.getKeys(false)) {
+                            try {
+                                // Map "x", "rotation-x", "rotationx" -> RotationX
+                                String cleanKey = axisKey.toLowerCase().replace("-", "").replace("_", "");
+                                if (!cleanKey.startsWith("rotation")) cleanKey = "rotation" + cleanKey;
+
+                                EAxis axis = EAxis.valueOf(cleanKey.replace("rotationx", "RotationX").replace("rotationy", "RotationY").replace("rotationz", "RotationZ"));
+
+                                String val = limitSec.getString(axisKey);
+                                if (val != null) {
+                                    String[] minMax = val.trim().split("\\s+");
+                                    if (minMax.length == 2) {
+                                        float minDeg = Float.parseFloat(minMax[0]);
+                                        float maxDeg = Float.parseFloat(minMax[1]);
+                                        limits.put(axis, new RagdollDefinition.RotationLimit((float) Math.toRadians(minDeg), (float) Math.toRadians(maxDeg)));
+                                    }
+                                }
+                            } catch (Exception e) {
+                                InertiaLogger.warn("Invalid limit key '" + axisKey + "' in ragdoll '" + id + "': " + e.getMessage());
+                            }
+                        }
+                    }
+                }
+                joint = new RagdollDefinition.JointSettings(pivotParent, pivotChild, fixedAxes, limits);
+            }
+
+            parts.put(partKey, new RagdollDefinition.RagdollPartDefinition(
+                    renderModel, mass, size, shapeStr, parentName, joint, physSettings
+            ));
         }
-        
-        // Mass is explicitly in root physics
-        float mass = physSec != null ? (float) physSec.getDouble("mass", 75.0) : 75.0f;
 
-        RagdollDefinition.RagdollPhysicsSettings ragPhysics = new RagdollDefinition.RagdollPhysicsSettings(
-                mass, baseSettings, shapesMap
-        );
-
-        return new RagdollDefinition(id, renderModels, jointSettings, ragPhysics);
-    }
-
-    // --- Accessors ---
-
-    public Optional<BodyDefinition> find(String id) {
-        return Optional.ofNullable(bodies.get(id));
+        return new RagdollDefinition(id, parts);
     }
 
     public BodyDefinition require(String id) {
         BodyDefinition def = bodies.get(id);
-        if (def == null) {
-            throw new IllegalArgumentException("Unknown body id: " + id);
-        }
+        if (def == null) throw new IllegalArgumentException("Unknown body id: " + id);
         return def;
     }
 
-    /**
-     * Повертає всі тіла.
-     * Використовуйте instanceof для перевірки конкретного типу (Block/Chain/Ragdoll).
-     */
-    public Collection<BodyDefinition> all() {
-        return bodies.values();
-    }
+    public Collection<BodyDefinition> all() { return bodies.values(); }
 }

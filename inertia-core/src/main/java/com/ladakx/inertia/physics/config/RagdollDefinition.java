@@ -1,27 +1,22 @@
 package com.ladakx.inertia.physics.config;
 
+import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.ladakx.inertia.jolt.object.PhysicsObjectType;
+import org.bukkit.util.Vector;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Складне визначення для Ragdoll (лялька з фізикою).
- */
 public record RagdollDefinition(
         String id,
-        Map<String, String> renderModels,      // Map<LimbName, ModelId>
-        RagdollJointSettings jointSettings,    // Global joint settings
-        RagdollPhysicsSettings physicsSettings // Mass + Shapes map
+        Map<String, RagdollPartDefinition> parts
 ) implements BodyDefinition {
 
     public RagdollDefinition {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(renderModels, "renderModels");
-        Objects.requireNonNull(jointSettings, "jointSettings");
-        Objects.requireNonNull(physicsSettings, "physicsSettings");
-        renderModels = Map.copyOf(renderModels);
+        Objects.requireNonNull(parts, "parts");
+        parts = Map.copyOf(parts);
     }
 
     @Override
@@ -29,23 +24,46 @@ public record RagdollDefinition(
         return PhysicsObjectType.RAGDOLL;
     }
 
-    public record RagdollJointSettings(
-            double armOffsetDivisor,
-            double legOffsetX,
-            List<String> fixedAxes
+    /**
+     * Опис однієї частини тіла.
+     */
+    public record RagdollPartDefinition(
+            String renderModelId,
+            float mass,
+            Vector size,
+            String shapeString,
+            String parentName,
+            JointSettings joint,
+            PartPhysicsSettings physics // Нове поле для фізики (тертя, damping)
+    ) {}
+
+    /**
+     * Фізичні параметри частини тіла.
+     */
+    public record PartPhysicsSettings(
+            float linearDamping,
+            float angularDamping,
+            float friction,
+            float restitution
+    ) {}
+
+    /**
+     * Налаштування з'єднання.
+     */
+    public record JointSettings(
+            Vector pivotOnParent,
+            Vector pivotOnChild,
+            java.util.List<String> fixedAxes,
+            Map<EAxis, RotationLimit> limits // Нове поле: ліміти обертання
     ) {
-        public RagdollJointSettings {
-            fixedAxes = List.copyOf(fixedAxes);
+        public JointSettings {
+            if (fixedAxes == null) fixedAxes = Collections.emptyList();
+            if (limits == null) limits = Collections.emptyMap();
         }
     }
 
-    public record RagdollPhysicsSettings(
-            float mass,
-            BodyPhysicsSettings baseSettings, // friction, damping, etc.
-            Map<String, List<String>> shapes  // Map<PartName, List<ShapeString>>
-    ) {
-        public RagdollPhysicsSettings {
-            shapes = Map.copyOf(shapes);
-        }
-    }
+    /**
+     * Ліміт обертання (в радіанах).
+     */
+    public record RotationLimit(float min, float max) {}
 }

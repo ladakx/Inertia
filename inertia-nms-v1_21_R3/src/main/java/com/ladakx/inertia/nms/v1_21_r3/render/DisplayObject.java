@@ -2,6 +2,7 @@ package com.ladakx.inertia.nms.v1_21_r3.render;
 
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import org.bukkit.Location;
+import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
@@ -10,6 +11,7 @@ import org.joml.Vector3f;
 public class DisplayObject implements VisualObject {
 
     private final Display display;
+    private final boolean isBlockDisplay;
 
     private final float originalViewRange;
 
@@ -19,6 +21,7 @@ public class DisplayObject implements VisualObject {
 
     public DisplayObject(Display display) {
         this.display = display;
+        this.isBlockDisplay = display instanceof BlockDisplay;
         this.originalViewRange = display.getViewRange();
         this.originalTrans = display.getTransformation().getTranslation();
         this.originalScale = display.getTransformation().getScale();
@@ -32,8 +35,12 @@ public class DisplayObject implements VisualObject {
         display.teleport(location);
 
         Vector3f translation;
-        if (rotateTranslation) translation = center.add(originalTrans).rotate(rotation);
-        else translation = center.rotate(rotation).add(originalTrans);
+        if (isBlockDisplay) {
+            if (rotateTranslation) translation = center.add(originalTrans).rotate(rotation);
+            else translation = center.rotate(rotation).add(originalTrans);
+        } else {
+            translation = originalTrans;
+        }
 
         Transformation newTrans = new Transformation(
                 translation,

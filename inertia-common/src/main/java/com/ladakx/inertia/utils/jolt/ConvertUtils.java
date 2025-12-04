@@ -176,12 +176,21 @@ public final class ConvertUtils {
      * @param rotation The quaternion to convert
      * @return The converted Quat
      */
-    public static Quat toQuat(Quaternionf rotation) {
+    public static Quat toJolt(Quaternionf rotation) {
         return new Quat(
                 rotation.x,
                 rotation.y,
                 rotation.z,
                 rotation.w
+        );
+    }
+
+    public static Quaternionf toJOML(Quat rotation) {
+        return new Quaternionf(
+                rotation.getX(),
+                rotation.getY(),
+                rotation.getZ(),
+                rotation.getW()
         );
     }
 
