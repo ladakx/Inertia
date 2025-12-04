@@ -57,6 +57,7 @@ ragdoll_head:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
+      local-offset: "0.0 0.0 0.0"
       translation: "0.0 0.0 0.0"
       item-model: items.ragdoll_head
       rotate-translation: false
@@ -65,6 +66,7 @@ ragdoll_right_arm:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
+      local-offset: "0.0 0.3 0.0"
       translation: "0.0 -1024 0.0"
       item-model: items.ragdoll_right_arm
       rotate-translation: false
@@ -73,6 +75,7 @@ ragdoll_left_arm:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
+      local-offset: "0.0 0.3 0.0"
       translation: "0.0 -2048 0.0"
       item-model: items.ragdoll_left_arm
       rotate-translation: false
@@ -81,6 +84,7 @@ ragdoll_torso:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
+      local-offset: "0.0 0.6 0.0"
       translation: "0.0 -5120 0.0"
       item-model: items.ragdoll_torso
       rotate-translation: false
@@ -89,6 +93,7 @@ ragdoll_right_leg:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
+      local-offset: "0.0 0.65 0.0"
       translation: "0.0 -6144 0.0"
       item-model: items.ragdoll_right_leg
       rotate-translation: false
@@ -97,6 +102,7 @@ ragdoll_left_leg:
     display:
       type: ITEM_DISPLAY
       display-mode: THIRDPERSON_RIGHTHAND
+      local-offset: "0.0 0.65 0.0"
       translation: "0.0 -7168 0.0"
       item-model: items.ragdoll_left_leg
       rotate-translation: false

@@ -20,179 +20,116 @@ import com.ladakx.inertia.utils.serializers.TransformSerializer;
 import com.ladakx.inertia.utils.serializers.TransformSerializer.JoltTransform;
 
 import java.util.*;
+import java.util.logging.Logger;
 
 /**
  * Фабрика, яка з текстових описів у конфізі створює Jolt CollisionShape.
- * <p>
- * Вхід:
- *   shape:
- *     - "type=box x=0.5 y=0.5 z=0.5"
- *     - "type=sphere radius=0.25"
- *     - "type=capsule radius=0.2 height=1.0"
- *     - "type=cylinder radius=0.2 height=1.0"
- *     - "type=tapered_capsule height=2.0 topRadius=0.3 bottomRadius=0.5"
- *     - "type=tapered_cylinder height=2.0 topRadius=0.4 bottomRadius=0.6"
- *     - "type=convex_hull mesh=models/vehicle_body.obj convexRadius=0.05"
- *     - ...
- * <p>
- * Якщо одна лінія:
- *   - створюється один шейп;
- *   - якщо є px/py/pz або rot/pitch/yaw/roll — шейп загортається
- *     в RotatedTranslatedShape;
- *   - якщо є com / comx / comy / comz — шейп додатково загортається
- *     в OffsetCenterOfMassShape.
- * <p>
- * Якщо кілька ліній:
- *   - створюється StaticCompoundShape;
- *   - кожен підшейп має свій локальний position + rotation (через addShape);
-
  */
 public final class JShapeFactory {
 
-    /**
-     * Глобальний провайдер мешів для type=convex_hull.
-     * Налаштовується ззовні, наприклад у onEnable плагіна.
-     */
+    private static final Logger LOGGER = Logger.getLogger("InertiaJShapeFactory");
     private static volatile MeshProvider meshProvider;
 
     private JShapeFactory() {
     }
 
-    /**
-     * Зареєструвати MeshProvider для завантаження мешів (BlockBench, OBJ тощо).
-     */
     public static void setMeshProvider(MeshProvider provider) {
         meshProvider = provider;
     }
 
-    /**
-     * Опціонально дістати поточний MeshProvider.
-     */
     public static Optional<MeshProvider> getMeshProvider() {
         return Optional.ofNullable(meshProvider);
     }
 
-    /**
-     * Внутрішньо: отримати MeshProvider або впасти з помилкою, якщо його не налаштовано.
-     */
     private static MeshProvider requireMeshProvider() {
         MeshProvider provider = meshProvider;
         if (provider == null) {
             throw new IllegalStateException(
-                    "MeshProvider is not set. " +
-                            "It is required for type=convex_hull shapes. " +
-                            "Call ShapeConfigFactory.setMeshProvider(...) on startup."
+                    "MeshProvider is not set. Required for type=convex_hull."
             );
         }
         return provider;
     }
 
-    /**
-     * Головний метод: створити шейп(и) з конфігу.
-     *
-     * @param shapeLines список рядків із конфігурації (getStringList("shape"))
-     * @return ShapeRefC (можна використовувати всюди, де очікується ConstShape)
-     */
     public static ShapeRefC createShape(List<String> shapeLines) {
         if (shapeLines == null || shapeLines.isEmpty()) {
-            throw new IllegalArgumentException("shape list is empty");
+            throw new IllegalArgumentException("Shape list is empty");
         }
 
         List<ParsedShape> parsed = new ArrayList<>();
         for (String raw : shapeLines) {
-            if (raw == null) {
-                continue;
-            }
+            if (raw == null) continue;
+
+            // 1. Очистка від зайвих пробілів
             String line = raw.trim();
-            if (line.isEmpty()) {
-                continue;
+
+            // 2. ВАЖЛИВО: Очистка від квадратних дужок, якщо конфіг передав список як рядок "[...]"
+            if (line.startsWith("[") && line.endsWith("]")) {
+                line = line.substring(1, line.length() - 1).trim();
             }
-            parsed.add(parseLine(line));
+
+            if (line.isEmpty()) continue;
+
+            try {
+                parsed.add(parseLine(line));
+            } catch (Exception e) {
+                LOGGER.warning("Failed to parse shape line: '" + line + "'. Error: " + e.getMessage());
+            }
         }
 
         if (parsed.isEmpty()) {
-            throw new IllegalArgumentException("shape list contains only empty/blank lines");
+            // Щоб не крашити сервер, повертаємо дефолтний бокс, якщо нічого не розпарсили
+            LOGGER.severe("No valid shapes found. Creating default fallback box (0.5, 0.5, 0.5).");
+            return new BoxShape(new Vec3(0.5f, 0.5f, 0.5f)).toRefC();
         }
 
         // ---------- 1 шейп ----------
         if (parsed.size() == 1) {
             ParsedShape only = parsed.get(0);
-
             ConstShape decorated = only.shape();
 
-            // 1) Зсув центру мас (OffsetCenterOfMassShape)
+            // 1) Зсув центру мас
             if (only.hasCenterOfMassOffset()) {
                 OffsetCenterOfMassShapeSettings ocomSettings =
-                        new OffsetCenterOfMassShapeSettings(
-                                only.centerOfMassOffset(),
-                                decorated
-                        );
+                        new OffsetCenterOfMassShapeSettings(only.centerOfMassOffset(), decorated);
                 ShapeResult ocomResult = ocomSettings.create();
                 if (ocomResult.hasError()) {
-                    throw new IllegalStateException(
-                            "Failed to create offset-center-of-mass shape: " + ocomResult.getError()
-                    );
+                    LOGGER.severe("Error creating OffsetCenterOfMass: " + ocomResult.getError());
+                } else {
+                    decorated = ocomResult.get();
                 }
-                decorated = ocomResult.get();
             }
 
-            // 2) Локальний transform (RotatedTranslatedShape)
+            // 2) Локальний transform
             if (only.hasPosition() || only.hasRotation()) {
                 RotatedTranslatedShapeSettings rtSettings =
-                        new RotatedTranslatedShapeSettings(
-                                only.position(),
-                                only.rotation(),
-                                decorated
-                        );
-
+                        new RotatedTranslatedShapeSettings(only.position(), only.rotation(), decorated);
                 ShapeResult rtResult = rtSettings.create();
                 if (rtResult.hasError()) {
-                    throw new IllegalStateException(
-                            "Failed to create rotated-translated shape: " + rtResult.getError()
-                    );
+                    LOGGER.severe("Error creating RotatedTranslated: " + rtResult.getError());
+                } else {
+                    decorated = rtResult.get();
                 }
-
-                decorated = rtResult.get();
             }
-
-            // 3) Повертаємо фінальний шейп як ShapeRefC
             return decorated.toRefC();
         }
 
         // ---------- Кілька шейпів -> StaticCompoundShape ----------
         StaticCompoundShapeSettings settings = new StaticCompoundShapeSettings();
-
         for (ParsedShape p : parsed) {
             ConstShape child = p.shape();
-
-            // За потреби — декоратор OffsetCenterOfMass для кожного підшейпа
             if (p.hasCenterOfMassOffset()) {
                 OffsetCenterOfMassShapeSettings ocomSettings =
-                        new OffsetCenterOfMassShapeSettings(
-                                p.centerOfMassOffset(),
-                                child
-                        );
-                ShapeResult ocomResult = ocomSettings.create();
-                if (ocomResult.hasError()) {
-                    throw new IllegalStateException(
-                            "Failed to create offset-center-of-mass shape for child: " + ocomResult.getError()
-                    );
-                }
-                child = ocomResult.get();
+                        new OffsetCenterOfMassShapeSettings(p.centerOfMassOffset(), child);
+                ShapeResult res = ocomSettings.create();
+                if (!res.hasError()) child = res.get();
             }
-
-            settings.addShape(
-                    p.position(),   // Vec3
-                    p.rotation(),   // Quat
-                    child           // ConstShape
-            );
+            settings.addShape(p.position(), p.rotation(), child);
         }
 
         ShapeResult result = settings.create();
         if (result.hasError()) {
-            throw new IllegalStateException(
-                    "Failed to create compound shape: " + result.getError()
-            );
+            throw new IllegalStateException("Failed to create compound shape: " + result.getError());
         }
 
         return result.get();
@@ -203,26 +140,36 @@ public final class JShapeFactory {
     private static ParsedShape parseLine(String line) {
         Map<String, String> kv = parseKeyValues(line);
 
-        String rawType = require(kv, "type", line);
-        String type = rawType.toLowerCase(Locale.ROOT);
+        // ВАЖЛИВО: Отримуємо тип. Якщо немає — WARN і дефолт "box"
+        String type = kv.get("type");
+        if (type == null || type.isBlank()) {
+            LOGGER.warning("Missing 'type' in definition: [" + line + "]. Defaulting to 'box'.");
+            type = "box";
+        }
+        type = type.toLowerCase(Locale.ROOT);
 
-        // Позиція + ротація (через спільний утил)
         JoltTransform transform = TransformSerializer.fromKeyValueMap(kv);
-        // Зсув центру мас
         ComOffset com = parseCenterOfMassOffset(kv);
 
-        ConstShape shape = switch (type) {
-            case "box"              -> parseBox(kv, line);
-            case "sphere"           -> parseSphere(kv, line);
-            case "capsule"          -> parseCapsule(kv, line);
-            case "cylinder"         -> parseCylinder(kv, line);
-            case "tapered_capsule"  -> parseTaperedCapsule(kv, line);
-            case "tapered_cylinder" -> parseTaperedCylinder(kv, line);
-            case "convex_hull"      -> parseConvexHull(kv, line);
-            default -> throw new IllegalArgumentException(
-                    "Unknown shape type '" + rawType + "' in line: " + line
-            );
-        };
+        ConstShape shape;
+        try {
+            shape = switch (type) {
+                case "box"              -> parseBox(kv);
+                case "sphere"           -> parseSphere(kv);
+                case "capsule"          -> parseCapsule(kv);
+                case "cylinder"         -> parseCylinder(kv);
+                case "tapered_capsule"  -> parseTaperedCapsule(kv);
+                case "tapered_cylinder" -> parseTaperedCylinder(kv);
+                case "convex_hull"      -> parseConvexHull(kv, line);
+                default -> {
+                    LOGGER.warning("Unknown shape type '" + type + "'. Fallback to box.");
+                    yield parseBox(kv);
+                }
+            };
+        } catch (Exception e) {
+            LOGGER.severe("Error constructing shape '" + type + "': " + e.getMessage() + ". Fallback to unit box.");
+            shape = new BoxShape(new Vec3(0.5f, 0.5f, 0.5f));
+        }
 
         return new ParsedShape(
                 shape,
@@ -235,250 +182,155 @@ public final class JShapeFactory {
         );
     }
 
-    // ---------- Парсер зсуву центру мас (OffsetCenterOfMassShape) ----------
+    // ---------- Парсер параметрів ----------
 
-    /**
-     * Формати:
-     *   - com="x y z"
-     *   - com="x,y,z"
-     *   - comx=... comy=... comz=...
-     *
-     * Усі значення - float, у локальній системі координат шейпа.
-     */
-    private static ComOffset parseCenterOfMassOffset(Map<String, String> kv) {
-        String comStr = kv.get("com");
-        String comxStr = kv.get("comx");
-        String comyStr = kv.get("comy");
-        String comzStr = kv.get("comz");
-
-        boolean hasVector = comStr != null && !comStr.isBlank();
-        boolean hasComponents =
-                (comxStr != null) || (comyStr != null) || (comzStr != null);
-
-        if (!hasVector && !hasComponents) {
-            return new ComOffset(new Vec3(0f, 0f, 0f), false);
-        }
-
-        if (hasVector) {
-            // com="x y z" або "x,y,z"
-            String cleaned = comStr.replace(',', ' ');
-            String[] parts = cleaned.trim().split("\\s+");
-            if (parts.length != 3) {
-                throw new IllegalArgumentException(
-                        "Invalid 'com' value, expected 3 components, got: " + comStr
-                );
-            }
-            float x = parseFloat(parts[0]);
-            float y = parseFloat(parts[1]);
-            float z = parseFloat(parts[2]);
-            return new ComOffset(new Vec3(x, y, z), true);
-        } else {
-            float x = parseFloat(comxStr != null ? comxStr : "0");
-            float y = parseFloat(comyStr != null ? comyStr : "0");
-            float z = parseFloat(comzStr != null ? comzStr : "0");
-            return new ComOffset(new Vec3(x, y, z), true);
-        }
-    }
-
-    // ---------- Парсер конкретних шейпів ----------
-
-    private static ConstShape parseBox(Map<String, String> kv, String line) {
-        float x = parseFloat(require(kv, "x", line));
-        float y = parseFloat(require(kv, "y", line));
-        float z = parseFloat(require(kv, "z", line));
+    private static ConstShape parseBox(Map<String, String> kv) {
+        // Дефолтні розміри 0.5, якщо не вказано
+        float x = getFloat(kv, "x", 0.5f);
+        float y = getFloat(kv, "y", 0.5f);
+        float z = getFloat(kv, "z", 0.5f);
 
         Vec3 halfExtents = new Vec3(x, y, z);
+        float convexRadius = getFloat(kv, "convexradius", -1f); // -1 if not set
 
-        String convexRadiusStr = kv.get("convexradius");
-        if (convexRadiusStr != null) {
-            float convexRadius = parseFloat(convexRadiusStr);
-            return new BoxShape(halfExtents, convexRadius);
-        } else {
-            return new BoxShape(halfExtents);
-        }
+        return (convexRadius > 0) ? new BoxShape(halfExtents, convexRadius) : new BoxShape(halfExtents);
     }
 
-    private static ConstShape parseSphere(Map<String, String> kv, String line) {
-        float radius = parseFloat(require(kv, "radius", line));
+    private static ConstShape parseSphere(Map<String, String> kv) {
+        float radius = getFloat(kv, "radius", 0.5f);
         return new SphereShape(radius);
     }
 
-    private static ConstShape parseCapsule(Map<String, String> kv, String line) {
-        float radius = parseFloat(require(kv, "radius", line));
-        float height = parseFloat(require(kv, "height", line));
-
-        // В конфигах height – це повна висота "циліндричної" частини.
-        float halfHeight = height * 0.5f;
-
-        return new CapsuleShape(halfHeight, radius);
+    private static ConstShape parseCapsule(Map<String, String> kv) {
+        float radius = getFloat(kv, "radius", 0.5f);
+        float height = getFloat(kv, "height", 2.0f);
+        return new CapsuleShape(height * 0.5f, radius);
     }
 
-    private static ConstShape parseCylinder(Map<String, String> kv, String line) {
-        float radius = parseFloat(require(kv, "radius", line));
-        float height = parseFloat(require(kv, "height", line));
-        float halfHeight = height * 0.5f;
+    private static ConstShape parseCylinder(Map<String, String> kv) {
+        float radius = getFloat(kv, "radius", 0.5f);
+        float height = getFloat(kv, "height", 2.0f);
+        float convexRadius = getFloat(kv, "convexradius", -1f);
 
-        String convexRadiusStr = kv.get("convexradius");
-        if (convexRadiusStr != null) {
-            float convexRadius = parseFloat(convexRadiusStr);
-            return new CylinderShape(halfHeight, radius, convexRadius);
-        } else {
-            return new CylinderShape(halfHeight, radius);
+        if (convexRadius > 0) {
+            return new CylinderShape(height * 0.5f, radius, convexRadius);
         }
+        return new CylinderShape(height * 0.5f, radius);
     }
 
-    /**
-     * TaperedCapsuleShape:
-     *   height      -> повна висота (ми ділимо на 2 для halfHeight),
-     *   topRadius   -> радіус верхньої "сфери",
-     *   bottomRadius-> радіус нижньої.
-     *
-     * У Jolt-JNI це робиться через TaperedCapsuleShapeSettings(halfHeight, topRadius, bottomRadius)
-     * і далі settings.create() [2].
-     */
-    private static ConstShape parseTaperedCapsule(Map<String, String> kv, String line) {
-        float height       = parseFloat(require(kv, "height", line));
-        float halfHeight   = height * 0.5f;
-        float topRadius    = parseFloat(require(kv, "topradius", line));
-        float bottomRadius = parseFloat(require(kv, "bottomradius", line));
+    private static ConstShape parseTaperedCapsule(Map<String, String> kv) {
+        float height = getFloat(kv, "height", 2.0f);
+        float topRad = getFloat(kv, "topradius", 0.4f);
+        float botRad = getFloat(kv, "bottomradius", 0.6f);
 
-        TaperedCapsuleShapeSettings settings =
-                new TaperedCapsuleShapeSettings(halfHeight, topRadius, bottomRadius);
-
-        ShapeResult result = settings.create();
-        if (result.hasError()) {
-            throw new IllegalStateException(
-                    "Failed to create TaperedCapsuleShape: " + result.getError()
-            );
-        }
-        return result.get();
+        TaperedCapsuleShapeSettings settings = new TaperedCapsuleShapeSettings(height * 0.5f, topRad, botRad);
+        return validate(settings.create(), "TaperedCapsule");
     }
 
-    /**
-     * TaperedCylinderShape:
-     *   height      -> повна висота (halfHeight = height/2),
-     *   topRadius   -> радіус зверху,
-     *   bottomRadius-> радіус знизу,
-     *   convexRadius (опційно) -> товщина "margin"/convex-radius [2].
-     */
-    private static ConstShape parseTaperedCylinder(Map<String, String> kv, String line) {
-        float height       = parseFloat(require(kv, "height", line));
-        float halfHeight   = height * 0.5f;
-        float topRadius    = parseFloat(require(kv, "topradius", line));
-        float bottomRadius = parseFloat(require(kv, "bottomradius", line));
+    private static ConstShape parseTaperedCylinder(Map<String, String> kv) {
+        float height = getFloat(kv, "height", 2.0f);
+        float topRad = getFloat(kv, "topradius", 0.4f);
+        float botRad = getFloat(kv, "bottomradius", 0.6f);
+        float cRad   = getFloat(kv, "convexradius", -1f);
 
-        String convexRadiusStr = kv.get("convexradius");
         TaperedCylinderShapeSettings settings;
-        if (convexRadiusStr != null) {
-            float convexRadius = parseFloat(convexRadiusStr);
-            settings = new TaperedCylinderShapeSettings(
-                    halfHeight, topRadius, bottomRadius, convexRadius
-            );
+        if (cRad > 0) {
+            settings = new TaperedCylinderShapeSettings(height * 0.5f, topRad, botRad, cRad);
         } else {
-            settings = new TaperedCylinderShapeSettings(
-                    halfHeight, topRadius, bottomRadius
-            );
+            settings = new TaperedCylinderShapeSettings(height * 0.5f, topRad, botRad);
         }
-
-        ShapeResult result = settings.create();
-        if (result.hasError()) {
-            throw new IllegalStateException(
-                    "Failed to create TaperedCylinderShape: " + result.getError()
-            );
-        }
-        return result.get();
+        return validate(settings.create(), "TaperedCylinder");
     }
 
-    /**
-     * ConvexHullShape:
-     *   - очікує mesh=<id>, який MeshProvider потім конвертує в список вершин;
-     *   - convexRadius (опційно) -> maxConvexRadius для ConvexHullShapeSettings [2].
-     *
-     * Це дозволяє, наприклад, експортувати модель із BlockBench у OBJ/JSON
-     * і в MeshProvider перетворити її в Collection<Vec3>, яку ми тут просто
-     * підсунемо ConvexHullShapeSettings(points).create().
-     */
-    private static ConstShape parseConvexHull(Map<String, String> kv, String line) {
-        String meshId = require(kv, "mesh", line);
-
+    private static ConstShape parseConvexHull(Map<String, String> kv, String originalLine) {
+        // Тут ми все ще вимагаємо mesh, бо без нього неможливо створити Hull
+        String meshId = require(kv, "mesh", originalLine);
         MeshProvider provider = requireMeshProvider();
         Collection<Vec3> points = provider.loadConvexHullPoints(meshId);
 
         if (points == null || points.isEmpty()) {
-            throw new IllegalStateException(
-                    "MeshProvider returned no points for mesh='" + meshId + "'"
-            );
+            throw new IllegalStateException("MeshProvider returned no points for mesh='" + meshId + "'");
         }
 
-        String convexRadiusStr = kv.get("convexradius");
+        float cRad = getFloat(kv, "convexradius", -1f);
+        ConvexHullShapeSettings settings = (cRad > 0)
+                ? new ConvexHullShapeSettings(points, cRad)
+                : new ConvexHullShapeSettings(points);
 
-        ConvexHullShapeSettings settings;
-        if (convexRadiusStr != null) {
-            float maxConvexRadius = parseFloat(convexRadiusStr);
-            settings = new ConvexHullShapeSettings(points, maxConvexRadius);
-        } else {
-            // Використає Jolt.cDefaultConvexRadius за замовчуванням [2]
-            settings = new ConvexHullShapeSettings(points);
-        }
+        return validate(settings.create(), "ConvexHull");
+    }
 
-        ShapeResult result = settings.create();
+    // ---------- Helpers ----------
+
+    private static ConstShape validate(ShapeResult result, String name) {
         if (result.hasError()) {
-            throw new IllegalStateException(
-                    "Failed to create ConvexHullShape: " + result.getError()
-            );
+            throw new IllegalStateException("Failed to create " + name + ": " + result.getError());
         }
         return result.get();
     }
 
-    // ---------- Утиліти парсингу ----------
-
-    /**
-     * Розібрати рядок виду "key=value key2=123" у Map.
-     */
-    private static Map<String, String> parseKeyValues(String line) {
-        Map<String, String> result = new HashMap<>();
-
-        for (String token : line.split("\\s+")) {
-            if (token.isBlank()) {
-                continue;
-            }
-            String[] parts = token.split("=", 2);
-            if (parts.length != 2) {
-                continue;
-            }
-            String key = parts[0].trim().toLowerCase(Locale.ROOT);
-            String value = parts[1].trim();
-
-            if (!key.isEmpty() && !value.isEmpty()) {
-                result.put(key, value);
+    private static ComOffset parseCenterOfMassOffset(Map<String, String> kv) {
+        String comStr = kv.get("com");
+        if (comStr != null && !comStr.isBlank()) {
+            String[] parts = comStr.replace(',', ' ').trim().split("\\s+");
+            if (parts.length == 3) {
+                return new ComOffset(new Vec3(parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])), true);
             }
         }
+        float x = getFloat(kv, "comx", 0f);
+        float y = getFloat(kv, "comy", 0f);
+        float z = getFloat(kv, "comz", 0f);
 
+        // Вважаємо, що оффсет є, якщо хоча б одна компонента != 0 або явно задана (для спрощення перевіряємо наявність ключів у майбутньому, але тут просто повертаємо нуль)
+        boolean hasAny = kv.containsKey("comx") || kv.containsKey("comy") || kv.containsKey("comz");
+        return new ComOffset(new Vec3(x, y, z), hasAny);
+    }
+
+    private static Map<String, String> parseKeyValues(String line) {
+        Map<String, String> result = new HashMap<>();
+        // Спліт по пробілах, ігноруючи порожні
+        for (String token : line.split("\\s+")) {
+            if (token.isBlank()) continue;
+            String[] parts = token.split("=", 2);
+            if (parts.length != 2) continue; // Пропускаємо токени без "="
+
+            result.put(parts[0].trim().toLowerCase(Locale.ROOT), parts[1].trim());
+        }
         return result;
     }
 
-    private static String require(Map<String, String> kv, String key, String line) {
-        String value = kv.get(key);
-        if (value == null) {
-            throw new IllegalArgumentException(
-                    "Missing '" + key + "' in shape definition: " + line
-            );
+    /**
+     * Обов'язковий параметр. Кидає помилку, якщо немає.
+     */
+    private static String require(Map<String, String> kv, String key, String context) {
+        String val = kv.get(key);
+        if (val == null) {
+            throw new IllegalArgumentException("Missing required '" + key + "' in: " + context);
         }
-        return value;
+        return val;
+    }
+
+    /**
+     * Отримати float із дефолтним значенням та логом, якщо ключ відсутній (опціонально).
+     */
+    private static float getFloat(Map<String, String> kv, String key, float def) {
+        String val = kv.get(key);
+        if (val == null) return def;
+        try {
+            return Float.parseFloat(val);
+        } catch (NumberFormatException e) {
+            LOGGER.warning("Invalid float for '" + key + "': " + val + ". Using default: " + def);
+            return def;
+        }
     }
 
     private static float parseFloat(String text) {
         try {
             return Float.parseFloat(text);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                    "Invalid float value '" + text + "' in shape definition",
-                    e
-            );
+            return 0.0f;
         }
     }
-
-    // ---------- DTO-шки ----------
 
     private record ParsedShape(
             ConstShape shape,
@@ -488,12 +340,7 @@ public final class JShapeFactory {
             boolean hasRotation,
             Vec3 centerOfMassOffset,
             boolean hasCenterOfMassOffset
-    ) {
-    }
+    ) {}
 
-    private record ComOffset(
-            Vec3 offset,
-            boolean hasOffset
-    ) {
-    }
+    private record ComOffset(Vec3 offset, boolean hasOffset) {}
 }

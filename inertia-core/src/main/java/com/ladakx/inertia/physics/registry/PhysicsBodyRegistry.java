@@ -60,9 +60,9 @@ public final class PhysicsBodyRegistry {
                 renderOpt = resolveRender(chainDef.id(), chainDef.renderModel(), renderConfig);
             } else if (body instanceof RagdollDefinition ragdollDef) {
                 // Для Ragdoll перебираємо всі частини, визначені в конфігу
-                for (Map.Entry<String, String> entry : ragdollDef.renderModels().entrySet()) {
+                for (Map.Entry<String, RagdollDefinition.RagdollPartDefinition> entry : ragdollDef.parts().entrySet()) {
                     String partName = entry.getKey();
-                    String renderModelId = entry.getValue();
+                    String renderModelId = entry.getValue().renderModelId();
 
                     Optional<RenderModelDefinition> partRender = renderConfig.find(renderModelId);
                     if (partRender.isPresent()) {
