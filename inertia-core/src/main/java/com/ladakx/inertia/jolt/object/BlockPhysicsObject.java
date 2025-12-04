@@ -3,7 +3,6 @@ package com.ladakx.inertia.jolt.object;
 import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
-import com.github.stephengold.joltjni.Vec3;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.InertiaLogger;
@@ -41,23 +40,17 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
                               @NotNull RenderFactory renderFactory,
                               @NotNull RVec3 initialPosition,
                               @NotNull Quat initialRotation) {
-        // Створення налаштувань тіла з урахуванням типу дефініції
         super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
         this.bodyId = bodyId;
 
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
-
-        // Отримуємо візуальну модель, якщо вона була успішно зарезолвлена в реєстрі
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
 
         if (renderOpt.isPresent()) {
             RenderModelDefinition renderDef = renderOpt.get();
             World world = space.getWorldBukkit();
-
-            // Створюємо початкову локацію для спавну візуалів
             Location spawnLocation = new Location(world, initialPosition.xx(), initialPosition.yy(), initialPosition.zz());
 
-            // Збираємо частини композиту
             List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
             for (RenderEntityDefinition entityDef : renderDef.entities().values()) {
                 VisualObject visual = renderFactory.create(world, spawnLocation, entityDef);
@@ -67,36 +60,24 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
             }
 
             this.displayComposite = new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
-            this.displayComposite.update();
+            // We no longer call displayComposite.update() directly here.
+            // The first snapshot tick will handle positioning.
         } else {
             this.displayComposite = null;
         }
     }
 
     // --- Static Helpers ---
-
     private static BodyCreationSettings createBodySettings(String bodyId,
                                                            PhysicsBodyRegistry modelRegistry,
                                                            RVec3 initialPosition,
                                                            Quat initialRotation) {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
         BlockBodyDefinition def = (BlockBodyDefinition) model.bodyDefinition();
-
-        BodyPhysicsSettings phys;
-        List<String> shapeLines;
-
-        // Pattern Matching для витягування параметрів залежно від типу тіла
-        phys = def.physicsSettings();
-        shapeLines = def.shapeLines();
+        BodyPhysicsSettings phys = def.physicsSettings();
+        List<String> shapeLines = def.shapeLines();
 
         ConstShape shape = JShapeFactory.createShape(shapeLines);
-
-        InertiaLogger.debug("Creating body '" + bodyId + "' type=" + def.getClass().getSimpleName());
-        InertiaLogger.debug("Body physics: " +
-                "mass=" + phys.mass() +
-                ", motionType=" + phys.motionType() +
-                ", objectLayer=" + phys.objectLayer()
-        );
 
         BodyCreationSettings settings = new BodyCreationSettings()
                 .setShape(shape)
@@ -112,7 +93,6 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
         settings.getMassProperties().setMass(phys.mass());
         settings.setFriction(phys.friction());
         settings.setRestitution(phys.restitution());
-
         settings.setPosition(initialPosition);
         settings.setRotation(initialRotation);
 
@@ -127,22 +107,15 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
     }
 
     @Override
-    public void update() {
-        if (removed) return;
-        if (displayComposite != null) {
-            displayComposite.update();
-        }
-    }
-
-    @Override
     public void destroy() {
         if (removed) return;
         removed = true;
-
         super.destroy();
-
-        // Видалення візуалу
         if (displayComposite != null) {
+            // Note: Destroy must be called on Main Thread.
+            // AbstractPhysicsObject.destroy calls space.removeObject, which is usually safe.
+            // But displayComposite.destroy() touches Bukkit Entities.
+            // Ideally, schedule this if we are not on main thread, but this method is usually called from Tool (main thread).
             displayComposite.destroy();
         }
     }
@@ -155,8 +128,8 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
     }
 
     @Override
-    public @NotNull PhysicsObjectType getType() {
-        return PhysicsObjectType.BLOCK;
+    public @NotNull com.ladakx.inertia.jolt.object.PhysicsObjectType getType() {
+        return com.ladakx.inertia.jolt.object.PhysicsObjectType.BLOCK;
     }
 
     @Override
@@ -166,7 +139,7 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
 
     @Override
     public boolean isValid() {
-        return !removed && getBody() != null && !getBody().isActive(); // Перевірка active може бути інвертована залежно від логіки
+        return !removed && getBody() != null;
     }
 
     @Override
@@ -179,8 +152,7 @@ public class BlockPhysicsObject extends DisplayedPhysicsObject implements Inerti
     @Override
     public void setLinearVelocity(@NotNull Vector velocity) {
         if (!isValid()) return;
-        Vec3 joltVel = ConvertUtils.toVec3(velocity);
-        getSpace().getBodyInterface().setLinearVelocity(getBody().getId(), joltVel);
+        getSpace().getBodyInterface().setLinearVelocity(getBody().getId(), ConvertUtils.toVec3(velocity));
     }
 
     @Override

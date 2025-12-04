@@ -26,11 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Фізичний об'єкт ланцюга.
- * Наслідує AbstractPhysicsObject, керує власним візуальним відображенням
- * та створює Constraint з батьківським тілом.
- */
 public class ChainPhysicsObject extends DisplayedPhysicsObject {
 
     private final String bodyId;
@@ -44,18 +39,14 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
                               @NotNull RVec3 initialPosition,
                               @NotNull Quat initialRotation,
                               @Nullable Body parentBody) {
-        // 1. Ініціалізація фізичного тіла через батьківський конструктор
         super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
         this.bodyId = bodyId;
 
-        // 2. Створення Constraint (З'єднання), якщо є батьківське тіло
         if (parentBody != null) {
             createConstraint(modelRegistry, bodyId, parentBody);
         }
 
-        // 3. Ініціалізація візуальної частини (Display)
         this.displayComposite = createVisuals(space, bodyId, modelRegistry, renderFactory, initialPosition);
-        update(); // Перше оновлення позиції візуалів
     }
 
     private void createConstraint(PhysicsBodyRegistry registry, String bodyId, Body parentBody) {
@@ -64,13 +55,8 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
             return;
         }
 
-        // PointConstraint фіксує дві точки тіл разом (шарнір)
-        // Розраховуємо точку прив'язки. Вона знаходиться між поточною ланкою та батьківською.
-        // Використовуємо joint-offset з конфігу (bodies.yml)
         double jointOffset = chainDef.chainSettings().jointOffset();
-
         RVec3 currentPos = getBody().getPosition();
-        // Точка з'єднання трохи вище центру поточної ланки (в World Space)
         RVec3 pivotPoint = new RVec3(
                 currentPos.xx(),
                 currentPos.yy() + jointOffset,
@@ -83,8 +69,6 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
         settings.setPoint2(pivotPoint);
 
         TwoBodyConstraint constraint = settings.create(parentBody, getBody());
-
-        // Додаємо constraint у простір та реєструємо його в абстрактному класі для менеджменту
         getSpace().addConstraint(constraint);
         addRelatedConstraint(constraint.toRef());
     }
@@ -114,8 +98,6 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
     private static BodyCreationSettings createBodySettings(String bodyId, PhysicsBodyRegistry registry,
                                                            RVec3 pos, Quat rot) {
         PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
-
-        // Перевіряємо, чи це дійсно ланцюг
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) {
             throw new IllegalArgumentException("Body '" + bodyId + "' is not a CHAIN definition.");
         }
@@ -135,7 +117,6 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
         settings.setLinearDamping(phys.linearDamping());
         settings.setAngularDamping(phys.angularDamping());
 
-        // Для ланцюгів важливо використовувати LinearCast для кращої симуляції з'єднань
         if (phys.motionType() == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {
             settings.setMotionQuality(EMotionQuality.LinearCast);
         }
@@ -143,20 +124,10 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
         return settings;
     }
 
-    // --- AbstractPhysicsObject Implementation ---
-
     @Override
     public @Nullable PhysicsDisplayComposite getDisplay() {
         return displayComposite;
     }
-
-    @Override
-    public void update() {
-        if (removed || displayComposite == null) return;
-        displayComposite.update();
-    }
-
-    // --- InertiaPhysicsObject Implementation ---
 
     @Override
     public @NotNull String getBodyId() {
@@ -164,8 +135,8 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
     }
 
     @Override
-    public @NotNull PhysicsObjectType getType() {
-        return PhysicsObjectType.CHAIN;
+    public @NotNull com.ladakx.inertia.jolt.object.PhysicsObjectType getType() {
+        return com.ladakx.inertia.jolt.object.PhysicsObjectType.CHAIN;
     }
 
     @Override
@@ -177,10 +148,7 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
     public void destroy() {
         if (removed) return;
         removed = true;
-
         super.destroy();
-
-        // Видалення візуалу
         if (displayComposite != null) {
             displayComposite.destroy();
         }
@@ -188,7 +156,7 @@ public class ChainPhysicsObject extends DisplayedPhysicsObject {
 
     @Override
     public boolean isValid() {
-        return !removed && getBody() != null && !getBody().isActive();
+        return !removed && getBody() != null;
     }
 
     @Override

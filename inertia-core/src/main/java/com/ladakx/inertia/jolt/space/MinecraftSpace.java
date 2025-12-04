@@ -14,11 +14,15 @@ import com.ladakx.inertia.jolt.PhysicsLayers;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.object.BlockPhysicsObject;
 import com.ladakx.inertia.jolt.object.DisplayedPhysicsObject;
+import com.ladakx.inertia.jolt.snapshot.PhysicsSnapshot;
+import com.ladakx.inertia.jolt.snapshot.VisualUpdate;
+import com.ladakx.inertia.nms.render.runtime.VisualObject;
 import com.ladakx.inertia.utils.MiscUtils;
 import com.ladakx.inertia.utils.jolt.ConvertUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,29 +33,34 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class MinecraftSpace implements AutoCloseable {
 
     private final String worldName;
     private final World worldBukkit;
-    private final WorldsConfig.WorldProfile settings; // Додано посилання на налаштування
+    private final WorldsConfig.WorldProfile settings;
     private final PhysicsSystem physicsSystem;
 
-    // Посилання на глобальні ресурси
+    // Global resources
     private final JobSystem jobSystem;
     private final TempAllocator tempAllocator;
 
-    // Екзек'ютор для фізичного циклу
+    // Physics Loop
     private final ScheduledExecutorService tickExecutor;
-    private final Map<UUID, Runnable> tickTasks = new ConcurrentHashMap<>();
-
     private final AtomicBoolean isActive = new AtomicBoolean(true);
-    private final AtomicBoolean isRenderScheduled = new AtomicBoolean(false);
 
-    // Списки об'єктів у цьому просторі
+    // Snapshot Sync
+    private final AtomicReference<PhysicsSnapshot> snapshotBuffer = new AtomicReference<>();
+    private final BukkitTask syncTask;
+
+    // Objects
     private final @NotNull List<AbstractPhysicsObject> objects = new CopyOnWriteArrayList<>();
     private final @NotNull Map<Long, AbstractPhysicsObject> objectMap = new ConcurrentHashMap<>();
     private final List<Body> staticBodies = new CopyOnWriteArrayList<>();
+
+    // Custom Tasks
+    private final Map<UUID, Runnable> tickTasks = new ConcurrentHashMap<>();
 
     public MinecraftSpace(World world, WorldsConfig.WorldProfile settings, JobSystem jobSystem, TempAllocator tempAllocator) {
         this.worldBukkit = world;
@@ -60,65 +69,53 @@ public class MinecraftSpace implements AutoCloseable {
         this.jobSystem = jobSystem;
         this.tempAllocator = tempAllocator;
 
-        // --- Налаштування шарів (Layers) ---
+        // --- Layers Setup ---
         ObjectLayerPairFilterTable ovoFilter = new ObjectLayerPairFilterTable(PhysicsLayers.NUM_OBJ_LAYERS);
-        // Enable collisions between 2 moving bodies:
         ovoFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_MOVING);
-        // Enable collisions between a moving body and a non-moving one:
         ovoFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_STATIC);
-        // Disable collisions between 2 non-moving bodies:
         ovoFilter.disableCollision(PhysicsLayers.OBJ_STATIC, PhysicsLayers.OBJ_STATIC);
 
-        // Map both object layers to broadphase layer 0:
         BroadPhaseLayerInterfaceTable layerMap = new BroadPhaseLayerInterfaceTable(PhysicsLayers.NUM_OBJ_LAYERS, PhysicsLayers.NUM_BP_LAYERS);
         layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_MOVING, 0);
         layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_STATIC, 0);
 
-        // Rules for colliding object layers with broadphase layers:
         ObjectVsBroadPhaseLayerFilter ovbFilter = new ObjectVsBroadPhaseLayerFilterTable(layerMap, PhysicsLayers.NUM_BP_LAYERS, ovoFilter, PhysicsLayers.NUM_OBJ_LAYERS);
 
-
-
-        // --- Ініціалізація системи ---
+        // --- Jolt Initialization ---
         this.physicsSystem = new PhysicsSystem();
-
-        // Використовуємо велику константу, оскільки maxBodies не було у WorldSettings
-        final int MAX_BODIES = settings.maxBodies();
-
         this.physicsSystem.init(
-                MAX_BODIES,
-                0, // Max bodies with correct world transform (usually 0)
-                20_480, // Max contacts
-                65_536, // Max body pairs
+                settings.maxBodies(),
+                0,
+                20_480,
+                65_536,
                 layerMap,
                 ovbFilter,
                 ovoFilter
         );
 
-        // Використовуємо Gravity з WorldSettings
         this.physicsSystem.setGravity(this.settings.gravity());
         this.physicsSystem.optimizeBroadPhase();
 
-        // Створення окремого потоку для цього світу
+        // --- Thread Setup ---
+        // 1. Physics Thread (Producer)
         this.tickExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "inertia-space-" + worldName);
             t.setDaemon(true);
             return t;
         });
 
+        // 2. Sync Task (Consumer)
+        this.syncTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), this::consumeSnapshot, 1L, 1L);
+
         if (this.settings.floorPlane().enabled()) {
             addFloorPlane(this.settings.floorPlane());
         }
 
-        // Використовуємо tickRate з WorldSettings
         startSimulationLoop(this.settings.tickRate());
     }
 
     private void startSimulationLoop(int fps) {
-        if (fps <= 0) {
-            InertiaLogger.warn("Physics Tick-Rate is set to " + fps + " for world " + worldName + ". Using default 20.");
-            fps = 20;
-        }
+        if (fps <= 0) fps = 20;
 
         long periodMicros = 1_000_000 / fps;
         float deltaTime = 1.0f / fps;
@@ -127,39 +124,38 @@ public class MinecraftSpace implements AutoCloseable {
             if (!isActive.get()) return;
 
             try {
-                // 1. Крок фізичної симуляції (Jolt Thread)
+                // --- Step A: Simulation ---
+                // Run physics tick
                 int errors = physicsSystem.update(deltaTime, this.settings.collisionSteps(), tempAllocator, jobSystem);
-
                 if (errors != EPhysicsUpdateError.None) {
                     InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
                 }
 
-                // 2. Логіка синхронізації з Bukkit (Main Thread)
-                // Використовуємо compareAndSet, щоб не створювати нову задачу, якщо попередня ще не виконалась.
-                // Це захищає Main Thread від перевантаження, якщо фізика працює швидше за сервер.
-                if (!isRenderScheduled.getAndSet(true)) {
-                    Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-                        try {
-                            // Перевірка активності потрібна, бо світ міг закритися поки задача чекала в черзі
-                            if (!isActive.get()) return;
+                // Run internal logic tasks (e.g. Grabber Tool forces)
+                for (Runnable task : tickTasks.values()) {
+                    try {
+                        task.run();
+                    } catch (Exception e) {
+                        InertiaLogger.error("Error in physics tick task", e);
+                    }
+                }
 
-                            // Tick tasks
-                            for (Runnable value : tickTasks.values()) {
-                                value.run();
-                            }
+                // --- Step B: Snapshot Preparation (Producer) ---
+                // If buffer is empty (Consumer took the last one), prepare a new one.
+                // If buffer is full, we skip this frame (drop frame) to prevent lag backlog.
+                if (snapshotBuffer.get() == null) {
+                    List<VisualUpdate> updates = new ArrayList<>(objects.size() * 2); // Approximate size
 
-                            // Оновлення візуальних позицій
-                            for (AbstractPhysicsObject obj : objects) {
-                                if (obj instanceof DisplayedPhysicsObject displayedPhysicsObject)
-                                    displayedPhysicsObject.update();
-                            }
-                        } catch (Exception e) {
-                            InertiaLogger.error("Error updating visuals for world " + worldName, e);
-                        } finally {
-                            // Звільняємо прапорець, дозволяючи планувати наступне оновлення
-                            isRenderScheduled.set(false);
+                    for (AbstractPhysicsObject obj : objects) {
+                        if (obj instanceof DisplayedPhysicsObject displayed) {
+                            displayed.captureSnapshot(updates);
                         }
-                    });
+                    }
+
+                    // Atomic publish
+                    if (!updates.isEmpty()) {
+                        snapshotBuffer.set(new PhysicsSnapshot(updates));
+                    }
                 }
 
             } catch (Exception e) {
@@ -168,22 +164,45 @@ public class MinecraftSpace implements AutoCloseable {
         }, 0, periodMicros, TimeUnit.MICROSECONDS);
     }
 
-    public PhysicsSystem getPhysicsSystem() {
-        return physicsSystem;
-    }
+    /**
+     * Executed on Bukkit Main Thread every tick.
+     * Consumes the latest snapshot and applies it to entities.
+     */
+    private void consumeSnapshot() {
+        if (!isActive.get()) return;
 
-    public BodyInterface getBodyInterface() {
-        return physicsSystem.getBodyInterface();
-    }
+        // Atomically retrieve and clear the buffer
+        PhysicsSnapshot snapshot = snapshotBuffer.getAndSet(null);
 
-    public WorldsConfig.WorldProfile getSettings() {
-        return settings;
+        if (snapshot == null) return; // No new data from physics engine
+
+        // Apply updates blindly
+        for (VisualUpdate update : snapshot.updates()) {
+            VisualObject visual = update.visual();
+            if (visual.isValid()) {
+                // Construct Location on Main Thread (safe)
+                Location loc = new Location(
+                        worldBukkit,
+                        update.position().x,
+                        update.position().y,
+                        update.position().z
+                );
+
+                visual.update(loc, update.rotation(), update.centerOffset(), update.rotateTranslation());
+                visual.setVisible(update.visible());
+            }
+        }
     }
 
     @Override
     public void close() {
         if (isActive.compareAndSet(true, false)) {
             InertiaLogger.info("Closing physics space for world: " + worldName);
+
+            // Stop consumer
+            if (syncTask != null && !syncTask.isCancelled()) {
+                syncTask.cancel();
+            }
 
             removeAllObjects();
 
@@ -194,6 +213,7 @@ public class MinecraftSpace implements AutoCloseable {
             }
             staticBodies.clear();
 
+            // Stop producer
             tickExecutor.shutdown();
             try {
                 if (!tickExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
@@ -207,57 +227,13 @@ public class MinecraftSpace implements AutoCloseable {
         }
     }
 
-    private void addFloorPlane(WorldsConfig.FloorPlaneSettings floorSettings) {
-        InertiaLogger.info("Adding floor PLANE at Y=" + floorSettings.yLevel() + " in world [" + worldName + "]");
-        BodyInterface bi = physicsSystem.getBodyInterface();
+    // --- Standard Methods (Getters, Add/Remove) ---
 
-        // 1. Отримуємо розміри світу з конфігу (worlds.yml)
-        WorldsConfig.WorldSizeSettings sizeSettings = this.settings.size();
-        Vec3 min = sizeSettings.min();
-        Vec3 max = sizeSettings.max();
-
-        // 2. Розраховуємо Half Extents (радіус світу)
-        // PlaneShape приймає лише одне число float для розміру (квадрат), тому беремо більшу сторону
-        float sizeX = Math.abs(max.getX() - min.getX()) * 0.5f;
-        float sizeZ = Math.abs(max.getZ() - min.getZ()) * 0.5f;
-        float halfExtent = Math.max(sizeX, sizeZ);
-
-        // 3. Розраховуємо центр світу
-        double centerX = min.getX() + sizeX;
-        double centerZ = min.getZ() + sizeZ;
-
-        // 4. Створюємо PlaneShape
-        // Normal = Y-Up (0, 1, 0), Constant = 0 (відносно центру тіла)
-        // halfExtent обмежує AABB (Bounding Box), щоб не рахувати фізику за межами світу
-        ConstPlane plane = new Plane(Vec3.sAxisY(), 0.0f);
-        ConstShape floorShape = new com.github.stephengold.joltjni.PlaneShape(plane, null, halfExtent);
-
-        // 5. Позиціонуємо тіло
-        // Ставимо тіло в центр світу на висоту yLevel
-        RVec3 position = new RVec3(centerX, floorSettings.yLevel(), centerZ);
-
-        BodyCreationSettings bcs = new BodyCreationSettings();
-        bcs.setPosition(position);
-        bcs.setMotionType(EMotionType.Static);
-        bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
-        bcs.setShape(floorShape);
-        bcs.setFriction(1.0f);
-        bcs.setRestitution(0.0f);
-
-        // 6. Створюємо тіло
-        Body floor = bi.createBody(bcs);
-        bi.addBody(floor, EActivation.DontActivate);
-
-        staticBodies.add(floor);
-    }
-
-    public World getWorldBukkit() {
-        return worldBukkit;
-    }
-
-    public @NotNull List<AbstractPhysicsObject> getObjects() {
-        return objects;
-    }
+    public PhysicsSystem getPhysicsSystem() { return physicsSystem; }
+    public BodyInterface getBodyInterface() { return physicsSystem.getBodyInterface(); }
+    public WorldsConfig.WorldProfile getSettings() { return settings; }
+    public World getWorldBukkit() { return worldBukkit; }
+    public @NotNull List<AbstractPhysicsObject> getObjects() { return objects; }
 
     public @Nullable ConstBody getBodyById(int id) {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
@@ -273,36 +249,24 @@ public class MinecraftSpace implements AutoCloseable {
         tickTasks.remove(uuid);
     }
 
-    /**
-     * Видаляє всі динамічні об'єкти з цього світу.
-     * Статичні об'єкти (як підлога) залишаються, якщо вони не є частиною списку objects.
-     */
     public void removeAllObjects() {
-        // Створюємо копію списку, щоб уникнути ConcurrentModificationException під час ітерації,
-        // хоча CopyOnWriteArrayList дозволяє ітерацію, destroy() змінює колекцію.
         List<AbstractPhysicsObject> snapshot = new ArrayList<>(objects);
-
         int count = 0;
         for (AbstractPhysicsObject obj : snapshot) {
-            if (obj instanceof BlockPhysicsObject mcObj) {
-                mcObj.destroy();
-                count++;
-            }
+            obj.destroy(); // Destroy calls removeObject
+            count++;
         }
-
         InertiaLogger.info("Cleared " + count + " physics objects from world " + worldName);
     }
 
     public void addObject(AbstractPhysicsObject object) {
         objects.add(object);
         objectMap.put(object.getBody().va(), object);
-        InertiaLogger.debug("Added object VA=" + object.getBody().va() + " to space of world " + worldName);
     }
 
     public void removeObject(AbstractPhysicsObject object) {
         objects.remove(object);
         objectMap.remove(object.getBody().va());
-        InertiaLogger.debug("Removed object VA=" + object.getBody().va() + " from space of world " + worldName);
     }
 
     public void addConstraint(Constraint constraint) {
@@ -331,19 +295,41 @@ public class MinecraftSpace implements AutoCloseable {
         return objectMap.get(va);
     }
 
-    /**
-     * Результат рейкасту.
-     */
+    // --- Helpers ---
+
+    private void addFloorPlane(WorldsConfig.FloorPlaneSettings floorSettings) {
+        BodyInterface bi = physicsSystem.getBodyInterface();
+        WorldsConfig.WorldSizeSettings sizeSettings = this.settings.size();
+        Vec3 min = sizeSettings.min();
+        Vec3 max = sizeSettings.max();
+
+        float sizeX = Math.abs(max.getX() - min.getX()) * 0.5f;
+        float sizeZ = Math.abs(max.getZ() - min.getZ()) * 0.5f;
+        float halfExtent = Math.max(sizeX, sizeZ);
+
+        double centerX = min.getX() + sizeX;
+        double centerZ = min.getZ() + sizeZ;
+
+        ConstPlane plane = new Plane(Vec3.sAxisY(), 0.0f);
+        ConstShape floorShape = new com.github.stephengold.joltjni.PlaneShape(plane, null, halfExtent);
+
+        RVec3 position = new RVec3(centerX, floorSettings.yLevel(), centerZ);
+
+        BodyCreationSettings bcs = new BodyCreationSettings();
+        bcs.setPosition(position);
+        bcs.setMotionType(EMotionType.Static);
+        bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
+        bcs.setShape(floorShape);
+        bcs.setFriction(1.0f);
+        bcs.setRestitution(0.0f);
+
+        Body floor = bi.createBody(bcs);
+        bi.addBody(floor, EActivation.DontActivate);
+        staticBodies.add(floor);
+    }
+
     public record RaycastResult(Long va, RVec3 hitPos) {}
 
-    /**
-     * Виконує рейкаст у фізичному просторі з дебагом.
-     *
-     * @param startPoint Точка початку (очі).
-     * @param direction Вектор погляду.
-     * @param maxDistance Максимальна дистанція.
-     * @return Список результатів, відсортований від найближчого.
-     */
     public List<RaycastResult> raycastEntity(@NotNull Location startPoint, @NotNull Vector direction, double maxDistance) {
         Vector endOffset = direction.clone().normalize().multiply(maxDistance);
         Vector endPoint = startPoint.clone().add(endOffset).toVector();
@@ -359,21 +345,15 @@ public class MinecraftSpace implements AutoCloseable {
 
         for (BroadPhaseCastResult hit : collector.getHits()) {
             ConstBody body = getBodyById(hit.getBodyId());
-
-            if (body == null) {
-                continue;
-            }
+            if (body == null) continue;
 
             AbstractPhysicsObject obj = getObjectByVa(body.targetVa());
-
             if (obj != null) {
                 Vector hitPos0 = MiscUtils.lerpVec(startPoint.toVector(), endPoint, hit.getFraction());
                 RVec3 hitPos = ConvertUtils.toRVec3(hitPos0);
-
                 results.add(new RaycastResult(body.targetVa(), hitPos));
             }
         }
-
         return results;
     }
 }
