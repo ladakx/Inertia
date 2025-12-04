@@ -34,6 +34,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.ladakx.inertia.utils.PDCUtils.getString;
+import static com.ladakx.inertia.utils.PDCUtils.setString;
+
 public class ChainTool extends Tool {
 
     private static final String BODY_ID_KEY = "chain_body_id";
@@ -66,7 +69,7 @@ public class ChainTool extends Tool {
             return;
         }
 
-        String bodyId = getString(event.getItem(), BODY_ID_KEY);
+        String bodyId = getString(InertiaPlugin.getInstance(), event.getItem(), BODY_ID_KEY);
         if (bodyId == null) {
             send(player, MessageKey.CHAIN_MISSING_ID);
             return;
@@ -97,7 +100,7 @@ public class ChainTool extends Tool {
         item = markItemAsTool(item);
 
         // Потім додаємо ID тіла
-        setString(item, BODY_ID_KEY, bodyId);
+        setString(InertiaPlugin.getInstance(), item, BODY_ID_KEY, bodyId);
 
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text("Chain Tool: ", NamedTextColor.GOLD)

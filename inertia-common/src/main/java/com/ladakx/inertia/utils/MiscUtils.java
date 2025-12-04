@@ -6,8 +6,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 
-import java.util.Random;
-
 /**
  * A utility class containing miscellaneous utility methods.
  */
@@ -16,11 +14,6 @@ public class MiscUtils {
     private MiscUtils () {
         // Utility class
     }
-
-    public static float nextFloat(Random r, float min, float max) {
-        return min + r.nextFloat() * (max - min);
-    }
-
 
     /**
      * Returns a location object with the given coordinates in the specified world.

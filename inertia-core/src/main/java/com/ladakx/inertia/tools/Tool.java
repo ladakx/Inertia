@@ -4,6 +4,7 @@ import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.utils.PDCUtils;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
@@ -13,6 +14,8 @@ import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
+
+import static com.ladakx.inertia.utils.PDCUtils.setString;
 
 public abstract class Tool {
 
@@ -38,7 +41,7 @@ public abstract class Tool {
     }
 
     protected ItemStack markItemAsTool(ItemStack stack) {
-        setString(stack, TOOL_KEY, toolId);
+        setString(InertiaPlugin.getInstance(), stack, TOOL_KEY, toolId);
         return stack;
     }
 
@@ -48,7 +51,7 @@ public abstract class Tool {
 
     public boolean isTool(ItemStack stack) {
         if (stack == null) return false;
-        String id = getString(stack, TOOL_KEY);
+        String id = PDCUtils.getString(InertiaPlugin.getInstance(), stack, TOOL_KEY);
         return toolId.equals(id);
     }
 
@@ -74,23 +77,5 @@ public abstract class Tool {
         } else {
             return player.getEyeLocation().add(player.getEyeLocation().getDirection().multiply(3));
         }
-    }
-
-    // --- NBT Data Helpers ---
-
-    protected void setString(ItemStack item, String key, String value) {
-        if (item == null) return;
-
-        // Отримуємо ItemMeta. Якщо її немає, Bukkit створить нову порожню.
-        ItemMeta meta = item.getItemMeta();
-        if (meta == null) return; // Це може статися тільки для Material.AIR
-
-        meta.getPersistentDataContainer().set(new NamespacedKey(InertiaPlugin.getInstance(), key), PersistentDataType.STRING, value);
-        item.setItemMeta(meta);
-    }
-
-    protected String getString(ItemStack item, String key) {
-        if (item == null || !item.hasItemMeta()) return null;
-        return item.getItemMeta().getPersistentDataContainer().get(new NamespacedKey(InertiaPlugin.getInstance(), key), PersistentDataType.STRING);
     }
 }

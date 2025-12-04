@@ -27,6 +27,9 @@ import org.joml.Vector3d;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.ladakx.inertia.utils.PDCUtils.getString;
+import static com.ladakx.inertia.utils.PDCUtils.setString;
+
 public class RagdollTool extends Tool {
 
     public static final String BODY_ID_KEY = "ragdoll_body_id";
@@ -51,7 +54,7 @@ public class RagdollTool extends Tool {
     private void spawnRagdoll(Player player, ItemStack toolItem, boolean applyImpulse) {
         if (!validateWorld(player)) return;
 
-        String bodyId = getString(toolItem, BODY_ID_KEY);
+        String bodyId = getString(InertiaPlugin.getInstance(), toolItem, BODY_ID_KEY);
         if (bodyId == null) {
             send(player, MessageKey.TOOL_BROKEN_NBT);
             return;
@@ -173,7 +176,7 @@ public class RagdollTool extends Tool {
     public ItemStack getToolItem(String bodyId) {
         ItemStack item = getBaseItem();
         item = markItemAsTool(item);
-        setString(item, BODY_ID_KEY, bodyId);
+        setString(InertiaPlugin.getInstance(), item, BODY_ID_KEY, bodyId);
 
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text("Ragdoll: " + bodyId, NamedTextColor.GOLD));

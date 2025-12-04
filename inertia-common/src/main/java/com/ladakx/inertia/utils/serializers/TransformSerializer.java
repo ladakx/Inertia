@@ -13,7 +13,7 @@ import java.util.Map;
  *   - px, py, pz  -> локальний зсув (позиція)
  *   - rot / rotation = "pitch yaw roll" або "pitch,yaw,roll" у ГРАДУСАХ
  *   - pitch, yaw, roll -> окремо, теж у градусах
- *
+ * <p>
  * Для ротації використовує існуючий QuatSerializer, який очікує кути в градусах
  * і всередині конвертує їх у радіани перед викликом Quat.sEulerAngles(...) [1].
  */
