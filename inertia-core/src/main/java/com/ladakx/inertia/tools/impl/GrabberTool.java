@@ -18,49 +18,29 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
 public class GrabberTool extends Tool {
 
-    // ідентифікатор об'єкта в фізиці (VA / pointer-like long)
     private Long heldObject = null;
-
-    // збережений об'єкт "утримуючого" таска (тип залишив як Object — у твоєму physicsHandler може бути інший тип)
     private UUID holdingTask = null;
-
-    // відстань між гравцем і утримуваним об'єктом
     private double holdingDistance = 0.0;
     private final double grabberForce = 10;
-
-    // мапа для збереження joint'ів, якщо для об'єкта уже існував з'єднувальний body/constraint
     private final Map<Long, GrabberJoint> jointMap = new HashMap<>();
 
     public GrabberTool() {
         super("grabber");
     }
 
-    /***********************
-     * Подія зміни слоту (скрол) — відповідає onHotbarChange у твоєму Tool
-     * diff = -1 або +1
-     ***********************/
     @Override
     public boolean onHotbarChange(PlayerItemHeldEvent event, int diff) {
-        Player player = event.getPlayer();
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
-
         if (holdingTask == null) return false;
-
         holdingDistance += diff * 1.5;
-
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, SoundCategory.MASTER, 0.5f, 2.0f);
+        event.getPlayer().playSound(event.getPlayer().getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, SoundCategory.MASTER, 0.5f, 2.0f);
         return true;
     }
 
-    /***********************
-     * Правий клік — підхопити / відпустити об'єкт
-     ***********************/
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
@@ -89,18 +69,16 @@ public class GrabberTool extends Tool {
         if (mcObj == null) return;
         Body mcBody = mcObj.getBody();
 
-        if (jointMap.containsKey(objVa)) { // Remove holding joints if any
+        if (jointMap.containsKey(objVa)) {
             GrabberJoint joint = jointMap.get(objVa);
             space.getBodyInterface().removeBody(joint.bodyId());
             space.removeConstraint(joint.constraint());
-
             jointMap.remove(objVa);
         }
 
         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, SoundCategory.MASTER, 0.5f, 1.8f);
 
         heldObject = objVa;
-
         holdingDistance = player.getLocation().distance(ConvertUtils.toBukkitLoc(mcBody.getPosition(), player.getWorld()));
 
         if (mcObj instanceof DisplayedPhysicsObject displayedPhysicsObject) {
@@ -109,19 +87,13 @@ public class GrabberTool extends Tool {
 
         holdingTask = space.addTickTask(() -> {
             space.getBodyInterface().activateBody(mcBody.getId());
-
             RVec3 physicsVec = mcBody.getPosition();
-
             org.bukkit.util.Vector wantedPos = player.getEyeLocation().clone().add(player.getLocation().getDirection().clone().multiply(holdingDistance)).toVector();
             org.bukkit.util.Vector diff = wantedPos.subtract(ConvertUtils.toBukkit(physicsVec));
-
             mcBody.setLinearVelocity(ConvertUtils.toVec3(diff.multiply(grabberForce)));
         });
     }
 
-    /***********************
-     * Лівий клік — кидок або спеціальна дія при утриманні
-     ***********************/
     @Override
     public void onLeftClick(PlayerInteractEvent event) {
         if (holdingTask == null || heldObject == null) return;
@@ -158,17 +130,9 @@ public class GrabberTool extends Tool {
         heldObject = null;
     }
 
-    /***********************
-     * Swap hands (F) — в твоєму Tool.java
-     ***********************/
     @Override
-    public void onSwapHands(Player player) {
-        // Ніяких дій за замовчуванням — ти можеш реалізувати при потребі.
-    }
+    public void onSwapHands(Player player) {}
 
-    /***********************
-     * Повернути ItemStack (буде обгорнено markItemAsTool у Tool.buildItem())
-     ***********************/
     @Override
     protected ItemStack getBaseItem() {
         ItemStack stack = new ItemStack(Material.BLAZE_ROD);

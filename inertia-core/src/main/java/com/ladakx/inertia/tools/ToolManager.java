@@ -22,12 +22,12 @@ public class ToolManager implements Listener {
     private ToolManager(InertiaPlugin plugin) {
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        // Registration of tools
         register(new ChainTool());
         register(new DeleteTool());
         register(new WeldTool());
         register(new GrabberTool());
         register(new RagdollTool());
+        register(new ShapeTool());
     }
 
     public static void init(InertiaPlugin plugin) {
@@ -84,7 +84,6 @@ public class ToolManager implements Listener {
         if (tool != null) {
             int newSlot = event.getNewSlot();
             int oldSlot = event.getPreviousSlot();
-
             int diff = newSlot - oldSlot;
             if (diff == -8) diff = 1;
             if (diff == 8) diff = -1;
@@ -99,7 +98,7 @@ public class ToolManager implements Listener {
     public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
         Tool chainTool = getTool("chain_tool");
         if (chainTool instanceof ChainTool ct) {
-            ct.onSwapHands(event.getPlayer());
+            ct.onSwapHands(event.getPlayer()); // Clear cache on quit
         }
     }
 }

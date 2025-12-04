@@ -24,30 +24,104 @@ worldedit-not-enabled:
 select-region:
   - "{prefix} &cSelect the region with an axe before using this command!"
 
+# --- Spawn Messages ---
 spawn-success:
   - "{prefix} &7Physics body &f{id} &7spawned successfully!"
 spawn-fail-invalid-id:
   - "{prefix} &cPhysics body with ID '{id}' not found in bodies.yml!"
+chain-spawn-success:
+  - "{prefix} &7Chain created! Size: &f{size}"
+ragdoll-spawn-success:
+  - "{prefix} &7Ragdoll &f{id} &7spawned successfully!"
+shape-spawn-success:
+  - "{prefix} &7Spawned &f{count} &7objects in shape &f{shape}&7!"
+
+# --- Shape Errors ---
+shape-not-found:
+  - "{prefix} &cUnknown shape: {shape}"
+shape-list-available:
+  - "{prefix} &7Available shapes: &f{shapes}"
+shape-usage:
+  - "{prefix} &cUsage: /inertia spawn-shape {type} {params} <bodyId>"
+shape-invalid-params:
+  - "{prefix} &cShape parameters must be numbers!"
+
+# --- Tools ---
+tool-received:
+  - "{prefix} &7Received tool: &f{tool}"
+tool-not-found:
+  - "{prefix} &cTool not found or invalid configuration!"
+tool-broken-nbt:
+  - "{prefix} &cBroken Tool: Missing NBT data!"
+tool-invalid-params:
+  - "{prefix} &cInvalid parameters in tool data."
+
+# --- Tool Specifics ---
+shape-spawned:
+  - "{prefix} &7Spawned &f{count} &7objects (&e{shape}&7)"
+shape-spawn-error:
+  - "{prefix} &cError spawning shape: {error}"
+
+chain-point-set:
+  - "{prefix} &7Position 1 set at: &e{location}"
+chain-select-first:
+  - "{prefix} &cPlease select Position 1 first (Left Click)!"
+chain-missing-id:
+  - "{prefix} &cInvalid Tool: Missing Chain Body ID."
+chain-building:
+  - "{prefix} &7Position 2 set. Building chain..."
+selection-cleared:
+  - "{prefix} &eSelection cleared."
+chain-created:
+  - "{prefix} &7Chain created with &f{count} &7links."
+invalid-chain-body:
+  - "{prefix} &cInvalid chain body definition: {id}"
+
+invalid-ragdoll-body:
+  - "{prefix} &cInvalid ragdoll body: {id}"
+
+weld-mode-change:
+  - "{prefix} &eWeld Mode: &f{mode}"
+weld-removed:
+  - "{prefix} &cWeld removed."
+weld-first-selected:
+  - "{prefix} &7First object selected."
+weld-deselected:
+  - "{prefix} &eDeselected first object."
+weld-connected:
+  - "{prefix} &aConnected objects!"
+
+remover-used:
+  - "{prefix} &cObject removed."
+
+# --- General Errors ---
+error-occurred:
+  - "{prefix} &cError: {error}"
 clear-success:
   - "{prefix} &7Removed &c{count} &7physics objects from this world."
 
 help-command:
   - ' '
-  - '&c&lInertia &8&l|&r &7Core'
+  - '&c&lInertia &8&l|&r &7Commands'
   - ' '
-  - '&c&l» Commands&8:'
-  - '&c› &c/inertia help &7- &fShow help for commands'
+  - '&c&l» General&8:'
+  - '&c› &c/inertia help &7- &fShow available commands'
   - ' '
 help-command-admin:
   - ' '
-  - '&c&lInertia &8&l|&r &7Core'
+  - '&c&lInertia &8&l|&r &7Admin Commands'
   - ' '
-  - '&c&l» Commands&8:'
-  - '&c› &c/inertia help &7- &fShow help for commands'
-  - '&c› &c/inertia reload &7- &fReload the plugin.'
-  - '&c› &c/inertia debug &7- &fEnable debug bar.'
-  - '&c› &c/inertia debug block info &7- &fShow bounding box of target block.'
-  - '&c› &c/inertia debug block spawn <radius> &7- &fSpawn physics blocks for debug.'
-  - '&c› &c/inertia debug block clear &7- &fClear all physics debug blocks'
-  - '&c› &c/inertia hitbox &7- &fEnable render physics elements hitbox.'
+  - '&c&l» Main&8:'
+  - '&c› &c/inertia reload &7- &fReload configuration'
+  - '&c› &c/inertia clear &7- &fRemove all physics objects'
+  - ' '
+  - '&c&l» Spawning&8:'
+  - '&c› &c/inertia spawn body <id> &7- &fSpawn a physics body'
+  - '&c› &c/inertia spawn chain <id> [size] &7- &fSpawn a chain'
+  - '&c› &c/inertia spawn ragdoll <id> &7- &fSpawn a ragdoll'
+  - '&c› &c/inertia spawn-shape <type> <params> <id> &7- &fSpawn a shape of blocks'
+  - ' '
+  - '&c&l» Tools&8:'
+  - '&c› &c/inertia tool <grabber|welder|remover> &7- &fGet utility tools'
+  - '&c› &c/inertia tool <chain|ragdoll|shape> ... &7- &fGet creation tools'
   - ' '

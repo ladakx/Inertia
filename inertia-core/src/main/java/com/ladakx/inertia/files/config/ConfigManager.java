@@ -4,7 +4,7 @@ import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.*;
 import com.ladakx.inertia.files.config.message.MessageManager;
-import com.ladakx.inertia.physics.registry.PhysicsBodyRegistry;
+import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 
 public class ConfigManager {
 

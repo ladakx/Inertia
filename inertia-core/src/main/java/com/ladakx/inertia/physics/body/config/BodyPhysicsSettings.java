@@ -1,4 +1,4 @@
-package com.ladakx.inertia.physics.config;
+package com.ladakx.inertia.physics.body.config;
 
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import org.bukkit.configuration.ConfigurationSection;
