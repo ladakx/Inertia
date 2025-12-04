@@ -29,8 +29,6 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
     private final String bodyId;
     private final PhysicsDisplayComposite displayComposite;
     private boolean removed = false;
-
-    // Зберігаємо посилання на групу колізій, щоб GC не видалив її завчасно
     private final CollisionGroup collisionGroup;
 
     public RagdollPhysicsObject(@NotNull MinecraftSpace space,
@@ -46,8 +44,6 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
     ) {
         super(space, createBodySettings(bodyId, partName, modelRegistry, initialPosition, initialRotation, groupFilter, partIndex));
         this.bodyId = bodyId;
-
-        // Зберігаємо групу колізій (вона вже встановлена в bodySettings, але потрібен сильний референс)
         this.collisionGroup = getBody().getCollisionGroup();
 
         RagdollDefinition def = (RagdollDefinition) modelRegistry.require(bodyId).bodyDefinition();
@@ -56,13 +52,11 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         if (partDef.parentName() != null) {
             Body parentBody = spawnedParts.get(partDef.parentName());
             if (parentBody != null) {
-                // Створюємо з'єднання та вимикаємо колізію
                 createConstraint(partDef, parentBody, getBody(), groupFilter);
             }
         }
 
         this.displayComposite = createVisuals(space, bodyId, partName, modelRegistry, renderFactory, initialPosition);
-        update();
     }
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
@@ -88,8 +82,6 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         settings.setMotionType(EMotionType.Dynamic);
         settings.setObjectLayer(0);
 
-        // --- Встановлюємо групу колізій ---
-        // GroupID = 0 (основна), SubGroupID = partIndex (унікальний для частини)
         CollisionGroup group = new CollisionGroup(groupFilter, 0, partIndex);
         settings.setCollisionGroup(group);
         settings.getMassProperties().setMass(partDef.mass());
@@ -111,17 +103,11 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         if (joint == null) return;
 
         if (!partDef.collideWithParent()) {
-            // --- ВИМИКАЄМО КОЛІЗІЮ ---
-            // Отримуємо ID підгрупи батька та дитини
             int parentSubId = parentBody.getCollisionGroup().getSubGroupId();
             int childSubId = childBody.getCollisionGroup().getSubGroupId();
-
-            // Кажемо таблиці ігнорувати колізію між цими двома частинами
             groupFilter.disableCollision(parentSubId, childSubId);
         }
 
-
-        // --- Далі стандартне створення Constraint ---
         RVec3 parentPos = parentBody.getPosition();
         Quat parentRot = parentBody.getRotation();
         RVec3 childPos = childBody.getPosition();
@@ -158,7 +144,6 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         settings.setPosition2(pivot2);
 
         TwoBodyConstraint constraint = settings.create(parentBody, childBody);
-
         constraint.setNumVelocityStepsOverride(15);
         constraint.setNumPositionStepsOverride(5);
 
@@ -193,7 +178,6 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
     }
 
     @Override public @Nullable PhysicsDisplayComposite getDisplay() { return displayComposite; }
-    @Override public void update() { if (!removed && displayComposite != null) displayComposite.update(); }
     @Override public @NotNull String getBodyId() { return bodyId; }
     @Override public @NotNull com.ladakx.inertia.jolt.object.PhysicsObjectType getType() { return com.ladakx.inertia.jolt.object.PhysicsObjectType.RAGDOLL; }
     @Override public void remove() { destroy(); }
