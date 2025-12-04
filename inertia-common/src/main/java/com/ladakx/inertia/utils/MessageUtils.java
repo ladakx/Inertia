@@ -31,7 +31,6 @@ public class MessageUtils {
         // 3. Parse MiniMessage
         String processed = text.replace("{prefix}", prefix != null ? prefix : "");
 
-        // Припускаємо, що StringUtils.colorAdventure повертає String з legacy кодами, адаптованими для MM
         if (processed.contains("&") || processed.contains("§")) {
             processed = StringUtils.colorAdventure(processed);
         }

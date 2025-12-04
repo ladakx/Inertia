@@ -20,6 +20,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.ladakx.inertia.utils.PDCUtils.getString;
+import static com.ladakx.inertia.utils.PDCUtils.setString;
+
 public class ShapeTool extends Tool {
 
     private static final String KEY_SHAPE = "shape_type";
@@ -46,9 +49,9 @@ public class ShapeTool extends Tool {
         if (!validateWorld(player)) return;
 
         ItemStack item = event.getItem();
-        String shapeName = getString(item, KEY_SHAPE);
-        String bodyId = getString(item, KEY_BODY);
-        String paramsStr = getString(item, KEY_PARAMS);
+        String shapeName = getString(InertiaPlugin.getInstance(), item, KEY_SHAPE);
+        String bodyId = getString(InertiaPlugin.getInstance(), item, KEY_BODY);
+        String paramsStr = getString(InertiaPlugin.getInstance(), item, KEY_PARAMS);
 
         if (shapeName == null || bodyId == null) {
             send(player, MessageKey.TOOL_BROKEN_NBT);
@@ -100,9 +103,9 @@ public class ShapeTool extends Tool {
         item = markItemAsTool(item);
 
         String storedParams = String.join(";", Arrays.stream(params).mapToObj(String::valueOf).toArray(String[]::new));
-        setString(item, KEY_SHAPE, shape);
-        setString(item, KEY_BODY, bodyId);
-        setString(item, KEY_PARAMS, storedParams);
+        setString(InertiaPlugin.getInstance(), item, KEY_SHAPE, shape);
+        setString(InertiaPlugin.getInstance(), item, KEY_BODY, bodyId);
+        setString(InertiaPlugin.getInstance(), item, KEY_PARAMS, storedParams);
 
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text("Shape Tool: ", NamedTextColor.GOLD)
