@@ -21,6 +21,16 @@ grass:
       block: GRASS_BLOCK
       interpolation-duration: 1
       teleport-duration: 1
+tnt:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display_1:
+      type: BLOCK_DISPLAY
+      block: TNT
+      interpolation-duration: 1
+      teleport-duration: 1
 slab:
   sync:
     position: true
