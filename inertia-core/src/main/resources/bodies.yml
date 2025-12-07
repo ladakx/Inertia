@@ -28,6 +28,19 @@ blocks:
       object-layer: 0
       shape:
         - "type=box x=0.5 y=0.5 z=0.5"
+  tnt_physics:
+    render:
+      model: tnt # посилання на модель з render.yml
+    physics:
+      angular-damping: 0.1
+      linear-damping: 0.3
+      friction: 1.0
+      restitution: 0.025
+      mass: 50.0
+      motion-type: Dynamic
+      object-layer: 0
+      shape:
+        - "type=box x=0.5 y=0.5 z=0.5"
   slab:
     render:
       model: slab # посилання на модель з render.yml
