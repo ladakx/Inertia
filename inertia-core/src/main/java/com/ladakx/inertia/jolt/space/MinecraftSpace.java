@@ -12,7 +12,6 @@ import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.config.WorldsConfig;
 import com.ladakx.inertia.jolt.PhysicsLayers;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
-import com.ladakx.inertia.jolt.object.BlockPhysicsObject;
 import com.ladakx.inertia.jolt.object.DisplayedPhysicsObject;
 import com.ladakx.inertia.jolt.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.jolt.snapshot.VisualUpdate;
@@ -249,24 +248,66 @@ public class MinecraftSpace implements AutoCloseable {
         tickTasks.remove(uuid);
     }
 
+    /**
+     * Remove and destroy all physics objects currently registered in this space.
+     * Uses the object's {@link AbstractPhysicsObject#destroy()} implementation,
+     * which is safe and idempotent.
+     */
     public void removeAllObjects() {
         List<AbstractPhysicsObject> snapshot = new ArrayList<>(objects);
         int count = 0;
         for (AbstractPhysicsObject obj : snapshot) {
-            obj.destroy(); // Destroy calls removeObject
-            count++;
+            try {
+                obj.destroy();
+                count++;
+            } catch (Exception e) {
+                InertiaLogger.error(
+                        "Failed to destroy physics object while clearing world " + worldName,
+                        e
+                );
+            }
         }
         InertiaLogger.info("Cleared " + count + " physics objects from world " + worldName);
     }
 
+    /**
+     * Register a new physics object along with its primary body.
+     *
+     * @param object physics object to add (not null)
+     */
     public void addObject(AbstractPhysicsObject object) {
         objects.add(object);
-        objectMap.put(object.getBody().va(), object);
+        registerBody(object, object.getBody());
     }
 
+    /**
+     * Register an additional body that belongs to the specified physics object.
+     * This is used for multi-body constructs such as chains and ragdolls so that
+     * tools like DeleteTool can correctly resolve ownership from any hit body.
+     *
+     * @param object owning physics object (not null)
+     * @param body   Jolt body belonging to the object (not null)
+     */
+    public void registerBody(@NotNull AbstractPhysicsObject object, @NotNull Body body) {
+        if (body == null) {
+            return;
+        }
+        objectMap.put(body.va(), object);
+    }
+
+    public AbstractPhysicsObject getObjectByVa(long va) {
+        return objectMap.get(va);
+    }
+
+    /**
+     * Unregister a physics object from this space.
+     * All body mappings that point to the object are removed.
+     *
+     * @param object physics object to remove (not null)
+     */
     public void removeObject(AbstractPhysicsObject object) {
         objects.remove(object);
-        objectMap.remove(object.getBody().va());
+        objectMap.entrySet().removeIf(entry -> entry.getValue() == object);
     }
 
     public void addConstraint(Constraint constraint) {
@@ -280,6 +321,13 @@ public class MinecraftSpace implements AutoCloseable {
         }
     }
 
+    /**
+     * Remove a constraint from the physics system using a Jolt {@link Constraint} instance.
+     * Also updates all owning {@link AbstractPhysicsObject} instances so they no longer
+     * track the constraint.
+     *
+     * @param constraint constraint to remove (not null)
+     */
     public void removeConstraint(Constraint constraint) {
         physicsSystem.removeConstraint(constraint);
         if (constraint instanceof TwoBodyConstraint twoBodyConstraint) {
@@ -289,10 +337,6 @@ public class MinecraftSpace implements AutoCloseable {
             AbstractPhysicsObject obj2 = getObjectByVa(twoBodyConstraint.getBody2().va());
             if (obj2 != null) obj2.removeRelatedConstraint(ref);
         }
-    }
-
-    public @Nullable AbstractPhysicsObject getObjectByVa(Long va) {
-        return objectMap.get(va);
     }
 
     // --- Helpers ---
