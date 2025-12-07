@@ -53,4 +53,9 @@ public interface InertiaPhysicsObject {
      */
     @NotNull
     Location getLocation();
+
+    /**
+     *
+     */
+    void destroy();
 }
