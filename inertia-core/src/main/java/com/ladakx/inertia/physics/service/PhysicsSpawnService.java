@@ -7,6 +7,7 @@ import com.ladakx.inertia.api.body.InertiaPhysicsObject;
 import com.ladakx.inertia.files.config.ConfigManager;
 import com.ladakx.inertia.jolt.object.ChainPhysicsObject;
 import com.ladakx.inertia.jolt.object.RagdollPhysicsObject;
+import com.ladakx.inertia.jolt.object.TNTPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
@@ -199,6 +200,53 @@ public class PhysicsSpawnService {
                 }
             }
         });
+    }
+
+    /**
+     * Spawns a physics-based TNT entity with a fuse and explosion force.
+     *
+     * @param location       Spawn location.
+     * @param bodyId         The body ID from bodies.yml (visual/shape).
+     * @param explosionForce The force applied to nearby bodies upon detonation.
+     * @param velocity       Initial velocity (optional, can be null).
+     */
+    public void spawnTNT(Location location, String bodyId, float explosionForce, @javax.annotation.Nullable Vector velocity) {
+        if (location.getWorld() == null) return;
+        MinecraftSpace space = spaceManager.getSpace(location.getWorld());
+        if (space == null) return;
+
+        // Verify body exists
+        if (registry.find(bodyId).isEmpty()) {
+            throw new IllegalArgumentException("Body ID not found: " + bodyId);
+        }
+
+        // Coordinates
+        RVec3 pos = new RVec3(location.getX(), location.getY(), location.getZ());
+
+        // Rotation (Identity for simplicity, or based on location yaw/pitch)
+        Quat rot = new Quat(0, 0, 0, 1);
+
+        // Create Object
+        TNTPhysicsObject tnt = new TNTPhysicsObject(
+                space,
+                bodyId,
+                registry,
+                plugin.getRenderFactory(),
+                pos,
+                rot,
+                explosionForce,
+                80 // 4 seconds fuse (standard Minecraft)
+        );
+
+        // Apply initial velocity if provided (e.g., throwing)
+        if (velocity != null) {
+            com.github.stephengold.joltjni.Vec3 linearVel = new com.github.stephengold.joltjni.Vec3(
+                    (float) velocity.getX(),
+                    (float) velocity.getY(),
+                    (float) velocity.getZ()
+            );
+            tnt.getBody().setLinearVelocity(linearVel);
+        }
     }
 
     private Location getSpawnLocation(Player player, double distance) {

@@ -94,11 +94,19 @@ weld-connected:
 remover-used:
   - "{prefix} &cObject removed."
 
-# --- General Errors ---
 error-occurred:
   - "{prefix} &cError: {error}"
 clear-success:
   - "{prefix} &7Removed &c{count} &7physics objects from this world."
+
+tnt-spawned:
+  - "{prefix} &7TNT spawned with force &c{force}&7!"
+tnt-tool-received:
+  - "{prefix} &7Received TNT Spawner (Body: &f{body}&7, Force: &c{force}&7)."
+tnt-invalid-force:
+  - "{prefix} &cInvalid explosion force specified."
+tnt-tool-usage:
+  - "{prefix} &cUsage: /inertia tool tntspawner <bodyId> <force>"
 
 help-command:
   - ' '

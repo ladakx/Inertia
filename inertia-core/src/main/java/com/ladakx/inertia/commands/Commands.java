@@ -17,6 +17,8 @@ import com.ladakx.inertia.tools.ToolManager;
 import com.ladakx.inertia.tools.impl.ChainTool;
 import com.ladakx.inertia.tools.impl.RagdollTool;
 import com.ladakx.inertia.tools.impl.ShapeTool;
+import com.ladakx.inertia.tools.impl.TNTSpawnTool;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -253,6 +255,46 @@ public class Commands extends BaseCommand {
     @CommandPermission("inertia.commands.tool")
     public void onToolRemover(Player player) {
         giveTool(player, "remover", null, null);
+    }
+
+    @Subcommand("spawn tnt")
+    @CommandPermission("inertia.commands.spawn")
+    @CommandCompletion("@bodies 10|20|50")
+    @Description("Spawn a physics-based TNT.")
+    public void onSpawnTNT(Player player, String bodyId, @Default("20") float force) {
+        if (!validateWorld(player)) return;
+
+        try {
+            if (!validateBodyExists(player, bodyId)) return;
+
+            // Spawn at feet
+            Location loc = player.getLocation().add(0, 0.5, 0);
+            spawnService.spawnTNT(loc, bodyId, force, null);
+
+            send(player, MessageKey.TNT_SPAWNED, "{force}", String.valueOf(force));
+        } catch (Exception e) {
+            handleException(player, e);
+        }
+    }
+
+    @Subcommand("tool tntspawner")
+    @CommandPermission("inertia.commands.tool")
+    @CommandCompletion("@bodies 10|20|50")
+    @Description("Get a tool to throw or place physics TNT.")
+    public void onToolTNT(Player player, String bodyId, @Default("20") float force) {
+        if (!checkPermission(player, "inertia.commands.tool", true)) return;
+
+        if (!validateBodyExists(player, bodyId)) return;
+
+        ToolManager tm = ToolManager.getInstance();
+        Tool tool = tm.getTool("tnt_spawner");
+
+        if (tool instanceof TNTSpawnTool tntTool) {
+            player.getInventory().addItem(tntTool.getToolItem(bodyId, force));
+            send(player, MessageKey.TNT_TOOL_RECEIVED, "{body}", bodyId, "{force}", String.valueOf(force));
+        } else {
+            send(player, MessageKey.TOOL_NOT_FOUND);
+        }
     }
 
     // --- Helpers ---
