@@ -59,6 +59,11 @@ public enum MessageKey {
 
     REMOVER_USED("remover-used"),
 
+    TNT_SPAWNED("tnt-spawned"),
+    TNT_TOOL_RECEIVED("tnt-tool-received"),
+    TNT_INVALID_FORCE("tnt-invalid-force"),
+    TNT_TOOL_USAGE("tnt-tool-usage"),
+
     // Help
     HELP_COMMAND("help-command"),
     HELP_COMMAND_ADMIN("help-command-admin");

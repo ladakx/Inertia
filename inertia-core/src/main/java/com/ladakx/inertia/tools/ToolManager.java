@@ -28,6 +28,7 @@ public class ToolManager implements Listener {
         register(new GrabberTool());
         register(new RagdollTool());
         register(new ShapeTool());
+        register(new TNTSpawnTool());
     }
 
     public static void init(InertiaPlugin plugin) {

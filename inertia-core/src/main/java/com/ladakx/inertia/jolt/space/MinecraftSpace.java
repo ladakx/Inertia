@@ -1,10 +1,9 @@
 package com.ladakx.inertia.jolt.space;
 
 import com.github.stephengold.joltjni.*;
-import com.github.stephengold.joltjni.enumerate.EActivation;
-import com.github.stephengold.joltjni.enumerate.EMotionType;
-import com.github.stephengold.joltjni.enumerate.EPhysicsUpdateError;
+import com.github.stephengold.joltjni.enumerate.*;
 import com.github.stephengold.joltjni.readonly.ConstBody;
+import com.github.stephengold.joltjni.readonly.ConstBroadPhaseQuery;
 import com.github.stephengold.joltjni.readonly.ConstPlane;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.InertiaLogger;
@@ -370,6 +369,93 @@ public class MinecraftSpace implements AutoCloseable {
             if (obj1 != null) obj1.removeRelatedConstraint(ref);
             AbstractPhysicsObject obj2 = getObjectByVa(twoBodyConstraint.getBody2().va());
             if (obj2 != null) obj2.removeRelatedConstraint(ref);
+        }
+    }
+
+    /**
+     * Creates a physics explosion within the Jolt simulation.
+     * <p>
+     * This method must be called from the Physics Thread (e.g., inside a Tick Task).
+     * It queries the broadphase for bodies within the radius and applies a linear impulse
+     * based on distance (linear falloff).
+     *
+     * @param origin The center of the explosion (Jolt coordinates).
+     * @param force  The maximum impulse force at the epicenter.
+     * @param radius The radius of effect.
+     */
+    public void createExplosion(@NotNull Vec3 origin, float force, float radius) {
+        // Захист від дивних значень
+        if (force <= 0f || radius <= 0f) {
+            return;
+        }
+
+        force *= 500; // Масштабування сили для кращого відчуття
+
+        // У фізичному потоці бажано брати NoLock-версію інтерфейсу тіл
+        BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
+        ConstBroadPhaseQuery broadPhase = physicsSystem.getBroadPhaseQuery();
+
+        float radiusSq = radius * radius;
+
+        // Колектор, який збирає ID усіх тіл, чия AABB потрапила в сферу
+        try (AllHitCollideShapeBodyCollector collector =
+                     new AllHitCollideShapeBodyCollector()) {
+
+            // Шукаємо всі тіла, чиї bounding box-и перетинають сферу вибуху
+            // (broadphase працює тільки з AABB, це норм для вибуху)
+            broadPhase.collideSphere(origin, radius, collector);
+
+            int[] hits = collector.getHits();
+            if (hits == null || hits.length == 0) {
+                return;
+            }
+
+            for (int bodyId : hits) {
+                // Пропускаємо статичні / кінематичні тіла – вибух не повинен їх рухати
+                EMotionType motionType = bodyInterface.getMotionType(bodyId);
+                if (motionType != EMotionType.Dynamic) {
+                    continue;
+                }
+
+                // За бажанням можна ще відкинути сенсори
+                if (bodyInterface.isSensor(bodyId)) {
+                    continue;
+                }
+
+                // Позиція центру маси тіла (RVec3 – подвійна точність, система координат Jolt)
+                RVec3 com = bodyInterface.getCenterOfMassPosition(bodyId);
+
+                // Вектор від епіцентру до тіла
+                float dx = com.x() - origin.getX();
+                float dy = com.y() - origin.getY();
+                float dz = com.z() - origin.getZ();
+
+                Vec3 offset = new Vec3(dx, dy, dz);
+                float distSq = offset.lengthSq();
+
+                // Якщо занадто близько до нуля (щоб уникнути ділення на 0) або раптом вилізло за радіус
+                if (distSq <= 1.0e-6f || distSq > radiusSq) {
+                    continue;
+                }
+
+                float dist = (float) Math.sqrt(distSq);
+
+                // Лінійне затухання: dist = 0 -> 1, dist = radius -> 0
+                float factor = 1.0f - (dist / radius);
+                if (factor <= 0f) {
+                    continue;
+                }
+
+                // Нормалізуємо напрямок та масштабуємо за силою
+                Vec3 impulse = offset.normalized();
+                impulse.scaleInPlace(force * factor);
+
+                // Активуємо тіло (на випадок якщо воно «спить»)
+                bodyInterface.activateBody(bodyId);
+
+                // Імпульс у центр мас
+                bodyInterface.addImpulse(bodyId, impulse);
+            }
         }
     }
 
