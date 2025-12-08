@@ -34,6 +34,17 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import com.github.stephengold.joltjni.Body;
+import com.github.stephengold.joltjni.BodyInterface;
+import com.github.stephengold.joltjni.Vec3;
+import com.github.stephengold.joltjni.enumerate.EMotionType;
+import com.github.stephengold.joltjni.RVec3;
+import java.util.ArrayList;
+import java.util.List;
+
 public class MinecraftSpace implements AutoCloseable {
 
     private final String worldName;
@@ -60,6 +71,12 @@ public class MinecraftSpace implements AutoCloseable {
 
     // Custom Tasks
     private final Map<UUID, Runnable> tickTasks = new ConcurrentHashMap<>();
+    /**
+     * Queue of tasks that must be executed on the physics thread before or
+     * after advancing the simulation step.
+     */
+    private final Queue<Runnable> physicsTasks = new ConcurrentLinkedQueue<>();
+
 
     public MinecraftSpace(World world, WorldsConfig.WorldProfile settings, JobSystem jobSystem, TempAllocator tempAllocator) {
         this.worldBukkit = world;
@@ -130,10 +147,20 @@ public class MinecraftSpace implements AutoCloseable {
                     InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
                 }
 
-                // Run internal logic tasks (e.g. Grabber Tool forces)
-                for (Runnable task : tickTasks.values()) {
+                // Run queued physics tasks
+                Runnable task;
+                while ((task = physicsTasks.poll()) != null) {
                     try {
                         task.run();
+                    } catch (Exception e) {
+                        InertiaLogger.error("Error while executing physics task in world " + worldName, e);
+                    }
+                }
+
+                // Run internal logic tasks (e.g. Grabber Tool forces)
+                for (Runnable tickTask : tickTasks.values()) {
+                    try {
+                        tickTask.run();
                     } catch (Exception e) {
                         InertiaLogger.error("Error in physics tick task", e);
                     }
@@ -246,6 +273,13 @@ public class MinecraftSpace implements AutoCloseable {
 
     public void removeTickTask(UUID uuid) {
         tickTasks.remove(uuid);
+    }
+
+    public void schedulePhysicsTask(@NotNull Runnable task) {
+        if (task == null) {
+            return;
+        }
+        physicsTasks.add(task);
     }
 
     /**
