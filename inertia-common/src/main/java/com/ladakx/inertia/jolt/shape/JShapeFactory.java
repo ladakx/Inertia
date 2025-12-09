@@ -15,6 +15,7 @@ import com.github.stephengold.joltjni.TaperedCapsuleShapeSettings;
 import com.github.stephengold.joltjni.TaperedCylinderShapeSettings;
 import com.github.stephengold.joltjni.Vec3;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.utils.mesh.MeshProvider;
 import com.ladakx.inertia.utils.serializers.TransformSerializer;
 import com.ladakx.inertia.utils.serializers.TransformSerializer.JoltTransform;
@@ -27,7 +28,6 @@ import java.util.logging.Logger;
  */
 public final class JShapeFactory {
 
-    private static final Logger LOGGER = Logger.getLogger("InertiaJShapeFactory");
     private static volatile MeshProvider meshProvider;
 
     private JShapeFactory() {
@@ -73,13 +73,13 @@ public final class JShapeFactory {
             try {
                 parsed.add(parseLine(line));
             } catch (Exception e) {
-                LOGGER.warning("Failed to parse shape line: '" + line + "'. Error: " + e.getMessage());
+                InertiaLogger.warn("Failed to parse shape line: '" + line + "'. Error: " + e.getMessage());
             }
         }
 
         if (parsed.isEmpty()) {
             // Щоб не крашити сервер, повертаємо дефолтний бокс, якщо нічого не розпарсили
-            LOGGER.severe("No valid shapes found. Creating default fallback box (0.5, 0.5, 0.5).");
+            InertiaLogger.error("No valid shapes found. Creating default fallback box (0.5, 0.5, 0.5).");
             return new BoxShape(new Vec3(0.5f, 0.5f, 0.5f)).toRefC();
         }
 
@@ -94,7 +94,7 @@ public final class JShapeFactory {
                         new OffsetCenterOfMassShapeSettings(only.centerOfMassOffset(), decorated);
                 ShapeResult ocomResult = ocomSettings.create();
                 if (ocomResult.hasError()) {
-                    LOGGER.severe("Error creating OffsetCenterOfMass: " + ocomResult.getError());
+                    InertiaLogger.error("Error creating OffsetCenterOfMass: " + ocomResult.getError());
                 } else {
                     decorated = ocomResult.get();
                 }
@@ -106,7 +106,7 @@ public final class JShapeFactory {
                         new RotatedTranslatedShapeSettings(only.position(), only.rotation(), decorated);
                 ShapeResult rtResult = rtSettings.create();
                 if (rtResult.hasError()) {
-                    LOGGER.severe("Error creating RotatedTranslated: " + rtResult.getError());
+                    InertiaLogger.error("Error creating RotatedTranslated: " + rtResult.getError());
                 } else {
                     decorated = rtResult.get();
                 }
@@ -143,7 +143,7 @@ public final class JShapeFactory {
         // ВАЖЛИВО: Отримуємо тип. Якщо немає — WARN і дефолт "box"
         String type = kv.get("type");
         if (type == null || type.isBlank()) {
-            LOGGER.warning("Missing 'type' in definition: [" + line + "]. Defaulting to 'box'.");
+            InertiaLogger.warn("Missing 'type' in definition: [" + line + "]. Defaulting to 'box'.");
             type = "box";
         }
         type = type.toLowerCase(Locale.ROOT);
@@ -162,12 +162,12 @@ public final class JShapeFactory {
                 case "tapered_cylinder" -> parseTaperedCylinder(kv);
                 case "convex_hull"      -> parseConvexHull(kv, line);
                 default -> {
-                    LOGGER.warning("Unknown shape type '" + type + "'. Fallback to box.");
+                    InertiaLogger.warn("Unknown shape type '" + type + "'. Fallback to box.");
                     yield parseBox(kv);
                 }
             };
         } catch (Exception e) {
-            LOGGER.severe("Error constructing shape '" + type + "': " + e.getMessage() + ". Fallback to unit box.");
+            InertiaLogger.error("Error constructing shape '" + type + "': " + e.getMessage() + ". Fallback to unit box.");
             shape = new BoxShape(new Vec3(0.5f, 0.5f, 0.5f));
         }
 
@@ -319,7 +319,7 @@ public final class JShapeFactory {
         try {
             return Float.parseFloat(val);
         } catch (NumberFormatException e) {
-            LOGGER.warning("Invalid float for '" + key + "': " + val + ". Using default: " + def);
+            InertiaLogger.warn("Invalid float for '" + key + "': " + val + ". Using default: " + def);
             return def;
         }
     }
