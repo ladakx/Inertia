@@ -22,6 +22,7 @@ import java.util.List;
 
 import static com.ladakx.inertia.utils.PDCUtils.getString;
 import static com.ladakx.inertia.utils.PDCUtils.setString;
+import static com.ladakx.inertia.utils.PlayerUtils.getTargetLocation;
 
 public class ShapeTool extends Tool {
 
