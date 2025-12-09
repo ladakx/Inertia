@@ -13,7 +13,7 @@ import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
-import com.ladakx.inertia.physics.debug.shapes.ShapeGenerator;
+import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -98,7 +98,7 @@ public class PhysicsSpawnService {
     public void spawnRagdoll(Player player, String bodyId) {
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {
-            throw new IllegalArgumentException("Невірний ID регдолла: " + bodyId);
+            throw new IllegalArgumentException("Incorrect id: " + bodyId);
         }
 
         MinecraftSpace space = spaceManager.getSpace(player.getWorld());
@@ -142,7 +142,7 @@ public class PhysicsSpawnService {
     /**
      * Спавнить безліч блоків у формі.
      */
-    public int spawnShape(Player player, ShapeGenerator generator, String bodyId, double... params) {
+    public int spawnShape(Player player, DebugShapeGenerator generator, String bodyId, double... params) {
         Location center = getSpawnLocation(player, 5.0); // Центр фігури перед гравцем
 
         List<Vector> offsets = generator.generatePoints(center, params);

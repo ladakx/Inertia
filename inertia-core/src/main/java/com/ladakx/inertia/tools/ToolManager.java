@@ -99,7 +99,7 @@ public class ToolManager implements Listener {
     public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
         Tool chainTool = getTool("chain_tool");
         if (chainTool instanceof ChainTool ct) {
-            ct.onSwapHands(event.getPlayer()); // Clear cache on quit
+            ct.onSwapHands(event.getPlayer());
         }
     }
 }
