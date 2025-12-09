@@ -7,7 +7,6 @@ import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.tools.Tool;
-import com.ladakx.inertia.utils.InteractionUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
