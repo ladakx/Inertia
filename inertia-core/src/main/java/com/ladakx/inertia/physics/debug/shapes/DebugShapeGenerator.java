@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * Інтерфейс стратегії для генерації форм з блоків.
  */
-public interface ShapeGenerator {
+public interface DebugShapeGenerator {
 
     /**
      * Генерує список локацій для спавну блоків у заданій формі.

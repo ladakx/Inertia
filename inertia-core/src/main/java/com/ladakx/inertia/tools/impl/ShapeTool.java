@@ -2,8 +2,8 @@ package com.ladakx.inertia.tools.impl;
 
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.physics.service.PhysicsSpawnService;
-import com.ladakx.inertia.physics.debug.shapes.ShapeGenerator;
-import com.ladakx.inertia.physics.debug.shapes.ShapeManager;
+import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
+import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.tools.Tool;
 import net.kyori.adventure.text.Component;
@@ -31,12 +31,12 @@ public class ShapeTool extends Tool {
     private static final String KEY_PARAMS = "shape_params";
 
     private final PhysicsSpawnService spawnService;
-    private final ShapeManager shapeManager;
+    private final DebugShapeManager debugShapeManager;
 
     public ShapeTool() {
         super("shape_tool");
         this.spawnService = new PhysicsSpawnService(InertiaPlugin.getInstance());
-        this.shapeManager = new ShapeManager();
+        this.debugShapeManager = new DebugShapeManager();
     }
 
     @Override
@@ -59,7 +59,7 @@ public class ShapeTool extends Tool {
             return;
         }
 
-        ShapeGenerator generator = shapeManager.getGenerator(shapeName);
+        DebugShapeGenerator generator = debugShapeManager.getGenerator(shapeName);
         if (generator == null) {
             send(player, MessageKey.SHAPE_NOT_FOUND, "{shape}", shapeName);
             return;

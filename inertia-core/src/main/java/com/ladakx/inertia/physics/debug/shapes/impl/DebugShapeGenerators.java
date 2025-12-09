@@ -1,17 +1,17 @@
 package com.ladakx.inertia.physics.debug.shapes.impl;
 
-import com.ladakx.inertia.physics.debug.shapes.ShapeGenerator;
+import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public final class ShapeGenerators {
+public final class DebugShapeGenerators {
 
-    private ShapeGenerators() {}
+    private DebugShapeGenerators() {}
 
-    public static class SphereGenerator implements ShapeGenerator {
+    public static class SphereGeneratorDebug implements DebugShapeGenerator {
         @Override
         public List<Vector> generatePoints(Location center, double... params) {
             if (params.length < 1) throw new IllegalArgumentException("Radius required");
@@ -34,7 +34,7 @@ public final class ShapeGenerators {
         @Override public int getParamCount() { return 1; }
     }
 
-    public static class CubeGenerator implements ShapeGenerator {
+    public static class CubeGeneratorDebug implements DebugShapeGenerator {
         @Override
         public List<Vector> generatePoints(Location center, double... params) {
             if (params.length < 1) throw new IllegalArgumentException("Size required");
@@ -55,7 +55,7 @@ public final class ShapeGenerators {
         @Override public int getParamCount() { return 1; }
     }
 
-    public static class CylinderGenerator implements ShapeGenerator {
+    public static class CylinderGeneratorDebug implements DebugShapeGenerator {
         @Override
         public List<Vector> generatePoints(Location center, double... params) {
             if (params.length < 2) throw new IllegalArgumentException("Radius and Height required");
@@ -80,7 +80,7 @@ public final class ShapeGenerators {
         @Override public int getParamCount() { return 2; }
     }
 
-    public static class PyramidGenerator implements ShapeGenerator {
+    public static class PyramidGeneratorDebug implements DebugShapeGenerator {
         @Override
         public List<Vector> generatePoints(Location center, double... params) {
             if (params.length < 2) throw new IllegalArgumentException("Base Radius and Height required");

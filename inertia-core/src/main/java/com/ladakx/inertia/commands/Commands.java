@@ -9,8 +9,8 @@ import com.ladakx.inertia.files.config.message.MessageKey;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
-import com.ladakx.inertia.physics.debug.shapes.ShapeGenerator;
-import com.ladakx.inertia.physics.debug.shapes.ShapeManager;
+import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
+import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.physics.service.PhysicsSpawnService;
 import com.ladakx.inertia.tools.Tool;
 import com.ladakx.inertia.tools.ToolManager;
@@ -22,18 +22,16 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.Arrays;
-
 @CommandAlias("inertia")
 @Description("Main inertia plugin command.")
 public class Commands extends BaseCommand {
 
     private final PhysicsSpawnService spawnService;
-    private final ShapeManager shapeManager;
+    private final DebugShapeManager debugShapeManager;
 
     public Commands(InertiaPlugin plugin) {
         this.spawnService = new PhysicsSpawnService(plugin);
-        this.shapeManager = new ShapeManager();
+        this.debugShapeManager = new DebugShapeManager();
     }
 
     // --- System Commands ---
@@ -147,10 +145,10 @@ public class Commands extends BaseCommand {
     public void onSpawnShape(Player player, String shapeType, String[] args) {
         if (!validateWorld(player)) return;
 
-        ShapeGenerator generator = shapeManager.getGenerator(shapeType);
+        DebugShapeGenerator generator = debugShapeManager.getGenerator(shapeType);
         if (generator == null) {
             send(player, MessageKey.SHAPE_NOT_FOUND, "{shape}", shapeType);
-            send(player, MessageKey.SHAPE_LIST_AVAILABLE, "{shapes}", String.join(", ", shapeManager.getAvailableShapes()));
+            send(player, MessageKey.SHAPE_LIST_AVAILABLE, "{shapes}", String.join(", ", debugShapeManager.getAvailableShapes()));
             return;
         }
 
@@ -206,7 +204,7 @@ public class Commands extends BaseCommand {
     public void onToolShape(Player player, String shapeType, String[] args) {
         if (!checkPermission(player, "inertia.commands.tool", true)) return;
 
-        ShapeGenerator generator = shapeManager.getGenerator(shapeType);
+        DebugShapeGenerator generator = debugShapeManager.getGenerator(shapeType);
         if (generator == null) {
             send(player, MessageKey.SHAPE_NOT_FOUND, "{shape}", shapeType);
             return;

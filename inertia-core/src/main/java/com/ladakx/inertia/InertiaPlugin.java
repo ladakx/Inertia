@@ -19,7 +19,7 @@ import com.ladakx.inertia.nms.render.RenderFactory;
 import com.ladakx.inertia.nms.render.RenderFactoryInit;
 import com.ladakx.inertia.physics.body.config.BodyDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
-import com.ladakx.inertia.physics.debug.shapes.ShapeManager;
+import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.tools.ToolManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -101,23 +101,15 @@ public final class InertiaPlugin extends JavaPlugin {
         this.paperCommandManager.registerCommand(new Commands(this));
 
         // Completions
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c -> {
-            return ConfigManager.getInstance().getPhysicsBodyRegistry().all().stream()
-                    .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
-                    .map(BodyDefinition::id)
-                    .collect(Collectors.toList());
-        });
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c -> ConfigManager.getInstance().getPhysicsBodyRegistry().all().stream()
+                .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
+                .map(BodyDefinition::id)
+                .collect(Collectors.toList()));
 
-        ShapeManager shapeManager = new ShapeManager();
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("shapes", c -> {
-            return shapeManager.getAvailableShapes();
-        });
+        DebugShapeManager debugShapeManager = new DebugShapeManager();
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("shapes", c -> debugShapeManager.getAvailableShapes());
 
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> {
-            return ItemManager.getInstance().getItemIds();
-        });
-
-        // Видалено shape_params, щоб уникнути помилок
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> ItemManager.getInstance().getItemIds());
     }
 
     private void registerListeners() {
