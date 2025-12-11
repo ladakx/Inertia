@@ -1,5 +1,6 @@
 package com.ladakx.inertia;
 
+import com.ladakx.inertia.files.config.ConfigManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.logging.Level;
@@ -71,8 +72,12 @@ public class InertiaLogger {
 
     public static void debug(String message) {
         ensureInit();
-        // Тут можна додати перевірку: if (Config.isDebugEnabled()) ...
-        logger.warning(DEBUG_PREFIX + message);
+        if (ConfigManager.getInstance() != null) {
+            boolean debug = ConfigManager.getInstance().getInertiaConfig().GENERAL.DEBUG.consoleDebug;
+            if (debug) {
+                logger.warning(DEBUG_PREFIX + message);
+            }
+        }
     }
 
     private static void ensureInit() {

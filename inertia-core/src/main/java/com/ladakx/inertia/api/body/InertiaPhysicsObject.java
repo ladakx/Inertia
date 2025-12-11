@@ -18,7 +18,7 @@ public interface InertiaPhysicsObject {
     String getBodyId();
 
     /**
-     * Отримати тип фізичного об'єкта (BLOCK, CHAIN, RAGDOLL).
+     * Отримати тип фізичного об'єкта (BLOCK, TNT, CHAIN, RAGDOLL).
      */
     @NotNull
     PhysicsObjectType getType();

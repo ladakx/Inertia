@@ -1,27 +1,13 @@
 package com.ladakx.inertia.jolt.shape;
 
-import com.github.stephengold.joltjni.BoxShape;
-import com.github.stephengold.joltjni.CapsuleShape;
-import com.github.stephengold.joltjni.ConvexHullShapeSettings;
-import com.github.stephengold.joltjni.CylinderShape;
-import com.github.stephengold.joltjni.OffsetCenterOfMassShapeSettings;
-import com.github.stephengold.joltjni.Quat;
-import com.github.stephengold.joltjni.RotatedTranslatedShapeSettings;
-import com.github.stephengold.joltjni.ShapeRefC;
-import com.github.stephengold.joltjni.ShapeResult;
-import com.github.stephengold.joltjni.SphereShape;
-import com.github.stephengold.joltjni.StaticCompoundShapeSettings;
-import com.github.stephengold.joltjni.TaperedCapsuleShapeSettings;
-import com.github.stephengold.joltjni.TaperedCylinderShapeSettings;
-import com.github.stephengold.joltjni.Vec3;
+import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.utils.serializers.TransformSerializer.JoltTransform;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.utils.mesh.MeshProvider;
 import com.ladakx.inertia.utils.serializers.TransformSerializer;
-import com.ladakx.inertia.utils.serializers.TransformSerializer.JoltTransform;
 
 import java.util.*;
-import java.util.logging.Logger;
 
 /**
  * Фабрика, яка з текстових описів у конфізі створює Jolt CollisionShape.

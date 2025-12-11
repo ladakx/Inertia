@@ -6,14 +6,9 @@ plugins {
 
 dependencies {
     api(project(":inertia-core"))
-    api(project(":inertia-common"))
 
     compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
     paperweight.paperDevBundle("1.18.2-R0.1-SNAPSHOT")
-
-    if (name != "inertia-nms-abstraction") {
-        implementation(project(":inertia-nms-abstraction"))
-    }
 }
 
 paperweight.reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.REOBF_PRODUCTION

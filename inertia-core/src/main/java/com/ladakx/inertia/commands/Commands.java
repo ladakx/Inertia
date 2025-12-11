@@ -22,7 +22,7 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandAlias("inertia")
+@CommandAlias("com/ladakx")
 @Description("Main inertia plugin command.")
 public class Commands extends BaseCommand {
 

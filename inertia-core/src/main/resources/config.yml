@@ -10,5 +10,3 @@ physics:
   worker-threads: 2 # Number of worker threads for physics calculations
   simulation:
     worker-threads: 1
-    rayon:
-      inflate: 3.0

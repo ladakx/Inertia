@@ -5,7 +5,10 @@ import com.ladakx.inertia.utils.MinecraftVersions;
 import com.ladakx.inertia.utils.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.configuration.ConfigurationSection;
@@ -18,7 +21,10 @@ import org.bukkit.persistence.PersistentDataType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 public class ItemSerializer {
@@ -194,7 +200,7 @@ public class ItemSerializer {
             for (String tagEntry : section.getStringList("tags")) {
                 String[] parts = tagEntry.split(" ");
                 if (parts.length >= 2) {
-                    NamespacedKey key = new NamespacedKey("inertia", parts[0]);
+                    NamespacedKey key = new NamespacedKey("com/ladakx", parts[0]);
                     try {
                         int value = Integer.parseInt(parts[1]);
                         container.set(key, PersistentDataType.INTEGER, value);

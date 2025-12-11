@@ -41,14 +41,6 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-/native/Jolt/
-/native/build/
-/native/CMakeCache.txt
-/native/CMakeFiles/
-/native/build/**
+### Inertia dev deploy server ###
 inertia-plugin/ladakx.key
 inertia-plugin/deployment.properties
-project.txt
-sc_text.py
-sc.py
-gpt_project
