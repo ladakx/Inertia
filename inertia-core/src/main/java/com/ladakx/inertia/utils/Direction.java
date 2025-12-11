@@ -1,4 +1,4 @@
-package com.ladakx.inertia.enums;
+package com.ladakx.inertia.utils;
 
 import org.bukkit.block.Block;
 

@@ -1,9 +1,8 @@
 package com.ladakx.inertia.nms.v1_16_r3;
 
 import com.github.stephengold.joltjni.AaBox;
-import com.github.stephengold.joltjni.Jolt;
 import com.ladakx.inertia.nms.v1_16_r3.utils.JoltWrapUtils;
-import com.ladakx.inertia.enums.Direction;
+import com.ladakx.inertia.utils.Direction;
 import net.minecraft.server.v1_16_R3.AxisAlignedBB;
 import org.bukkit.Chunk;
 import org.bukkit.Material;

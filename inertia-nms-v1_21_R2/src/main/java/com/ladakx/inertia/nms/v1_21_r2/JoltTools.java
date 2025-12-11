@@ -84,7 +84,7 @@ public class JoltTools implements com.ladakx.inertia.nms.jolt.JoltTools {
     }
 
     @Override
-    public boolean renderFace(World world, Block block, com.ladakx.inertia.enums.Direction face) {
+    public boolean renderFace(World world, Block block, com.ladakx.inertia.utils.Direction face) {
         ServerLevel level = ((CraftWorld) world).getHandle();
         net.minecraft.world.level.block.state.BlockState base = ((CraftBlockState)block.getState()).getHandle();
         net.minecraft.world.level.block.state.BlockState other = level.getBlockState(new BlockPos(block.getX()+face.dx, block.getY()+face.dy, block.getZ()+face.dz));
