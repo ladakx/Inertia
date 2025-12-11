@@ -1,7 +1,7 @@
 package com.ladakx.inertia.nms.jolt;
 
 import com.github.stephengold.joltjni.AaBox;
-import com.ladakx.inertia.enums.Direction;
+import com.ladakx.inertia.utils.Direction;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.World;
