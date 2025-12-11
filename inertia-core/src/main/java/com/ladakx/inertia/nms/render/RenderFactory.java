@@ -1,7 +1,7 @@
 package com.ladakx.inertia.nms.render;
 
-import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import com.ladakx.inertia.nms.render.runtime.VisualObject;
+import com.ladakx.inertia.render.config.RenderEntityDefinition;
 import org.bukkit.Location;
 import org.bukkit.World;
 

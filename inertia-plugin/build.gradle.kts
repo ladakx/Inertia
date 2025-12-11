@@ -14,10 +14,7 @@ java {
 }
 
 dependencies {
-    implementation(project(":inertia-api"))
     implementation(project(":inertia-core"))
-    implementation(project(":inertia-common"))
-    implementation(project(":inertia-nms-abstraction"))
     implementation(project(":inertia-nms-v1_16_R3"))
     implementation(project(":inertia-nms-v1_17_R1"))
     implementation(project(":inertia-nms-v1_18_R2"))

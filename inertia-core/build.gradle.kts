@@ -9,12 +9,7 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 dependencies {
-    compileOnly(project(":inertia-api"))
-    compileOnly(project(":inertia-common"))
-    compileOnly(project(":inertia-nms-abstraction"))
-
     compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
     compileOnly("com.mojang:authlib:3.13.56")
-
     implementation("co.aikar:acf-paper:0.5.1-SNAPSHOT")
 }

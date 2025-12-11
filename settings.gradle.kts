@@ -7,11 +7,8 @@ pluginManagement {
     }
 }
 
-include("inertia-api")
 include("inertia-core")
 include("inertia-plugin")
-include("inertia-common")
-include("inertia-nms-abstraction")
 include("inertia-nms-v1_16_R3")
 include("inertia-nms-v1_17_R1")
 include("inertia-nms-v1_18_R2")

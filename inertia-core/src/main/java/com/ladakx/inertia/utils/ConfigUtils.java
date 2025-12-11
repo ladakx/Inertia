@@ -1,7 +1,5 @@
 package com.ladakx.inertia.utils;
 
-import org.bukkit.configuration.ConfigurationSection;
-
 public class ConfigUtils {
 
     private ConfigUtils() {
