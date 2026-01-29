@@ -2,8 +2,8 @@ package com.ladakx.inertia.jolt.space;
 
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
-import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.files.config.WorldsConfig;
+import com.ladakx.inertia.config.ConfigManager;
+import com.ladakx.inertia.config.WorldsConfig;
 import com.ladakx.inertia.jolt.JoltManager;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -64,7 +64,11 @@ public class SpaceManager {
 
     public void createSpace(World world) {
         if (!spaces.containsKey(world.getUID())) {
-            spaces.put(world.getUID(), createSpaceInternal(world));
+            if (ConfigManager.getInstance().getWorldsConfig().getAllWorlds().containsKey(world.getName())) {
+                spaces.put(world.getUID(), createSpaceInternal(world));
+            } else {
+                InertiaLogger.info("World " + world.getName() + " is not configured for Inertia Jolt. Skipping space creation.");
+            }
         }
     }
 

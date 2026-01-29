@@ -5,7 +5,6 @@ general:
     boss-bar: "%-4s | Bodies: %-4s | Vehicles: %-4s | Physics MSPT: %-4s | Simulation MSPT: %-4s"
 
 physics:
-  enable: true
   precision: DP # DP/SP for double/single precision physics calculations
   worker-threads: 2 # Number of worker threads for physics calculations
   simulation:

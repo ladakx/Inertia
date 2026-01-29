@@ -1,6 +1,6 @@
 package com.ladakx.inertia;
 
-import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.config.ConfigManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.logging.Level;

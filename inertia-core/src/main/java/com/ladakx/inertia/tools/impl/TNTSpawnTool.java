@@ -1,7 +1,7 @@
 package com.ladakx.inertia.tools.impl;
 
 import com.ladakx.inertia.InertiaPlugin;
-import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.physics.service.PhysicsSpawnService;
 import com.ladakx.inertia.tools.Tool;
 import net.kyori.adventure.text.Component;

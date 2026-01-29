@@ -1,13 +1,11 @@
-package com.ladakx.inertia.files.config.message;
+package com.ladakx.inertia.config.message;
 
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.utils.MessageUtils;
 import com.ladakx.inertia.utils.StringUtils;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
-import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.EnumMap;

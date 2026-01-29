@@ -4,7 +4,7 @@ import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.physics.service.PhysicsSpawnService;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
-import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.tools.Tool;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

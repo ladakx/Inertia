@@ -1,4 +1,4 @@
-package com.ladakx.inertia.files.config;
+package com.ladakx.inertia.config;
 
 import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.ladakx.inertia.InertiaLogger;

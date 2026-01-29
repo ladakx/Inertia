@@ -100,10 +100,10 @@ tasks.register<Copy>("copyJarToDesktop") {
 
             // Если нужно, чтобы сервер увидел изменения конфига сразу, возможно, стоит делать перезагрузку плагина здесь
             exec {
-                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dev -X stuff '\n'")
+                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dayz -X stuff '\n'")
             }
             exec {
-                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dev -X stuff 'say Inertia deploy success\n'")
+                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dayz -X stuff 'say Inertia deploy success\n'")
             }
 
             println("Plugin loaded.")

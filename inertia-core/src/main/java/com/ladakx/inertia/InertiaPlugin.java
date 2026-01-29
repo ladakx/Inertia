@@ -4,7 +4,7 @@ import co.aikar.commands.PaperCommandManager;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.api.impl.InertiaAPIImpl;
 import com.ladakx.inertia.commands.Commands;
-import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.items.ItemManager;
 import com.ladakx.inertia.jolt.JoltManager;
 import com.ladakx.inertia.jolt.listeners.WorldLoadListener;
@@ -79,7 +79,7 @@ public final class InertiaPlugin extends JavaPlugin {
     private boolean setupNativeLibraries() {
         try {
             this.joltNatives = new JoltNatives();
-            String precisionStr = this.getConfig().getString("jolt.precision", "SP");
+            String precisionStr = this.getConfig().getString("physics.precision", "SP");
             Precision precision = "DP".equalsIgnoreCase(precisionStr) ? Precision.DP : Precision.SP;
             InertiaLogger.info("Jolt Precision set to: " + precision);
             this.joltNatives.init(this, precision);

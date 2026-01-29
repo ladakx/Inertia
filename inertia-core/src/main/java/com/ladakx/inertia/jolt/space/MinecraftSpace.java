@@ -8,7 +8,7 @@ import com.github.stephengold.joltjni.readonly.ConstPlane;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
-import com.ladakx.inertia.files.config.WorldsConfig;
+import com.ladakx.inertia.config.WorldsConfig;
 import com.ladakx.inertia.jolt.PhysicsLayers;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.object.DisplayedPhysicsObject;
@@ -41,8 +41,6 @@ import com.github.stephengold.joltjni.BodyInterface;
 import com.github.stephengold.joltjni.Vec3;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.RVec3;
-import java.util.ArrayList;
-import java.util.List;
 
 public class MinecraftSpace implements AutoCloseable {
 
@@ -460,7 +458,6 @@ public class MinecraftSpace implements AutoCloseable {
     }
 
     // --- Helpers ---
-
     private void addFloorPlane(WorldsConfig.FloorPlaneSettings floorSettings) {
         BodyInterface bi = physicsSystem.getBodyInterface();
         WorldsConfig.WorldSizeSettings sizeSettings = this.settings.size();

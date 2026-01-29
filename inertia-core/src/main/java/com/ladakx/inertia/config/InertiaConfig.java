@@ -1,4 +1,4 @@
-package com.ladakx.inertia.files.config;
+package com.ladakx.inertia.config;
 
 import com.ladakx.inertia.nativelib.Precision;
 import org.bukkit.configuration.ConfigurationSection;

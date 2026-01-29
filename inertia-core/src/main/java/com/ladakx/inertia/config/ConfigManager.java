@@ -1,9 +1,9 @@
-package com.ladakx.inertia.files.config;
+package com.ladakx.inertia.config;
 
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.files.*;
-import com.ladakx.inertia.files.config.message.MessageManager;
+import com.ladakx.inertia.config.message.MessageManager;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 
 public class ConfigManager {
@@ -22,18 +22,14 @@ public class ConfigManager {
 
     // Зберігаємо завантажені об'єкти конфігурації
     private InertiaConfig inertiaConfig;
-    //    private BlocksConfig blocksConfig;
     private BodiesConfig bodiesConfig;
-    //    private RagdollConfig ragdollConfig;
     private RenderConfig renderConfig;
     private WorldsConfig worldsConfig;
 
     // Файлові обгортки
-    //    private BlocksFile blocksFile;
     private BodiesFile bodiesFile;
     private ItemsFile itemsFile;
     private RenderFile renderFile;
-    //    private RagdollFile ragdollFile;
     private WorldsFile worldsFile;
     private MessagesFile messagesFile;
 
@@ -92,10 +88,6 @@ public class ConfigManager {
         return bodiesConfig;
     }
 
-//    public RagdollConfig getRagdollConfig() {
-//        return ragdollConfig;
-//    }
-
     public RenderConfig getRenderConfig() {
         return renderConfig;
     }
@@ -109,15 +101,6 @@ public class ConfigManager {
         return inertiaConfig;
     }
 
-//    public BlocksConfig getBlocksConfig() {
-//        if (blocksConfig == null) reload();
-//        return blocksConfig;
-//    }
-
-//    public BlocksFile getBlocksFile() {
-//        return blocksFile;
-//    }
-
     public ItemsFile getItemsFile() {
         return itemsFile;
     }
@@ -129,10 +112,6 @@ public class ConfigManager {
     public RenderFile getRenderFile() {
         return renderFile;
     }
-
-//    public RagdollFile getRagdollFile() {
-//        return ragdollFile;
-//    }
 
     public WorldsFile getWorldsFile() {
         return worldsFile;

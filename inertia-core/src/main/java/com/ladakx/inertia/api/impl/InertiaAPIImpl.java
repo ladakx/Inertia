@@ -6,7 +6,7 @@ import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.api.body.InertiaPhysicsObject;
-import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.jolt.object.BlockPhysicsObject;
 import com.ladakx.inertia.jolt.object.PhysicsObjectType;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
