@@ -29,7 +29,7 @@ help-command:
   - '&c&lInertia &8&l|&r &7Основные команды'
   - ' '
   - '&c&l» Команды&8:'
-  - '&c› &c/rosecore help &7- &fПосмотреть помощь по командам'
+  - '&c› &c/inertia help &7- &fПосмотреть помощь по командам'
   - ' '
 help-command-admin:
   - ' '

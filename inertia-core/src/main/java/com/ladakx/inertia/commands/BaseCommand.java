@@ -1,7 +1,7 @@
 package com.ladakx.inertia.commands;
 
-import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.config.ConfigManager;
+import com.ladakx.inertia.config.message.MessageKey;
 import org.bukkit.command.CommandSender;
 
 public class BaseCommand extends co.aikar.commands.BaseCommand {

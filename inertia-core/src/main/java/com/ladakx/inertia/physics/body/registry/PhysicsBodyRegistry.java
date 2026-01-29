@@ -1,8 +1,8 @@
 package com.ladakx.inertia.physics.body.registry;
 
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.files.config.BodiesConfig;
-import com.ladakx.inertia.files.config.RenderConfig;
+import com.ladakx.inertia.config.BodiesConfig;
+import com.ladakx.inertia.config.RenderConfig;
 import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.body.config.BodyDefinition;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;

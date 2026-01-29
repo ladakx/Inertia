@@ -2,7 +2,7 @@ package com.ladakx.inertia.items;
 
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.files.ItemsFile;
-import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.utils.serializers.ItemSerializer;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;

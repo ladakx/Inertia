@@ -1,4 +1,4 @@
-package com.ladakx.inertia.files.config.message;
+package com.ladakx.inertia.config.message;
 
 public enum MessageKey {
     // System

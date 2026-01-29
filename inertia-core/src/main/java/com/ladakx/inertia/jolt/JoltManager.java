@@ -3,7 +3,7 @@ package com.ladakx.inertia.jolt;
 import com.github.stephengold.joltjni.*;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
-import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.utils.mesh.BlockBenchMeshProvider;
 

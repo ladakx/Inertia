@@ -4,7 +4,7 @@ import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.TwoBodyConstraint;
 import com.github.stephengold.joltjni.TwoBodyConstraintRef;
 import com.ladakx.inertia.InertiaLogger;
-import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;

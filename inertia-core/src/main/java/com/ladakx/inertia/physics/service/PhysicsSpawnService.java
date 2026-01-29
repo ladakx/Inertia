@@ -4,7 +4,7 @@ import com.github.stephengold.joltjni.*;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.api.body.InertiaPhysicsObject;
-import com.ladakx.inertia.files.config.ConfigManager;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.jolt.object.ChainPhysicsObject;
 import com.ladakx.inertia.jolt.object.RagdollPhysicsObject;
 import com.ladakx.inertia.jolt.object.TNTPhysicsObject;

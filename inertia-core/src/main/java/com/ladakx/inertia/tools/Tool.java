@@ -2,20 +2,14 @@ package com.ladakx.inertia.tools;
 
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
-import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.config.ConfigManager;
+import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.utils.PDCUtils;
-import org.bukkit.FluidCollisionMode;
-import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.util.RayTraceResult;
 
 import static com.ladakx.inertia.utils.PDCUtils.setString;
 

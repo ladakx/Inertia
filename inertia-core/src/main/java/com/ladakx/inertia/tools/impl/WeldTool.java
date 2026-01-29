@@ -2,7 +2,7 @@ package com.ladakx.inertia.tools.impl;
 
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EAxis;
-import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;

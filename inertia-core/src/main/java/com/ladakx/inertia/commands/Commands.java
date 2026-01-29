@@ -4,8 +4,8 @@ import co.aikar.commands.annotation.*;
 import com.ladakx.inertia.InertiaLogger;
 import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
-import com.ladakx.inertia.files.config.ConfigManager;
-import com.ladakx.inertia.files.config.message.MessageKey;
+import com.ladakx.inertia.config.ConfigManager;
+import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -22,7 +22,7 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandAlias("com/ladakx")
+@CommandAlias("inertia")
 @Description("Main inertia plugin command.")
 public class Commands extends BaseCommand {
 
