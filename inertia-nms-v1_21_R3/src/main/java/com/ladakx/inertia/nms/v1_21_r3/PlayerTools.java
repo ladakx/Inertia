@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class PlayerTools implements com.ladakx.inertia.nms.player.PlayerTools {
+public class PlayerTools implements com.ladakx.inertia.infrastructure.nms.player.PlayerTools {
 
     private final Set<Relative> RELATIVE_FLAGS = new HashSet<>(Arrays.asList(
             Relative.X,

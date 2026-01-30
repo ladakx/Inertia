@@ -1,6 +1,6 @@
 package com.ladakx.inertia.api;
 
-import com.ladakx.inertia.api.body.InertiaPhysicsObject;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -45,7 +45,7 @@ public abstract class InertiaAPI {
      * @return Створений об'єкт або null, якщо світ не є фізичним або bodyId не знайдено.
      */
     @Nullable
-    public abstract InertiaPhysicsObject createBody(@NotNull Location location, @NotNull String bodyId);
+    public abstract InertiaPhysicsBody createBody(@NotNull Location location, @NotNull String bodyId);
 
     /**
      * Перевіряє, чи є світ фізичним (чи завантажений він у SpaceManager).

@@ -13,7 +13,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class PlayerTools implements com.ladakx.inertia.nms.player.PlayerTools {
+public class PlayerTools implements com.ladakx.inertia.infrastructure.nms.player.PlayerTools {
 
     private final Set<ClientboundPlayerPositionPacket.RelativeArgument> RELATIVE_FLAGS = new HashSet<>(Arrays.asList(
             ClientboundPlayerPositionPacket.RelativeArgument.X,

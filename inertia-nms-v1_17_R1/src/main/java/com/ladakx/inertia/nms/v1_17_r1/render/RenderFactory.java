@@ -1,16 +1,16 @@
 package com.ladakx.inertia.nms.v1_17_r1.render;
 
-import com.ladakx.inertia.nms.render.runtime.VisualObject;
-import com.ladakx.inertia.render.ItemModelResolver;
-import com.ladakx.inertia.render.config.RenderEntityDefinition;
-import com.ladakx.inertia.render.config.enums.InertiaDisplayMode;
+import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.ItemModelResolver;
+import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
+import com.ladakx.inertia.rendering.config.enums.InertiaDisplayMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.inventory.ItemStack;
 
-public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactory {
+public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory {
 
     private final ItemModelResolver itemModelResolver;
 
@@ -19,11 +19,11 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
     }
 
     @Override
-    public VisualObject create(World world, Location origin, RenderEntityDefinition def) {
+    public VisualEntity create(World world, Location origin, RenderEntityDefinition def) {
         return spawnEmulatedEntity(world, origin, def);
     }
 
-    private VisualObject spawnEmulatedEntity(World world, Location origin, RenderEntityDefinition def) {
+    private VisualEntity spawnEmulatedEntity(World world, Location origin, RenderEntityDefinition def) {
         ArmorStand stand = world.spawn(origin, ArmorStand.class, s -> {
             s.setGravity(false);
             s.setBasePlate(def.basePlate());
@@ -36,7 +36,7 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
             applyContent(s, def);
         });
 
-        return new ArmorStandObject(stand);
+        return new ArmorStandEntity(stand);
     }
 
     private boolean isDisplayEntity(RenderEntityDefinition def) {

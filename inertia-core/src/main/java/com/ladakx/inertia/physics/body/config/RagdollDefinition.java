@@ -1,7 +1,7 @@
 package com.ladakx.inertia.physics.body.config;
 
 import com.github.stephengold.joltjni.enumerate.EAxis;
-import com.ladakx.inertia.jolt.object.PhysicsObjectType;
+import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import org.bukkit.util.Vector;
 
 import java.util.Collections;
@@ -20,8 +20,8 @@ public record RagdollDefinition(
     }
 
     @Override
-    public PhysicsObjectType type() {
-        return PhysicsObjectType.RAGDOLL;
+    public PhysicsBodyType type() {
+        return PhysicsBodyType.RAGDOLL;
     }
 
     /**

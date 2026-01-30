@@ -18,7 +18,7 @@ import org.bukkit.craftbukkit.v1_19_R3.block.CraftBlockStates;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class JoltTools implements com.ladakx.inertia.nms.jolt.JoltTools {
+public class JoltTools implements com.ladakx.inertia.infrastructure.nms.jolt.JoltTools {
 
     public JoltTools() {
         // Constructor
@@ -75,7 +75,7 @@ public class JoltTools implements com.ladakx.inertia.nms.jolt.JoltTools {
     }
 
     @Override
-    public boolean renderFace(World world, Block block, com.ladakx.inertia.utils.Direction face) {
+    public boolean renderFace(World world, Block block, com.ladakx.inertia.common.Direction face) {
         return false;
     }
 
