@@ -139,7 +139,7 @@ public class JoltTools implements com.ladakx.inertia.nms.jolt.JoltTools {
             field.setAccessible(true);
             return ((Short)field.get(section));
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+            org.bukkit.Bukkit.getServer().getLogger().log(java.util.logging.Level.SEVERE, "Failed to reflect nonEmptyBlockCount in NMS v1_21_R3", e);
             return 0;
         }
     }

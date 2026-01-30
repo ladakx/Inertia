@@ -45,8 +45,7 @@ public final class BodiesConfig {
                 BodyDefinition def = parser.parse(fullId, bodySection);
                 result.put(fullId, def);
             } catch (Exception e) {
-                InertiaLogger.error("Failed to parse body '" + fullId + "': " + e.getMessage());
-                e.printStackTrace();
+                InertiaLogger.error("Failed to parse body '" + fullId + "' in category '" + categoryName + "'", e);
             }
         }
     }
