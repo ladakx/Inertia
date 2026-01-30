@@ -2,7 +2,7 @@ package com.ladakx.inertia.nms.v1_16_r3;
 
 import com.github.stephengold.joltjni.AaBox;
 import com.ladakx.inertia.nms.v1_16_r3.utils.JoltWrapUtils;
-import com.ladakx.inertia.utils.Direction;
+import com.ladakx.inertia.common.Direction;
 import net.minecraft.server.v1_16_R3.AxisAlignedBB;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
@@ -16,7 +16,7 @@ import org.bukkit.craftbukkit.v1_16_R3.block.CraftBlockState;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class JoltTools implements com.ladakx.inertia.nms.jolt.JoltTools {
+public class JoltTools implements com.ladakx.inertia.infrastructure.nms.jolt.JoltTools {
 
     public JoltTools() {
         // Ensure Jolt is initialized

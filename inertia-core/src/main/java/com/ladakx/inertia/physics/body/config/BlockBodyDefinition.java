@@ -1,6 +1,6 @@
 package com.ladakx.inertia.physics.body.config;
 
-import com.ladakx.inertia.jolt.object.PhysicsObjectType;
+import com.ladakx.inertia.physics.body.PhysicsBodyType;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,7 +22,7 @@ public record BlockBodyDefinition(
     }
 
     @Override
-    public PhysicsObjectType type() {
-        return PhysicsObjectType.BLOCK;
+    public PhysicsBodyType type() {
+        return PhysicsBodyType.BLOCK;
     }
 }

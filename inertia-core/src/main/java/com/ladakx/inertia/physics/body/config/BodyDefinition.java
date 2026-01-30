@@ -1,6 +1,6 @@
 package com.ladakx.inertia.physics.body.config;
 
-import com.ladakx.inertia.jolt.object.PhysicsObjectType;
+import com.ladakx.inertia.physics.body.PhysicsBodyType;
 
 /**
  * Маркерний інтерфейс для всіх типів фізичних визначень.
@@ -8,5 +8,5 @@ import com.ladakx.inertia.jolt.object.PhysicsObjectType;
  */
 public interface BodyDefinition {
     String id();
-    PhysicsObjectType type();
+    PhysicsBodyType type();
 }

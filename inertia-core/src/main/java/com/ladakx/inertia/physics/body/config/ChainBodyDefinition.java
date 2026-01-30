@@ -1,6 +1,6 @@
 package com.ladakx.inertia.physics.body.config;
 
-import com.ladakx.inertia.jolt.object.PhysicsObjectType;
+import com.ladakx.inertia.physics.body.PhysicsBodyType;
 
 import java.util.List;
 import java.util.Objects;
@@ -24,8 +24,8 @@ public record ChainBodyDefinition(
     }
 
     @Override
-    public PhysicsObjectType type() {
-        return PhysicsObjectType.CHAIN;
+    public PhysicsBodyType type() {
+        return PhysicsBodyType.CHAIN;
     }
 
     /**

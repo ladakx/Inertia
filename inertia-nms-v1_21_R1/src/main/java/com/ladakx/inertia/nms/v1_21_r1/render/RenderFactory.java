@@ -1,8 +1,8 @@
 package com.ladakx.inertia.nms.v1_21_r1.render;
 
-import com.ladakx.inertia.nms.render.runtime.VisualObject;
-import com.ladakx.inertia.render.ItemModelResolver;
-import com.ladakx.inertia.render.config.RenderEntityDefinition;
+import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.ItemModelResolver;
+import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -15,7 +15,7 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactory {
+public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory {
 
     private final ItemModelResolver itemModelResolver;
 
@@ -24,7 +24,7 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
     }
 
     @Override
-    public VisualObject create(World world, Location origin, RenderEntityDefinition def) {
+    public VisualEntity create(World world, Location origin, RenderEntityDefinition def) {
         return switch (def.kind()) {
             case BLOCK_DISPLAY -> spawnBlockDisplay(world, origin, def);
             case ITEM_DISPLAY -> spawnItemDisplay(world, origin, def);
@@ -32,7 +32,7 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
         };
     }
 
-    private VisualObject spawnBlockDisplay(World world, Location origin, RenderEntityDefinition def) {
+    private VisualEntity spawnBlockDisplay(World world, Location origin, RenderEntityDefinition def) {
         BlockDisplay display = world.spawn(origin, BlockDisplay.class, entity -> {
             applyCommonDisplayTraits(entity, def);
             if (def.blockType() != null) {
@@ -41,10 +41,10 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
                 entity.setBlock(Material.STONE.createBlockData());
             }
         });
-        return new DisplayObject(display);
+        return new DisplayEntity(display);
     }
 
-    private VisualObject spawnItemDisplay(World world, Location origin, RenderEntityDefinition def) {
+    private VisualEntity spawnItemDisplay(World world, Location origin, RenderEntityDefinition def) {
         ItemDisplay display = world.spawn(origin, ItemDisplay.class, entity -> {
             applyCommonDisplayTraits(entity, def);
             
@@ -65,10 +65,10 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
                 }
             }
         });
-        return new DisplayObject(display);
+        return new DisplayEntity(display);
     }
 
-    private VisualObject spawnArmorStand(World world, Location origin, RenderEntityDefinition def) {
+    private VisualEntity spawnArmorStand(World world, Location origin, RenderEntityDefinition def) {
         ArmorStand stand = world.spawn(origin, ArmorStand.class, entity -> {
             entity.setGravity(false);
             entity.setBasePlate(def.basePlate());
@@ -79,7 +79,7 @@ public class RenderFactory implements com.ladakx.inertia.nms.render.RenderFactor
             entity.setPersistent(false);
         });
 
-        return new ArmorStandObject(stand);
+        return new ArmorStandEntity(stand);
     }
 
     private void applyCommonDisplayTraits(Display display, RenderEntityDefinition def) {
