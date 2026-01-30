@@ -39,37 +39,39 @@ public class BlockBenchMeshProvider implements MeshProvider {
         this.plugin = plugin;
     }
 
+    /**
+     * Loads the mesh from disk. WARNING: Performs blocking IO.
+     * Should be called asynchronously during startup/reload.
+     */
+    public void loadMesh(String meshId) {
+        if (cache.containsKey(meshId)) return;
+
+        List<Vec3> result = new ArrayList<>();
+        try (InputStream in = openMeshStream(meshId)) {
+            if (in == null) {
+                InertiaLogger.warn("Mesh resource/file not found: " + meshId);
+                return;
+            }
+            parseObjVertices(in, result);
+            cache.put(meshId, Collections.unmodifiableCollection(result));
+        } catch (IOException e) {
+            InertiaLogger.error("Failed to load mesh '" + meshId + "'", e);
+        }
+    }
+
     @Override
     public Collection<Vec3> loadConvexHullPoints(String meshId) {
-        // Спочатку пробуємо взяти з кеша
         Collection<Vec3> cached = cache.get(meshId);
         if (cached != null) {
             return cached;
         }
 
-        List<Vec3> result = new ArrayList<>();
+        // Fallback: If not preloaded, we MUST load it to prevent crash,
+        // but we log a warning because this causes lag in Main Thread.
+        InertiaLogger.warn("Performance Warning: Mesh '" + meshId + "' was not preloaded! Loading synchronously in main thread.");
+        loadMesh(meshId);
 
-        try (InputStream in = openMeshStream(meshId)) {
-            if (in == null) {
-                throw new FileNotFoundException("Mesh resource/file not found: " + meshId);
-            }
-            parseObjVertices(in, result);
-        } catch (IOException e) {
-            throw new IllegalStateException(
-                    "Failed to load mesh '" + meshId + "': " + e.getMessage(), e
-            );
-        }
-
-        if (result.isEmpty()) {
-            InertiaLogger.warn(
-                    "Mesh '" + meshId + "' contains no vertices (no 'v x y z' lines)."
-            );
-        }
-
-        // Фіксуємо як unmodifiable, щоб не міняли ззовні
-        Collection<Vec3> unmodifiable = Collections.unmodifiableCollection(result);
-        cache.put(meshId, unmodifiable);
-        return unmodifiable;
+        return cache.getOrDefault(meshId, Collections.emptyList());
     }
 
     /**
@@ -78,18 +80,15 @@ public class BlockBenchMeshProvider implements MeshProvider {
      *   2) файл у data-folder (plugins/YourPlugin/meshId)
      */
     private InputStream openMeshStream(String meshId) throws IOException {
-        // 1) resources всередині JAR
+        // 1) Try resource
         InputStream resourceStream = plugin.getResource(meshId);
-        if (resourceStream != null) {
-            return resourceStream;
-        }
+        if (resourceStream != null) return resourceStream;
 
-        // 2) файл в data-folder
+        // 2) Try file
         File file = new File(plugin.getDataFolder(), meshId);
-        if (file.isFile() && file.exists()) {
+        if (file.exists() && file.isFile()) {
             return new FileInputStream(file);
         }
-
         return null;
     }
 

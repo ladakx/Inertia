@@ -3,6 +3,7 @@ package com.ladakx.inertia.tools.impl;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.readonly.RVec3Arg;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.object.DisplayedPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
@@ -29,8 +30,11 @@ public class GrabberTool extends Tool {
     private final double grabberForce = 10;
     private final Map<Long, GrabberJoint> jointMap = new HashMap<>();
 
-    public GrabberTool() {
-        super("grabber");
+    private final SpaceManager spaceManager;
+
+    public GrabberTool(ConfigManager configManager, SpaceManager spaceManager) {
+        super("grabber", configManager);
+        this.spaceManager = spaceManager;
     }
 
     @Override
@@ -44,7 +48,7 @@ public class GrabberTool extends Tool {
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
 
         if (holdingTask != null) {
             AbstractPhysicsObject mcObj = space.getObjectByVa(heldObject);
@@ -98,7 +102,7 @@ public class GrabberTool extends Tool {
     public void onLeftClick(PlayerInteractEvent event) {
         if (holdingTask == null || heldObject == null) return;
         Player player = event.getPlayer();
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
 
         AbstractPhysicsObject mcObj = space.getObjectByVa(heldObject);
         if (mcObj == null) return;

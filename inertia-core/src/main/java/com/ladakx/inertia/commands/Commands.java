@@ -28,9 +28,17 @@ public class Commands extends BaseCommand {
 
     private final PhysicsSpawnService spawnService;
     private final DebugShapeManager debugShapeManager;
+    private final ConfigManager configManager;
+    private final SpaceManager spaceManager;
+    private final ToolManager toolManager;
 
-    public Commands(InertiaPlugin plugin) {
-        this.spawnService = new PhysicsSpawnService(plugin);
+    public Commands(InertiaPlugin plugin, ConfigManager configManager, SpaceManager spaceManager, ToolManager toolManager) {
+        super(configManager);
+        this.configManager = configManager;
+        this.spaceManager = spaceManager;
+        this.toolManager = toolManager;
+        // Inject dependencies into Service
+        this.spawnService = new PhysicsSpawnService(plugin, spaceManager, configManager);
         this.debugShapeManager = new DebugShapeManager();
     }
 
@@ -38,10 +46,9 @@ public class Commands extends BaseCommand {
 
     @Subcommand("reload")
     @CommandPermission("inertia.commands.reload")
-    @Description("Reload the configuration.")
     public void onReloadCommand(CommandSender sender) {
         if (checkPermission(sender, "inertia.commands.reload", true)) {
-            InertiaPlugin.getInstance().reload();
+            InertiaPlugin.getInstance().reload(); // Plugin main reload method
             send(sender, MessageKey.RELOAD_PLUGIN);
         }
     }
@@ -59,12 +66,12 @@ public class Commands extends BaseCommand {
     }
 
     @Subcommand("clear")
-    @CommandPermission("inertia.commands.clear")
     @Description("Clear all physics bodies in the current world.")
     public void onClearCommand(Player player) {
         if (!checkPermission(player, "inertia.commands.clear", true)) return;
 
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        // Use injected spaceManager
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
         if (space == null) {
             send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return;
@@ -229,8 +236,7 @@ public class Commands extends BaseCommand {
             return;
         }
 
-        ToolManager tm = ToolManager.getInstance();
-        Tool tool = tm.getTool("shape_tool");
+        Tool tool = toolManager.getTool("shape_tool");
         if (tool instanceof ShapeTool st) {
             player.getInventory().addItem(st.getToolItem(shapeType, bodyId, params));
             send(player, MessageKey.TOOL_RECEIVED, "{tool}", "Shape Tool (" + shapeType + ")");
@@ -284,8 +290,7 @@ public class Commands extends BaseCommand {
 
         if (!validateBodyExists(player, bodyId)) return;
 
-        ToolManager tm = ToolManager.getInstance();
-        Tool tool = tm.getTool("tnt_spawner");
+        Tool tool = toolManager.getTool("tnt_spawner");
 
         if (tool instanceof TNTSpawnTool tntTool) {
             player.getInventory().addItem(tntTool.getToolItem(bodyId, force));
@@ -306,7 +311,7 @@ public class Commands extends BaseCommand {
     }
 
     private boolean validateBodyExists(Player player, String bodyId) {
-        PhysicsBodyRegistry registry = ConfigManager.getInstance().getPhysicsBodyRegistry();
+        PhysicsBodyRegistry registry = configManager.getPhysicsBodyRegistry();
         if (registry.find(bodyId).isEmpty()) {
             send(player, MessageKey.SPAWN_FAIL_INVALID_ID, "{id}", bodyId);
             return false;
@@ -317,8 +322,7 @@ public class Commands extends BaseCommand {
     private void giveTool(Player player, String toolId, String bodyId, Class<? extends Tool> toolClass) {
         if (!checkPermission(player, "inertia.commands.tool", true)) return;
 
-        ToolManager tm = ToolManager.getInstance();
-        Tool tool = tm.getTool(toolId);
+        Tool tool = toolManager.getTool(toolId);
 
         if (tool == null) {
             send(player, MessageKey.TOOL_NOT_FOUND);
@@ -352,7 +356,15 @@ public class Commands extends BaseCommand {
         send(player, MessageKey.ERROR_OCCURRED, "{error}", msg);
     }
 
+    // Override BaseCommand helper to use injected config
     private void send(CommandSender sender, MessageKey key, String... replacements) {
-        ConfigManager.getInstance().getMessageManager().send(sender, key, replacements);
+        configManager.getMessageManager().send(sender, key, replacements);
+    }
+
+    // Override checkPermission logic if needed, or simply use instance methods
+    public boolean checkPermission(CommandSender sender, String permission, boolean showMSG) {
+        if (sender.hasPermission(permission)) return true;
+        if (showMSG) send(sender, MessageKey.NO_PERMISSIONS);
+        return false;
     }
 }

@@ -8,6 +8,8 @@ import com.ladakx.inertia.utils.mesh.MeshProvider;
 import com.ladakx.inertia.utils.serializers.TransformSerializer;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Фабрика, яка з текстових описів у конфізі створює Jolt CollisionShape.
@@ -15,6 +17,9 @@ import java.util.*;
 public final class JShapeFactory {
 
     private static volatile MeshProvider meshProvider;
+    // Паттерн для поиска пар key=value.
+    // Поддерживает: key=value
+    private static final Pattern PARAM_PATTERN = Pattern.compile("([a-zA-Z0-9_]+)=([^\\s=]+)");
 
     private JShapeFactory() {
     }
@@ -39,33 +44,29 @@ public final class JShapeFactory {
 
     public static ShapeRefC createShape(List<String> shapeLines) {
         if (shapeLines == null || shapeLines.isEmpty()) {
-            throw new IllegalArgumentException("Shape list is empty");
+            throw new IllegalArgumentException("Shape definition list cannot be empty/null");
         }
 
         List<ParsedShape> parsed = new ArrayList<>();
         for (String raw : shapeLines) {
-            if (raw == null) continue;
+            if (raw == null || raw.isBlank()) continue;
 
-            // 1. Очистка від зайвих пробілів
+            // Очистка от скобок списка, если YAML вернул строковое представление списка
             String line = raw.trim();
-
-            // 2. ВАЖЛИВО: Очистка від квадратних дужок, якщо конфіг передав список як рядок "[...]"
             if (line.startsWith("[") && line.endsWith("]")) {
                 line = line.substring(1, line.length() - 1).trim();
             }
 
-            if (line.isEmpty()) continue;
-
             try {
                 parsed.add(parseLine(line));
             } catch (Exception e) {
-                InertiaLogger.warn("Failed to parse shape line: '" + line + "'. Error: " + e.getMessage());
+                InertiaLogger.error("Invalid shape definition: '" + line + "'", e);
             }
         }
 
         if (parsed.isEmpty()) {
-            // Щоб не крашити сервер, повертаємо дефолтний бокс, якщо нічого не розпарсили
-            InertiaLogger.error("No valid shapes found. Creating default fallback box (0.5, 0.5, 0.5).");
+            // Возвращаем fallback-форму, чтобы не крашить сервер, но ошибка уже в логе
+            InertiaLogger.warn("No valid shapes parsed. Using default Box(0.5).");
             return new BoxShape(new Vec3(0.5f, 0.5f, 0.5f)).toRefC();
         }
 
@@ -76,27 +77,20 @@ public final class JShapeFactory {
 
             // 1) Зсув центру мас
             if (only.hasCenterOfMassOffset()) {
-                OffsetCenterOfMassShapeSettings ocomSettings =
-                        new OffsetCenterOfMassShapeSettings(only.centerOfMassOffset(), decorated);
-                ShapeResult ocomResult = ocomSettings.create();
-                if (ocomResult.hasError()) {
-                    InertiaLogger.error("Error creating OffsetCenterOfMass: " + ocomResult.getError());
-                } else {
-                    decorated = ocomResult.get();
-                }
+                OffsetCenterOfMassShapeSettings ocomSettings = new OffsetCenterOfMassShapeSettings(only.centerOfMassOffset(), decorated);
+                ShapeResult res = ocomSettings.create();
+                if (res.hasError()) InertiaLogger.error("Jolt Error (Offset): " + res.getError());
+                else decorated = res.get();
             }
 
             // 2) Локальний transform
             if (only.hasPosition() || only.hasRotation()) {
-                RotatedTranslatedShapeSettings rtSettings =
-                        new RotatedTranslatedShapeSettings(only.position(), only.rotation(), decorated);
-                ShapeResult rtResult = rtSettings.create();
-                if (rtResult.hasError()) {
-                    InertiaLogger.error("Error creating RotatedTranslated: " + rtResult.getError());
-                } else {
-                    decorated = rtResult.get();
-                }
+                RotatedTranslatedShapeSettings rtSettings = new RotatedTranslatedShapeSettings(only.position(), only.rotation(), decorated);
+                ShapeResult res = rtSettings.create();
+                if (res.hasError()) InertiaLogger.error("Jolt Error (RotTrans): " + res.getError());
+                else decorated = res.get();
             }
+
             return decorated.toRefC();
         }
 
@@ -115,7 +109,7 @@ public final class JShapeFactory {
 
         ShapeResult result = settings.create();
         if (result.hasError()) {
-            throw new IllegalStateException("Failed to create compound shape: " + result.getError());
+            throw new IllegalStateException("Jolt Compound Error: " + result.getError());
         }
 
         return result.get();
@@ -126,36 +120,14 @@ public final class JShapeFactory {
     private static ParsedShape parseLine(String line) {
         Map<String, String> kv = parseKeyValues(line);
 
-        // ВАЖЛИВО: Отримуємо тип. Якщо немає — WARN і дефолт "box"
         String type = kv.get("type");
-        if (type == null || type.isBlank()) {
-            InertiaLogger.warn("Missing 'type' in definition: [" + line + "]. Defaulting to 'box'.");
-            type = "box";
+        if (type == null) {
+            throw new IllegalArgumentException("Missing required parameter 'type'");
         }
-        type = type.toLowerCase(Locale.ROOT);
 
         JoltTransform transform = TransformSerializer.fromKeyValueMap(kv);
         ComOffset com = parseCenterOfMassOffset(kv);
-
-        ConstShape shape;
-        try {
-            shape = switch (type) {
-                case "box"              -> parseBox(kv);
-                case "sphere"           -> parseSphere(kv);
-                case "capsule"          -> parseCapsule(kv);
-                case "cylinder"         -> parseCylinder(kv);
-                case "tapered_capsule"  -> parseTaperedCapsule(kv);
-                case "tapered_cylinder" -> parseTaperedCylinder(kv);
-                case "convex_hull"      -> parseConvexHull(kv, line);
-                default -> {
-                    InertiaLogger.warn("Unknown shape type '" + type + "'. Fallback to box.");
-                    yield parseBox(kv);
-                }
-            };
-        } catch (Exception e) {
-            InertiaLogger.error("Error constructing shape '" + type + "': " + e.getMessage() + ". Fallback to unit box.");
-            shape = new BoxShape(new Vec3(0.5f, 0.5f, 0.5f));
-        }
+        ConstShape shape = createRawShape(type.toLowerCase(Locale.ROOT), kv);
 
         return new ParsedShape(
                 shape,
@@ -166,6 +138,46 @@ public final class JShapeFactory {
                 com.offset(),
                 com.hasOffset()
         );
+    }
+
+    private static ConstShape createRawShape(String type, Map<String, String> kv) {
+        // Strict parameter validation
+        switch (type) {
+            case "box":
+                return new BoxShape(new Vec3(
+                        getFloat(kv, "x", 0.5f),
+                        getFloat(kv, "y", 0.5f),
+                        getFloat(kv, "z", 0.5f)
+                ));
+            case "sphere":
+                return new SphereShape(requireFloat(kv, "radius"));
+            case "capsule":
+                return new CapsuleShape(
+                        getFloat(kv, "height", 2.0f) * 0.5f,
+                        requireFloat(kv, "radius")
+                );
+            case "cylinder":
+                return new CylinderShape(
+                        getFloat(kv, "height", 2.0f) * 0.5f,
+                        requireFloat(kv, "radius")
+                );
+            case "convex_hull":
+                String meshId = kv.get("mesh");
+                if (meshId == null) throw new IllegalArgumentException("ConvexHull requires 'mesh' parameter");
+
+                if (meshProvider == null) throw new IllegalStateException("MeshProvider not initialized");
+                Collection<Vec3> points = meshProvider.loadConvexHullPoints(meshId);
+
+                if (points.isEmpty()) throw new IllegalStateException("Mesh '" + meshId + "' is empty");
+
+                ConvexHullShapeSettings settings = new ConvexHullShapeSettings(points);
+                ShapeResult result = settings.create();
+                if (result.hasError()) throw new IllegalStateException(result.getError());
+                return result.get();
+
+            default:
+                throw new IllegalArgumentException("Unknown shape type: " + type);
+        }
     }
 
     // ---------- Парсер параметрів ----------
@@ -272,19 +284,6 @@ public final class JShapeFactory {
         return new ComOffset(new Vec3(x, y, z), hasAny);
     }
 
-    private static Map<String, String> parseKeyValues(String line) {
-        Map<String, String> result = new HashMap<>();
-        // Спліт по пробілах, ігноруючи порожні
-        for (String token : line.split("\\s+")) {
-            if (token.isBlank()) continue;
-            String[] parts = token.split("=", 2);
-            if (parts.length != 2) continue; // Пропускаємо токени без "="
-
-            result.put(parts[0].trim().toLowerCase(Locale.ROOT), parts[1].trim());
-        }
-        return result;
-    }
-
     /**
      * Обов'язковий параметр. Кидає помилку, якщо немає.
      */
@@ -307,6 +306,25 @@ public final class JShapeFactory {
         } catch (NumberFormatException e) {
             InertiaLogger.warn("Invalid float for '" + key + "': " + val + ". Using default: " + def);
             return def;
+        }
+    }
+
+    private static Map<String, String> parseKeyValues(String line) {
+        Map<String, String> map = new HashMap<>();
+        Matcher matcher = PARAM_PATTERN.matcher(line);
+        while (matcher.find()) {
+            map.put(matcher.group(1).toLowerCase(Locale.ROOT), matcher.group(2));
+        }
+        return map;
+    }
+
+    private static float requireFloat(Map<String, String> kv, String key) {
+        String val = kv.get(key);
+        if (val == null) throw new IllegalArgumentException("Missing required parameter '" + key + "'");
+        try {
+            return Float.parseFloat(val);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Parameter '" + key + "' must be a number, got: " + val);
         }
     }
 

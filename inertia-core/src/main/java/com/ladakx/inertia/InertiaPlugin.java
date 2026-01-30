@@ -29,11 +29,21 @@ import java.util.stream.Collectors;
 public final class InertiaPlugin extends JavaPlugin {
 
     private static InertiaPlugin instance;
+
+    // Core Dependencies
+    private ConfigManager configManager;
+    private JoltManager joltManager;
+    private SpaceManager spaceManager;
+    private ToolManager toolManager;
+    private ItemManager itemManager;
+
+    // NMS / Native
     private JoltNatives joltNatives;
-    private PaperCommandManager paperCommandManager;
     private PlayerTools playerTools;
     private JoltTools joltTools;
     private RenderFactory renderFactory;
+
+    private PaperCommandManager paperCommandManager;
 
     @Override
     public void onEnable() {
@@ -41,38 +51,72 @@ public final class InertiaPlugin extends JavaPlugin {
         InertiaLogger.init(this);
         InertiaLogger.info("Starting Inertia initialization...");
 
-        ConfigManager.init(this);
-        ItemManager.init();
+        // 1. Config (First, because others depend on it)
+        this.configManager = new ConfigManager(this);
 
+        // 2. Items (DI initialization)
+        this.itemManager = new ItemManager(configManager);
+        this.itemManager.reload();
+
+        // 3. Natives
         if (!setupNativeLibraries()) {
             InertiaLogger.error("Failed to initialize Jolt Physics Engine. Disabling plugin.");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
 
+        // 4. NMS
         setupNMSTools();
-        JoltManager.init(this);
-        SpaceManager.init(this);
-        ToolManager.init(this);
 
-        InertiaAPI.setImplementation(new InertiaAPIImpl(this));
+        // 5. Jolt & Space Managers
+        this.joltManager = new JoltManager(this, configManager);
+        this.spaceManager = new SpaceManager(this, configManager, joltManager);
+
+        // 6. Tools (Now initialized with dependencies)
+        this.toolManager = new ToolManager(this, configManager, spaceManager);
+
+        // 7. API
+        InertiaAPI.setImplementation(new InertiaAPIImpl(this, spaceManager, configManager));
         InertiaLogger.info("Inertia API registered.");
 
-        setupCommands();
+        // 8. Commands & Listeners
+        registerCommands();
         registerListeners();
 
         InertiaLogger.info("Inertia has been enabled successfully!");
     }
 
+    private void registerCommands() {
+        this.paperCommandManager = new PaperCommandManager(this);
+        // Completions logic requires configManager instance now
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c ->
+                configManager.getPhysicsBodyRegistry().all().stream()
+                        .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
+                        .map(BodyDefinition::id)
+                        .collect(Collectors.toList()));
+
+        DebugShapeManager debugShapeManager = new DebugShapeManager();
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("shapes", c -> debugShapeManager.getAvailableShapes());
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> itemManager.getItemIds());
+
+        // Register Commands with dependencies
+        this.paperCommandManager.registerCommand(new Commands(this, configManager, spaceManager, toolManager));
+    }
+
+    private void registerListeners() {
+        // Register listeners with dependencies
+        Bukkit.getPluginManager().registerEvents(new WorldLoadListener(spaceManager), this);
+    }
+
     @Override
     public void onDisable() {
-        SpaceManager.getInstance().shutdown();
-        JoltManager.getInstance().shutdown();
+        if (spaceManager != null) spaceManager.shutdown();
+        if (joltManager != null) joltManager.shutdown();
         InertiaLogger.info("Inertia has been disabled.");
     }
 
     public void reload() {
-        ConfigManager.getInstance().reload();
+        if (configManager != null) configManager.reloadAsync();
         InertiaLogger.info("Inertia configuration reloaded.");
     }
 
@@ -93,31 +137,17 @@ public final class InertiaPlugin extends JavaPlugin {
     private void setupNMSTools() {
         this.joltTools = JoltToolsInit.get();
         this.playerTools = PlayerToolsInit.get();
-        this.renderFactory = RenderFactoryInit.get();
-    }
-
-    private void setupCommands() {
-        this.paperCommandManager = new PaperCommandManager(this);
-        this.paperCommandManager.registerCommand(new Commands(this));
-
-        // Completions
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c -> ConfigManager.getInstance().getPhysicsBodyRegistry().all().stream()
-                .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
-                .map(BodyDefinition::id)
-                .collect(Collectors.toList()));
-
-        DebugShapeManager debugShapeManager = new DebugShapeManager();
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("shapes", c -> debugShapeManager.getAvailableShapes());
-
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> ItemManager.getInstance().getItemIds());
-    }
-
-    private void registerListeners() {
-        Bukkit.getPluginManager().registerEvents(new WorldLoadListener(), this);
+        this.renderFactory = RenderFactoryInit.get(this.itemManager);
     }
 
     public static InertiaPlugin getInstance() { return instance; }
-    public PlayerTools getPlayerTools() { return instance.playerTools; }
+    public PlayerTools getPlayerTools() { return playerTools; }
     public JoltTools getJoltTools() { return joltTools; }
     public RenderFactory getRenderFactory() { return renderFactory; }
+
+    // Геттеры для DI
+    public ConfigManager getConfigManager() { return configManager; }
+    public SpaceManager getSpaceManager() { return spaceManager; }
+    public ToolManager getToolManager() { return toolManager; }
+    public JoltManager getJoltManager() { return joltManager; }
 }

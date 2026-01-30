@@ -5,6 +5,7 @@ import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.jolt.shape.JShapeFactory;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
@@ -159,7 +160,7 @@ public class RagdollPhysicsObject extends DisplayedPhysicsObject {
         String renderModelId = ((RagdollDefinition)model.bodyDefinition()).parts().get(partName).renderModelId();
         if (renderModelId == null) return null;
 
-        var renderConfig = ConfigManager.getInstance().getRenderConfig();
+        var renderConfig = InertiaPlugin.getInstance().getConfigManager().getRenderConfig();
         var renderDefOpt = renderConfig.find(renderModelId);
 
         if (renderDefOpt.isEmpty()) return null;

@@ -18,21 +18,18 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 
-/**
- * Реалізація InertiaAPI.
- * Приховує деталі Jolt та NMS від зовнішніх плагінів.
- */
 public class InertiaAPIImpl extends InertiaAPI {
 
     private final InertiaPlugin plugin;
     private final SpaceManager spaceManager;
-    private final PhysicsBodyRegistry modelRegistry;
+    private final ConfigManager configManager;
     private final RenderFactory renderFactory;
 
-    public InertiaAPIImpl(InertiaPlugin plugin) {
+    // Внедряем зависимости через конструктор
+    public InertiaAPIImpl(InertiaPlugin plugin, SpaceManager spaceManager, ConfigManager configManager) {
         this.plugin = plugin;
-        this.spaceManager = SpaceManager.getInstance();
-        this.modelRegistry = ConfigManager.getInstance().getPhysicsBodyRegistry();
+        this.spaceManager = spaceManager;
+        this.configManager = configManager;
         this.renderFactory = plugin.getRenderFactory();
     }
 
@@ -43,38 +40,30 @@ public class InertiaAPIImpl extends InertiaAPI {
             return null;
         }
 
-        // 1. Отримуємо фізичний простір
         MinecraftSpace space = spaceManager.getSpace(location.getWorld());
         if (space == null) {
-            // Світ не є фізичним (немає в worlds.yml або ще не завантажений)
             return null;
         }
 
-        // 2. Перевіряємо наявність моделі
+        // Используем configManager вместо статики
+        PhysicsBodyRegistry modelRegistry = configManager.getPhysicsBodyRegistry();
+
         if (modelRegistry.find(bodyId).isEmpty()) {
             InertiaLogger.warn("Cannot create body: Body ID '" + bodyId + "' not found in registry.");
             return null;
         }
 
-        // 3. Конвертуємо координати
-        // Для Jolt RVec3 (Double Precision)
         RVec3 initialPos = new RVec3(location.getX(), location.getY(), location.getZ());
-        
-        // Конвертація Bukkit Yaw/Pitch -> Quaternion
         float yawRad = (float) Math.toRadians(-location.getYaw());
         float pitchRad = (float) Math.toRadians(location.getPitch());
-
         Quaternionf jomlQuat = new Quaternionf().rotationYXZ(yawRad, pitchRad, 0f);
         Quat initialRot = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
-//        Quat initialRot = new Quat(0, 0, 0, 1);
 
         PhysicsObjectType type = modelRegistry.require(bodyId).bodyDefinition().type();
 
         try {
-            // 4. Створюємо об'єкт
-            // MinecraftPhysicsObject автоматично додає себе до Space та Jolt System у конструкторі
             if (type == PhysicsObjectType.BLOCK) {
-                BlockPhysicsObject object = new BlockPhysicsObject(
+                return new BlockPhysicsObject(
                         space,
                         bodyId,
                         modelRegistry,
@@ -82,7 +71,6 @@ public class InertiaAPIImpl extends InertiaAPI {
                         initialPos,
                         initialRot
                 );
-                return object;
             } else {
                 InertiaLogger.warn("Cannot create body: Unsupported body type for ID '" + bodyId + "'.");
                 return null;
@@ -95,6 +83,6 @@ public class InertiaAPIImpl extends InertiaAPI {
 
     @Override
     public boolean isWorldSimulated(@NotNull String worldName) {
-        return ConfigManager.getInstance().getWorldsConfig().getWorldSettings(worldName) != null;
+        return configManager.getWorldsConfig().getWorldSettings(worldName) != null;
     }
 }

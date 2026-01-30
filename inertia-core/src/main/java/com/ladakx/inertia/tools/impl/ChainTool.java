@@ -42,9 +42,11 @@ public class ChainTool extends Tool {
 
     private static final String BODY_ID_KEY = "chain_body_id";
     private final Map<UUID, Location> startPoints = new HashMap<>();
+    private final SpaceManager spaceManager; // Injected
 
-    public ChainTool() {
-        super("chain_tool");
+    public ChainTool(ConfigManager configManager, SpaceManager spaceManager) {
+        super("chain_tool", configManager);
+        this.spaceManager = spaceManager;
     }
 
     @Override
@@ -126,17 +128,19 @@ public class ChainTool extends Tool {
         return new ItemStack(Material.LEAD);
     }
 
-    public static void buildChainBetweenPoints(Player player, Location start, Location end, String bodyId) {
-        PhysicsBodyRegistry registry = ConfigManager.getInstance().getPhysicsBodyRegistry();
+    public void buildChainBetweenPoints(Player player, Location start, Location end, String bodyId) {
+        PhysicsBodyRegistry registry = configManager.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
 
         if (modelOpt.isEmpty() || modelOpt.get().bodyDefinition().type() != PhysicsObjectType.CHAIN) {
-            InertiaLogger.warn("Invalid chain body definition in tool: " + bodyId);
+            // Using logger? or send message? Tool has send()
+            // InertiaLogger.warn("Invalid chain body...");
+            send(player, MessageKey.INVALID_CHAIN_BODY, "{id}", bodyId);
             return;
         }
 
         ChainBodyDefinition def = (ChainBodyDefinition) modelOpt.get().bodyDefinition();
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
         if (space == null) return;
 
         Vector directionVector = end.toVector().subtract(start.toVector());

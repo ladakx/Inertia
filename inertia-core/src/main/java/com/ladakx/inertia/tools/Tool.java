@@ -16,16 +16,17 @@ import static com.ladakx.inertia.utils.PDCUtils.setString;
 public abstract class Tool {
 
     public static final String TOOL_KEY = "inertia_tool_id";
-    private final String toolId;
+    protected final String toolId;
+    protected final ConfigManager configManager; // Injected dependency
 
-    public Tool(String toolId) {
+    public Tool(String toolId, ConfigManager configManager) {
         this.toolId = toolId;
+        this.configManager = configManager;
     }
 
     public abstract void onRightClick(PlayerInteractEvent event);
     public abstract void onLeftClick(PlayerInteractEvent event);
     public abstract void onSwapHands(Player player);
-
     public boolean onHotbarChange(PlayerItemHeldEvent event, int diff) {
         return false;
     }
@@ -37,6 +38,8 @@ public abstract class Tool {
     }
 
     protected ItemStack markItemAsTool(ItemStack stack) {
+        // Plugin instance needed for NamespacedKey. Can be passed or retrieved from configManager if we stored it there,
+        // or kept static usage for InertiaPlugin.getInstance() solely for NamespacedKeys (acceptable in Spigot API context).
         setString(InertiaPlugin.getInstance(), stack, TOOL_KEY, toolId);
         return stack;
     }
@@ -54,6 +57,7 @@ public abstract class Tool {
     // --- Helper Methods ---
 
     protected boolean validateWorld(Player player) {
+        // InertiaAPI.get() is static, allowed for public API usage.
         if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) {
             send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return false;
@@ -62,6 +66,7 @@ public abstract class Tool {
     }
 
     protected void send(CommandSender sender, MessageKey key, String... replacements) {
-        ConfigManager.getInstance().getMessageManager().send(sender, key, replacements);
+        // DI usage
+        configManager.getMessageManager().send(sender, key, replacements);
     }
 }
