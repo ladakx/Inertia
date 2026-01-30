@@ -278,8 +278,7 @@ public class ItemSerializer {
             }
 
         } catch (Exception e) {
-            InertiaLogger.warn("Failed to apply CustomModelDataComponent: " + e.getMessage());
-            e.printStackTrace();
+            InertiaLogger.error("Failed to apply CustomModelDataComponent to item meta", e);
         }
     }
 

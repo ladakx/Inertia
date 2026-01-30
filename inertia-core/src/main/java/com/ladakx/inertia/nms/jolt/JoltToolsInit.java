@@ -25,16 +25,14 @@ public class JoltToolsInit {
         String path = "com.ladakx.inertia.nms."+version+".JoltTools";
 
         JoltTools bulletTools = null;
-        
+
         try {
             Class<?> clazz = Class.forName(path);
             Constructor<?> constructor = clazz.getConstructor();
-            bulletTools = (JoltTools) constructor.newInstance();
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-            InertiaLogger.error("The server version you are using is not supported.");
-            e.printStackTrace();
+            return (JoltTools) constructor.newInstance();
+        } catch (Exception e) {
+            InertiaLogger.error("Failed to initialize JoltTools for NMS version: " + version, e);
+            return null; // Or throw a RuntimeException if critical
         }
-
-        return bulletTools;
     }
 }
