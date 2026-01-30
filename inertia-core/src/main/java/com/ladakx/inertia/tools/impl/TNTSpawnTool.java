@@ -1,7 +1,9 @@
 package com.ladakx.inertia.tools.impl;
 
 import com.ladakx.inertia.InertiaPlugin;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.config.message.MessageKey;
+import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.physics.service.PhysicsSpawnService;
 import com.ladakx.inertia.tools.Tool;
 import net.kyori.adventure.text.Component;
@@ -27,28 +29,26 @@ public class TNTSpawnTool extends Tool {
     private static final String KEY_FORCE = "tnt_force";
 
     private final PhysicsSpawnService spawnService;
+    private final SpaceManager spaceManager;
 
-    public TNTSpawnTool() {
-        super("tnt_spawner");
-        this.spawnService = new PhysicsSpawnService(InertiaPlugin.getInstance());
+    public TNTSpawnTool(ConfigManager configManager, SpaceManager spaceManager) {
+        super("tnt_spawner", configManager);
+        this.spaceManager = spaceManager;
+        this.spawnService = new PhysicsSpawnService(InertiaPlugin.getInstance(), spaceManager, configManager);
     }
 
     @Override
     public void onLeftClick(PlayerInteractEvent event) {
-        // L-Click: Throw TNT
         spawnTNT(event.getPlayer(), event.getItem(), true);
     }
 
     @Override
     public void onRightClick(PlayerInteractEvent event) {
-        // R-Click: Place TNT at feet
         spawnTNT(event.getPlayer(), event.getItem(), false);
     }
 
     @Override
-    public void onSwapHands(Player player) {
-        // No action
-    }
+    public void onSwapHands(Player player) {}
 
     private void spawnTNT(Player player, ItemStack item, boolean isThrow) {
         if (!validateWorld(player)) return;

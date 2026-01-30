@@ -1,6 +1,8 @@
 package com.ladakx.inertia.tools;
 
 import com.ladakx.inertia.InertiaPlugin;
+import com.ladakx.inertia.config.ConfigManager;
+import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.tools.impl.*;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -16,27 +18,23 @@ import java.util.Map;
 
 public class ToolManager implements Listener {
 
-    private static ToolManager instance;
     private final Map<String, Tool> tools = new HashMap<>();
+    private final ConfigManager configManager;
+    private final SpaceManager spaceManager;
 
-    private ToolManager(InertiaPlugin plugin) {
+    public ToolManager(InertiaPlugin plugin, ConfigManager configManager, SpaceManager spaceManager) {
+        this.configManager = configManager;
+        this.spaceManager = spaceManager;
+
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        register(new ChainTool());
-        register(new DeleteTool());
-        register(new WeldTool());
-        register(new GrabberTool());
-        register(new RagdollTool());
-        register(new ShapeTool());
-        register(new TNTSpawnTool());
-    }
-
-    public static void init(InertiaPlugin plugin) {
-        if (instance == null) instance = new ToolManager(plugin);
-    }
-
-    public static ToolManager getInstance() {
-        return instance;
+        register(new ChainTool(configManager, spaceManager));
+        register(new DeleteTool(configManager, spaceManager));
+        register(new WeldTool(configManager, spaceManager));
+        register(new GrabberTool(configManager, spaceManager));
+        register(new RagdollTool(configManager, spaceManager));
+        register(new ShapeTool(configManager, spaceManager));
+        register(new TNTSpawnTool(configManager, spaceManager));
     }
 
     public void register(Tool tool) {

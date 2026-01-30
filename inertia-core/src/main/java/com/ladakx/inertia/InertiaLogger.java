@@ -14,15 +14,21 @@ public class InertiaLogger {
     private static Logger logger;
     private static final String DEBUG_PREFIX = "[Inertia-Debug] ";
 
+    // Зберігаємо стан дебагу локально, замість запиту до ConfigManager
+    private static volatile boolean debugMode = false;
+
     private InertiaLogger() {}
 
-    /**
-     * Initialize the logger with the plugin instance.
-     * Call this in onEnable.
-     * @param plugin Your JavaPlugin instance
-     */
     public static void init(JavaPlugin plugin) {
         logger = plugin.getLogger();
+    }
+
+    /**
+     * Оновлює стан режиму налагодження.
+     * Викликається з ConfigManager після завантаження налаштувань.
+     */
+    public static void setDebugMode(boolean active) {
+        debugMode = active;
     }
 
     public static void info(Throwable throwable) {
@@ -72,11 +78,8 @@ public class InertiaLogger {
 
     public static void debug(String message) {
         ensureInit();
-        if (ConfigManager.getInstance() != null) {
-            boolean debug = ConfigManager.getInstance().getInertiaConfig().GENERAL.DEBUG.consoleDebug;
-            if (debug) {
-                logger.warning(DEBUG_PREFIX + message);
-            }
+        if (debugMode) {
+            logger.warning(DEBUG_PREFIX + message);
         }
     }
 

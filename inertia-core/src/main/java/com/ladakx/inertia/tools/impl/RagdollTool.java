@@ -32,9 +32,11 @@ import static com.ladakx.inertia.utils.PDCUtils.setString;
 public class RagdollTool extends Tool {
 
     public static final String BODY_ID_KEY = "ragdoll_body_id";
+    private final SpaceManager spaceManager; // Added for completeness from Step 3
 
-    public RagdollTool() {
-        super("ragdoll_tool");
+    public RagdollTool(ConfigManager configManager, SpaceManager spaceManager) {
+        super("ragdoll_tool", configManager);
+        this.spaceManager = spaceManager;
     }
 
     @Override
@@ -59,14 +61,14 @@ public class RagdollTool extends Tool {
             return;
         }
 
-        PhysicsBodyRegistry registry = ConfigManager.getInstance().getPhysicsBodyRegistry();
+        PhysicsBodyRegistry registry = configManager.getPhysicsBodyRegistry();
         var modelOpt = registry.find(bodyId);
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {
             send(player, MessageKey.INVALID_RAGDOLL_BODY, "{id}", bodyId);
             return;
         }
 
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
         if (space == null) return;
 
         Location baseLoc = player.getEyeLocation().add(player.getLocation().getDirection().multiply(2.5)).add(0, 0.5, 0);
@@ -97,8 +99,11 @@ public class RagdollTool extends Tool {
                 .map(Map.Entry::getKey)
                 .findFirst().orElse(null);
 
+        // Error handling fix:
         if (rootPart == null) {
-            player.sendMessage(Component.text("Ragdoll definition error: No root part found!", NamedTextColor.RED));
+            // FIX: Replaced player.sendMessage(...)
+            // Ensure MessageKey.INVALID_RAGDOLL_BODY or a new key like RAGDOLL_NO_ROOT is used
+            send(player, MessageKey.INVALID_RAGDOLL_BODY, "{id}", bodyId != null ? bodyId : "unknown");
             return;
         }
 

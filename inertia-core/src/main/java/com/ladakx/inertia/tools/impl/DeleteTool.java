@@ -4,6 +4,7 @@ import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.TwoBodyConstraint;
 import com.github.stephengold.joltjni.TwoBodyConstraintRef;
 import com.ladakx.inertia.InertiaLogger;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
@@ -35,14 +36,17 @@ import java.util.Set;
  */
 public class DeleteTool extends Tool {
 
-    public DeleteTool() {
-        super("remover");
+    private final SpaceManager spaceManager;
+
+    public DeleteTool(ConfigManager configManager, SpaceManager spaceManager) {
+        super("remover", configManager);
+        this.spaceManager = spaceManager;
     }
 
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
         if (space == null) {
             return;
         }

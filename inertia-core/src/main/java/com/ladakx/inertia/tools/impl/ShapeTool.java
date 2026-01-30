@@ -1,6 +1,8 @@
 package com.ladakx.inertia.tools.impl;
 
 import com.ladakx.inertia.InertiaPlugin;
+import com.ladakx.inertia.config.ConfigManager;
+import com.ladakx.inertia.jolt.space.SpaceManager;
 import com.ladakx.inertia.physics.service.PhysicsSpawnService;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
@@ -33,9 +35,12 @@ public class ShapeTool extends Tool {
     private final PhysicsSpawnService spawnService;
     private final DebugShapeManager debugShapeManager;
 
-    public ShapeTool() {
-        super("shape_tool");
-        this.spawnService = new PhysicsSpawnService(InertiaPlugin.getInstance());
+    private final SpaceManager spaceManager;
+
+    public ShapeTool(ConfigManager configManager, SpaceManager spaceManager) {
+        super("shape_tool", configManager);
+        this.spaceManager = spaceManager;
+        this.spawnService = new PhysicsSpawnService(InertiaPlugin.getInstance(), spaceManager, configManager);
         this.debugShapeManager = new DebugShapeManager();
     }
 

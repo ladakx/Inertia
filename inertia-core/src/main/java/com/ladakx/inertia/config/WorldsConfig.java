@@ -64,7 +64,7 @@ public class WorldsConfig {
 
         // --- Simulation ---
         ConfigurationSection simSec = section.getConfigurationSection("simulation");
-        SimulationType type = SimulationType.RAYON;
+        SimulationType type = SimulationType.NONE;
         boolean simEnable = true;
 
         if (simSec != null) {

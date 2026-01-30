@@ -31,18 +31,21 @@ public class PhysicsSpawnService {
 
     private final InertiaPlugin plugin;
     private final SpaceManager spaceManager;
-    private final PhysicsBodyRegistry registry;
+    private final ConfigManager configManager;
 
-    public PhysicsSpawnService(InertiaPlugin plugin) {
+    public PhysicsSpawnService(InertiaPlugin plugin, SpaceManager spaceManager, ConfigManager configManager) {
         this.plugin = plugin;
-        this.spaceManager = SpaceManager.getInstance();
-        this.registry = ConfigManager.getInstance().getPhysicsBodyRegistry();
+        this.spaceManager = spaceManager;
+        this.configManager = configManager;
     }
 
     /**
      * Спавнить одиночне тіло (блок, простий об'єкт).
      */
     public boolean spawnBody(Location location, String bodyId) {
+        // API already has static access (InertiaAPI.get()), but inside the core we can use managers directly or via API.
+        // Since InertiaAPI implementation is also injected, strictly speaking we could use that,
+        // but for internal service logic using managers is fine.
         InertiaPhysicsObject obj = InertiaAPI.get().createBody(location, bodyId);
         return obj != null;
     }
@@ -51,25 +54,23 @@ public class PhysicsSpawnService {
      * Спавнить ланцюг, що вільно висить або падає.
      */
     public void spawnChain(Player player, String bodyId, int size) {
+        PhysicsBodyRegistry registry = configManager.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
+
         if (modelOpt.isEmpty()) {
-            throw new IllegalArgumentException("Тіло ланцюга не знайдено: " + bodyId);
+            throw new IllegalArgumentException("Chain body not found: " + bodyId);
         }
 
         if (!(modelOpt.get().bodyDefinition() instanceof ChainBodyDefinition def)) {
-            throw new IllegalArgumentException("ID не належить до типу ланцюга: " + bodyId);
+            throw new IllegalArgumentException("Body ID '" + bodyId + "' is not of type CHAIN.");
         }
-
         MinecraftSpace space = spaceManager.getSpace(player.getWorld());
         if (space == null) return;
 
         Location startLoc = getSpawnLocation(player, 3.0);
-
-        // Спавнимо ланцюг вертикально вниз
         Vector direction = new Vector(0, -1, 0);
         double spacing = def.chainSettings().spacing();
 
-        // Ротація (вертикальна орієнтація)
         Quaternionf jomlQuat = new Quaternionf().rotationTo(new org.joml.Vector3f(0, 1, 0), new org.joml.Vector3f(0, -1, 0));
         Quat linkRotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
@@ -96,34 +97,29 @@ public class PhysicsSpawnService {
      * Спавнить регдолл.
      */
     public void spawnRagdoll(Player player, String bodyId) {
+        PhysicsBodyRegistry registry = configManager.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {
-            throw new IllegalArgumentException("Incorrect id: " + bodyId);
+            throw new IllegalArgumentException("Ragdoll body not found or invalid type: " + bodyId);
         }
 
         MinecraftSpace space = spaceManager.getSpace(player.getWorld());
         Location spawnLoc = getSpawnLocation(player, 3.0);
 
-        // Ротація відносно гравця (обличчям до гравця)
         float yaw = -player.getLocation().getYaw() + 180;
         double yawRad = Math.toRadians(yaw);
         Quaternionf jomlQuat = new Quaternionf(new AxisAngle4f((float) yawRad, 0, 1, 0));
         Quat rotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
         Map<String, Body> spawnedParts = new HashMap<>();
-
-        // --- Setup Group Filter for Collisions ---
         int totalParts = def.parts().size();
         GroupFilterTable groupFilter = new GroupFilterTable(totalParts);
-
-        // Map PartName -> Index
         Map<String, Integer> partIndices = new HashMap<>();
         int indexCounter = 0;
         for (String key : def.parts().keySet()) {
             partIndices.put(key, indexCounter++);
         }
 
-        // 1. Знаходимо корінь (частина без батька)
         String rootPart = def.parts().entrySet().stream()
                 .filter(e -> e.getValue().parentName() == null)
                 .map(Map.Entry::getKey)
@@ -131,11 +127,10 @@ public class PhysicsSpawnService {
 
         if (rootPart == null) return;
 
-        // 2. Спавн кореня
         RVec3 rootPos = new RVec3(spawnLoc.getX(), spawnLoc.getY(), spawnLoc.getZ());
-        createRagdollPart(space, bodyId, rootPart, rootPos, rotation, spawnedParts, groupFilter, partIndices.get(rootPart));
 
-        // 3. Рекурсивний спавн дітей
+        // Pass necessary params
+        createRagdollPart(space, bodyId, rootPart, rootPos, rotation, spawnedParts, groupFilter, partIndices.get(rootPart));
         spawnRagdollChildren(space, bodyId, rootPart, def, rotation, spawnedParts, yawRad, groupFilter, partIndices);
     }
 
@@ -162,7 +157,7 @@ public class PhysicsSpawnService {
     private void createRagdollPart(MinecraftSpace space, String bodyId, String partName, RVec3 pos, Quat rot,
                                    Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex) {
         RagdollPhysicsObject obj = new RagdollPhysicsObject(
-                space, bodyId, partName, registry,
+                space, bodyId, partName, configManager.getPhysicsBodyRegistry(),
                 plugin.getRenderFactory(),
                 pos, rot, spawnedBodies,
                 groupFilter, partIndex
@@ -192,7 +187,6 @@ public class PhysicsSpawnService {
                     double y = parentPos.yy() + parentPivotWorld.y - childPivotWorld.y;
                     double z = parentPos.zz() + parentPivotWorld.z - childPivotWorld.z;
 
-                    // Pass filter and index to child creation
                     createRagdollPart(space, bodyId, partName, new RVec3(x, y, z), rotation, spawnedBodies,
                             groupFilter, partIndices.get(partName));
 
@@ -216,7 +210,7 @@ public class PhysicsSpawnService {
         if (space == null) return;
 
         // Verify body exists
-        if (registry.find(bodyId).isEmpty()) {
+        if (getRegistry().find(bodyId).isEmpty()) {
             throw new IllegalArgumentException("Body ID not found: " + bodyId);
         }
 
@@ -230,7 +224,7 @@ public class PhysicsSpawnService {
         TNTPhysicsObject tnt = new TNTPhysicsObject(
                 space,
                 bodyId,
-                registry,
+                getRegistry(),
                 plugin.getRenderFactory(),
                 pos,
                 rot,
@@ -251,5 +245,10 @@ public class PhysicsSpawnService {
 
     private Location getSpawnLocation(Player player, double distance) {
         return player.getEyeLocation().add(player.getLocation().getDirection().multiply(distance));
+    }
+
+    // Helper needed for private methods to access registry
+    private PhysicsBodyRegistry getRegistry() {
+        return configManager.getPhysicsBodyRegistry();
     }
 }

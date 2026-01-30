@@ -14,33 +14,24 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SpaceManager {
 
-    private static SpaceManager instance;
-
     private final InertiaPlugin plugin;
+    private final ConfigManager configManager;
+    private final JoltManager joltManager;
 
-    // Карта: UUID світу Bukkit -> Фізичний простір
     private final Map<UUID, MinecraftSpace> spaces = new ConcurrentHashMap<>();
 
-    private SpaceManager(InertiaPlugin plugin) {
+    // Внедрение зависимостей
+    public SpaceManager(InertiaPlugin plugin, ConfigManager configManager, JoltManager joltManager) {
         this.plugin = plugin;
+        this.configManager = configManager;
+        this.joltManager = joltManager;
 
-        // 1. Підгружаємо світи, які вже є на сервері при запуску плагіна
         InertiaLogger.info("Loading existing worlds into Inertia Jolt...");
         for (World world : Bukkit.getWorlds()) {
             createSpace(world);
         }
     }
 
-    public static void init(InertiaPlugin plugin) {
-        if (instance == null) {
-            instance = new SpaceManager(plugin);
-        }
-    }
-
-    /**
-     * Отримати фізичний простір за світом Bukkit.
-     * Створить новий, якщо його ще немає.
-     */
     public MinecraftSpace getSpace(World world) {
         return spaces.computeIfAbsent(world.getUID(), k -> createSpaceInternal(world));
     }
@@ -53,18 +44,21 @@ public class SpaceManager {
 
     private MinecraftSpace createSpaceInternal(World world) {
         InertiaLogger.info("Creating physics space for world: " + world.getName());
-        WorldsConfig.WorldProfile settings = ConfigManager.getInstance().getWorldsConfig().getWorldSettings(world.getName());
+        // Используем инстанс configManager
+        WorldsConfig.WorldProfile settings = configManager.getWorldsConfig().getWorldSettings(world.getName());
+
         return new MinecraftSpace(
                 world,
                 settings,
-                JoltManager.getInstance().getJobSystem(),
-                JoltManager.getInstance().getTempAllocator()
+                joltManager.getJobSystem(),
+                joltManager.getTempAllocator()
         );
     }
 
     public void createSpace(World world) {
         if (!spaces.containsKey(world.getUID())) {
-            if (ConfigManager.getInstance().getWorldsConfig().getAllWorlds().containsKey(world.getName())) {
+            // Используем инстанс configManager
+            if (configManager.getWorldsConfig().getAllWorlds().containsKey(world.getName())) {
                 spaces.put(world.getUID(), createSpaceInternal(world));
             } else {
                 InertiaLogger.info("World " + world.getName() + " is not configured for Inertia Jolt. Skipping space creation.");
@@ -85,12 +79,5 @@ public class SpaceManager {
             space.close();
         }
         spaces.clear();
-    }
-
-    public static SpaceManager getInstance() {
-        if (instance == null) {
-            throw new IllegalStateException("SpaceManager not initialized! Call init() first.");
-        }
-        return instance;
     }
 }

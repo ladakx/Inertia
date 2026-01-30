@@ -1,6 +1,5 @@
 package com.ladakx.inertia.jolt.listeners;
 
-import com.ladakx.inertia.InertiaPlugin;
 import com.ladakx.inertia.jolt.space.SpaceManager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -8,15 +7,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 
-/**
- * Listener for loading and unloading worlds.
- */
 public class WorldLoadListener implements Listener {
 
     private final SpaceManager spaceManager;
 
-    public WorldLoadListener() {
-        this.spaceManager = SpaceManager.getInstance();
+    public WorldLoadListener(SpaceManager spaceManager) {
+        this.spaceManager = spaceManager;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

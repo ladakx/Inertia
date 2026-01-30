@@ -2,6 +2,7 @@ package com.ladakx.inertia.tools.impl;
 
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EAxis;
+import com.ladakx.inertia.config.ConfigManager;
 import com.ladakx.inertia.config.message.MessageKey;
 import com.ladakx.inertia.jolt.object.AbstractPhysicsObject;
 import com.ladakx.inertia.jolt.space.MinecraftSpace;
@@ -26,8 +27,11 @@ public class WeldTool extends Tool {
     private @Nullable Body firstObject = null;
     private boolean keepDistance = false;
 
-    public WeldTool() {
-        super("welder");
+    private final SpaceManager spaceManager;
+
+    public WeldTool(ConfigManager configManager, SpaceManager spaceManager) {
+        super("welder", configManager);
+        this.spaceManager = spaceManager;
     }
 
     @Override
@@ -40,7 +44,7 @@ public class WeldTool extends Tool {
     @Override
     public void onLeftClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
 
         if (firstObject != null) {
             firstObject = null;
@@ -60,7 +64,7 @@ public class WeldTool extends Tool {
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        MinecraftSpace space = SpaceManager.getInstance().getSpace(player.getWorld());
+        MinecraftSpace space = spaceManager.getSpace(player.getWorld());
 
         List<MinecraftSpace.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 16);
         if (results.isEmpty()) return;
