@@ -5,7 +5,6 @@ import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.common.mesh.BlockBenchMeshProvider;
 import com.ladakx.inertia.core.impl.InertiaAPIImpl;
 import com.ladakx.inertia.common.logging.InertiaLogger;
-import com.ladakx.inertia.features.commands.Commands;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.features.items.ItemRegistry;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
@@ -109,17 +108,14 @@ public final class InertiaPlugin extends JavaPlugin {
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c ->
                 configurationService.getPhysicsBodyRegistry().all().stream()
                         .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
-                        .map(BodyDefinition::id)
+                        .map(com.ladakx.inertia.physics.body.config.BodyDefinition::id)
                         .collect(Collectors.toList()));
 
-        // Объединенный список: Типы тел + ID тел для команды clear
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("clear_filter", c -> {
             List<String> suggestions = new ArrayList<>();
-            // Добавляем типы (BLOCK, CHAIN, RAGDOLL, TNT)
             for (com.ladakx.inertia.physics.body.PhysicsBodyType type : com.ladakx.inertia.physics.body.PhysicsBodyType.values()) {
                 suggestions.add(type.name());
             }
-            // Добавляем ID всех тел
             suggestions.addAll(configurationService.getPhysicsBodyRegistry().all().stream()
                     .map(m -> m.bodyDefinition().id())
                     .collect(Collectors.toList()));
@@ -130,12 +126,14 @@ public final class InertiaPlugin extends JavaPlugin {
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("shapes", c -> debugShapeManager.getAvailableShapes());
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> itemRegistry.getItemIds());
 
-        // Register Commands with dependencies
-        this.paperCommandManager.registerCommand(new Commands(this, configurationService, physicsWorldRegistry, toolRegistry, bodyFactory));
+        // Register Broken Down Commands
+        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.SystemCommands(configurationService));
+        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.SpawnCommands(configurationService, bodyFactory));
+        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.ToolCommands(configurationService, toolRegistry));
+        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.ManageCommands(configurationService, physicsWorldRegistry));
     }
 
     private void registerListeners() {
-        // Register listeners with dependencies
         Bukkit.getPluginManager().registerEvents(new WorldLoadListener(physicsWorldRegistry), this);
     }
 
