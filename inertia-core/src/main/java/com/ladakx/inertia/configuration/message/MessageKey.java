@@ -23,6 +23,10 @@ public enum MessageKey {
     RAGDOLL_SPAWN_SUCCESS("ragdoll-spawn-success"),
     SHAPE_SPAWN_SUCCESS("shape-spawn-success"),
     CLEAR_SUCCESS("clear-success"),
+    CLEAR_SUCCESS_RADIUS("clear-success-radius"),
+    CLEAR_SUCCESS_FILTER("clear-success-filter"),
+    CLEAR_SUCCESS_COMBO("clear-success-combo"),
+    CLEAR_NO_MATCH("clear-no-match"),
 
     // Shapes
     SHAPE_NOT_FOUND("shape-not-found"),

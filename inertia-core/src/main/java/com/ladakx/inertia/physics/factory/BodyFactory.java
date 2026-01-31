@@ -119,7 +119,8 @@ public class BodyFactory {
         PhysicsBodyRegistry registry = configurationService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {
-            throw new IllegalArgumentException("Ragdoll body not found or invalid type: " + bodyId);
+//            throw new IllegalArgumentException("Ragdoll body not found or invalid type: " + bodyId);
+            return;
         }
 
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
