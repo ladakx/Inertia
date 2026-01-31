@@ -6,6 +6,8 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
+import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -21,6 +23,8 @@ import com.ladakx.inertia.features.tools.impl.TNTSpawnTool;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+
+import java.util.List;
 
 @CommandAlias("inertia")
 @Description("Main inertia plugin command.")
@@ -70,20 +74,75 @@ public class Commands extends BaseCommand {
     }
 
     @Subcommand("clear")
-    @Description("Clear all physics bodies in the current world.")
-    public void onClearCommand(Player player) {
+    @CommandPermission("inertia.commands.clear")
+    @CommandCompletion("10|20|50|100 @clear_filter")
+    @Syntax("[radius] [type|id]")
+    @Description("Clear physics bodies with optional radius and type filters.")
+    public void onClearCommand(Player player, @Optional Integer radius, @Optional String filter) {
         if (!checkPermission(player, "inertia.commands.clear", true)) return;
 
-        // Use injected spaceManager
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) {
             send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return;
         }
 
-        int countBefore = space.getObjects().size();
-        space.removeAllObjects();
-        send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(countBefore));
+        PhysicsBodyType targetType = null;
+        String targetId = null;
+
+        if (filter != null) {
+            try {
+                targetType = PhysicsBodyType.valueOf(filter.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                targetId = filter;
+            }
+        }
+
+        int countRemoved = 0;
+        Location playerLoc = player.getLocation();
+        double radiusSq = (radius != null && radius > 0) ? radius * radius : -1;
+
+        List<com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody> toRemove = new java.util.ArrayList<>();
+
+        for (var obj : space.getObjects()) {
+            if (radiusSq > 0) {
+                if (obj.getLocation().distanceSquared(playerLoc) > radiusSq) continue;
+            }
+
+            if (targetType != null && obj.getType() != targetType) continue;
+            if (targetId != null && !obj.getBodyId().equalsIgnoreCase(targetId)) continue;
+
+            toRemove.add(obj);
+        }
+
+        for (var obj : toRemove) {
+            try {
+                obj.destroy();
+                countRemoved++;
+            } catch (Exception e) {
+                InertiaLogger.error("Failed to clear object during command execution", e);
+            }
+        }
+
+        // Выбираем правильное сообщение
+        if (countRemoved == 0) {
+            send(player, MessageKey.CLEAR_NO_MATCH);
+        } else if (radius != null && filter != null) {
+            send(player, MessageKey.CLEAR_SUCCESS_COMBO,
+                    "{count}", String.valueOf(countRemoved),
+                    "{radius}", String.valueOf(radius),
+                    "{filter}", filter);
+        } else if (radius != null) {
+            send(player, MessageKey.CLEAR_SUCCESS_RADIUS,
+                    "{count}", String.valueOf(countRemoved),
+                    "{radius}", String.valueOf(radius));
+        } else if (filter != null) {
+            send(player, MessageKey.CLEAR_SUCCESS_FILTER,
+                    "{count}", String.valueOf(countRemoved),
+                    "{filter}", filter);
+        } else {
+            send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(countRemoved));
+        }
     }
 
     // --- Spawn Commands ---

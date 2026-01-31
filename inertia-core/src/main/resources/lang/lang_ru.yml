@@ -141,8 +141,18 @@ remover-used:
 
 error-occurred:
   - "{prefix} &cОшибка: {error}"
+
+# --- Команда очистки ---
 clear-success:
   - "{prefix} &7Удалено &c{count} &7физических объектов из этого мира."
+clear-success-radius:
+  - "{prefix} &7Удалено &c{count} &7объектов в радиусе &e{radius} &7блоков."
+clear-success-filter:
+  - "{prefix} &7Удалено &c{count} &7объектов типа '&e{filter}&7'."
+clear-success-combo:
+  - "{prefix} &7Удалено &c{count} &7объектов типа '&e{filter}&7' в радиусе &e{radius} &7блоков."
+clear-no-match:
+  - "{prefix} &cФизические объекты по вашему запросу не найдены."
 
 tnt-spawned:
   - "{prefix} &7ТНТ заспавнено с силой &c{force}&7!"

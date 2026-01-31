@@ -28,6 +28,8 @@ import com.ladakx.inertia.features.tools.ToolRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public final class InertiaPlugin extends JavaPlugin {
@@ -102,12 +104,27 @@ public final class InertiaPlugin extends JavaPlugin {
 
     private void registerCommands() {
         this.paperCommandManager = new PaperCommandManager(this);
+
         // Completions logic requires configManager instance now
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c ->
                 configurationService.getPhysicsBodyRegistry().all().stream()
                         .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
                         .map(BodyDefinition::id)
                         .collect(Collectors.toList()));
+
+        // Объединенный список: Типы тел + ID тел для команды clear
+        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("clear_filter", c -> {
+            List<String> suggestions = new ArrayList<>();
+            // Добавляем типы (BLOCK, CHAIN, RAGDOLL, TNT)
+            for (com.ladakx.inertia.physics.body.PhysicsBodyType type : com.ladakx.inertia.physics.body.PhysicsBodyType.values()) {
+                suggestions.add(type.name());
+            }
+            // Добавляем ID всех тел
+            suggestions.addAll(configurationService.getPhysicsBodyRegistry().all().stream()
+                    .map(m -> m.bodyDefinition().id())
+                    .collect(Collectors.toList()));
+            return suggestions;
+        });
 
         DebugShapeManager debugShapeManager = new DebugShapeManager();
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("shapes", c -> debugShapeManager.getAvailableShapes());
