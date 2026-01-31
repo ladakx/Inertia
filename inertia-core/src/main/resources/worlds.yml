@@ -5,7 +5,7 @@ world:
   max-bodies: 5000; # Maximum number of physics bodies allowed in the world //65536
   floor-plane:
     enable: true
-    y-level: 1
+    y-level: 4
     y-size: 1
     friction: 1.0
     restitution: 0.025

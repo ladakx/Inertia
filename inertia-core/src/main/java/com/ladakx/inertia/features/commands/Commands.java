@@ -1,6 +1,7 @@
 package com.ladakx.inertia.features.commands;
 
 import co.aikar.commands.annotation.*;
+import com.ladakx.inertia.common.PhysicsGraphUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.core.InertiaPlugin;
@@ -9,6 +10,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
+import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -148,10 +150,10 @@ public class Commands extends BaseCommand {
 
     @Subcommand("entity clear")
     @CommandPermission("inertia.commands.clear")
-    @CommandCompletion("10|20|50|100 true|false @clear_filter")
-    @Syntax("<radius> <active> [type|id]")
-    @Description("Clear entities linked to Inertia. active=false removes only orphaned visuals.")
-    public void onEntityClear(Player player, int radius, boolean active, @Optional String filter) {
+    @CommandCompletion("10|20|50|100 true|false true|false @clear_filter")
+    @Syntax("<radius> <active> <static> [type|id]")
+    @Description("Clear entities linked to Inertia. active=false removes only orphaned visuals. static=true removes frozen entities.")
+    public void onEntityClear(Player player, int radius, boolean active, boolean removeStatic, @Optional String filter) {
         if (!checkPermission(player, "inertia.commands.clear", true)) return;
 
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
@@ -181,12 +183,20 @@ public class Commands extends BaseCommand {
         for (org.bukkit.entity.Entity entity : entities) {
             var pdc = entity.getPersistentDataContainer();
 
-            // 1. Пропускаем, если это не Inertia
             if (!pdc.has(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ID, org.bukkit.persistence.PersistentDataType.STRING)) {
                 continue;
             }
 
-            // 2. Фильтрация по ID/Type
+            boolean isStatic = false;
+            if (pdc.has(InertiaPDCKeys.INERTIA_ENTITY_STATIC, org.bukkit.persistence.PersistentDataType.STRING)) {
+                String staticVal = pdc.get(InertiaPDCKeys.INERTIA_ENTITY_STATIC, org.bukkit.persistence.PersistentDataType.STRING);
+                isStatic = "true".equalsIgnoreCase(staticVal);
+            }
+
+            if (isStatic && !removeStatic) {
+                continue;
+            }
+
             String bodyId = pdc.get(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ID, org.bukkit.persistence.PersistentDataType.STRING);
             if (targetId != null) {
                 assert bodyId != null;
@@ -200,7 +210,11 @@ public class Commands extends BaseCommand {
                 }
             }
 
-            // 3. Поиск физического тела
+            if (isStatic) {
+                entitiesToRemove.add(entity);
+                continue;
+            }
+
             com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody body = null;
             if (pdc.has(InertiaPDCKeys.INERTIA_PHYSICS_BODY_UUID, org.bukkit.persistence.PersistentDataType.STRING)) {
                 try {
@@ -211,21 +225,16 @@ public class Commands extends BaseCommand {
                 } catch (Exception ignored) {}
             }
 
-            // 4. Логика удаления
             if (active) {
-                // FORCE: Удаляем всё
                 if (body != null) {
                     bodiesToDestroy.add(body);
                 } else {
-                    // Тело мертво, удаляем визуал
                     entitiesToRemove.add(entity);
                 }
             } else {
-                // SAFE (Garbage Collection): Удаляем только если тела НЕТ
                 if (body == null) {
                     entitiesToRemove.add(entity);
                 }
-                // Если body != null, мы его НЕ трогаем
             }
         }
 
@@ -242,8 +251,116 @@ public class Commands extends BaseCommand {
         send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(removedCount));
     }
 
-    // --- Spawn Commands ---
+    @Subcommand("entity static")
+    @CommandPermission("inertia.commands.static")
+    @CommandCompletion("10|20|50 @clear_filter")
+    @Syntax("<radius> [type|id]")
+    @Description("Freeze valid physics entities in radius, making them static decorations.")
+    public void onEntityStatic(Player player, int radius, @Optional String filter) {
+        if (!checkPermission(player, "inertia.commands.static", true)) return;
 
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) {
+            send(player, MessageKey.NOT_FOR_THIS_WORLD);
+            return;
+        }
+
+        PhysicsBodyType targetType = null;
+        String targetId = null;
+
+        if (filter != null) {
+            try {
+                targetType = PhysicsBodyType.valueOf(filter.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                targetId = filter;
+            }
+        }
+
+        int frozenCount = 0;
+        List<org.bukkit.entity.Entity> entities = player.getNearbyEntities(radius, radius, radius);
+
+        // 1. Собираем "корневые" тела, которые попали в радиус
+        java.util.Set<AbstractPhysicsBody> hitBodies = new java.util.HashSet<>();
+
+        for (org.bukkit.entity.Entity entity : entities) {
+            var pdc = entity.getPersistentDataContainer();
+
+            if (!pdc.has(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ID, org.bukkit.persistence.PersistentDataType.STRING)) {
+                continue;
+            }
+
+            // Пропускаем уже статичные
+            if (pdc.has(InertiaPDCKeys.INERTIA_ENTITY_STATIC, org.bukkit.persistence.PersistentDataType.STRING)) {
+                continue;
+            }
+
+            String bodyId = pdc.get(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ID, org.bukkit.persistence.PersistentDataType.STRING);
+
+            // Фильтрация
+            if (targetId != null && bodyId != null && !bodyId.equalsIgnoreCase(targetId)) {
+                continue;
+            }
+
+            if (targetType != null) {
+                var modelOpt = configurationService.getPhysicsBodyRegistry().find(bodyId);
+                if (modelOpt.isPresent() && modelOpt.get().bodyDefinition().type() != targetType) {
+                    continue;
+                }
+            }
+
+            if (pdc.has(InertiaPDCKeys.INERTIA_PHYSICS_BODY_UUID, org.bukkit.persistence.PersistentDataType.STRING)) {
+                try {
+                    String uuidStr = pdc.get(InertiaPDCKeys.INERTIA_PHYSICS_BODY_UUID, org.bukkit.persistence.PersistentDataType.STRING);
+                    assert uuidStr != null;
+                    java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                    AbstractPhysicsBody body = space.getObjectByUuid(uuid);
+                    if (body != null && body.isValid()) {
+                        hitBodies.add(body);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // 2. Обрабатываем группы.
+        // Используем Set для отслеживания уже обработанных тел, чтобы не замораживать одну цепь дважды,
+        // если в радиус попало несколько её звеньев.
+        java.util.Set<AbstractPhysicsBody> processedBodies = new java.util.HashSet<>();
+
+        for (AbstractPhysicsBody hit : hitBodies) {
+            if (processedBodies.contains(hit)) continue;
+
+            // Находим всю семью (цепь/рэгдолл)
+            java.util.Set<AbstractPhysicsBody> cluster = PhysicsGraphUtils.collectConnectedBodies(space, hit);
+
+            // Генерируем УНИКАЛЬНЫЙ ID для этой конкретной группы
+            java.util.UUID clusterId = java.util.UUID.randomUUID();
+
+            for (AbstractPhysicsBody body : cluster) {
+                // Если мы уже обработали это тело в рамках другого hit (маловероятно при корректной физике, но возможно), пропускаем
+                if (!processedBodies.add(body)) continue;
+
+                try {
+                    if (body instanceof com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody displayedBody) {
+                        displayedBody.freeze(clusterId);
+                        frozenCount++;
+                    } else {
+                        // Невидимые технические тела (если есть) просто удаляем
+                        body.destroy();
+                    }
+                } catch (Exception e) {
+                    InertiaLogger.error("Error freezing body via command", e);
+                }
+            }
+        }
+
+        if (frozenCount > 0) {
+            send(player, MessageKey.STATIC_SUCCESS, "{count}", String.valueOf(frozenCount));
+        } else {
+            send(player, MessageKey.STATIC_NO_MATCH);
+        }
+    }
+
+    // --- Spawn Commands ---
     @Subcommand("spawn body")
     @CommandPermission("inertia.commands.spawn")
     @CommandCompletion("@bodies")
@@ -350,12 +467,17 @@ public class Commands extends BaseCommand {
     }
 
     // --- Tools Commands ---
-
     @Subcommand("tool chain")
     @CommandPermission("inertia.commands.tool")
     @CommandCompletion("@bodies")
     public void onToolChain(Player player, String bodyId) {
         giveTool(player, "chain_tool", bodyId, ChainTool.class);
+    }
+
+    @Subcommand("tool static")
+    @CommandPermission("inertia.commands.tool")
+    public void onToolStatic(Player player) {
+        giveTool(player, "static_tool", null, null);
     }
 
     @Subcommand("tool ragdoll")

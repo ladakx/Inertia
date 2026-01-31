@@ -79,7 +79,7 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
             entity.setArms(def.arms());
             entity.setMarker(def.marker());
             entity.setInvisible(def.invisible());
-            entity.setPersistent(false);
+//            entity.setPersistent(false);
         });
 
         return new ArmorStandEntity(stand);
@@ -118,6 +118,6 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
                 new Quaternionf()
         ));
 
-        display.setPersistent(false);
+//        display.setPersistent(false);
     }
 }

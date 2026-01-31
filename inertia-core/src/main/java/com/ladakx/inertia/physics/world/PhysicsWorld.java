@@ -6,6 +6,8 @@ import com.github.stephengold.joltjni.readonly.ConstBody;
 import com.github.stephengold.joltjni.readonly.ConstBroadPhaseQuery;
 import com.github.stephengold.joltjni.readonly.ConstPlane;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.common.chunk.ChunkTicketManager;
+import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
@@ -73,13 +75,19 @@ public class PhysicsWorld implements AutoCloseable {
     private final Map<UUID, Runnable> tickTasks = new ConcurrentHashMap<>();
     private final Queue<Runnable> physicsTasks = new ConcurrentLinkedQueue<>();
 
+    // Chunk Ticket Manager
+    private final ChunkTicketManager chunkTicketManager; // New field
 
     public PhysicsWorld(World world, WorldsConfig.WorldProfile settings, JobSystem jobSystem, TempAllocator tempAllocator) {
+        // Basic Setup
         this.worldBukkit = world;
         this.worldName = world.getName();
         this.settings = settings;
         this.jobSystem = jobSystem;
         this.tempAllocator = tempAllocator;
+
+        // Initialize Ticket Manager
+        this.chunkTicketManager = new ChunkTicketManager(world);
 
         // --- Layers Setup ---
         ObjectLayerPairFilterTable ovoFilter = new ObjectLayerPairFilterTable(PhysicsLayers.NUM_OBJ_LAYERS);
@@ -163,23 +171,33 @@ public class PhysicsWorld implements AutoCloseable {
                 }
 
                 // --- Step B: Snapshot Preparation (Producer) ---
-                // If buffer is empty (Consumer took the last one), prepare a new one.
-                // If buffer is full, we skip this frame (drop frame) to prevent lag backlog.
                 if (snapshotBuffer.get() == null) {
-                    List<VisualUpdate> updates = new ArrayList<>(objects.size() * 2); // Approximate size
+                    List<VisualUpdate> updates = new ArrayList<>(objects.size());
+                    java.util.Set<Long> activeChunks = new java.util.HashSet<>(); // Collect active chunks
+
+                    // BodyInterface for reading positions efficiently
+                    BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
 
                     for (AbstractPhysicsBody obj : objects) {
+                        // 1. Capture Visuals
                         if (obj instanceof DisplayedPhysicsBody displayed) {
                             displayed.captureSnapshot(updates);
+                        }
+
+                        // 2. Capture Active Chunks
+                        // Only check active bodies to force-load their chunks. Sleeping bodies don't need forced chunks.
+                        if (obj.getBody().isActive()) {
+                            RVec3 pos = bodyInterface.getCenterOfMassPosition(obj.getBody().getId());
+                            int chunkX = (int) Math.floor(pos.xx()) >> 4;
+                            int chunkZ = (int) Math.floor(pos.zz()) >> 4;
+                            activeChunks.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
                         }
                     }
 
                     // Atomic publish
-                    if (!updates.isEmpty()) {
-                        snapshotBuffer.set(new PhysicsSnapshot(updates));
-                    }
+                    // Even if updates is empty, we might need to send activeChunks to keep chunks loaded or unload them
+                    snapshotBuffer.set(new PhysicsSnapshot(updates, activeChunks));
                 }
-
             } catch (Exception e) {
                 InertiaLogger.error("Error in physics tick for world " + worldName, e);
             }
@@ -190,19 +208,21 @@ public class PhysicsWorld implements AutoCloseable {
      * Executed on Bukkit Main Thread every tick.
      * Consumes the latest snapshot and applies it to entities.
      */
+    /**
+     * Executed on Bukkit Main Thread every tick.
+     * Consumes the latest snapshot and applies it to entities.
+     */
     private void consumeSnapshot() {
         if (!isActive.get()) return;
 
-        // Atomically retrieve and clear the buffer
         PhysicsSnapshot snapshot = snapshotBuffer.getAndSet(null);
 
-        if (snapshot == null) return; // No new data from physics engine
+        if (snapshot == null) return;
 
-        // Apply updates blindly
+        // 1. Apply Visual Updates
         for (VisualUpdate update : snapshot.updates()) {
             VisualEntity visual = update.visual();
             if (visual.isValid()) {
-                // Construct Location on Main Thread (safe)
                 Location loc = new Location(
                         worldBukkit,
                         update.position().x,
@@ -214,6 +234,10 @@ public class PhysicsWorld implements AutoCloseable {
                 visual.setVisible(update.visible());
             }
         }
+
+        // 2. Apply Chunk Loading Tickets (Sync with Main Thread)
+        // This prevents active bodies from falling into void or glitching when chunks unload
+        chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
     }
 
     @Override
@@ -246,6 +270,9 @@ public class PhysicsWorld implements AutoCloseable {
             }
 
             physicsSystem.destroyAllBodies();
+
+            // Release all forced chunks
+            Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), chunkTicketManager::releaseAll);
         }
     }
 

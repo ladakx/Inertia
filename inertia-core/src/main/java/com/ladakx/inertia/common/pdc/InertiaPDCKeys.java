@@ -27,6 +27,14 @@ public class InertiaPDCKeys {
             = new NamespacedKey(InertiaPlugin.getInstance(), "entity-static");
 
     /**
+     * The UUID of the cluster/group this static entity belongs to.
+     * Used to group static chains and ragdolls together for removal.
+     * Format: String (UUID)
+     */
+    public static final NamespacedKey INERTIA_CLUSTER_UUID
+            = new NamespacedKey(InertiaPlugin.getInstance(), "cluster-uuid");
+
+    /**
      * The render model ID used for rendering the model.
      * Format: String
      */
