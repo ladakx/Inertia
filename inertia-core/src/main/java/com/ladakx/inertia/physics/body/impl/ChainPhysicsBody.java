@@ -26,9 +26,7 @@ import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class ChainPhysicsBody extends DisplayedPhysicsBody {
 
@@ -199,16 +197,15 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         RenderModelDefinition renderDef = renderOpt.get();
         World world = space.getWorldBukkit();
         Location spawnLoc = new Location(world, initialPos.xx(), initialPos.yy(), initialPos.zz());
-        java.util.UUID bodyUuid = java.util.UUID.randomUUID();
+        UUID bodyUuid = getUuid();
 
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-        for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
+        for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
             String entityKey = entry.getKey();
             RenderEntityDefinition entityDef = entry.getValue();
 
             VisualEntity visual = factory.create(world, spawnLoc, entityDef);
             if (visual.isValid()) {
-                // [NEW] Применяем PDC теги
                 InertiaPDCUtils.applyInertiaTags(
                         visual,
                         bodyId,

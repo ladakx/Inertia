@@ -53,7 +53,7 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
             Location spawnLocation = new Location(world, initialPosition.xx(), initialPosition.yy(), initialPosition.zz());
 
             List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-            UUID bodyUuid = UUID.randomUUID();
+            UUID bodyUuid = getUuid();
 
             for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
                 String entityKey = entry.getKey();
@@ -68,7 +68,6 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
                             renderDef.id(),
                             entityKey
                     );
-
                     parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
                 }
             }

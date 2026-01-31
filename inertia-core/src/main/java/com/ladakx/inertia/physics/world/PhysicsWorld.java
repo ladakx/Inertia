@@ -63,15 +63,14 @@ public class PhysicsWorld implements AutoCloseable {
 
     // Objects
     private final @NotNull List<AbstractPhysicsBody> objects = new CopyOnWriteArrayList<>();
-    private final @NotNull Map<Long, AbstractPhysicsBody> objectMap = new ConcurrentHashMap<>();
+
+    private final @NotNull Map<Long, AbstractPhysicsBody> objectMap = new ConcurrentHashMap<>(); // va -> object
+    private final @NotNull Map<UUID, AbstractPhysicsBody> uuidMap = new ConcurrentHashMap<>(); // uuid -> object
+
     private final List<Body> staticBodies = new CopyOnWriteArrayList<>();
 
     // Custom Tasks
     private final Map<UUID, Runnable> tickTasks = new ConcurrentHashMap<>();
-    /**
-     * Queue of tasks that must be executed on the physics thread before or
-     * after advancing the simulation step.
-     */
     private final Queue<Runnable> physicsTasks = new ConcurrentLinkedQueue<>();
 
 
@@ -309,6 +308,7 @@ public class PhysicsWorld implements AutoCloseable {
     public void addObject(AbstractPhysicsBody object) {
         objects.add(object);
         registerBody(object, object.getBody());
+        uuidMap.put(object.getUuid(), object);
     }
 
     /**
@@ -326,9 +326,10 @@ public class PhysicsWorld implements AutoCloseable {
         objectMap.put(body.va(), object);
     }
 
-    public AbstractPhysicsBody getObjectByVa(long va) {
+    public @Nullable AbstractPhysicsBody getObjectByVa(long va) {
         return objectMap.get(va);
     }
+    public @Nullable AbstractPhysicsBody getObjectByUuid(UUID uuid) { return uuidMap.get(uuid);}
 
     /**
      * Unregister a physics object from this space.
@@ -339,6 +340,7 @@ public class PhysicsWorld implements AutoCloseable {
     public void removeObject(AbstractPhysicsBody object) {
         objects.remove(object);
         objectMap.entrySet().removeIf(entry -> entry.getValue() == object);
+        uuidMap.remove(object.getUuid());
     }
 
     public void addConstraint(Constraint constraint) {

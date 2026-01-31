@@ -23,8 +23,8 @@ public class InertiaPDCKeys {
      * Whether the physics body is simulated.
      * Format: String (true/false)
      */
-    public static final NamespacedKey INERTIA_PHYSICS_BODY_ACTIVE
-            = new NamespacedKey(InertiaPlugin.getInstance(), "body-active");
+    public static final NamespacedKey INERTIA_ENTITY_STATIC
+            = new NamespacedKey(InertiaPlugin.getInstance(), "entity-static");
 
     /**
      * The render model ID used for rendering the model.

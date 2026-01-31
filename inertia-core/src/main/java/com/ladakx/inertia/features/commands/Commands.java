@@ -2,6 +2,7 @@ package com.ladakx.inertia.features.commands;
 
 import co.aikar.commands.annotation.*;
 import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.configuration.ConfigurationService;
@@ -143,6 +144,102 @@ public class Commands extends BaseCommand {
         } else {
             send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(countRemoved));
         }
+    }
+
+    @Subcommand("entity clear")
+    @CommandPermission("inertia.commands.clear")
+    @CommandCompletion("10|20|50|100 true|false @clear_filter")
+    @Syntax("<radius> <active> [type|id]")
+    @Description("Clear entities linked to Inertia. active=false removes only orphaned visuals.")
+    public void onEntityClear(Player player, int radius, boolean active, @Optional String filter) {
+        if (!checkPermission(player, "inertia.commands.clear", true)) return;
+
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) {
+            send(player, MessageKey.NOT_FOR_THIS_WORLD);
+            return;
+        }
+
+        PhysicsBodyType targetType = null;
+        String targetId = null;
+
+        if (filter != null) {
+            try {
+                targetType = PhysicsBodyType.valueOf(filter.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                targetId = filter;
+            }
+        }
+
+        int removedCount = 0;
+
+        List<org.bukkit.entity.Entity> entities = player.getNearbyEntities(radius, radius, radius);
+
+        java.util.Set<com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody> bodiesToDestroy = new java.util.HashSet<>();
+        List<org.bukkit.entity.Entity> entitiesToRemove = new java.util.ArrayList<>();
+
+        for (org.bukkit.entity.Entity entity : entities) {
+            var pdc = entity.getPersistentDataContainer();
+
+            // 1. Пропускаем, если это не Inertia
+            if (!pdc.has(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ID, org.bukkit.persistence.PersistentDataType.STRING)) {
+                continue;
+            }
+
+            // 2. Фильтрация по ID/Type
+            String bodyId = pdc.get(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ID, org.bukkit.persistence.PersistentDataType.STRING);
+            if (targetId != null) {
+                assert bodyId != null;
+                if (!bodyId.equalsIgnoreCase(targetId)) continue;
+            }
+
+            if (targetType != null) {
+                var modelOpt = configurationService.getPhysicsBodyRegistry().find(bodyId);
+                if (modelOpt.isPresent() && modelOpt.get().bodyDefinition().type() != targetType) {
+                    continue;
+                }
+            }
+
+            // 3. Поиск физического тела
+            com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody body = null;
+            if (pdc.has(InertiaPDCKeys.INERTIA_PHYSICS_BODY_UUID, org.bukkit.persistence.PersistentDataType.STRING)) {
+                try {
+                    String uuidStr = pdc.get(InertiaPDCKeys.INERTIA_PHYSICS_BODY_UUID, org.bukkit.persistence.PersistentDataType.STRING);
+                    assert uuidStr != null;
+                    java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                    body = space.getObjectByUuid(uuid);
+                } catch (Exception ignored) {}
+            }
+
+            // 4. Логика удаления
+            if (active) {
+                // FORCE: Удаляем всё
+                if (body != null) {
+                    bodiesToDestroy.add(body);
+                } else {
+                    // Тело мертво, удаляем визуал
+                    entitiesToRemove.add(entity);
+                }
+            } else {
+                // SAFE (Garbage Collection): Удаляем только если тела НЕТ
+                if (body == null) {
+                    entitiesToRemove.add(entity);
+                }
+                // Если body != null, мы его НЕ трогаем
+            }
+        }
+
+        for (var body : bodiesToDestroy) {
+            body.destroy();
+            removedCount++;
+        }
+
+        for (var entity : entitiesToRemove) {
+            entity.remove();
+            removedCount++;
+        }
+
+        send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(removedCount));
     }
 
     // --- Spawn Commands ---
