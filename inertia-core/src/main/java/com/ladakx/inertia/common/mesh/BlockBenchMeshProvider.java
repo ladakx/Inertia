@@ -29,10 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BlockBenchMeshProvider implements MeshProvider {
 
     private final Plugin plugin;
-
-    /**
-     * Кеш вершин по meshId, щоб не парсити файли щоразу.
-     */
     private final Map<String, Collection<Vec3>> cache = new ConcurrentHashMap<>();
 
     public BlockBenchMeshProvider(Plugin plugin) {
@@ -40,8 +36,8 @@ public class BlockBenchMeshProvider implements MeshProvider {
     }
 
     /**
-     * Loads the mesh from disk. WARNING: Performs blocking IO.
-     * Should be called asynchronously during startup/reload.
+     * Loads the mesh from disk.
+     * WARNING: Performs blocking IO. Must be called asynchronously.
      */
     public void loadMesh(String meshId) {
         if (cache.containsKey(meshId)) return;
@@ -50,28 +46,39 @@ public class BlockBenchMeshProvider implements MeshProvider {
         try (InputStream in = openMeshStream(meshId)) {
             if (in == null) {
                 InertiaLogger.warn("Mesh resource/file not found: " + meshId);
+                // Кешируем пустой список, чтобы не пытаться грузить снова и снова
+                cache.put(meshId, Collections.emptyList());
                 return;
             }
             parseObjVertices(in, result);
             cache.put(meshId, Collections.unmodifiableCollection(result));
         } catch (IOException e) {
             InertiaLogger.error("Failed to load mesh '" + meshId + "'", e);
+            cache.put(meshId, Collections.emptyList());
         }
     }
 
     @Override
     public Collection<Vec3> loadConvexHullPoints(String meshId) {
         Collection<Vec3> cached = cache.get(meshId);
+
         if (cached != null) {
             return cached;
         }
 
-        // Fallback: If not preloaded, we MUST load it to prevent crash,
-        // but we log a warning because this causes lag in Main Thread.
-        InertiaLogger.warn("Performance Warning: Mesh '" + meshId + "' was not preloaded! Loading synchronously in main thread.");
-        loadMesh(meshId);
+        // STRICT RULE FIX:
+        // Мы убрали синхронную загрузку (fallback).
+        // Если меш не был предзагружен через ConfigurationService, мы не блокируем поток.
+        // Вместо этого логируем ошибку и возвращаем пустой список (безопасный краш физики объекта, но не сервера).
 
-        return cache.getOrDefault(meshId, Collections.emptyList());
+        InertiaLogger.error("Critical: Mesh '" + meshId + "' was accessed but not preloaded! " +
+                "Please ensure it is defined in bodies.yml correctly and reload the plugin.");
+
+        return Collections.emptyList();
+    }
+
+    public void clearCache() {
+        cache.clear();
     }
 
     /**

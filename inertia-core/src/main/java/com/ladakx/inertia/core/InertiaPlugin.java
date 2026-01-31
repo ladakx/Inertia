@@ -2,12 +2,15 @@ package com.ladakx.inertia.core;
 
 import co.aikar.commands.PaperCommandManager;
 import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.common.mesh.BlockBenchMeshProvider;
 import com.ladakx.inertia.core.impl.InertiaAPIImpl;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.features.commands.Commands;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.features.items.ItemRegistry;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
+import com.ladakx.inertia.physics.factory.BodyFactory;
+import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.listeners.WorldLoadListener;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.infrastructure.nativelib.LibraryLoader;
@@ -43,6 +46,9 @@ public final class InertiaPlugin extends JavaPlugin {
     private PlayerTools playerTools;
     private JoltTools joltTools;
     private RenderFactory renderFactory;
+    private JShapeFactory shapeFactory;
+    private BodyFactory bodyFactory;
+    private BlockBenchMeshProvider meshProvider;
 
     private PaperCommandManager paperCommandManager;
 
@@ -52,8 +58,12 @@ public final class InertiaPlugin extends JavaPlugin {
         InertiaLogger.init(this);
         InertiaLogger.info("Starting Inertia initialization...");
 
+        // 0. Prepare low-level services
+        this.meshProvider = new BlockBenchMeshProvider(this);
+        this.shapeFactory = new JShapeFactory(meshProvider);
+
         // 1. Config (First, because others depend on it)
-        this.configurationService = new ConfigurationService(this);
+        this.configurationService = new ConfigurationService(this, meshProvider);
 
         // 2. Items (DI initialization)
         this.itemRegistry = new ItemRegistry(configurationService);
@@ -73,11 +83,14 @@ public final class InertiaPlugin extends JavaPlugin {
         this.physicsEngine = new PhysicsEngine(this, configurationService);
         this.physicsWorldRegistry = new PhysicsWorldRegistry(this, configurationService, physicsEngine);
 
+        // Body Factory (needs config and shapeFactory)
+        this.bodyFactory = new BodyFactory(this, physicsWorldRegistry, configurationService, shapeFactory);
+
         // 6. Tools (Now initialized with dependencies)
-        this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry);
+        this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry, shapeFactory, bodyFactory);
 
         // 7. API
-        InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService));
+        InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory));
         InertiaLogger.info("Inertia API registered.");
 
         // 8. Commands & Listeners
@@ -101,7 +114,7 @@ public final class InertiaPlugin extends JavaPlugin {
         this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> itemRegistry.getItemIds());
 
         // Register Commands with dependencies
-        this.paperCommandManager.registerCommand(new Commands(this, configurationService, physicsWorldRegistry, toolRegistry));
+        this.paperCommandManager.registerCommand(new Commands(this, configurationService, physicsWorldRegistry, toolRegistry, bodyFactory));
     }
 
     private void registerListeners() {
@@ -145,6 +158,9 @@ public final class InertiaPlugin extends JavaPlugin {
     public PlayerTools getPlayerTools() { return playerTools; }
     public JoltTools getJoltTools() { return joltTools; }
     public RenderFactory getRenderFactory() { return renderFactory; }
+    public JShapeFactory getShapeFactory() { return shapeFactory; }
+    public BodyFactory getBodyFactory() { return bodyFactory; }
+    public BlockBenchMeshProvider getMeshProvider() { return meshProvider; }
 
     // Геттеры для DI
     public ConfigurationService getConfigManager() { return configurationService; }

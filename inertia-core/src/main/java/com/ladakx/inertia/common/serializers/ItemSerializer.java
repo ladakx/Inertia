@@ -69,7 +69,7 @@ public class ItemSerializer {
 
         // 4. Custom Model Data (Updated for Component Support)
         if (section.contains("custom-model-data")) {
-            // Варіант 1: Класичне число (Integer)
+            // Вариант 1: Классическое число (Integer)
             if (section.isInt("custom-model-data")) {
                 int data = section.getInt("custom-model-data");
                 if (meta.hasCustomModelData()) {
@@ -79,10 +79,12 @@ public class ItemSerializer {
                         Method setCMD = meta.getClass().getMethod("setCustomModelData", Integer.class);
                         setCMD.setAccessible(true);
                         setCMD.invoke(meta, data);
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        InertiaLogger.warn("Failed to set custom-model-data via reflection: " + e.getMessage());
+                    }
                 }
             }
-            // Варіант 2: Компонент (Section з floats, strings, flags) - 1.21.4+
+            // Вариант 2: Компонент (Section) - 1.21.4+
             else if (section.isConfigurationSection("custom-model-data")) {
                 if (MinecraftVersions.TRICKY_TRIALS.isAtLeast()) {
                     applyCustomModelDataComponent(meta, section.getConfigurationSection("custom-model-data"));
@@ -128,7 +130,9 @@ public class ItemSerializer {
                         Method setGlint = meta.getClass().getMethod("setEnchantmentGlintOverride", boolean.class);
                         setGlint.setAccessible(true);
                         setGlint.invoke(meta, section.getBoolean("enchantment-glint-override"));
-                    } catch (Exception ignored) {}
+                    } catch (Exception ex) {
+                        InertiaLogger.warn("Failed to set enchantment-glint-override: " + ex.getMessage());
+                    }
                 }
             }
         }
@@ -153,6 +157,7 @@ public class ItemSerializer {
                 ((Damageable) meta).setDamage(section.getInt("durability.damage"));
             }
         }
+
         // Max Damage (1.20.5+)
         if (section.contains("durability.max-damage")) {
             if (MinecraftVersions.TRAILS_AND_TAILS.isAtLeast() &&
@@ -161,7 +166,9 @@ public class ItemSerializer {
                     Method setMaxDamage = meta.getClass().getMethod("setMaxDamage", Integer.class);
                     setMaxDamage.setAccessible(true);
                     setMaxDamage.invoke(meta, section.getInt("durability.max-damage"));
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    InertiaLogger.warn("Failed to set max-damage via reflection: " + e.getMessage());
+                }
             }
         }
 
@@ -266,15 +273,12 @@ public class ItemSerializer {
                 setFlags.invoke(component, flags);
             }
 
-            // 3. Set the component back to the meta using setCustomModelDataComponent (if available via reflection)
+            // 3. Set the component back
             try {
-                // We use reflection to call setCustomModelDataComponent(CustomModelDataComponent) on ItemMeta interface
                 Method setComponentMethod = ItemMeta.class.getMethod("setCustomModelDataComponent", componentInterface);
                 setComponentMethod.invoke(meta, component);
             } catch (NoSuchMethodException e) {
-                // Method might not exist in older versions or specific implementations, but since get exists, set likely does too in 1.21.4+ API
-                // If it doesn't exist, modifications to the component object (view) might be sufficient depending on implementation
-                InertiaLogger.debug("setCustomModelDataComponent method not found, relying on mutable view.");
+                InertiaLogger.debug("setCustomModelDataComponent not found, relying on mutable view (expected behavior on some versions).");
             }
 
         } catch (Exception e) {

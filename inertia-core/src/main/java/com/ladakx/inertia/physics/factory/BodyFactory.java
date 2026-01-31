@@ -8,6 +8,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.physics.body.impl.ChainPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.RagdollPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.TNTPhysicsBody;
+import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
@@ -31,12 +32,17 @@ public class BodyFactory {
 
     private final InertiaPlugin plugin;
     private final PhysicsWorldRegistry physicsWorldRegistry;
+    private final JShapeFactory shapeFactory;
     private final ConfigurationService configurationService;
 
-    public BodyFactory(InertiaPlugin plugin, PhysicsWorldRegistry physicsWorldRegistry, ConfigurationService configurationService) {
+    public BodyFactory(InertiaPlugin plugin,
+                       PhysicsWorldRegistry physicsWorldRegistry,
+                       ConfigurationService configurationService,
+                       JShapeFactory shapeFactory) {
         this.plugin = plugin;
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.configurationService = configurationService;
+        this.shapeFactory = shapeFactory;
     }
 
     /**
@@ -85,6 +91,7 @@ public class BodyFactory {
                     bodyId,
                     registry,
                     plugin.getRenderFactory(),
+                    shapeFactory,
                     pos,
                     linkRotation,
                     parentBody
@@ -159,6 +166,7 @@ public class BodyFactory {
         RagdollPhysicsBody obj = new RagdollPhysicsBody(
                 space, bodyId, partName, configurationService.getPhysicsBodyRegistry(),
                 plugin.getRenderFactory(),
+                shapeFactory,
                 pos, rot, spawnedBodies,
                 groupFilter, partIndex
         );
@@ -226,6 +234,7 @@ public class BodyFactory {
                 bodyId,
                 getRegistry(),
                 plugin.getRenderFactory(),
+                shapeFactory,
                 pos,
                 rot,
                 explosionForce,

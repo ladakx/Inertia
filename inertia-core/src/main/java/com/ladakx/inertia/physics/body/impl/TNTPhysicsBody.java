@@ -3,6 +3,7 @@ package com.ladakx.inertia.physics.body.impl;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -31,11 +32,12 @@ public class TNTPhysicsBody extends BlockPhysicsBody {
                           @NotNull String bodyId,
                           @NotNull PhysicsBodyRegistry modelRegistry,
                           @NotNull RenderFactory renderFactory,
+                          @NotNull JShapeFactory shapeFactory,
                           @NotNull RVec3 initialPosition,
                           @NotNull Quat initialRotation,
                           float explosionForce,
                           int fuseTicks) {
-        super(space, bodyId, modelRegistry, renderFactory, initialPosition, initialRotation);
+        super(space, bodyId, modelRegistry, renderFactory, shapeFactory, initialPosition, initialRotation);
         this.explosionForce = explosionForce;
         this.fuseTicks = fuseTicks;
         // Radius typically scales with force, or can be fixed. 

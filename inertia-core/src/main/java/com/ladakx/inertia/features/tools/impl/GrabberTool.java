@@ -4,6 +4,8 @@ import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.readonly.RVec3Arg;
 import com.ladakx.inertia.configuration.ConfigurationService;
+import com.ladakx.inertia.configuration.message.MessageKey;
+import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -142,7 +144,9 @@ public class GrabberTool extends Tool {
         ItemStack stack = new ItemStack(Material.BLAZE_ROD);
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
-            meta.displayName(Component.text("Grabber Tool", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));;
+            MessageManager msg = configurationService.getMessageManager();
+            meta.displayName(msg.getSingle(MessageKey.TOOL_GRABBER_NAME));
+            meta.lore(msg.get(MessageKey.TOOL_GRABBER_LORE));
             stack.setItemMeta(meta);
         }
         return stack;

@@ -37,10 +37,11 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
                             @NotNull String bodyId,
                             @NotNull PhysicsBodyRegistry modelRegistry,
                             @NotNull RenderFactory renderFactory,
+                            @NotNull JShapeFactory shapeFactory,
                             @NotNull RVec3 initialPosition,
                             @NotNull Quat initialRotation,
                             @Nullable Body parentBody) {
-        super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation));
         this.bodyId = bodyId;
 
         if (parentBody != null) {
@@ -96,7 +97,9 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
     }
 
-    private static BodyCreationSettings createBodySettings(String bodyId, PhysicsBodyRegistry registry,
+    private static BodyCreationSettings createBodySettings(String bodyId,
+                                                           PhysicsBodyRegistry registry,
+                                                           JShapeFactory shapeFactory,
                                                            RVec3 pos, Quat rot) {
         PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) {
@@ -104,7 +107,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         }
 
         BodyPhysicsSettings phys = def.physicsSettings();
-        ConstShape shape = JShapeFactory.createShape(def.shapeLines());
+        ConstShape shape = shapeFactory.createShape(def.shapeLines());
 
         BodyCreationSettings settings = new BodyCreationSettings();
         settings.setShape(shape);

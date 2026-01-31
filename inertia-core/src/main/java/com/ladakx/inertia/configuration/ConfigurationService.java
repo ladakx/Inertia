@@ -8,14 +8,26 @@ import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.configuration.files.*;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.message.MessageManager;
+import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
+import com.ladakx.inertia.physics.body.config.BodyDefinition;
+import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
+import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.common.mesh.BlockBenchMeshProvider;
 import org.bukkit.Bukkit;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ConfigurationService {
+
+    private static final Pattern MESH_PATTERN = Pattern.compile("mesh=([^\\s]+)");
+    private final BlockBenchMeshProvider meshProvider;
 
     private final InertiaPlugin plugin;
     private final PhysicsBodyRegistry physicsBodyRegistry;
@@ -33,12 +45,12 @@ public class ConfigurationService {
     private WorldsFile worldsFile;
     private MessagesFile messagesFile;
 
-    public ConfigurationService(InertiaPlugin plugin) {
+    public ConfigurationService(InertiaPlugin plugin, BlockBenchMeshProvider meshProvider) {
         this.plugin = plugin;
         this.physicsBodyRegistry = new PhysicsBodyRegistry();
         this.messageManager = new MessageManager();
-        // Initial load in constructor is usually synchronous to ensure plugin starts in a valid state
-        // But internal logic should be safe.
+        this.meshProvider = meshProvider;
+
         loadSync();
     }
 
@@ -65,10 +77,10 @@ public class ConfigurationService {
                 InertiaLogger.info("Loading configurations asynchronously...");
                 performLoadIO();
             } catch (Exception e) {
+                InertiaLogger.error("Async IO failed during reload", e);
                 throw new RuntimeException("Async IO failed", e);
             }
         }).thenRunAsync(() -> {
-            // Apply logic must run on Main Thread because it might touch Bukkit API or update global state
             try {
                 applyConfiguration();
                 InertiaLogger.info("Configurations reloaded successfully.");
@@ -120,14 +132,42 @@ public class ConfigurationService {
     }
 
     private void preloadMeshes(BodiesConfig bodies) {
-        var provider = JShapeFactory.getMeshProvider();
-        if (provider.isPresent() && provider.get() instanceof BlockBenchMeshProvider meshProvider) {
-            //meshProvider.clearCache(); // Clear old cache
-            // Scan bodies for 'mesh=' and load them
-            // This logic requires BodiesConfig to expose raw shapes or iterate definitions
-            // For now, we assume simple lazy loading or implement a scanner if needed.
-            // But to fully comply with "No IO in Main", we should iterate bodiesConfig.all() here
-            // and trigger loadMesh() for any convex_hull shape.
+        if (meshProvider == null) return;
+
+        meshProvider.clearCache();
+        Set<String> meshesToLoad = new HashSet<>();
+
+        // Scan all bodies
+        for (BodyDefinition def : bodies.all()) {
+            if (def instanceof BlockBodyDefinition b) {
+                collectMeshes(b.shapeLines(), meshesToLoad);
+            } else if (def instanceof ChainBodyDefinition c) {
+                collectMeshes(c.shapeLines(), meshesToLoad);
+            } else if (def instanceof RagdollDefinition r) {
+                for (var part : r.parts().values()) {
+                    if (part.shapeString() != null) {
+                        collectMeshes(List.of(part.shapeString()), meshesToLoad);
+                    }
+                }
+            }
+        }
+
+        if (!meshesToLoad.isEmpty()) {
+            InertiaLogger.info("Preloading " + meshesToLoad.size() + " meshes...");
+            for (String meshId : meshesToLoad) {
+                meshProvider.loadMesh(meshId);
+            }
+        }
+    }
+
+    private void collectMeshes(List<String> shapeLines, Set<String> accumulator) {
+        for (String line : shapeLines) {
+            if (line.contains("type=convex_hull")) {
+                Matcher m = MESH_PATTERN.matcher(line);
+                if (m.find()) {
+                    accumulator.add(m.group(1));
+                }
+            }
         }
     }
 

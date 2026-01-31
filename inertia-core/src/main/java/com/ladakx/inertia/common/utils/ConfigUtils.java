@@ -13,4 +13,12 @@ public class ConfigUtils {
             return def;
         }
     }
+
+    public static float parseFloat(String text) {
+        try {
+            return Float.parseFloat(text);
+        } catch (NumberFormatException e) {
+            return 0.0f;
+        }
+    }
 }

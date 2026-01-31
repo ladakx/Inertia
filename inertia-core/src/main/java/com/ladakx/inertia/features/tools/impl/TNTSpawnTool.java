@@ -1,5 +1,7 @@
 package com.ladakx.inertia.features.tools.impl;
 
+import com.ladakx.inertia.common.utils.StringUtils;
+import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
@@ -7,8 +9,6 @@ import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.features.tools.Tool;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -18,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Vector;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.ladakx.inertia.common.utils.PDCUtils.getString;
@@ -28,13 +29,15 @@ public class TNTSpawnTool extends Tool {
     private static final String KEY_BODY = "tnt_body";
     private static final String KEY_FORCE = "tnt_force";
 
-    private final BodyFactory spawnService;
+    private final BodyFactory bodyFactory;
     private final PhysicsWorldRegistry physicsWorldRegistry;
 
-    public TNTSpawnTool(ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry) {
+    public TNTSpawnTool(ConfigurationService configurationService,
+                        PhysicsWorldRegistry physicsWorldRegistry,
+                        BodyFactory bodyFactory) {
         super("tnt_spawner", configurationService);
         this.physicsWorldRegistry = physicsWorldRegistry;
-        this.spawnService = new BodyFactory(InertiaPlugin.getInstance(), physicsWorldRegistry, configurationService);
+        this.bodyFactory = bodyFactory;
     }
 
     @Override
@@ -82,7 +85,7 @@ public class TNTSpawnTool extends Tool {
         }
 
         try {
-            spawnService.spawnTNT(spawnLoc, bodyId, force, velocity);
+            bodyFactory.spawnTNT(spawnLoc, bodyId, force, velocity);
             player.playSound(player.getLocation(), Sound.ENTITY_TNT_PRIMED, 1.0f, 1.0f);
             
             if (isThrow) {
@@ -104,17 +107,21 @@ public class TNTSpawnTool extends Tool {
         setString(InertiaPlugin.getInstance(), item, KEY_FORCE, String.valueOf(force));
 
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("TNT Spawner", NamedTextColor.RED)
-                .decoration(TextDecoration.ITALIC, false));
-        
-        meta.lore(List.of(
-                Component.text("Body: ", NamedTextColor.GRAY).append(Component.text(bodyId, NamedTextColor.WHITE)),
-                Component.text("Force: ", NamedTextColor.GRAY).append(Component.text(String.format("%.1f", force), NamedTextColor.YELLOW)),
-                Component.empty(),
-                Component.text("L-Click: Throw TNT", NamedTextColor.GOLD),
-                Component.text("R-Click: Place at feet", NamedTextColor.GOLD)
-        ));
-        
+        MessageManager msg = configurationService.getMessageManager();
+
+        // Localized Name
+        meta.displayName(msg.getSingle(MessageKey.TOOL_TNT_NAME));
+
+        // Localized Lore
+        List<Component> lore = new ArrayList<>();
+        for (Component line : msg.get(MessageKey.TOOL_TNT_LORE)) {
+            lore.add(StringUtils.replace(line,
+                    "{body}", bodyId,
+                    "{force}", String.format("%.1f", force)
+            ));
+        }
+        meta.lore(lore);
+
         item.setItemMeta(meta);
         return item;
     }

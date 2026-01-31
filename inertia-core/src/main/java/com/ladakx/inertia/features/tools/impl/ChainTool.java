@@ -6,19 +6,19 @@ import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.common.utils.StringUtils;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.physics.body.impl.ChainPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.features.tools.Tool;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -29,10 +29,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static com.ladakx.inertia.common.utils.PDCUtils.getString;
 import static com.ladakx.inertia.common.utils.PDCUtils.setString;
@@ -42,11 +39,13 @@ public class ChainTool extends Tool {
 
     private static final String BODY_ID_KEY = "chain_body_id";
     private final Map<UUID, Location> startPoints = new HashMap<>();
-    private final PhysicsWorldRegistry physicsWorldRegistry; // Injected
+    private final PhysicsWorldRegistry physicsWorldRegistry;
+    private final JShapeFactory shapeFactory;
 
-    public ChainTool(ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry) {
+    public ChainTool(ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry, JShapeFactory shapeFactory) {
         super("chain_tool", configurationService);
         this.physicsWorldRegistry = physicsWorldRegistry;
+        this.shapeFactory = shapeFactory;
     }
 
     @Override
@@ -99,21 +98,22 @@ public class ChainTool extends Tool {
     public ItemStack getToolItem(String bodyId) {
         ItemStack item = getBaseItem();
 
-        // Спочатку ставимо мітку інструменту (створює метадані)
         item = markItemAsTool(item);
-
-        // Потім додаємо ID тіла
         setString(InertiaPlugin.getInstance(), item, BODY_ID_KEY, bodyId);
 
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("Chain Tool: ", NamedTextColor.GOLD)
-                .append(Component.text(bodyId, NamedTextColor.YELLOW))
-                .decoration(TextDecoration.ITALIC, false));
-        meta.lore(java.util.List.of(
-                Component.text("L-Click: Set Point 1", NamedTextColor.GRAY),
-                Component.text("R-Click: Set Point 2 & Build", NamedTextColor.GRAY),
-                Component.text("Swap (F): Clear selection", NamedTextColor.DARK_GRAY)
-        ));
+        var msgManager = configurationService.getMessageManager();
+
+        // 1. Display Name
+        // Берем шаблон из конфига
+        Component nameTemplate = msgManager.getSingle(MessageKey.TOOL_CHAIN_NAME);
+        // Выполняем замену {body} -> bodyId
+        meta.displayName(StringUtils.replace(nameTemplate, "{body}", bodyId));
+
+        // 2. Lore
+        List<Component> lore = msgManager.get(MessageKey.TOOL_CHAIN_LORE);
+        meta.lore(lore);
+
         item.setItemMeta(meta);
 
         return item;
@@ -170,6 +170,7 @@ public class ChainTool extends Tool {
                         bodyId,
                         registry,
                         InertiaPlugin.getInstance().getRenderFactory(),
+                        shapeFactory,
                         pos,
                         linkRotation,
                         parentBody
@@ -188,6 +189,7 @@ public class ChainTool extends Tool {
                 break;
             }
         }
-        player.sendMessage(Component.text("Chain created with " + (linkCount + 1) + " links.", NamedTextColor.GRAY));
+
+        send(player, MessageKey.CHAIN_CREATED, "{count}", String.valueOf(linkCount + 1));
     }
 }

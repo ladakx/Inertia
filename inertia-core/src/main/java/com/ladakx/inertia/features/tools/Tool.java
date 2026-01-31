@@ -5,6 +5,7 @@ import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.common.utils.PDCUtils;
+import com.ladakx.inertia.physics.factory.BodyFactory;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -17,7 +18,7 @@ public abstract class Tool {
 
     public static final String TOOL_KEY = "inertia_tool_id";
     protected final String toolId;
-    protected final ConfigurationService configurationService; // Injected dependency
+    protected final ConfigurationService configurationService;
 
     public Tool(String toolId, ConfigurationService configurationService) {
         this.toolId = toolId;

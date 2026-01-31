@@ -3,6 +3,8 @@ package com.ladakx.inertia.features.tools;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.features.tools.impl.*;
+import com.ladakx.inertia.physics.factory.BodyFactory;
+import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -22,19 +24,29 @@ public class ToolRegistry implements Listener {
     private final ConfigurationService configurationService;
     private final PhysicsWorldRegistry physicsWorldRegistry;
 
-    public ToolRegistry(InertiaPlugin plugin, ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry) {
+    // Конструктор обновлен: добавлен BodyFactory
+    public ToolRegistry(InertiaPlugin plugin,
+                        ConfigurationService configurationService,
+                        PhysicsWorldRegistry physicsWorldRegistry,
+                        JShapeFactory shapeFactory,
+                        BodyFactory bodyFactory) {
         this.configurationService = configurationService;
         this.physicsWorldRegistry = physicsWorldRegistry;
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        register(new ChainTool(configurationService, physicsWorldRegistry));
+        // Регистрация с правильными зависимостями
         register(new DeleteTool(configurationService, physicsWorldRegistry));
         register(new WeldTool(configurationService, physicsWorldRegistry));
         register(new GrabberTool(configurationService, physicsWorldRegistry));
-        register(new RagdollTool(configurationService, physicsWorldRegistry));
-        register(new ShapeTool(configurationService, physicsWorldRegistry));
-        register(new TNTSpawnTool(configurationService, physicsWorldRegistry));
+
+        // Инструменты, требующие фабрику форм
+        register(new ChainTool(configurationService, physicsWorldRegistry, shapeFactory));
+        register(new RagdollTool(configurationService, physicsWorldRegistry, shapeFactory));
+
+        // Инструменты, требующие фабрику тел
+        register(new ShapeTool(configurationService, physicsWorldRegistry, bodyFactory));
+        register(new TNTSpawnTool(configurationService, physicsWorldRegistry, bodyFactory));
     }
 
     public void register(Tool tool) {

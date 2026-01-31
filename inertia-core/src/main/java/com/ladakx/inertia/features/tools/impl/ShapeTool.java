@@ -1,5 +1,7 @@
 package com.ladakx.inertia.features.tools.impl;
 
+import com.ladakx.inertia.common.utils.StringUtils;
+import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
@@ -9,8 +11,6 @@ import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.features.tools.Tool;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -19,6 +19,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,15 +33,16 @@ public class ShapeTool extends Tool {
     private static final String KEY_BODY = "shape_body";
     private static final String KEY_PARAMS = "shape_params";
 
-    private final BodyFactory spawnService;
+    private final BodyFactory bodyFactory;
     private final DebugShapeManager debugShapeManager;
-
     private final PhysicsWorldRegistry physicsWorldRegistry;
 
-    public ShapeTool(ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry) {
+    public ShapeTool(ConfigurationService configurationService,
+                     PhysicsWorldRegistry physicsWorldRegistry,
+                     BodyFactory bodyFactory) {
         super("shape_tool", configurationService);
         this.physicsWorldRegistry = physicsWorldRegistry;
-        this.spawnService = new BodyFactory(InertiaPlugin.getInstance(), physicsWorldRegistry, configurationService);
+        this.bodyFactory = bodyFactory;
         this.debugShapeManager = new DebugShapeManager();
     }
 
@@ -86,7 +88,7 @@ public class ShapeTool extends Tool {
             int count = 0;
             for (org.bukkit.util.Vector offset : offsets) {
                 Location loc = center.clone().add(offset);
-                if (spawnService.spawnBody(loc, bodyId)) {
+                if (bodyFactory.spawnBody(loc, bodyId)) {
                     count++;
                 }
             }
@@ -105,7 +107,6 @@ public class ShapeTool extends Tool {
 
     public ItemStack getToolItem(String shape, String bodyId, double[] params) {
         ItemStack item = getBaseItem();
-
         item = markItemAsTool(item);
 
         String storedParams = String.join(";", Arrays.stream(params).mapToObj(String::valueOf).toArray(String[]::new));
@@ -114,18 +115,23 @@ public class ShapeTool extends Tool {
         setString(InertiaPlugin.getInstance(), item, KEY_PARAMS, storedParams);
 
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("Shape Tool: ", NamedTextColor.GOLD)
-                .append(Component.text(shape, NamedTextColor.YELLOW))
-                .decoration(TextDecoration.ITALIC, false));
+        MessageManager msg = configurationService.getMessageManager();
 
-        meta.lore(List.of(
-                Component.text("Body: ", NamedTextColor.GRAY).append(Component.text(bodyId, NamedTextColor.WHITE)),
-                Component.text("Params: ", NamedTextColor.GRAY).append(Component.text(Arrays.toString(params), NamedTextColor.WHITE)),
-                Component.empty(),
-                Component.text("R-Click: Spawn Shape", NamedTextColor.GREEN)
-        ));
+        // Localized Name
+        Component name = msg.getSingle(MessageKey.TOOL_SHAPE_NAME);
+        meta.displayName(StringUtils.replace(name, "{shape}", shape));
+
+        // Localized Lore (List with replacements)
+        List<Component> lore = new ArrayList<>();
+        for (Component line : msg.get(MessageKey.TOOL_SHAPE_LORE)) {
+            lore.add(StringUtils.replace(line,
+                    "{body}", bodyId,
+                    "{params}", Arrays.toString(params)
+            ));
+        }
+        meta.lore(lore);
+
         item.setItemMeta(meta);
-
         return item;
     }
 

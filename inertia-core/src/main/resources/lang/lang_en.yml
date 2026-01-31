@@ -56,6 +56,51 @@ tool-broken-nbt:
 tool-invalid-params:
   - "{prefix} &cInvalid parameters in tool data."
 
+# --- Tool Items ---
+tool-chain-name: "&6Chain Tool: &e{body}"
+tool-chain-lore:
+  - "&7L-Click: Set Point 1"
+  - "&7R-Click: Set Point 2 & Build"
+  - "&8Swap (F): Clear selection"
+
+tool-ragdoll-name: "&6Ragdoll Tool: &e{body}"
+tool-ragdoll-lore:
+  - "&7L-Click: Spawn with impulse"
+  - "&7R-Click: Spawn at location"
+
+tool-shape-name: "&6Shape Tool: &e{shape}"
+tool-shape-lore:
+  - "&7Body: &f{body}"
+  - "&7Params: &f{params}"
+  - " "
+  - "&aR-Click: Spawn Shape"
+
+tool-tnt-name: "&cTNT Spawner"
+tool-tnt-lore:
+  - "&7Body: &f{body}"
+  - "&7Force: &e{force}"
+  - " "
+  - "&6L-Click: Throw TNT"
+  - "&6R-Click: Place at feet"
+
+tool-grabber-name: "&aGrabber Tool"
+tool-grabber-lore:
+  - "&7R-Click: Pick up / Drop object"
+  - "&7Scroll: Move object closer/further"
+  - "&7L-Click: Fix in space (Static Joint)"
+
+tool-welder-name: "&6Welder Tool"
+tool-welder-lore:
+  - "&7R-Click Object 1: Select"
+  - "&7R-Click Object 2: Weld together"
+  - "&7L-Click: Break welds"
+  - "&8Swap (F): Toggle Mode ({mode})"
+
+tool-remover-name: "&cRemover Tool"
+tool-remover-lore:
+  - "&7R-Click: Delete physics object"
+  - "&7(Removes entire connected structure)"
+
 # --- Tool Specifics ---
 shape-spawned:
   - "{prefix} &7Spawned &f{count} &7objects (&e{shape}&7)"
