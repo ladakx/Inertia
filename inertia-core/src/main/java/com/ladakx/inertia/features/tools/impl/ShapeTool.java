@@ -4,6 +4,7 @@ import com.ladakx.inertia.common.utils.StringUtils;
 import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
+import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
@@ -87,6 +88,12 @@ public class ShapeTool extends Tool {
             List<org.bukkit.util.Vector> offsets = generator.generatePoints(center, params);
             int count = 0;
             for (org.bukkit.util.Vector offset : offsets) {
+                PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+                if (space != null && !space.canSpawnBodies(offsets.size())) {
+                    send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+                    return;
+                }
+
                 Location loc = center.clone().add(offset);
                 if (bodyFactory.spawnBody(loc, bodyId)) {
                     count++;

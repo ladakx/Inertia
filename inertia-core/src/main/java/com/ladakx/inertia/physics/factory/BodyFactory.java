@@ -1,6 +1,7 @@
 package com.ladakx.inertia.physics.factory;
 
 import com.github.stephengold.joltjni.*;
+import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
@@ -18,6 +19,7 @@ import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
+import org.jetbrains.annotations.Nullable;
 import org.joml.AxisAngle4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3d;
@@ -49,9 +51,15 @@ public class BodyFactory {
      * Спавнить одиночне тіло (блок, простий об'єкт).
      */
     public boolean spawnBody(Location location, String bodyId) {
-        // API already has static access (InertiaAPI.get()), but inside the core we can use managers directly or via API.
-        // Since InertiaAPI implementation is also injected, strictly speaking we could use that,
-        // but for internal service logic using managers is fine.
+        if (location.getWorld() == null) return false;
+        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        if (space == null) return false;
+
+        // PRE-CHECK: Limit
+        if (!space.canSpawnBodies(1)) {
+            return false;
+        }
+
         InertiaPhysicsBody obj = InertiaAPI.get().createBody(location, bodyId);
         return obj != null;
     }
@@ -70,8 +78,15 @@ public class BodyFactory {
         if (!(modelOpt.get().bodyDefinition() instanceof ChainBodyDefinition def)) {
             throw new IllegalArgumentException("Body ID '" + bodyId + "' is not of type CHAIN.");
         }
+
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
+
+        if (!space.canSpawnBodies(size)) {
+            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
+                    "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            return;
+        }
 
         Location startLoc = getSpawnLocation(player, 3.0);
         Vector direction = new Vector(0, -1, 0);
@@ -119,11 +134,20 @@ public class BodyFactory {
         PhysicsBodyRegistry registry = configurationService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {
-//            throw new IllegalArgumentException("Ragdoll body not found or invalid type: " + bodyId);
-            return;
+            throw new IllegalArgumentException("Ragdoll body not found or invalid type: " + bodyId);
         }
 
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) return;
+
+        // --- PRE-CHECK: Проверяем лимит ---
+        int partsCount = def.parts().size();
+        if (!space.canSpawnBodies(partsCount)) {
+            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
+                    "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            return;
+        }
+
         Location spawnLoc = getSpawnLocation(player, 3.0);
 
         float yaw = -player.getLocation().getYaw() + 180;
@@ -158,14 +182,24 @@ public class BodyFactory {
      * Спавнить безліч блоків у формі.
      */
     public int spawnShape(Player player, DebugShapeGenerator generator, String bodyId, double... params) {
-        Location center = getSpawnLocation(player, 5.0); // Центр фігури перед гравцем
-
+        Location center = getSpawnLocation(player, 5.0);
         List<Vector> offsets = generator.generatePoints(center, params);
-        int count = 0;
 
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) return 0;
+
+        // PRE-CHECK: Limit for the whole shape
+        if (!space.canSpawnBodies(offsets.size())) {
+            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
+                    "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            return 0;
+        }
+
+        int count = 0;
         for (Vector offset : offsets) {
             Location loc = center.clone().add(offset);
-            if (spawnBody(loc, bodyId)) {
+            // Прямой вызов API, так как проверку мы уже сделали выше
+            if (InertiaAPI.get().createBody(loc, bodyId) != null) {
                 count++;
             }
         }
@@ -225,10 +259,17 @@ public class BodyFactory {
      * @param explosionForce The force applied to nearby bodies upon detonation.
      * @param velocity       Initial velocity (optional, can be null).
      */
-    public void spawnTNT(Location location, String bodyId, float explosionForce, @javax.annotation.Nullable Vector velocity) {
+    public void spawnTNT(Location location, String bodyId, float explosionForce, @Nullable Vector velocity) {
         if (location.getWorld() == null) return;
         PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
         if (space == null) return;
+
+        // PRE-CHECK: Limit
+        if (!space.canSpawnBodies(1)) {
+            // Если вызывается тулом, сообщение будет отправлено через handleException или проверку в туле.
+            // Но лучше бросить контролируемое исключение, чтобы тул знал причину.
+            throw new IllegalStateException("World body limit reached");
+        }
 
         // Verify body exists
         if (getRegistry().find(bodyId).isEmpty()) {

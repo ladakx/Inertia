@@ -12,9 +12,8 @@ public enum MessageKey {
     WRONG_ARGS_COMMAND("wrong-args-command"),
     ERROR_OCCURRED("error-occurred"),
 
-    // WorldEdit
-    WORLDEDIT_NOT_ENABLED("worldedit-not-enabled"),
-    SELECT_REGION("select-region"),
+    // Errors
+    SPAWN_LIMIT_REACHED("spawn-limit-reached"),
 
     // Spawn
     SPAWN_SUCCESS("spawn-success"),

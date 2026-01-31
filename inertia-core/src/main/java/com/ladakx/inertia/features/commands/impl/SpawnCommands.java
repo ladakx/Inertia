@@ -30,7 +30,6 @@ public class SpawnCommands extends BaseCommand {
     public void onSpawnBody(Player player, String bodyId) {
         if (!validateWorld(player)) return;
 
-        // Перенаправление на специфичные методы для удобства
         if (bodyId.startsWith("chains.")) {
             onSpawnChain(player, bodyId, 10);
             return;
@@ -45,7 +44,15 @@ public class SpawnCommands extends BaseCommand {
             if (bodyFactory.spawnBody(player.getLocation(), bodyId)) {
                 send(player, MessageKey.SPAWN_SUCCESS, "{id}", bodyId);
             } else {
-                send(player, MessageKey.ERROR_OCCURRED, "{error}", "Failed to spawn body (internal error)");
+                com.ladakx.inertia.physics.world.PhysicsWorld space =
+                        configurationService.getWorldsConfig().getWorldSettings(player.getWorld().getName()) != null
+                                ? com.ladakx.inertia.core.InertiaPlugin.getInstance().getSpaceManager().getSpace(player.getWorld()) : null;
+
+                if (space != null && !space.canSpawnBodies(1)) {
+                    send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+                } else {
+                    send(player, MessageKey.ERROR_OCCURRED, "{error}", "Failed to spawn body (unknown error)");
+                }
             }
         } catch (Exception e) {
             handleException(player, e);

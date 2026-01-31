@@ -288,6 +288,8 @@ public class PhysicsWorld implements AutoCloseable {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
     }
 
+    // --- Task Management ---
+
     public UUID addTickTask(Runnable runnable) {
         UUID random = UUID.randomUUID();
         tickTasks.put(random, runnable);
@@ -397,6 +399,16 @@ public class PhysicsWorld implements AutoCloseable {
             AbstractPhysicsBody obj2 = getObjectByVa(twoBodyConstraint.getBody2().va());
             if (obj2 != null) obj2.removeRelatedConstraint(ref);
         }
+    }
+
+    /**
+     * Checks if there is enough space in the physics simulation to add the specified number of bodies.
+     *
+     * @param amount Number of bodies to add.
+     * @return true if bodies can be added, false if the limit would be exceeded.
+     */
+    public boolean canSpawnBodies(int amount) {
+        return physicsSystem.getNumBodies() + amount <= settings.maxBodies();
     }
 
     /**

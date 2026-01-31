@@ -78,6 +78,13 @@ public class RagdollTool extends Tool {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
+        // Check spawn limit
+        int totalParts = def.parts().size();
+        if (!space.canSpawnBodies(totalParts)) {
+            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            return;
+        }
+
         Location baseLoc = player.getEyeLocation().add(player.getLocation().getDirection().multiply(2.5)).add(0, 0.5, 0);
 
         float yaw = -player.getLocation().getYaw() + 180;

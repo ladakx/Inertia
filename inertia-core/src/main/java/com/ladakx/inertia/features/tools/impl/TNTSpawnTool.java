@@ -5,6 +5,7 @@ import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
+import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.features.tools.Tool;
@@ -55,6 +56,14 @@ public class TNTSpawnTool extends Tool {
 
     private void spawnTNT(Player player, ItemStack item, boolean isThrow) {
         if (!validateWorld(player)) return;
+
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) return;
+
+        if (!space.canSpawnBodies(1)) {
+            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            return;
+        }
 
         String bodyId = getString(InertiaPlugin.getInstance(), item, KEY_BODY);
         String forceStr = getString(InertiaPlugin.getInstance(), item, KEY_FORCE);

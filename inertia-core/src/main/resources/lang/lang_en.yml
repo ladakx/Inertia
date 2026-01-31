@@ -18,11 +18,9 @@ not-for-this-world:
   - "{prefix} &7Add this world to the list of physical worlds in the config.yml file"
   - "{prefix} &7To use this command!"
 
-worldedit-not-enabled:
-  - "{prefix} &cWorldEdit plugin not found on the server!"
-  - "{prefix} &cThis command requires WorldEdit to work!"
-select-region:
-  - "{prefix} &cSelect the region with an axe before using this command!"
+spawn-limit-reached:
+  - "{prefix} &cCannot spawn object: World body limit ({limit}) reached!"
+  - "{prefix} &7Use &f/inertia clear &7to free up space."
 
 # --- Spawn Messages ---
 spawn-success:
