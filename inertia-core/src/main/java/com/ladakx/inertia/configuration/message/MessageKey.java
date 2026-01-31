@@ -40,6 +40,13 @@ public enum MessageKey {
     TOOL_BROKEN_NBT("tool-broken-nbt"),
     TOOL_INVALID_PARAMS("tool-invalid-params"),
 
+    BODY_FROZEN("body-frozen"),
+    CANNOT_FREEZE_BODY("cannot-freeze-body"),
+
+    // Commands
+    STATIC_SUCCESS("static-success"),
+    STATIC_NO_MATCH("static-no-match"),
+
     // Tools - Names & Lore
     TOOL_CHAIN_NAME("tool-chain-name"),
     TOOL_CHAIN_LORE("tool-chain-lore"),
@@ -52,6 +59,9 @@ public enum MessageKey {
 
     TOOL_TNT_NAME("tool-tnt-name"),
     TOOL_TNT_LORE("tool-tnt-lore"),
+
+    TOOL_STATIC_NAME("tool-static-name"),
+    TOOL_STATIC_LORE("tool-static-lore"),
 
     TOOL_GRABBER_NAME("tool-grabber-name"),
     TOOL_GRABBER_LORE("tool-grabber-lore"),

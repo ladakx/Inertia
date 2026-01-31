@@ -24,7 +24,6 @@ public class ToolRegistry implements Listener {
     private final ConfigurationService configurationService;
     private final PhysicsWorldRegistry physicsWorldRegistry;
 
-    // Конструктор обновлен: добавлен BodyFactory
     public ToolRegistry(InertiaPlugin plugin,
                         ConfigurationService configurationService,
                         PhysicsWorldRegistry physicsWorldRegistry,
@@ -35,16 +34,14 @@ public class ToolRegistry implements Listener {
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        // Регистрация с правильными зависимостями
         register(new DeleteTool(configurationService, physicsWorldRegistry));
         register(new WeldTool(configurationService, physicsWorldRegistry));
         register(new GrabberTool(configurationService, physicsWorldRegistry));
+        register(new StaticTool(configurationService, physicsWorldRegistry));
 
-        // Инструменты, требующие фабрику форм
         register(new ChainTool(configurationService, physicsWorldRegistry, shapeFactory));
         register(new RagdollTool(configurationService, physicsWorldRegistry, shapeFactory));
 
-        // Инструменты, требующие фабрику тел
         register(new ShapeTool(configurationService, physicsWorldRegistry, bodyFactory));
         register(new TNTSpawnTool(configurationService, physicsWorldRegistry, bodyFactory));
     }

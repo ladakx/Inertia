@@ -33,4 +33,15 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
             wasActive = false;
         }
     }
+
+    public void freeze(@Nullable java.util.UUID clusterId) {
+        if (!isValid()) return;
+
+        com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite display = getDisplay();
+        if (display != null) {
+            display.markAsStatic(clusterId);
+        }
+
+        super.destroy();
+    }
 }

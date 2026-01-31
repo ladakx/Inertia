@@ -56,12 +56,27 @@ tool-broken-nbt:
 tool-invalid-params:
   - "{prefix} &cInvalid parameters in tool data."
 
+body-frozen:
+  - "{prefix} &bBody frozen successfully."
+cannot-freeze-body:
+  - "{prefix} &cCannot freeze this object (not supported)."
+
+static-success:
+  - "{prefix} &bFrozen &f{count} &bentities."
+static-no-match:
+  - "{prefix} &cNo active physics entities found to freeze."
+
 # --- Tool Items ---
 tool-chain-name: "&6Chain Tool: &e{body}"
 tool-chain-lore:
   - "&7L-Click: Set Point 1"
   - "&7R-Click: Set Point 2 & Build"
   - "&8Swap (F): Clear selection"
+
+tool-static-name: "&bFreeze Tool"
+tool-static-lore:
+  - "&7L/R-Click: Convert physics object"
+  - "&7to static decoration."
 
 tool-ragdoll-name: "&6Ragdoll Tool: &e{body}"
 tool-ragdoll-lore:

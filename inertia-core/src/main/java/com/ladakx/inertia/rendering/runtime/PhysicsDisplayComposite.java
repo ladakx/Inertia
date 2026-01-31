@@ -3,6 +3,7 @@ package com.ladakx.inertia.rendering.runtime;
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
+import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.physics.world.snapshot.VisualUpdate;
 import com.ladakx.inertia.rendering.VisualEntity;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
@@ -122,6 +123,31 @@ public final class PhysicsDisplayComposite {
         for (DisplayPart part : parts) {
             if (part.visual().isValid()) {
                 part.visual().setGlowing(glowing);
+            }
+        }
+    }
+
+    public void markAsStatic(@org.jetbrains.annotations.Nullable java.util.UUID clusterId) {
+        for (DisplayPart part : parts) {
+            VisualEntity visual = part.visual();
+            if (visual != null && visual.isValid()) {
+                var pdc = visual.getPersistentDataContainer();
+
+                // Маркируем как статику
+                pdc.set(
+                        com.ladakx.inertia.common.pdc.InertiaPDCKeys.INERTIA_ENTITY_STATIC,
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        "true"
+                );
+
+                // Если передан ID кластера (для цепей/рэгдоллов), записываем его
+                if (clusterId != null) {
+                    pdc.set(
+                            com.ladakx.inertia.common.pdc.InertiaPDCKeys.INERTIA_CLUSTER_UUID,
+                            org.bukkit.persistence.PersistentDataType.STRING,
+                            clusterId.toString()
+                    );
+                }
             }
         }
     }

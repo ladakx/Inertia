@@ -1,39 +1,31 @@
 package com.ladakx.inertia.features.tools.impl;
 
-import com.github.stephengold.joltjni.Body;
-import com.github.stephengold.joltjni.TwoBodyConstraint;
-import com.github.stephengold.joltjni.TwoBodyConstraintRef;
+import com.ladakx.inertia.common.PhysicsGraphUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.configuration.message.MessageManager;
+import com.ladakx.inertia.features.tools.Tool;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
-import com.ladakx.inertia.features.tools.Tool;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.RayTraceResult;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
- * Tool that removes physics objects from the world.
- * <p>
- * When used on a body that belongs to a compound object (chain, ragdoll),
- * it will remove the entire connected cluster of physics objects linked by
- * Jolt constraints.
+ * Инструмент для удаления физических объектов и статичных декораций.
+ * Поддерживает удаление целых кластеров (цепи, рэгдоллы).
  */
 public class DeleteTool extends Tool {
 
@@ -48,29 +40,133 @@ public class DeleteTool extends Tool {
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
-        if (space == null) {
+
+        // 1. Попытка удалить АКТИВНОЕ физическое тело (Jolt Raycast)
+        if (space != null && tryRemoveActiveBody(player, space)) {
             return;
         }
 
-        List<PhysicsWorld.RaycastResult> results =
-                space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 16);
-        if (results.isEmpty()) {
-            return;
-        }
+        // 2. Попытка удалить СТАТИЧНУЮ декорацию (Bukkit RayTrace)
+        tryRemoveStaticEntity(player);
+    }
+
+    @Override
+    public void onLeftClick(PlayerInteractEvent event) {
+        // Placeholder
+    }
+
+    @Override
+    public void onSwapHands(Player player) {
+    }
+
+    /**
+     * Логика удаления активных тел.
+     * Использует PhysicsGraphUtils для поиска связанных частей.
+     */
+    private boolean tryRemoveActiveBody(Player player, PhysicsWorld space) {
+        List<PhysicsWorld.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 16);
+        if (results.isEmpty()) return false;
 
         PhysicsWorld.RaycastResult result = results.get(0);
         Long va = result.va();
-        if (va == null) {
-            return;
+        if (va == null) return false;
+
+        AbstractPhysicsBody hitBody = space.getObjectByVa(va);
+        if (hitBody == null) return false;
+
+        // REUSE: Используем общий утилит для поиска всех связанных частей
+        Set<AbstractPhysicsBody> cluster = PhysicsGraphUtils.collectConnectedBodies(space, hitBody);
+
+        for (AbstractPhysicsBody body : cluster) {
+            try {
+                body.destroy();
+            } catch (Exception e) {
+                InertiaLogger.error("Failed to destroy physics object via RemoverTool: " + e);
+            }
         }
 
-        AbstractPhysicsBody root = space.getObjectByVa(va);
-        if (root == null) {
-            return;
+        playSuccessEffect(player);
+        return true;
+    }
+
+    /**
+     * Логика удаления статичных (замороженных) сущностей.
+     * Использует ClusterID и алгоритм заливки (Flood Fill) для поиска группы.
+     */
+    private void tryRemoveStaticEntity(Player player) {
+        // Bukkit RayTrace ищет только сущности с нашим флагом static
+        RayTraceResult result = player.getWorld().rayTraceEntities(
+                player.getEyeLocation(),
+                player.getLocation().getDirection(),
+                16.0,
+                0.5,
+                entity -> entity.getPersistentDataContainer().has(InertiaPDCKeys.INERTIA_ENTITY_STATIC, PersistentDataType.STRING)
+        );
+
+        if (result == null || result.getHitEntity() == null) return;
+
+        Entity hitEntity = result.getHitEntity();
+        var pdc = hitEntity.getPersistentDataContainer();
+
+        // Проверяем, принадлежит ли сущность к группе (кластеру)
+        String clusterIdStr = pdc.get(InertiaPDCKeys.INERTIA_CLUSTER_UUID, PersistentDataType.STRING);
+
+        if (clusterIdStr != null) {
+            removeClusterRecursive(hitEntity, clusterIdStr);
+        } else {
+            // Это одиночный объект (блок/ТНТ) или старый объект без ID — удаляем только его
+            hitEntity.remove();
         }
 
-        destroyConnectedObjects(space, root);
+        playSuccessEffect(player);
+    }
 
+    /**
+     * Рекурсивно (через очередь) удаляет все сущности с заданным ClusterID,
+     * находящиеся поблизости друг от друга.
+     * Эффективно проходит по всей длине цепи любой протяженности.
+     */
+    private void removeClusterRecursive(Entity startEntity, String targetClusterId) {
+        Set<UUID> processedEntities = new HashSet<>();
+        Deque<Entity> queue = new ArrayDeque<>();
+
+        // Добавляем стартовую сущность
+        queue.add(startEntity);
+        processedEntities.add(startEntity.getUniqueId());
+
+        while (!queue.isEmpty()) {
+            Entity current = queue.poll();
+
+            // Удаляем текущую сущность
+            if (current.isValid()) {
+                current.remove();
+            }
+
+            // Ищем соседей в радиусе 3 блоков (достаточно для захвата следующего звена)
+            // getNearbyEntities эффективен, так как работает с чанками
+            List<Entity> neighbors = current.getNearbyEntities(2.0, 2.0, 2.0);
+
+            for (Entity neighbor : neighbors) {
+                // Пропускаем уже обработанные (защита от зацикливания)
+                if (processedEntities.contains(neighbor.getUniqueId())) continue;
+
+                var nPdc = neighbor.getPersistentDataContainer();
+
+                // Пропускаем, если это не статика Inertia
+                if (!nPdc.has(InertiaPDCKeys.INERTIA_ENTITY_STATIC, PersistentDataType.STRING)) continue;
+
+                // Проверяем совпадение ClusterID
+                String nClusterId = nPdc.get(InertiaPDCKeys.INERTIA_CLUSTER_UUID, PersistentDataType.STRING);
+
+                if (targetClusterId.equals(nClusterId)) {
+                    processedEntities.add(neighbor.getUniqueId());
+                    queue.add(neighbor);
+                }
+            }
+        }
+    }
+
+    private void playSuccessEffect(Player player) {
         player.playSound(
                 player.getLocation(),
                 Sound.BLOCK_STONE_BREAK,
@@ -82,99 +178,16 @@ public class DeleteTool extends Tool {
     }
 
     @Override
-    public void onLeftClick(PlayerInteractEvent event) {
-    }
-
-    @Override
-    public void onSwapHands(Player player) {
-    }
-
-    @Override
     protected ItemStack getBaseItem() {
         ItemStack item = new ItemStack(Material.TNT_MINECART);
         ItemMeta meta = item.getItemMeta();
 
-        MessageManager msg = configurationService.getMessageManager();
-        meta.displayName(msg.getSingle(MessageKey.TOOL_REMOVER_NAME));
-        meta.lore(msg.get(MessageKey.TOOL_REMOVER_LORE));
-
-        item.setItemMeta(meta);
+        if (meta != null) {
+            MessageManager msg = configurationService.getMessageManager();
+            meta.displayName(msg.getSingle(MessageKey.TOOL_REMOVER_NAME));
+            meta.lore(msg.get(MessageKey.TOOL_REMOVER_LORE));
+            item.setItemMeta(meta);
+        }
         return item;
-    }
-    
-    /**
-     * Destroy the entire cluster of physics objects that are connected to
-     * the specified root object via Jolt two-body constraints.
-     *
-     * @param space owning physics space
-     * @param root  starting physics object
-     */
-    private void destroyConnectedObjects(PhysicsWorld space, AbstractPhysicsBody root) {
-        Set<AbstractPhysicsBody> visited = new HashSet<>();
-        Deque<AbstractPhysicsBody> queue = new ArrayDeque<>();
-
-        visited.add(root);
-        queue.add(root);
-
-        while (!queue.isEmpty()) {
-            AbstractPhysicsBody current = queue.poll();
-            if (current == null) {
-                continue;
-            }
-
-            List<TwoBodyConstraintRef> refs = current.getConstraintSnapshot();
-            for (TwoBodyConstraintRef ref : refs) {
-                if (ref == null) {
-                    continue;
-                }
-
-                TwoBodyConstraint constraint;
-                try {
-                    constraint = ref.getPtr();
-                } catch (Exception e) {
-                    InertiaLogger.warn("Failed to access Jolt constraint from reference: " + e);
-                    continue;
-                }
-                if (constraint == null) {
-                    continue;
-                }
-
-                enqueueOwner(space, constraint.getBody1(), visited, queue);
-                enqueueOwner(space, constraint.getBody2(), visited, queue);
-            }
-        }
-
-        for (AbstractPhysicsBody object : visited) {
-            try {
-                object.destroy();
-            } catch (Exception e) {
-                InertiaLogger.error(
-                        "Failed to destroy physics object via DeleteTool: " + e
-                );
-            }
-        }
-    }
-
-    /**
-     * Helper that resolves the owner of a Jolt body and enqueues it for
-     * breadth-first search if it has not been visited yet.
-     *
-     * @param space   owning physics space
-     * @param body    Jolt body to resolve
-     * @param visited set of already visited physics objects
-     * @param queue   BFS queue
-     */
-    private void enqueueOwner(PhysicsWorld space,
-                              Body body,
-                              Set<AbstractPhysicsBody> visited,
-                              Deque<AbstractPhysicsBody> queue) {
-        if (body == null) {
-            return;
-        }
-        AbstractPhysicsBody owner = space.getObjectByVa(body.va());
-        if (owner != null && !visited.contains(owner)) {
-            visited.add(owner);
-            queue.add(owner);
-        }
     }
 }
