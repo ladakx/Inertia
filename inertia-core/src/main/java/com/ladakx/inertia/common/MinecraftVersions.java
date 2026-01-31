@@ -109,6 +109,12 @@ public class MinecraftVersions {
         update.add(new Version(update, 2, 2)); // 1.21.2
         update.add(new Version(update, 3, 2)); // 1.21.3
         update.add(new Version(update, 4, 3)); // 1.21.4
+        update.add(new Version(update, 5, 4)); // 1.21.5
+        update.add(new Version(update, 6, 5)); // 1.21.6
+        update.add(new Version(update, 7, 6)); // 1.21.7
+        update.add(new Version(update, 8, 6)); // 1.21.8
+        update.add(new Version(update, 9, 7)); // 1.21.9
+        update.add(new Version(update, 10, 7)); // 1.21.10
     });
 
     // Lazy initialization for CURRENT in a static block
