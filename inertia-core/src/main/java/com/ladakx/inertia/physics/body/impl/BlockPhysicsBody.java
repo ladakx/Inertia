@@ -96,6 +96,7 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
         settings.getMassProperties().setMass(phys.mass());
         settings.setFriction(phys.friction());
         settings.setRestitution(phys.restitution());
+        settings.setGravityFactor(phys.gravityFactor());
         settings.setPosition(initialPosition);
         settings.setRotation(initialRotation);
 

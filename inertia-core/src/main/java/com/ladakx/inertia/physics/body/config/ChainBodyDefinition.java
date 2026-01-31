@@ -5,21 +5,25 @@ import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Визначення для ланцюгів з додатковими параметрами з'єднань.
- */
 public record ChainBodyDefinition(
         String id,
         BodyPhysicsSettings physicsSettings,
         List<String> shapeLines,
         String renderModel,
-        ChainSettings chainSettings
+        ChainCreationSettings creation,
+        ChainStabilizationSettings stabilization,
+        ChainLimitSettings limits,
+        AdaptiveSettings adaptive // Новое поле
 ) implements BodyDefinition {
-    
+
     public ChainBodyDefinition {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(physicsSettings, "physicsSettings");
-        Objects.requireNonNull(chainSettings, "chainSettings");
+        Objects.requireNonNull(creation, "creation");
+        Objects.requireNonNull(stabilization, "stabilization");
+        Objects.requireNonNull(limits, "limits");
+        // adaptive может быть null, если не используется (тогда используем дефолт)
+        if (adaptive == null) adaptive = new AdaptiveSettings(false, 0, 0, 0f, 0f, 0, 0);
         shapeLines = List.copyOf(shapeLines);
     }
 
@@ -28,8 +32,27 @@ public record ChainBodyDefinition(
         return PhysicsBodyType.CHAIN;
     }
 
+    public record ChainCreationSettings(double jointOffset, double spacing) {}
+
+    public record ChainStabilizationSettings(int positionIterations, int velocityIterations) {}
+
+    public record ChainLimitSettings(float swingLimitAngle, TwistMode twistMode) {}
+
     /**
-     * Налаштування специфічні для ланцюга.
+     * Настройки адаптивной физики.
+     * Значения интерполируются линейно между minLength и maxLength.
      */
-    public record ChainSettings(double jointOffset, double spacing) {}
+    public record AdaptiveSettings(
+            boolean enabled,
+            int minLength,
+            int maxLength,
+            float maxGravity, // Гравитация для коротких цепей (обычно 1.0)
+            float minGravity, // Гравитация для длинных цепей (обычно 0.1)
+            int minIterations, // Итерации для коротких
+            int maxIterations  // Итерации для длинных
+    ) {}
+
+    public enum TwistMode {
+        FREE, LOCKED, LIMITED
+    }
 }

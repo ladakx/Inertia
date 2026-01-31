@@ -94,7 +94,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
         settings.setAngularDamping(phys.angularDamping());
         settings.setFriction(phys.friction());
         settings.setRestitution(phys.restitution());
-
+        settings.setGravityFactor(phys.gravityFactor());
         settings.setMotionQuality(EMotionQuality.LinearCast);
         settings.setAllowSleeping(true);
 

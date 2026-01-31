@@ -1,6 +1,7 @@
 package com.ladakx.inertia.features.tools.impl;
 
 import com.github.stephengold.joltjni.Body;
+import com.github.stephengold.joltjni.GroupFilterTable;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.enumerate.EActivation;
@@ -133,8 +134,6 @@ public class ChainTool extends Tool {
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
 
         if (modelOpt.isEmpty() || modelOpt.get().bodyDefinition().type() != PhysicsBodyType.CHAIN) {
-            // Using logger? or send message? Tool has send()
-            // InertiaLogger.warn("Invalid chain body...");
             send(player, MessageKey.INVALID_CHAIN_BODY, "{id}", bodyId);
             return;
         }
@@ -146,7 +145,10 @@ public class ChainTool extends Tool {
         Vector directionVector = end.toVector().subtract(start.toVector());
         double totalDistance = directionVector.length();
         Vector direction = directionVector.clone().normalize();
-        double spacing = def.chainSettings().spacing();
+
+        // Используем настройки из новой секции creation
+        double spacing = def.creation().spacing();
+
         int linkCount = (int) Math.ceil(totalDistance / spacing);
         if (linkCount < 1) linkCount = 1;
 
@@ -156,7 +158,15 @@ public class ChainTool extends Tool {
 
         Body parentBody = null;
 
+        // [FIX] Создаем таблицу фильтрации для отключения коллизий между соседними звеньями
+        GroupFilterTable groupFilter = new GroupFilterTable(linkCount + 1);
+
         for (int i = 0; i <= linkCount; i++) {
+            // [FIX] Отключаем коллизию с предыдущим звеном (i-1)
+            if (i > 0) {
+                groupFilter.disableCollision(i, i - 1);
+            }
+
             double distanceTraveled = i * spacing;
             Vector offset = direction.clone().multiply(distanceTraveled);
             Location currentLoc = start.clone().add(offset);
@@ -173,7 +183,10 @@ public class ChainTool extends Tool {
                         shapeFactory,
                         pos,
                         linkRotation,
-                        parentBody
+                        parentBody,
+                        groupFilter,
+                        i,
+                        linkCount + 1 // [NEW] Передаем общую длину цепи
                 );
 
                 if (i == 0 || i == linkCount) {

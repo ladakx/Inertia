@@ -75,14 +75,23 @@ public class BodyFactory {
 
         Location startLoc = getSpawnLocation(player, 3.0);
         Vector direction = new Vector(0, -1, 0);
-        double spacing = def.chainSettings().spacing();
+
+        double spacing = def.creation().spacing();
 
         Quaternionf jomlQuat = new Quaternionf().rotationTo(new org.joml.Vector3f(0, 1, 0), new org.joml.Vector3f(0, -1, 0));
         Quat linkRotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
         Body parentBody = null;
 
+        // ВАЖНО: Создаем фильтр коллизий для этой цепочки
+        GroupFilterTable groupFilter = new GroupFilterTable(size);
+
         for (int i = 0; i < size; i++) {
+            // Отключаем коллизию с предыдущим звеном, чтобы они не взрывались при спавне
+            if (i > 0) {
+                groupFilter.disableCollision(i, i - 1);
+            }
+
             Location currentLoc = startLoc.clone().add(direction.clone().multiply(i * spacing));
             RVec3 pos = new RVec3(currentLoc.getX(), currentLoc.getY(), currentLoc.getZ());
 
@@ -94,7 +103,10 @@ public class BodyFactory {
                     shapeFactory,
                     pos,
                     linkRotation,
-                    parentBody
+                    parentBody,
+                    groupFilter,
+                    i,
+                    size
             );
             parentBody = link.getBody();
         }
