@@ -24,11 +24,23 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
 
     @Override
     public VisualEntity create(World world, Location origin, RenderEntityDefinition def) {
+        ensureChunkLoaded(world, origin);
+
         return switch (def.kind()) {
             case BLOCK_DISPLAY -> spawnBlockDisplay(world, origin, def);
             case ITEM_DISPLAY -> spawnItemDisplay(world, origin, def);
             case ARMOR_STAND -> spawnArmorStand(world, origin, def);
         };
+    }
+
+    private void ensureChunkLoaded(World world, Location loc) {
+        int x = loc.getBlockX() >> 4;
+        int z = loc.getBlockZ() >> 4;
+        if (!world.isChunkLoaded(x, z)) {
+            // В 1.21 лучше использовать addPluginChunkTicket, но для совместимости API используем простой load
+            // Spigot сам подгрузит чанк для entity spawn, но явный вызов надежнее
+            world.getChunkAt(x, z).load(true);
+        }
     }
 
     private VisualEntity spawnBlockDisplay(World world, Location origin, RenderEntityDefinition def) {
@@ -46,7 +58,7 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
     private VisualEntity spawnItemDisplay(World world, Location origin, RenderEntityDefinition def) {
         ItemDisplay display = world.spawn(origin, ItemDisplay.class, entity -> {
             applyCommonDisplayTraits(entity, def);
-            
+
             ItemStack stack = itemModelResolver.resolve(def.itemModelKey());
             entity.setItemStack(stack);
 
@@ -86,15 +98,15 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
         if (def.viewRange() != null) display.setViewRange(def.viewRange());
         if (def.shadowRadius() != null) display.setShadowRadius(def.shadowRadius());
         if (def.shadowStrength() != null) display.setShadowStrength(def.shadowStrength());
-        
+
         if (def.billboard() != null) {
             display.setBillboard(Display.Billboard.valueOf(def.billboard().name()));
         }
-        
+
         if (def.interpolationDuration() != null) {
             display.setInterpolationDuration(def.interpolationDuration());
         }
-        
+
         if (def.teleportDuration() != null) {
             display.setTeleportDuration(def.teleportDuration());
         }
