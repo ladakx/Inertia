@@ -152,17 +152,21 @@ public class ChainTool extends Tool {
         int linkCount = (int) Math.ceil(totalDistance / spacing);
         if (linkCount < 1) linkCount = 1;
 
+        // --- PRE-CHECK: Проверяем лимит ---
+        if (!space.canSpawnBodies(linkCount + 1)) { // +1 на всякий случай или запас
+            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            return;
+        }
+
         Quaternionf jomlQuat = new Quaternionf().rotationTo(new org.joml.Vector3f(0, 1, 0),
                 new org.joml.Vector3f((float)direction.getX(), (float)direction.getY(), (float)direction.getZ()));
         Quat linkRotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
         Body parentBody = null;
 
-        // [FIX] Создаем таблицу фильтрации для отключения коллизий между соседними звеньями
         GroupFilterTable groupFilter = new GroupFilterTable(linkCount + 1);
 
         for (int i = 0; i <= linkCount; i++) {
-            // [FIX] Отключаем коллизию с предыдущим звеном (i-1)
             if (i > 0) {
                 groupFilter.disableCollision(i, i - 1);
             }

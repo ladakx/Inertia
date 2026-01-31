@@ -65,6 +65,13 @@ public abstract class BaseCommand extends co.aikar.commands.BaseCommand {
      * Standard exception handler for commands.
      */
     protected void handleException(Player player, Exception e) {
+        // Проверяем специфичную ошибку Jolt
+        if (e instanceof IllegalStateException && e.getMessage().contains("ran out of bodies")) {
+            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", "MAX");
+            return;
+        }
+
+        // Обычная обработка
         InertiaLogger.error("Error executing command for " + player.getName(), e);
         String msg = e.getMessage() != null ? e.getMessage() : "Unknown error";
         send(player, MessageKey.ERROR_OCCURRED, "{error}", msg);
