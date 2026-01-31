@@ -3,6 +3,7 @@ package com.ladakx.inertia.nms.v1_16_r3.render;
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.util.EulerAngle;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -41,6 +42,11 @@ public class ArmorStandEntity implements VisualEntity {
     @Override
     public boolean isValid() {
         return stand.isValid();
+    }
+
+    @Override
+    public PersistentDataContainer getPersistentDataContainer() {
+        return stand.getPersistentDataContainer();
     }
 
     @Override

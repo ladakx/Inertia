@@ -6,6 +6,7 @@ import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -198,11 +199,23 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         RenderModelDefinition renderDef = renderOpt.get();
         World world = space.getWorldBukkit();
         Location spawnLoc = new Location(world, initialPos.xx(), initialPos.yy(), initialPos.zz());
+        java.util.UUID bodyUuid = java.util.UUID.randomUUID();
 
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-        for (RenderEntityDefinition entityDef : renderDef.entities().values()) {
+        for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
+            String entityKey = entry.getKey();
+            RenderEntityDefinition entityDef = entry.getValue();
+
             VisualEntity visual = factory.create(world, spawnLoc, entityDef);
             if (visual.isValid()) {
+                // [NEW] Применяем PDC теги
+                InertiaPDCUtils.applyInertiaTags(
+                        visual,
+                        bodyId,
+                        bodyUuid,
+                        renderDef.id(),
+                        entityKey
+                );
                 parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
             }
         }

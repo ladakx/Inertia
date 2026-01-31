@@ -5,6 +5,7 @@ import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
@@ -24,14 +25,13 @@ import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhysicsBody {
 
     private final String bodyId;
     private final PhysicsDisplayComposite displayComposite;
+
     private boolean removed = false;
 
     public BlockPhysicsBody(@NotNull PhysicsWorld space,
@@ -53,16 +53,27 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
             Location spawnLocation = new Location(world, initialPosition.xx(), initialPosition.yy(), initialPosition.zz());
 
             List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-            for (RenderEntityDefinition entityDef : renderDef.entities().values()) {
+            UUID bodyUuid = UUID.randomUUID();
+
+            for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
+                String entityKey = entry.getKey();
+                RenderEntityDefinition entityDef = entry.getValue();
+
                 VisualEntity visual = renderFactory.create(world, spawnLocation, entityDef);
                 if (visual.isValid()) {
+                    InertiaPDCUtils.applyInertiaTags(
+                            visual,
+                            bodyId,
+                            bodyUuid,
+                            renderDef.id(),
+                            entityKey
+                    );
+
                     parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
                 }
             }
 
             this.displayComposite = new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
-            // We no longer call displayComposite.update() directly here.
-            // The first snapshot tick will handle positioning.
         } else {
             this.displayComposite = null;
         }

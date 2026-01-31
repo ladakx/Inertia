@@ -4,15 +4,14 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
-import com.ladakx.inertia.common.utils.PDCUtils;
-import com.ladakx.inertia.physics.factory.BodyFactory;
+import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
 
-import static com.ladakx.inertia.common.utils.PDCUtils.setString;
+import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.setString;
 
 public abstract class Tool {
 
@@ -51,7 +50,7 @@ public abstract class Tool {
 
     public boolean isTool(ItemStack stack) {
         if (stack == null) return false;
-        String id = PDCUtils.getString(InertiaPlugin.getInstance(), stack, TOOL_KEY);
+        String id = InertiaPDCUtils.getString(InertiaPlugin.getInstance(), stack, TOOL_KEY);
         return toolId.equals(id);
     }
 
