@@ -3,6 +3,7 @@ package com.ladakx.inertia.nms.v1_21_r1.render;
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Location;
 import org.bukkit.entity.Display;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -50,6 +51,12 @@ public class DisplayEntity implements VisualEntity {
     public void setGlowing(boolean glowing) {
         display.setGlowing(glowing);
     }
+
+    @Override
+    public PersistentDataContainer getPersistentDataContainer() {
+        return display.getPersistentDataContainer();
+    }
+
 
     @Override
     public boolean isValid() {

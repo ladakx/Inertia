@@ -1,6 +1,7 @@
 package com.ladakx.inertia.rendering;
 
 import org.bukkit.Location;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -10,9 +11,6 @@ import org.joml.Vector3f;
  */
 public interface VisualEntity {
 
-    /**
-     * Повне оновлення позиції та трансформації.
-     */
     void update(Location location, Quaternionf rotation, Vector3f center, boolean rotLocalOff);
 
     void setVisible(boolean visible);
@@ -20,6 +18,8 @@ public interface VisualEntity {
     void remove();
 
     void setGlowing(boolean glowing);
+
+    PersistentDataContainer getPersistentDataContainer();
 
     boolean isValid();
 }

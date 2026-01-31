@@ -7,7 +7,6 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.physics.body.impl.RagdollPhysicsBody;
-import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
@@ -29,8 +28,8 @@ import org.joml.Vector3d;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.ladakx.inertia.common.utils.PDCUtils.getString;
-import static com.ladakx.inertia.common.utils.PDCUtils.setString;
+import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.getString;
+import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.setString;
 
 public class RagdollTool extends Tool {
 

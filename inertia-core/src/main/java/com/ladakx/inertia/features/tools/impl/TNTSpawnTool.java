@@ -21,8 +21,8 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.ladakx.inertia.common.utils.PDCUtils.getString;
-import static com.ladakx.inertia.common.utils.PDCUtils.setString;
+import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.getString;
+import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.setString;
 
 public class TNTSpawnTool extends Tool {
 

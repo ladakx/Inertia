@@ -5,11 +5,9 @@ import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -75,9 +73,6 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
 
     private VisualEntity spawnArmorStand(World world, Location origin, RenderEntityDefinition def) {
         ArmorStand stand = world.spawn(origin, ArmorStand.class, entity -> {
-            var pdc = entity.getPersistentDataContainer();
-            pdc.set(NamespacedKey.fromString("inertia:is_inertia_ent"), PersistentDataType.BYTE, (byte)1);
-
             entity.setGravity(false);
             entity.setBasePlate(def.basePlate());
             entity.setSmall(def.small());
@@ -91,10 +86,6 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
     }
 
     private void applyCommonDisplayTraits(Display display, RenderEntityDefinition def) {
-        var pdc = display.getPersistentDataContainer();
-        pdc.set(NamespacedKey.fromString("inertia:is_inertia_ent"), PersistentDataType.BYTE, (byte)1);
-
-        display.setPersistent(false);
         if (def.viewRange() != null) display.setViewRange(def.viewRange());
         if (def.shadowRadius() != null) display.setShadowRadius(def.shadowRadius());
         if (def.shadowStrength() != null) display.setShadowStrength(def.shadowStrength());
@@ -126,5 +117,7 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
                 new Vector3f((float)def.scale().getX(), (float)def.scale().getY(), (float)def.scale().getZ()),
                 new Quaternionf()
         ));
+
+        display.setPersistent(false);
     }
 }

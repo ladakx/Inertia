@@ -24,16 +24,16 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
     }
 
     private VisualEntity spawnEmulatedEntity(World world, Location origin, RenderEntityDefinition def) {
-        ArmorStand stand = world.spawn(origin, ArmorStand.class, s -> {
-            s.setGravity(false);
-            s.setBasePlate(def.basePlate());
-            s.setSmall(def.small());
-            s.setArms(def.arms());
-            s.setMarker(def.marker());
-            s.setInvisible(def.invisible() || isDisplayEntity(def));
-            s.setPersistent(false);
+        ArmorStand stand = world.spawn(origin, ArmorStand.class, entity -> {
+            entity.setGravity(false);
+            entity.setBasePlate(def.basePlate());
+            entity.setSmall(def.small());
+            entity.setArms(def.arms());
+            entity.setMarker(def.marker());
+            entity.setInvisible(def.invisible() || isDisplayEntity(def));
+            entity.setPersistent(false);
 
-            applyContent(s, def);
+            applyContent(entity, def);
         });
 
         return new ArmorStandEntity(stand);

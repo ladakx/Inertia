@@ -32,8 +32,8 @@ import org.joml.Quaternionf;
 
 import java.util.*;
 
-import static com.ladakx.inertia.common.utils.PDCUtils.getString;
-import static com.ladakx.inertia.common.utils.PDCUtils.setString;
+import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.getString;
+import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.setString;
 import static com.ladakx.inertia.common.utils.PlayerUtils.getTargetLocation;
 
 public class ChainTool extends Tool {
