@@ -1,46 +1,180 @@
 prefix: "&cInertia &l»&r"
 
 no-permissions:
-  - "{prefix} &7Нет прав!"
+  - "{prefix} &7У вас нет прав!"
 reload-plugin:
   - "{prefix} &7Плагин перезагружен!"
 command-not-found:
   - "{prefix} &7Команда не найдена!"
 wrong-args-command:
-  - "{prefix} &сОшибка в параметрах команды!"
+  - "{prefix} &cНеверные аргументы команды!"
 
 not-for-console:
   - "{prefix} &7Эту команду может выполнять только игрок!"
 not-for-this-version:
-  - "{prefix} &7Эта команда не доступна в вашей версии сервера!"
+  - "{prefix} &7Эта команда недоступна в вашей версии сервера!"
   - "{prefix} &7Пожалуйста, обновите сервер до версии {version} или выше!"
 not-for-this-world:
   - "{prefix} &7Добавьте этот мир в список физических миров в файле config.yml"
   - "{prefix} &7Чтобы использовать эту команду!"
 
 worldedit-not-enabled:
-  - "{prefix} &cПлагин WorldEdit не обнаружен на сервере!"
-  - "{prefix} &cЭта команда требует WorldEdit для работы!"
+  - "{prefix} &cПлагин WorldEdit не найден на сервере!"
+  - "{prefix} &cЭта команда требует установленного WorldEdit!"
 select-region:
-  - "{prefix} &cВыделите область топориком прежде, чем использовать эту команду!"
+  - "{prefix} &cВыделите регион топором перед использованием этой команды!"
+
+# --- Spawn Messages ---
+spawn-success:
+  - "{prefix} &7Физическое тело &f{id} &7успешно заспавнено!"
+spawn-fail-invalid-id:
+  - "{prefix} &cФизическое тело с ID '{id}' не найдено в bodies.yml!"
+chain-spawn-success:
+  - "{prefix} &7Цепь создана! Размер: &f{size}"
+ragdoll-spawn-success:
+  - "{prefix} &7Рэгдолл &f{id} &7успешно заспавнен!"
+shape-spawn-success:
+  - "{prefix} &7Заспавнено &f{count} &7объектов в форме &f{shape}&7!"
+
+# --- Shape Errors ---
+shape-not-found:
+  - "{prefix} &cНеизвестная форма: {shape}"
+shape-list-available:
+  - "{prefix} &7Доступные формы: &f{shapes}"
+shape-usage:
+  - "{prefix} &cИспользование: /inertia spawn-shape {type} {params} <bodyId>"
+shape-invalid-params:
+  - "{prefix} &cПараметры формы должны быть числами!"
+
+# --- Tools ---
+tool-received:
+  - "{prefix} &7Вы получили инструмент: &f{tool}"
+tool-not-found:
+  - "{prefix} &cИнструмент не найден или неверная конфигурация!"
+tool-broken-nbt:
+  - "{prefix} &cСломанный инструмент: отсутствуют NBT данные!"
+tool-invalid-params:
+  - "{prefix} &cНеверные параметры в данных инструмента."
+
+# --- Tool Items ---
+tool-chain-name: "&6Инструмент цепи: &e{body}"
+tool-chain-lore:
+  - "&7ЛКМ: Установить точку 1"
+  - "&7ПКМ: Установить точку 2 & Построить"
+  - "&8Переключение (F): Очистить выбор"
+
+tool-ragdoll-name: "&6Инструмент рэгдолла: &e{body}"
+tool-ragdoll-lore:
+  - "&7ЛКМ: Заспавнить с импульсом"
+  - "&7ПКМ: Заспавнить в месте"
+
+tool-shape-name: "&6Инструмент формы: &e{shape}"
+tool-shape-lore:
+  - "&7Тело: &f{body}"
+  - "&7Параметры: &f{params}"
+  - " "
+  - "&aПКМ: Заспавнить форму"
+
+tool-tnt-name: "&cСпавнер ТНТ"
+tool-tnt-lore:
+  - "&7Тело: &f{body}"
+  - "&7Сила: &e{force}"
+  - " "
+  - "&6ЛКМ: Бросить ТНТ"
+  - "&6ПКМ: Поставить у ног"
+
+tool-grabber-name: "&aИнструмент захвата"
+tool-grabber-lore:
+  - "&7ПКМ: Поднять / Бросить объект"
+  - "&7Колесо мыши: Двигать объект ближе/дальше"
+  - "&7ЛКМ: Зафиксировать в пространстве (Статичный сустав)"
+
+tool-welder-name: "&6Сварочный инструмент"
+tool-welder-lore:
+  - "&7ПКМ Объект 1: Выбрать"
+  - "&7ПКМ Объект 2: Приварить вместе"
+  - "&7ЛКМ: Разорвать сварку"
+  - "&8Переключение (F): Переключить режим ({mode})"
+
+tool-remover-name: "&cИнструмент удаления"
+tool-remover-lore:
+  - "&7ПКМ: Удалить физический объект"
+  - "&7(Удаляет всю связанную структуру)"
+
+# --- Tool Specifics ---
+shape-spawned:
+  - "{prefix} &7Заспавнено &f{count} &7объектов (&e{shape}&7)"
+shape-spawn-error:
+  - "{prefix} &cОшибка при спавне формы: {error}"
+
+chain-point-set:
+  - "{prefix} &7Позиция 1 установлена в: &e{location}"
+chain-select-first:
+  - "{prefix} &cПожалуйста, сначала выберите Позицию 1 (ЛКМ)!"
+chain-missing-id:
+  - "{prefix} &cНеверный инструмент: отсутствует ID тела цепи."
+chain-building:
+  - "{prefix} &7Позиция 2 установлена. Создание цепи..."
+selection-cleared:
+  - "{prefix} &eВыбор очищен."
+chain-created:
+  - "{prefix} &7Цепь создана с &f{count} &7звеньями."
+invalid-chain-body:
+  - "{prefix} &cНеверное определение тела цепи: {id}"
+
+invalid-ragdoll-body:
+  - "{prefix} &cНеверное тело рэгдолла: {id}"
+
+weld-mode-change:
+  - "{prefix} &eРежим сварки: &f{mode}"
+weld-removed:
+  - "{prefix} &cСварка удалена."
+weld-first-selected:
+  - "{prefix} &7Первый объект выбран."
+weld-deselected:
+  - "{prefix} &eВыделение первого объекта снято."
+weld-connected:
+  - "{prefix} &aОбъекты соединены!"
+
+remover-used:
+  - "{prefix} &cОбъект удалён."
+
+error-occurred:
+  - "{prefix} &cОшибка: {error}"
+clear-success:
+  - "{prefix} &7Удалено &c{count} &7физических объектов из этого мира."
+
+tnt-spawned:
+  - "{prefix} &7ТНТ заспавнено с силой &c{force}&7!"
+tnt-tool-received:
+  - "{prefix} &7Вы получили Спавнер ТНТ (Тело: &f{body}&7, Сила: &c{force}&7)."
+tnt-invalid-force:
+  - "{prefix} &cУказана недопустимая сила взрыва."
+tnt-tool-usage:
+  - "{prefix} &cИспользование: /inertia tool tntspawner <bodyId> <force>"
 
 help-command:
   - ' '
-  - '&c&lInertia &8&l|&r &7Основные команды'
+  - '&c&lInertia &8&l|&r &7Команды'
   - ' '
-  - '&c&l» Команды&8:'
-  - '&c› &c/inertia help &7- &fПосмотреть помощь по командам'
+  - '&c&l» Общие&8:'
+  - '&c› &c/inertia help &7- &fПоказать доступные команды'
   - ' '
 help-command-admin:
   - ' '
-  - '&c&lInertia &8&l|&r &7Основные команды'
+  - '&c&lInertia &8&l|&r &7Команды администратора'
   - ' '
-  - '&c&l» Команды&8:'
-  - '&c› &c/inertia help &7- &fПосмотреть помощь по командам'
-  - '&c› &c/inertia reload &7- &fПерезагрузить плагин.'
-  - '&c› &c/inertia debug &7- &fВключить дебаг-бар'
-  - '&c› &c/inertia debug block info &7- &fПоказать хитбокс целевого блока.'
-  - '&c› &c/inertia debug block spawn <radius> &7- &fСпавн тестовых блоков в заданном радиусе'
-  - '&c› &c/inertia debug block clear &7- &fУдалить все тестовые блоки'
-  - '&c› &c/inertia hitbox &7- &fВключить рендер хитбокса физических обьектов.'
+  - '&c&l» Основные&8:'
+  - '&c› &c/inertia reload &7- &fПерезагрузить конфигурацию'
+  - '&c› &c/inertia clear &7- &fУдалить все физические объекты'
+  - ' '
+  - '&c&l» Спавн&8:'
+  - '&c› &c/inertia spawn body <id> &7- &fЗаспавнить физическое тело'
+  - '&c› &c/inertia spawn chain <id> [size] &7- &fЗаспавнить цепь'
+  - '&c› &c/inertia spawn ragdoll <id> &7- &fЗаспавнить рэгдолл'
+  - '&c› &c/inertia spawn-shape <type> <params> <id> &7- &fЗаспавнить форму блоков'
+  - ' '
+  - '&c&l» Инструменты&8:'
+  - '&c› &c/inertia tool <grabber|welder|remover> &7- &fПолучить утилиты'
+  - '&c› &c/inertia tool <chain|ragdoll|shape> ... &7- &fПолучить инструменты для создания'
   - ' '
