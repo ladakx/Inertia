@@ -22,7 +22,16 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
 
     @Override
     public VisualEntity create(World world, Location origin, RenderEntityDefinition def) {
+        ensureChunkLoaded(world, origin);
         return spawnEmulatedEntity(world, origin, def);
+    }
+
+    private void ensureChunkLoaded(World world, Location loc) {
+        int x = loc.getBlockX() >> 4;
+        int z = loc.getBlockZ() >> 4;
+        if (!world.isChunkLoaded(x, z)) {
+            world.getChunkAt(x, z).load(true);
+        }
     }
 
     private VisualEntity spawnEmulatedEntity(World world, Location origin, RenderEntityDefinition def) {
