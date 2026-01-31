@@ -26,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class RagdollPhysicsBody extends DisplayedPhysicsBody {
 
@@ -170,7 +171,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
 
         World world = space.getWorldBukkit();
         Location spawnLoc = new Location(world, initialPos.xx(), initialPos.yy(), initialPos.zz());
-        java.util.UUID bodyUuid = java.util.UUID.randomUUID(); // Уникальный UUID для этой части тела
+        UUID bodyUuid = getUuid();
 
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
         for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {

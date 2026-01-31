@@ -39,6 +39,7 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     private final @NotNull Body body;
 
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
+    private final java.util.UUID uuid = java.util.UUID.randomUUID();
 
     /**
      * Create a new physics object and register its primary body in the
@@ -226,5 +227,12 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         }
 
         space.removeObject(this);
+    }
+
+    /**
+     * Возвращает уникальный UUID этого физического тела.
+     */
+    public java.util.UUID getUuid() {
+        return uuid;
     }
 }

@@ -51,10 +51,6 @@ public final class InertiaPDCUtils {
         pdc.set(InertiaPDCKeys.INERTIA_PHYSICS_BODY_UUID,
                 PersistentDataType.STRING, bodyUuid.toString());
 
-        // Active State (Default true on spawn)
-        pdc.set(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ACTIVE,
-                PersistentDataType.STRING, "true");
-
         // Render Model ID (e.g. "chains.heavy_iron_chain")
         if (renderModelId != null) {
             pdc.set(InertiaPDCKeys.INERTIA_RENDER_MODEL_ID,
