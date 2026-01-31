@@ -16,7 +16,7 @@ public record RenderEntityDefinition(
         EntityKind kind,
         String itemModelKey,
         Material blockType,
-        InertiaDisplayMode displayMode, // Абстракція
+        InertiaDisplayMode displayMode,
         Vector localOffset,
         Quaternionf localRotation,
         Vector scale,

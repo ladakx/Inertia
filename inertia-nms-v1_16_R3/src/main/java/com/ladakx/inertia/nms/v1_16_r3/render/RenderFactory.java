@@ -6,9 +6,11 @@ import com.ladakx.inertia.rendering.config.enums.InertiaDisplayMode;
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 
 public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory {
 
@@ -24,16 +26,19 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
     }
 
     private VisualEntity spawnEmulatedEntity(World world, Location origin, RenderEntityDefinition def) {
-        ArmorStand stand = world.spawn(origin, ArmorStand.class, s -> {
-            s.setGravity(false);
-            s.setBasePlate(def.basePlate());
-            s.setSmall(def.small());
-            s.setArms(def.arms());
-            s.setMarker(def.marker());
-            s.setInvisible(def.invisible() || isDisplayEntity(def));
-            s.setPersistent(false);
+        ArmorStand stand = world.spawn(origin, ArmorStand.class, entity -> {
+            var pdc = entity.getPersistentDataContainer();
+            pdc.set(NamespacedKey.fromString("inertia:is_inertia_ent"), PersistentDataType.BYTE, (byte)1);
 
-            applyContent(s, def);
+            entity.setGravity(false);
+            entity.setBasePlate(def.basePlate());
+            entity.setSmall(def.small());
+            entity.setArms(def.arms());
+            entity.setMarker(def.marker());
+            entity.setInvisible(def.invisible() || isDisplayEntity(def));
+            entity.setPersistent(false);
+
+            applyContent(entity, def);
         });
 
         return new ArmorStandEntity(stand);
