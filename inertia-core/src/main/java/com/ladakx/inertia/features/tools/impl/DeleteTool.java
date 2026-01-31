@@ -6,6 +6,7 @@ import com.github.stephengold.joltjni.TwoBodyConstraintRef;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
+import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
@@ -92,14 +93,15 @@ public class DeleteTool extends Tool {
     protected ItemStack getBaseItem() {
         ItemStack item = new ItemStack(Material.TNT_MINECART);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(
-                Component.text("Remover Tool", NamedTextColor.RED)
-                        .decoration(TextDecoration.ITALIC, false)
-        );
+
+        MessageManager msg = configurationService.getMessageManager();
+        meta.displayName(msg.getSingle(MessageKey.TOOL_REMOVER_NAME));
+        meta.lore(msg.get(MessageKey.TOOL_REMOVER_LORE));
+
         item.setItemMeta(meta);
         return item;
     }
-
+    
     /**
      * Destroy the entire cluster of physics objects that are connected to
      * the specified root object via Jolt two-body constraints.

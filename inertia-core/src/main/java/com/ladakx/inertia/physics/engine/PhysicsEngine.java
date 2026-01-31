@@ -29,9 +29,6 @@ public class PhysicsEngine {
                 numThreads
         );
 
-        // Устанавливаем провайдер мешей (глобальная статика в фабрике пока допустима, но лучше инжектить и её)
-        JShapeFactory.setMeshProvider(new BlockBenchMeshProvider(plugin));
-
         InertiaLogger.info("Jolt initialized with " + numThreads + " worker threads.");
     }
 

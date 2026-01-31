@@ -38,9 +38,10 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
                             @NotNull String bodyId,
                             @NotNull PhysicsBodyRegistry modelRegistry,
                             @NotNull RenderFactory renderFactory,
+                            @NotNull JShapeFactory shapeFactory,
                             @NotNull RVec3 initialPosition,
                             @NotNull Quat initialRotation) {
-        super(space, createBodySettings(bodyId, modelRegistry, initialPosition, initialRotation));
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation));
         this.bodyId = bodyId;
 
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
@@ -70,6 +71,7 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
     // --- Static Helpers ---
     private static BodyCreationSettings createBodySettings(String bodyId,
                                                            PhysicsBodyRegistry modelRegistry,
+                                                           JShapeFactory shapeFactory,
                                                            RVec3 initialPosition,
                                                            Quat initialRotation) {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
@@ -77,7 +79,8 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
         BodyPhysicsSettings phys = def.physicsSettings();
         List<String> shapeLines = def.shapeLines();
 
-        ConstShape shape = JShapeFactory.createShape(shapeLines);
+        // Use instance instead of static call
+        ConstShape shape = shapeFactory.createShape(shapeLines);
 
         BodyCreationSettings settings = new BodyCreationSettings()
                 .setShape(shape)

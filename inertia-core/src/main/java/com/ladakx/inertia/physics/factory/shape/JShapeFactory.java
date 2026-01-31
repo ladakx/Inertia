@@ -6,33 +6,31 @@ import com.ladakx.inertia.common.serializers.TransformSerializer.JoltTransform;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.mesh.MeshProvider;
 import com.ladakx.inertia.common.serializers.TransformSerializer;
+import com.ladakx.inertia.common.utils.ConfigUtils;
 
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.ladakx.inertia.common.utils.ConfigUtils.parseFloat;
+
 /**
- * Фабрика, яка з текстових описів у конфізі створює Jolt CollisionShape.
+ * Фабрика, яка з текстових описів у конфігу створює Jolt CollisionShape.
  */
 public final class JShapeFactory {
 
-    private static volatile MeshProvider meshProvider;
-    // Паттерн для поиска пар key=value.
-    // Поддерживает: key=value
+    private final MeshProvider meshProvider;
     private static final Pattern PARAM_PATTERN = Pattern.compile("([a-zA-Z0-9_]+)=([^\\s=]+)");
 
-    private JShapeFactory() {
+    public JShapeFactory(MeshProvider meshProvider) {
+        this.meshProvider = meshProvider;
     }
 
-    public static void setMeshProvider(MeshProvider provider) {
-        meshProvider = provider;
-    }
-
-    public static Optional<MeshProvider> getMeshProvider() {
+    public Optional<MeshProvider> getMeshProvider() {
         return Optional.ofNullable(meshProvider);
     }
 
-    private static MeshProvider requireMeshProvider() {
+    private MeshProvider requireMeshProvider() {
         MeshProvider provider = meshProvider;
         if (provider == null) {
             throw new IllegalStateException(
@@ -42,7 +40,7 @@ public final class JShapeFactory {
         return provider;
     }
 
-    public static ShapeRefC createShape(List<String> shapeLines) {
+    public ShapeRefC createShape(List<String> shapeLines) {
         if (shapeLines == null || shapeLines.isEmpty()) {
             throw new IllegalArgumentException("Shape definition list cannot be empty/null");
         }
@@ -51,7 +49,6 @@ public final class JShapeFactory {
         for (String raw : shapeLines) {
             if (raw == null || raw.isBlank()) continue;
 
-            // Очистка от скобок списка, если YAML вернул строковое представление списка
             String line = raw.trim();
             if (line.startsWith("[") && line.endsWith("]")) {
                 line = line.substring(1, line.length() - 1).trim();
@@ -65,7 +62,6 @@ public final class JShapeFactory {
         }
 
         if (parsed.isEmpty()) {
-            // Возвращаем fallback-форму, чтобы не крашить сервер, но ошибка уже в логе
             InertiaLogger.warn("No valid shapes parsed. Using default Box(0.5).");
             return new BoxShape(new Vec3(0.5f, 0.5f, 0.5f)).toRefC();
         }
@@ -75,7 +71,6 @@ public final class JShapeFactory {
             ParsedShape only = parsed.get(0);
             ConstShape decorated = only.shape();
 
-            // 1) Зсув центру мас
             if (only.hasCenterOfMassOffset()) {
                 OffsetCenterOfMassShapeSettings ocomSettings = new OffsetCenterOfMassShapeSettings(only.centerOfMassOffset(), decorated);
                 ShapeResult res = ocomSettings.create();
@@ -83,7 +78,6 @@ public final class JShapeFactory {
                 else decorated = res.get();
             }
 
-            // 2) Локальний transform
             if (only.hasPosition() || only.hasRotation()) {
                 RotatedTranslatedShapeSettings rtSettings = new RotatedTranslatedShapeSettings(only.position(), only.rotation(), decorated);
                 ShapeResult res = rtSettings.create();
@@ -94,7 +88,7 @@ public final class JShapeFactory {
             return decorated.toRefC();
         }
 
-        // ---------- Кілька шейпів -> StaticCompoundShape ----------
+        // ---------- Compound ----------
         StaticCompoundShapeSettings settings = new StaticCompoundShapeSettings();
         for (ParsedShape p : parsed) {
             ConstShape child = p.shape();
@@ -117,7 +111,7 @@ public final class JShapeFactory {
 
     // ---------- Парсер однієї строки ----------
 
-    private static ParsedShape parseLine(String line) {
+    private ParsedShape parseLine(String line) {
         Map<String, String> kv = parseKeyValues(line);
 
         String type = kv.get("type");
@@ -140,40 +134,36 @@ public final class JShapeFactory {
         );
     }
 
-    private static ConstShape createRawShape(String type, Map<String, String> kv) {
-        // Strict parameter validation
+    private ConstShape createRawShape(String type, Map<String, String> kv) {
         switch (type) {
             case "box":
-                return new BoxShape(new Vec3(
-                        getFloat(kv, "x", 0.5f),
-                        getFloat(kv, "y", 0.5f),
-                        getFloat(kv, "z", 0.5f)
-                ));
+                return parseBox(kv);
             case "sphere":
-                return new SphereShape(requireFloat(kv, "radius"));
+                return parseSphere(kv);
             case "capsule":
-                return new CapsuleShape(
-                        getFloat(kv, "height", 2.0f) * 0.5f,
-                        requireFloat(kv, "radius")
-                );
+                return parseCapsule(kv);
             case "cylinder":
-                return new CylinderShape(
-                        getFloat(kv, "height", 2.0f) * 0.5f,
-                        requireFloat(kv, "radius")
-                );
+                return parseCylinder(kv);
+            case "tapered_capsule":
+                return parseTaperedCapsule(kv);
+            case "tapered_cylinder":
+                return parseTaperedCylinder(kv);
             case "convex_hull":
                 String meshId = kv.get("mesh");
                 if (meshId == null) throw new IllegalArgumentException("ConvexHull requires 'mesh' parameter");
 
-                if (meshProvider == null) throw new IllegalStateException("MeshProvider not initialized");
                 Collection<Vec3> points = meshProvider.loadConvexHullPoints(meshId);
 
-                if (points.isEmpty()) throw new IllegalStateException("Mesh '" + meshId + "' is empty");
+                if (points == null || points.isEmpty()) {
+                    throw new IllegalStateException("Mesh '" + meshId + "' is empty or not loaded");
+                }
 
-                ConvexHullShapeSettings settings = new ConvexHullShapeSettings(points);
-                ShapeResult result = settings.create();
-                if (result.hasError()) throw new IllegalStateException(result.getError());
-                return result.get();
+                float cRad = getFloat(kv, "convexradius", -1f);
+                ConvexHullShapeSettings settings = (cRad > 0)
+                        ? new ConvexHullShapeSettings(points, cRad)
+                        : new ConvexHullShapeSettings(points);
+
+                return validate(settings.create(), "ConvexHull");
 
             default:
                 throw new IllegalArgumentException("Unknown shape type: " + type);
@@ -181,31 +171,24 @@ public final class JShapeFactory {
     }
 
     // ---------- Парсер параметрів ----------
-
-    private static ConstShape parseBox(Map<String, String> kv) {
-        // Дефолтні розміри 0.5, якщо не вказано
+    private ConstShape parseBox(Map<String, String> kv) {
         float x = getFloat(kv, "x", 0.5f);
         float y = getFloat(kv, "y", 0.5f);
         float z = getFloat(kv, "z", 0.5f);
-
         Vec3 halfExtents = new Vec3(x, y, z);
-        float convexRadius = getFloat(kv, "convexradius", -1f); // -1 if not set
-
+        float convexRadius = getFloat(kv, "convexradius", -1f);
         return (convexRadius > 0) ? new BoxShape(halfExtents, convexRadius) : new BoxShape(halfExtents);
     }
 
-    private static ConstShape parseSphere(Map<String, String> kv) {
-        float radius = getFloat(kv, "radius", 0.5f);
-        return new SphereShape(radius);
+    private ConstShape parseSphere(Map<String, String> kv) {
+        return new SphereShape(getFloat(kv, "radius", 0.5f));
     }
 
-    private static ConstShape parseCapsule(Map<String, String> kv) {
-        float radius = getFloat(kv, "radius", 0.5f);
-        float height = getFloat(kv, "height", 2.0f);
-        return new CapsuleShape(height * 0.5f, radius);
+    private ConstShape parseCapsule(Map<String, String> kv) {
+        return new CapsuleShape(getFloat(kv, "height", 2.0f) * 0.5f, getFloat(kv, "radius", 0.5f));
     }
 
-    private static ConstShape parseCylinder(Map<String, String> kv) {
+    private ConstShape parseCylinder(Map<String, String> kv) {
         float radius = getFloat(kv, "radius", 0.5f);
         float height = getFloat(kv, "height", 2.0f);
         float convexRadius = getFloat(kv, "convexradius", -1f);
@@ -216,7 +199,7 @@ public final class JShapeFactory {
         return new CylinderShape(height * 0.5f, radius);
     }
 
-    private static ConstShape parseTaperedCapsule(Map<String, String> kv) {
+    private ConstShape parseTaperedCapsule(Map<String, String> kv) {
         float height = getFloat(kv, "height", 2.0f);
         float topRad = getFloat(kv, "topradius", 0.4f);
         float botRad = getFloat(kv, "bottomradius", 0.6f);
@@ -225,7 +208,7 @@ public final class JShapeFactory {
         return validate(settings.create(), "TaperedCapsule");
     }
 
-    private static ConstShape parseTaperedCylinder(Map<String, String> kv) {
+    private ConstShape parseTaperedCylinder(Map<String, String> kv) {
         float height = getFloat(kv, "height", 2.0f);
         float topRad = getFloat(kv, "topradius", 0.4f);
         float botRad = getFloat(kv, "bottomradius", 0.6f);
@@ -240,7 +223,7 @@ public final class JShapeFactory {
         return validate(settings.create(), "TaperedCylinder");
     }
 
-    private static ConstShape parseConvexHull(Map<String, String> kv, String originalLine) {
+    private ConstShape parseConvexHull(Map<String, String> kv, String originalLine) {
         // Тут ми все ще вимагаємо mesh, бо без нього неможливо створити Hull
         String meshId = require(kv, "mesh", originalLine);
         MeshProvider provider = requireMeshProvider();
@@ -260,14 +243,14 @@ public final class JShapeFactory {
 
     // ---------- Helpers ----------
 
-    private static ConstShape validate(ShapeResult result, String name) {
+    private ConstShape validate(ShapeResult result, String name) {
         if (result.hasError()) {
             throw new IllegalStateException("Failed to create " + name + ": " + result.getError());
         }
         return result.get();
     }
 
-    private static ComOffset parseCenterOfMassOffset(Map<String, String> kv) {
+    private ComOffset parseCenterOfMassOffset(Map<String, String> kv) {
         String comStr = kv.get("com");
         if (comStr != null && !comStr.isBlank()) {
             String[] parts = comStr.replace(',', ' ').trim().split("\\s+");
@@ -287,7 +270,7 @@ public final class JShapeFactory {
     /**
      * Обов'язковий параметр. Кидає помилку, якщо немає.
      */
-    private static String require(Map<String, String> kv, String key, String context) {
+    private String require(Map<String, String> kv, String key, String context) {
         String val = kv.get(key);
         if (val == null) {
             throw new IllegalArgumentException("Missing required '" + key + "' in: " + context);
@@ -298,7 +281,7 @@ public final class JShapeFactory {
     /**
      * Отримати float із дефолтним значенням та логом, якщо ключ відсутній (опціонально).
      */
-    private static float getFloat(Map<String, String> kv, String key, float def) {
+    private float getFloat(Map<String, String> kv, String key, float def) {
         String val = kv.get(key);
         if (val == null) return def;
         try {
@@ -309,7 +292,7 @@ public final class JShapeFactory {
         }
     }
 
-    private static Map<String, String> parseKeyValues(String line) {
+    private Map<String, String> parseKeyValues(String line) {
         Map<String, String> map = new HashMap<>();
         Matcher matcher = PARAM_PATTERN.matcher(line);
         while (matcher.find()) {
@@ -318,21 +301,13 @@ public final class JShapeFactory {
         return map;
     }
 
-    private static float requireFloat(Map<String, String> kv, String key) {
+    private float requireFloat(Map<String, String> kv, String key) {
         String val = kv.get(key);
         if (val == null) throw new IllegalArgumentException("Missing required parameter '" + key + "'");
         try {
             return Float.parseFloat(val);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Parameter '" + key + "' must be a number, got: " + val);
-        }
-    }
-
-    private static float parseFloat(String text) {
-        try {
-            return Float.parseFloat(text);
-        } catch (NumberFormatException e) {
-            return 0.0f;
         }
     }
 

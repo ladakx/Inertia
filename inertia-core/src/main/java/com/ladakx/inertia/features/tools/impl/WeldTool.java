@@ -4,6 +4,7 @@ import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
+import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
@@ -119,7 +120,11 @@ public class WeldTool extends Tool {
     protected ItemStack getBaseItem() {
         ItemStack item = new ItemStack(Material.NETHERITE_PICKAXE);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("Welder Tool", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
+
+        MessageManager msg = configurationService.getMessageManager();
+        meta.displayName(msg.getSingle(MessageKey.TOOL_WELDER_NAME));
+        meta.lore(msg.get(MessageKey.TOOL_WELDER_LORE));
+
         item.setItemMeta(meta);
         return item;
     }

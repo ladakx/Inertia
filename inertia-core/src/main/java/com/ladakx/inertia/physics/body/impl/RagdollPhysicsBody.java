@@ -38,13 +38,13 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
                               @NotNull String partName,
                               @NotNull PhysicsBodyRegistry modelRegistry,
                               @NotNull RenderFactory renderFactory,
+                              @NotNull JShapeFactory shapeFactory,
                               @NotNull RVec3 initialPosition,
                               @NotNull Quat initialRotation,
                               @NotNull Map<String, Body> spawnedParts,
                               @NotNull GroupFilterTable groupFilter,
-                              int partIndex
-    ) {
-        super(space, createBodySettings(bodyId, partName, modelRegistry, initialPosition, initialRotation, groupFilter, partIndex));
+                              int partIndex) {
+        super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, partIndex));
         this.bodyId = bodyId;
         this.collisionGroup = getBody().getCollisionGroup();
 
@@ -63,6 +63,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
                                                            PhysicsBodyRegistry registry,
+                                                           JShapeFactory shapeFactory,
                                                            RVec3 pos, Quat rot,
                                                            GroupFilterTable groupFilter,
                                                            int partIndex) {
@@ -71,7 +72,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
 
         ConstShape shape;
         if (partDef.shapeString() != null && !partDef.shapeString().isEmpty()) {
-            shape = JShapeFactory.createShape(List.of(partDef.shapeString()));
+            shape = shapeFactory.createShape(List.of(partDef.shapeString()));
         } else {
             Vector size = partDef.size();
             shape = new BoxShape(new Vec3((float) size.getX() / 2f, (float) size.getY() / 2f, (float) size.getZ() / 2f));

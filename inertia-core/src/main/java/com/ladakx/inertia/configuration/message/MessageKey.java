@@ -36,6 +36,28 @@ public enum MessageKey {
     TOOL_BROKEN_NBT("tool-broken-nbt"),
     TOOL_INVALID_PARAMS("tool-invalid-params"),
 
+    // Tools - Names & Lore
+    TOOL_CHAIN_NAME("tool-chain-name"),
+    TOOL_CHAIN_LORE("tool-chain-lore"),
+
+    TOOL_RAGDOLL_NAME("tool-ragdoll-name"),
+    TOOL_RAGDOLL_LORE("tool-ragdoll-lore"),
+
+    TOOL_SHAPE_NAME("tool-shape-name"),
+    TOOL_SHAPE_LORE("tool-shape-lore"),
+
+    TOOL_TNT_NAME("tool-tnt-name"),
+    TOOL_TNT_LORE("tool-tnt-lore"),
+
+    TOOL_GRABBER_NAME("tool-grabber-name"),
+    TOOL_GRABBER_LORE("tool-grabber-lore"),
+
+    TOOL_WELDER_NAME("tool-welder-name"),
+    TOOL_WELDER_LORE("tool-welder-lore"),
+
+    TOOL_REMOVER_NAME("tool-remover-name"),
+    TOOL_REMOVER_LORE("tool-remover-lore"),
+
     // Tools - Specific
     SHAPE_SPAWNED("shape-spawned"),
     SHAPE_SPAWN_ERROR("shape-spawn-error"),

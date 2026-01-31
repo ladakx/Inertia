@@ -32,13 +32,17 @@ public class Commands extends BaseCommand {
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final ToolRegistry toolRegistry;
 
-    public Commands(InertiaPlugin plugin, ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry, ToolRegistry toolRegistry) {
+    public Commands(InertiaPlugin plugin,
+                    ConfigurationService configurationService,
+                    PhysicsWorldRegistry physicsWorldRegistry,
+                    ToolRegistry toolRegistry,
+                    BodyFactory bodyFactory) {
         super(configurationService);
+
         this.configurationService = configurationService;
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.toolRegistry = toolRegistry;
-        // Inject dependencies into Service
-        this.spawnService = new BodyFactory(plugin, physicsWorldRegistry, configurationService);
+        this.spawnService = bodyFactory; // Use injected service
         this.debugShapeManager = new DebugShapeManager();
     }
 

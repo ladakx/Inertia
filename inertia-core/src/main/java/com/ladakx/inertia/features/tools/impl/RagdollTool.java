@@ -1,17 +1,20 @@
 package com.ladakx.inertia.features.tools.impl;
 
 import com.github.stephengold.joltjni.*;
+import com.ladakx.inertia.common.utils.StringUtils;
+import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.physics.body.impl.RagdollPhysicsBody;
+import com.ladakx.inertia.physics.factory.BodyFactory;
+import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.features.tools.Tool;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -32,11 +35,16 @@ import static com.ladakx.inertia.common.utils.PDCUtils.setString;
 public class RagdollTool extends Tool {
 
     public static final String BODY_ID_KEY = "ragdoll_body_id";
-    private final PhysicsWorldRegistry physicsWorldRegistry; // Added for completeness from Step 3
 
-    public RagdollTool(ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry) {
+    private final PhysicsWorldRegistry physicsWorldRegistry;
+    private final JShapeFactory shapeFactory;
+
+    public RagdollTool(ConfigurationService configurationService,
+                       PhysicsWorldRegistry physicsWorldRegistry,
+                       JShapeFactory shapeFactory) {
         super("ragdoll_tool", configurationService);
         this.physicsWorldRegistry = physicsWorldRegistry;
+        this.shapeFactory = shapeFactory;
     }
 
     @Override
@@ -171,8 +179,9 @@ public class RagdollTool extends Tool {
         RagdollPhysicsBody obj = new RagdollPhysicsBody(
                 space, bodyId, partName, registry,
                 InertiaPlugin.getInstance().getRenderFactory(),
+                shapeFactory,
                 pos, rot, spawnedBodies,
-                groupFilter, partIndex // Передаємо нові параметри
+                groupFilter, partIndex
         );
         spawnedBodies.put(partName, obj.getBody());
     }
@@ -183,7 +192,15 @@ public class RagdollTool extends Tool {
         setString(InertiaPlugin.getInstance(), item, BODY_ID_KEY, bodyId);
 
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("Ragdoll: " + bodyId, NamedTextColor.GOLD));
+        MessageManager msg = configurationService.getMessageManager();
+
+        // Localized Name with placeholder replacement
+        Component name = msg.getSingle(MessageKey.TOOL_RAGDOLL_NAME);
+        meta.displayName(StringUtils.replace(name, "{body}", bodyId));
+
+        // Localized Lore
+        meta.lore(msg.get(MessageKey.TOOL_RAGDOLL_LORE));
+
         item.setItemMeta(meta);
         return item;
     }

@@ -9,6 +9,7 @@ import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.physics.body.impl.BlockPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.rendering.RenderFactory;
@@ -24,13 +25,17 @@ public class InertiaAPIImpl extends InertiaAPI {
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final ConfigurationService configurationService;
     private final RenderFactory renderFactory;
+    private final JShapeFactory shapeFactory;
 
-    // Внедряем зависимости через конструктор
-    public InertiaAPIImpl(InertiaPlugin plugin, PhysicsWorldRegistry physicsWorldRegistry, ConfigurationService configurationService) {
+    public InertiaAPIImpl(InertiaPlugin plugin,
+                          PhysicsWorldRegistry physicsWorldRegistry,
+                          ConfigurationService configurationService,
+                          JShapeFactory shapeFactory) { // Inject
         this.plugin = plugin;
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.configurationService = configurationService;
         this.renderFactory = plugin.getRenderFactory();
+        this.shapeFactory = shapeFactory;
     }
 
     @Override
@@ -68,6 +73,7 @@ public class InertiaAPIImpl extends InertiaAPI {
                         bodyId,
                         modelRegistry,
                         renderFactory,
+                        shapeFactory,
                         initialPos,
                         initialRot
                 );

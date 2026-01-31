@@ -62,6 +62,24 @@ public class MessageManager {
         InertiaLogger.info("Loaded " + loadedCount + " messages.");
     }
 
+    // --- Access Methods ---
+    /**
+     * Gets the raw components list for a message key (useful for Item Meta lore).
+     * @param key The message key
+     * @return List of components, or empty list if not found.
+     */
+    public List<Component> get(MessageKey key) {
+        return messageCache.getOrDefault(key, new ArrayList<>());
+    }
+
+    /**
+     * Helper to get a single component (e.g. for Display Name).
+     */
+    public Component getSingle(MessageKey key) {
+        List<Component> list = get(key);
+        return list.isEmpty() ? Component.empty() : list.get(0);
+    }
+
     // --- Sending Methods ---
     public void send(Audience audience, MessageKey key, String... replacements) {
         List<Component> lines = messageCache.get(key);
