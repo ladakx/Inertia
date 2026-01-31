@@ -2,6 +2,7 @@ package com.ladakx.inertia.physics.body.impl;
 
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
+import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
@@ -17,6 +18,7 @@ import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import com.ladakx.inertia.common.utils.ConvertUtils;
+import com.ladakx.inertia.common.utils.MiscUtils; // Assuming lerp is here
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
@@ -33,6 +35,9 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
     private final PhysicsDisplayComposite displayComposite;
     private boolean removed = false;
 
+    // Храним вычисленные адаптивные параметры для использования в констрейнтах
+    private final int calculatedIterations;
+
     public ChainPhysicsBody(@NotNull PhysicsWorld space,
                             @NotNull String bodyId,
                             @NotNull PhysicsBodyRegistry modelRegistry,
@@ -40,9 +45,16 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
                             @NotNull JShapeFactory shapeFactory,
                             @NotNull RVec3 initialPosition,
                             @NotNull Quat initialRotation,
-                            @Nullable Body parentBody) {
-        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation));
+                            @Nullable Body parentBody,
+                            @NotNull GroupFilterTable groupFilter,
+                            int chainIndex,
+                            int totalChainLength) { // Принимаем длину цепи
+        // Сначала вычисляем настройки, потом вызываем super
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, chainIndex, totalChainLength));
         this.bodyId = bodyId;
+
+        // Сохраняем итерации для констрейнтов
+        this.calculatedIterations = calculateIterations(modelRegistry.require(bodyId), totalChainLength);
 
         if (parentBody != null) {
             createConstraint(modelRegistry, bodyId, parentBody);
@@ -51,13 +63,87 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         this.displayComposite = createVisuals(space, bodyId, modelRegistry, renderFactory, initialPosition);
     }
 
-    private void createConstraint(PhysicsBodyRegistry registry, String bodyId, Body parentBody) {
-        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
-        if (!(model.bodyDefinition() instanceof ChainBodyDefinition chainDef)) {
-            return;
+    // --- Логика адаптации ---
+
+    private static float calculateGravity(PhysicsBodyRegistry.BodyModel model, int length) {
+        if (!(model.bodyDefinition() instanceof ChainBodyDefinition def) || !def.adaptive().enabled()) {
+            // Если адаптация выключена, берем из physics settings
+            return ((ChainBodyDefinition) model.bodyDefinition()).physicsSettings().gravityFactor();
         }
 
-        double jointOffset = chainDef.chainSettings().jointOffset();
+        ChainBodyDefinition.AdaptiveSettings adapt = def.adaptive();
+        // Lerp (Linear Interpolation)
+        double factor = getLerpFactor(length, adapt.minLength(), adapt.maxLength());
+        return (float) MiscUtils.lerp(adapt.maxGravity(), adapt.minGravity(), factor);
+    }
+
+    private int calculateIterations(PhysicsBodyRegistry.BodyModel model, int length) {
+        if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) return 2;
+
+        if (!def.adaptive().enabled()) {
+            return def.stabilization().positionIterations();
+        }
+
+        ChainBodyDefinition.AdaptiveSettings adapt = def.adaptive();
+        double factor = getLerpFactor(length, adapt.minLength(), adapt.maxLength());
+        // Интерполируем количество итераций (для коротких мало, для длинных много)
+        return (int) MiscUtils.lerp(adapt.minIterations(), adapt.maxIterations(), factor);
+    }
+
+    private static double getLerpFactor(int current, int min, int max) {
+        if (current <= min) return 0.0;
+        if (current >= max) return 1.0;
+        return (double) (current - min) / (max - min);
+    }
+
+    private static BodyCreationSettings createBodySettings(String bodyId,
+                                                           PhysicsBodyRegistry registry,
+                                                           JShapeFactory shapeFactory,
+                                                           RVec3 pos, Quat rot,
+                                                           GroupFilterTable groupFilter,
+                                                           int chainIndex,
+                                                           int totalLength) {
+        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
+        if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) {
+            throw new IllegalArgumentException("Body '" + bodyId + "' is not a CHAIN definition.");
+        }
+
+        BodyPhysicsSettings phys = def.physicsSettings();
+        ConstShape shape = shapeFactory.createShape(def.shapeLines());
+
+        BodyCreationSettings settings = new BodyCreationSettings();
+        settings.setShape(shape);
+        settings.setPosition(pos);
+        settings.setRotation(rot);
+        settings.setMotionType(phys.motionType());
+        settings.setObjectLayer(phys.objectLayer());
+        settings.getMassProperties().setMass(phys.mass());
+        settings.setFriction(phys.friction());
+        settings.setRestitution(phys.restitution());
+        settings.setLinearDamping(phys.linearDamping());
+        settings.setAngularDamping(phys.angularDamping());
+
+        // Применяем АДАПТИВНУЮ гравитацию
+        float adaptiveGravity = calculateGravity(model, totalLength);
+        settings.setGravityFactor(adaptiveGravity);
+
+        CollisionGroup group = new CollisionGroup(groupFilter, 0, chainIndex);
+        settings.setCollisionGroup(group);
+
+        if (phys.motionType() == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {
+            settings.setMotionQuality(EMotionQuality.LinearCast);
+        }
+
+        settings.setAllowSleeping(true);
+
+        return settings;
+    }
+
+    private void createConstraint(PhysicsBodyRegistry registry, String bodyId, Body parentBody) {
+        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
+        if (!(model.bodyDefinition() instanceof ChainBodyDefinition chainDef)) return;
+
+        double jointOffset = chainDef.creation().jointOffset();
         RVec3 currentPos = getBody().getPosition();
         RVec3 pivotPoint = new RVec3(
                 currentPos.xx(),
@@ -65,12 +151,38 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
                 currentPos.zz()
         );
 
-        PointConstraintSettings settings = new PointConstraintSettings();
+        SixDofConstraintSettings settings = new SixDofConstraintSettings();
         settings.setSpace(EConstraintSpace.WorldSpace);
-        settings.setPoint1(pivotPoint);
-        settings.setPoint2(pivotPoint);
+        settings.setPosition1(pivotPoint);
+        settings.setPosition2(pivotPoint);
+
+        settings.makeFixedAxis(EAxis.TranslationX);
+        settings.makeFixedAxis(EAxis.TranslationY);
+        settings.makeFixedAxis(EAxis.TranslationZ);
+
+        float swingRad = (float) Math.toRadians(chainDef.limits().swingLimitAngle());
+        settings.setLimitedAxis(EAxis.RotationX, -swingRad, swingRad);
+        settings.setLimitedAxis(EAxis.RotationZ, -swingRad, swingRad);
+
+        switch (chainDef.limits().twistMode()) {
+            case LOCKED -> settings.makeFixedAxis(EAxis.RotationY);
+            case LIMITED -> settings.setLimitedAxis(EAxis.RotationY, -0.1f, 0.1f);
+            case FREE -> settings.makeFreeAxis(EAxis.RotationY);
+        }
 
         TwoBodyConstraint constraint = settings.create(parentBody, getBody());
+
+        // Применяем АДАПТИВНЫЕ итерации
+        // Если адаптация выключена, calculatedIterations будет равен stabilization.position-iterations
+        if (calculatedIterations > 0) {
+            constraint.setNumPositionStepsOverride(calculatedIterations);
+            // Для скорости берем пропорционально меньше (например, половину), или читаем отдельно, если усложнять конфиг.
+            // Для простоты используем то же масштабирование или дефолт.
+            // Тут можно взять базовый velocityIter, так как он менее критичен для растяжения.
+            int velIter = chainDef.stabilization().velocityIterations();
+            constraint.setNumVelocityStepsOverride(velIter);
+        }
+
         getSpace().addConstraint(constraint);
         addRelatedConstraint(constraint.toRef());
     }
@@ -97,59 +209,11 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
     }
 
-    private static BodyCreationSettings createBodySettings(String bodyId,
-                                                           PhysicsBodyRegistry registry,
-                                                           JShapeFactory shapeFactory,
-                                                           RVec3 pos, Quat rot) {
-        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
-        if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) {
-            throw new IllegalArgumentException("Body '" + bodyId + "' is not a CHAIN definition.");
-        }
-
-        BodyPhysicsSettings phys = def.physicsSettings();
-        ConstShape shape = shapeFactory.createShape(def.shapeLines());
-
-        BodyCreationSettings settings = new BodyCreationSettings();
-        settings.setShape(shape);
-        settings.setPosition(pos);
-        settings.setRotation(rot);
-        settings.setMotionType(phys.motionType());
-        settings.setObjectLayer(phys.objectLayer());
-        settings.getMassProperties().setMass(phys.mass());
-        settings.setFriction(phys.friction());
-        settings.setRestitution(phys.restitution());
-        settings.setLinearDamping(phys.linearDamping());
-        settings.setAngularDamping(phys.angularDamping());
-
-        if (phys.motionType() == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {
-            settings.setMotionQuality(EMotionQuality.LinearCast);
-        }
-
-        return settings;
-    }
-
-    @Override
-    public @Nullable PhysicsDisplayComposite getDisplay() {
-        return displayComposite;
-    }
-
-    @Override
-    public @NotNull String getBodyId() {
-        return bodyId;
-    }
-
-    @Override
-    public @NotNull PhysicsBodyType getType() {
-        return PhysicsBodyType.CHAIN;
-    }
-
-    @Override
-    public void remove() {
-        destroy();
-    }
-
-    @Override
-    public void destroy() {
+    @Override public @Nullable PhysicsDisplayComposite getDisplay() { return displayComposite; }
+    @Override public @NotNull String getBodyId() { return bodyId; }
+    @Override public @NotNull PhysicsBodyType getType() { return PhysicsBodyType.CHAIN; }
+    @Override public void remove() { destroy(); }
+    @Override public void destroy() {
         if (removed) return;
         removed = true;
         super.destroy();
@@ -157,27 +221,17 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
             displayComposite.destroy();
         }
     }
-
-    @Override
-    public boolean isValid() {
-        return !removed && getBody() != null;
-    }
-
-    @Override
-    public void teleport(@NotNull Location location) {
+    @Override public boolean isValid() { return !removed && getBody() != null; }
+    @Override public void teleport(@NotNull Location location) {
         if (!isValid()) return;
         RVec3 pos = new RVec3(location.getX(), location.getY(), location.getZ());
         getSpace().getBodyInterface().setPosition(getBody().getId(), pos, EActivation.Activate);
     }
-
-    @Override
-    public void setLinearVelocity(@NotNull Vector velocity) {
+    @Override public void setLinearVelocity(@NotNull Vector velocity) {
         if (!isValid()) return;
         getSpace().getBodyInterface().setLinearVelocity(getBody().getId(), ConvertUtils.toVec3(velocity));
     }
-
-    @Override
-    public @NotNull Location getLocation() {
+    @Override public @NotNull Location getLocation() {
         if (!isValid()) return new Location(getSpace().getWorldBukkit(), 0, 0, 0);
         RVec3 pos = getBody().getPosition();
         return new Location(getSpace().getWorldBukkit(), pos.xx(), pos.yy(), pos.zz());

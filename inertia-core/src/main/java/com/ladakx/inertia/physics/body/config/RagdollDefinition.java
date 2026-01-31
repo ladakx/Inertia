@@ -45,7 +45,8 @@ public record RagdollDefinition(
             float linearDamping,
             float angularDamping,
             float friction,
-            float restitution
+            float restitution,
+            float gravityFactor
     ) {}
 
     /**

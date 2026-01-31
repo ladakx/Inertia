@@ -59,24 +59,47 @@ blocks:
 # Chains Configuration #
 ########################
 chains:
-  iron_chain:
-    chain:
-      # Налаштування з'єднань (PointConstraintSettings)
-      # Відступ від центру для точок кріплення
-      joint-offset: 0.52
-      # Відстань між точками кріплення
-      spacing: 1.04
-    physics:
-      # Параметри фізики ланцюга
-      angular-damping: 0.1
-      linear-damping: 0.3
-      friction: 1.0
-      restitution: 0.025
-      mass: 75.0
-      # Розмір фізичного колайдера (BoxShape)
-      shape: "type=box x=0.1 y=0.5 z=0.1"
+  vhv_chain:
     render:
-      model: iron_chain # посилання на модель з render.yml
+      model: iron_chain
+    physics:
+      mass: 100.0
+      friction: 1.0
+      restitution: 0.0
+      linear-damping: 0.5
+      angular-damping: 0.5
+      motion-type: Dynamic
+      object-layer: 0
+      shape: "type=box x=0.1 y=0.5 z=0.1"
+    creation:
+      spacing: 0.9
+      joint-offset: 0.45
+
+    # Базовые настройки стабилизации (используются, если adaptive: enable: false)
+    stabilization:
+      position-iterations: 4
+      velocity-iterations: 4
+
+    # АДАПТИВНАЯ ФИЗИКА
+    adaptive:
+      enable: true
+      min-length: 10   # Для цепей короче 10 блоков...
+      max-length: 100  # Для цепей длиннее 100 блоков...
+
+      # Гравитация:
+      gravity:
+        short: 0.8     # Короткие падают реалистично (полный вес)
+        long: 0.005      # Длинные почти невесомы (чтобы не рвались)
+
+      # Итерации (Точность):
+      iterations:
+        short: 4       # Короткие экономят процессор
+        long: 32       # Длинные используют максимум мощности для жесткости
+
+    limits:
+      angular-movement:
+        swing-limit-angle: 45.0
+        twist-mode: FREE
 
 ##########################
 # Ragdolls Configuration #

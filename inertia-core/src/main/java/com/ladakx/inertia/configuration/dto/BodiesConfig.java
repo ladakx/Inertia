@@ -71,6 +71,7 @@ public final class BodiesConfig {
         return Collections.emptyList();
     }
 
+    // --- Block Parser ---
     private BlockBodyDefinition parseBlock(String id, ConfigurationSection section) {
         String renderModel = section.getString("render.model", id);
         ConfigurationSection physSection = section.getConfigurationSection("physics");
@@ -87,13 +88,51 @@ public final class BodiesConfig {
         ConfigurationSection physSection = section.getConfigurationSection("physics");
         BodyPhysicsSettings physicsSettings = BodyPhysicsSettings.fromConfig(physSection, id);
 
-        // Use helper to read shapes
         List<String> shapes = readShapes(physSection);
 
-        ConfigurationSection chainSec = section.getConfigurationSection("chain");
-        double offset = chainSec != null ? chainSec.getDouble("joint-offset", 0.5) : 0.5;
-        double spacing = chainSec != null ? chainSec.getDouble("spacing", 1.0) : 1.0;
-        return new ChainBodyDefinition(id, physicsSettings, shapes, renderModel, new ChainBodyDefinition.ChainSettings(offset, spacing));
+        // 1. Creation
+        ConfigurationSection creationSec = section.getConfigurationSection("creation");
+        double offset = creationSec != null ? creationSec.getDouble("joint-offset", 0.5) : 0.5;
+        double spacing = creationSec != null ? creationSec.getDouble("spacing", 1.0) : 1.0;
+        ChainBodyDefinition.ChainCreationSettings creation = new ChainBodyDefinition.ChainCreationSettings(offset, spacing);
+
+        // 2. Stabilization
+        ConfigurationSection stabSec = section.getConfigurationSection("stabilization");
+        int posIter = stabSec != null ? stabSec.getInt("position-iterations", 2) : 2;
+        int velIter = stabSec != null ? stabSec.getInt("velocity-iterations", 2) : 2;
+        ChainBodyDefinition.ChainStabilizationSettings stabilization = new ChainBodyDefinition.ChainStabilizationSettings(posIter, velIter);
+
+        // 3. Limits
+        ConfigurationSection limitSec = section.getConfigurationSection("limits.angular-movement");
+        float swingAngle = limitSec != null ? (float) limitSec.getDouble("swing-limit-angle", 45.0) : 45.0f;
+        String twistModeStr = limitSec != null ? limitSec.getString("twist-mode", "FREE") : "FREE";
+        ChainBodyDefinition.TwistMode twistMode;
+        try {
+            twistMode = ChainBodyDefinition.TwistMode.valueOf(twistModeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            InertiaLogger.warn("Invalid twist-mode in chain '" + id + "': " + twistModeStr + ". Defaulting to FREE.");
+            twistMode = ChainBodyDefinition.TwistMode.FREE;
+        }
+        ChainBodyDefinition.ChainLimitSettings limits = new ChainBodyDefinition.ChainLimitSettings(swingAngle, twistMode);
+
+        // 4. Adaptive Physics (NEW)
+        ConfigurationSection adaptSec = section.getConfigurationSection("adaptive");
+        ChainBodyDefinition.AdaptiveSettings adaptive;
+        if (adaptSec != null && adaptSec.getBoolean("enable", false)) {
+            adaptive = new ChainBodyDefinition.AdaptiveSettings(
+                    true,
+                    adaptSec.getInt("min-length", 10),
+                    adaptSec.getInt("max-length", 100),
+                    (float) adaptSec.getDouble("gravity.short", 1.0),
+                    (float) adaptSec.getDouble("gravity.long", 0.1),
+                    adaptSec.getInt("iterations.short", 4),
+                    adaptSec.getInt("iterations.long", 32)
+            );
+        } else {
+            adaptive = new ChainBodyDefinition.AdaptiveSettings(false, 0, 0, 0f, 0f, 0, 0);
+        }
+
+        return new ChainBodyDefinition(id, physicsSettings, shapes, renderModel, creation, stabilization, limits, adaptive);
     }
 
     // --- Ragdoll Parser ---
@@ -124,14 +163,16 @@ public final class BodiesConfig {
             float angDamp = 0.05f;
             float friction = 0.6f;
             float restitution = 0.0f;
+            float gravityFactor = 1.0f;
 
             if (physSec != null) {
                 linDamp = (float) physSec.getDouble("linear-damping", linDamp);
                 angDamp = (float) physSec.getDouble("angular-damping", angDamp);
                 friction = (float) physSec.getDouble("friction", friction);
                 restitution = (float) physSec.getDouble("restitution", restitution);
+                gravityFactor = (float) physSec.getDouble("gravity-factor", gravityFactor);
             }
-            RagdollDefinition.PartPhysicsSettings physSettings = new RagdollDefinition.PartPhysicsSettings(linDamp, angDamp, friction, restitution);
+            RagdollDefinition.PartPhysicsSettings physSettings = new RagdollDefinition.PartPhysicsSettings(linDamp, angDamp, friction, restitution, gravityFactor);
 
             // --- Parsing Joint Settings ---
             RagdollDefinition.JointSettings joint = null;
