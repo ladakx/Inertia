@@ -1,11 +1,11 @@
 package com.ladakx.inertia.core;
 
-import co.aikar.commands.PaperCommandManager;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.common.mesh.BlockBenchMeshProvider;
 import com.ladakx.inertia.core.impl.InertiaAPIImpl;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.ConfigurationService;
+import com.ladakx.inertia.features.commands.InertiaCommandManager;
 import com.ladakx.inertia.features.items.ItemRegistry;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
 import com.ladakx.inertia.physics.factory.BodyFactory;
@@ -20,15 +20,11 @@ import com.ladakx.inertia.infrastructure.nms.player.PlayerTools;
 import com.ladakx.inertia.infrastructure.nms.player.PlayerToolsInit;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.infrastructure.nms.render.RenderFactoryInit;
-import com.ladakx.inertia.physics.body.config.BodyDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
-import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.features.tools.ToolRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Collectors;
 
 public final class InertiaPlugin extends JavaPlugin {
@@ -51,7 +47,8 @@ public final class InertiaPlugin extends JavaPlugin {
     private BodyFactory bodyFactory;
     private BlockBenchMeshProvider meshProvider;
 
-    private PaperCommandManager paperCommandManager;
+    // Commands
+    private InertiaCommandManager commandManager;
 
     @Override
     public void onEnable() {
@@ -102,35 +99,13 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     private void registerCommands() {
-        this.paperCommandManager = new PaperCommandManager(this);
-
-        // Completions logic requires configManager instance now
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("bodies", c ->
-                configurationService.getPhysicsBodyRegistry().all().stream()
-                        .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
-                        .map(com.ladakx.inertia.physics.body.config.BodyDefinition::id)
-                        .collect(Collectors.toList()));
-
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("clear_filter", c -> {
-            List<String> suggestions = new ArrayList<>();
-            for (com.ladakx.inertia.physics.body.PhysicsBodyType type : com.ladakx.inertia.physics.body.PhysicsBodyType.values()) {
-                suggestions.add(type.name());
-            }
-            suggestions.addAll(configurationService.getPhysicsBodyRegistry().all().stream()
-                    .map(m -> m.bodyDefinition().id())
-                    .collect(Collectors.toList()));
-            return suggestions;
-        });
-
-        DebugShapeManager debugShapeManager = new DebugShapeManager();
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("shapes", c -> debugShapeManager.getAvailableShapes());
-        this.paperCommandManager.getCommandCompletions().registerAsyncCompletion("items", c -> itemRegistry.getItemIds());
-
-        // Register Broken Down Commands
-        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.SystemCommands(configurationService));
-        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.SpawnCommands(configurationService, bodyFactory));
-        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.ToolCommands(configurationService, toolRegistry));
-        this.paperCommandManager.registerCommand(new com.ladakx.inertia.features.commands.impl.ManageCommands(configurationService, physicsWorldRegistry));
+        this.commandManager = new InertiaCommandManager(this, configurationService);
+        this.commandManager.registerCommands(
+                configurationService,
+                bodyFactory,
+                toolRegistry,
+                physicsWorldRegistry
+        );
     }
 
     private void registerListeners() {

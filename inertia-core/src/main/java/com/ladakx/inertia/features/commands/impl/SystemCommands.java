@@ -1,38 +1,46 @@
 package com.ladakx.inertia.features.commands.impl;
 
-import co.aikar.commands.annotation.*;
-import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
-import com.ladakx.inertia.features.commands.BaseCommand;
+import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.features.commands.CloudModule;
 import org.bukkit.command.CommandSender;
+import org.incendo.cloud.CommandManager;
+import org.incendo.cloud.minecraft.extras.MinecraftHelp;
+import org.incendo.cloud.parser.standard.StringParser;
 
-@CommandAlias("inertia")
-public class SystemCommands extends BaseCommand {
+public class SystemCommands extends CloudModule {
 
-    public SystemCommands(ConfigurationService configurationService) {
-        super(configurationService);
+    private final MinecraftHelp<CommandSender> help;
+
+    public SystemCommands(CommandManager<CommandSender> manager,
+                          ConfigurationService config,
+                          MinecraftHelp<CommandSender> help) {
+        super(manager, config);
+        this.help = help;
     }
 
-    @Subcommand("reload")
-    @CommandPermission("inertia.commands.reload")
-    @Description("Reloads the plugin configuration.")
-    public void onReloadCommand(CommandSender sender) {
-        if (checkPermission(sender, "inertia.commands.reload", true)) {
-            InertiaPlugin.getInstance().reload();
-            send(sender, MessageKey.RELOAD_PLUGIN);
-        }
-    }
+    @Override
+    public void register() {
+        // Command: /inertia reload
+        manager.command(rootBuilder()
+                .literal("reload")
+                .permission("inertia.commands.reload")
+                .handler(ctx -> {
+                    InertiaPlugin.getInstance().reload();
+                    send(ctx.sender(), MessageKey.RELOAD_PLUGIN);
+                })
+        );
 
-    @Default
-    @CatchUnknown
-    @Subcommand("help")
-    @Description("Shows help information.")
-    public void onHelp(CommandSender sender) {
-        if (checkPermission(sender, "inertia.commands.help.admin", false)) {
-            send(sender, MessageKey.HELP_COMMAND_ADMIN);
-        } else {
-            send(sender, MessageKey.HELP_COMMAND);
-        }
+        // Command: /inertia help [query]
+        manager.command(rootBuilder()
+                .literal("help")
+                .permission("inertia.commands.help")
+                .optional("query", StringParser.greedyStringParser())
+                .handler(ctx -> {
+                    String query = ctx.getOrDefault("query", "");
+                    help.queryCommands(query, ctx.sender());
+                })
+        );
     }
 }
