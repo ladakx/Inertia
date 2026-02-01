@@ -3,15 +3,20 @@ package com.ladakx.inertia.physics.world;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.*;
 import com.github.stephengold.joltjni.readonly.ConstBody;
+import com.ladakx.inertia.api.interaction.PhysicsInteraction;
+import com.ladakx.inertia.api.interaction.RaycastHit;
+import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.common.chunk.ChunkTicketManager;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
 import com.ladakx.inertia.physics.world.loop.PhysicsLoop;
+import com.ladakx.inertia.physics.world.managers.PhysicsContactListener;
 import com.ladakx.inertia.physics.world.managers.PhysicsObjectManager;
 import com.ladakx.inertia.physics.world.managers.PhysicsQueryEngine;
 import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
@@ -19,6 +24,7 @@ import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.VisualUpdate;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -27,31 +33,28 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public class PhysicsWorld implements AutoCloseable {
-
-    // World Info
+public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final String worldName;
     private final World worldBukkit;
     private final WorldsConfig.WorldProfile settings;
-
-    // Jolt Core
     private final PhysicsSystem physicsSystem;
     private final JobSystem jobSystem;
     private final TempAllocator tempAllocator;
-
-    // Sub-Systems
     private final PhysicsLoop physicsLoop;
     private final PhysicsObjectManager objectManager;
     private final PhysicsTaskManager taskManager;
     private final PhysicsQueryEngine queryEngine;
     private final ChunkTicketManager chunkTicketManager;
     private final TerrainAdapter terrainAdapter;
-
-    // Static Bodies Tracking
-    private final List<Body> staticBodies = new ArrayList<>(); // Terrain bodies
+    private final PhysicsContactListener contactListener;
+    private final List<Body> staticBodies = new ArrayList<>();
+    private final AtomicBoolean isPaused = new AtomicBoolean(false);
 
     public PhysicsWorld(World world,
                         WorldsConfig.WorldProfile settings,
@@ -64,22 +67,20 @@ public class PhysicsWorld implements AutoCloseable {
         this.jobSystem = jobSystem;
         this.tempAllocator = tempAllocator;
         this.terrainAdapter = terrainAdapter;
-
-        // Managers Init
         this.chunkTicketManager = new ChunkTicketManager(world);
         this.objectManager = new PhysicsObjectManager();
         this.taskManager = new PhysicsTaskManager();
 
-        // Jolt Init
         this.physicsSystem = initializeJoltSystem();
         this.queryEngine = new PhysicsQueryEngine(physicsSystem, objectManager);
 
-        // Terrain
+        this.contactListener = new PhysicsContactListener(objectManager);
+        this.physicsSystem.setContactListener(contactListener);
+
         if (this.terrainAdapter != null) {
             this.terrainAdapter.onEnable(this);
         }
 
-        // Loop Start
         this.physicsLoop = new PhysicsLoop(
                 worldName,
                 settings.tickRate(),
@@ -108,16 +109,15 @@ public class PhysicsWorld implements AutoCloseable {
         return sys;
     }
 
-    // --- Physics Thread Logic ---
-
     private void runPhysicsStep() {
+        if (isPaused.get()) {
+            return;
+        }
         float deltaTime = 1.0f / settings.tickRate();
-
         int errors = physicsSystem.update(deltaTime, settings.collisionSteps(), tempAllocator, jobSystem);
         if (errors != EPhysicsUpdateError.None) {
             InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
         }
-
         taskManager.runAll();
     }
 
@@ -125,6 +125,7 @@ public class PhysicsWorld implements AutoCloseable {
         List<AbstractPhysicsBody> bodies = objectManager.getAll();
         List<VisualUpdate> updates = new ArrayList<>(bodies.size());
         java.util.Set<Long> activeChunks = new java.util.HashSet<>();
+
         BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
 
         for (AbstractPhysicsBody obj : bodies) {
@@ -141,8 +142,6 @@ public class PhysicsWorld implements AutoCloseable {
         return new PhysicsSnapshot(updates, activeChunks);
     }
 
-    // --- Main Thread Logic ---
-
     private void applySnapshot(PhysicsSnapshot snapshot) {
         for (VisualUpdate update : snapshot.updates()) {
             VisualEntity visual = update.visual();
@@ -155,14 +154,27 @@ public class PhysicsWorld implements AutoCloseable {
         chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
     }
 
-    // --- Public API & Delegation ---
-
     public void createExplosion(@NotNull Vec3 origin, float force, float radius) {
-        queryEngine.createExplosion(origin, force, radius);
+        // Конвертация Vec3 (Jolt) в Location (Bukkit) для вызова API метода
+        // Так как мы внутри PhysicsWorld, мы знаем мир
+        Location loc = new Location(worldBukkit, origin.getX(), origin.getY(), origin.getZ());
+        queryEngine.createExplosion(loc, force, radius);
     }
 
+    // Восстанавливаем метод raycastEntity для обратной совместимости с инструментами
     public List<RaycastResult> raycastEntity(@NotNull Location start, @NotNull Vector dir, double dist) {
-        return queryEngine.raycastEntity(start, dir, dist);
+        RaycastHit hit = queryEngine.raycast(start, dir, dist);
+        if (hit == null) return Collections.emptyList();
+
+        // Конвертируем API RaycastHit обратно во внутренний RaycastResult, ожидаемый инструментами
+        RVec3 hitPos = ConvertUtils.toRVec3(hit.point().toLocation(worldBukkit));
+        // Для получения VA нам нужно тело. В RaycastHit есть InertiaPhysicsBody.
+        // Приводим к AbstractPhysicsBody, чтобы получить нативное тело
+        if (hit.body() instanceof AbstractPhysicsBody abstractBody) {
+            long va = abstractBody.getBody().targetVa();
+            return Collections.singletonList(new RaycastResult(va, hitPos));
+        }
+        return Collections.emptyList();
     }
 
     public void addObject(AbstractPhysicsBody object) {
@@ -205,8 +217,6 @@ public class PhysicsWorld implements AutoCloseable {
         return physicsSystem.getNumBodies() + amount <= settings.maxBodies();
     }
 
-    // --- Constraints ---
-
     public void addConstraint(Constraint constraint) {
         physicsSystem.addConstraint(constraint);
         if (constraint instanceof TwoBodyConstraint tbc) {
@@ -233,11 +243,8 @@ public class PhysicsWorld implements AutoCloseable {
         if (obj != null) obj.removeRelatedConstraint(c.toRef());
     }
 
-    // --- Events ---
-
     public void onChunkLoad(int x, int z) {
         if (terrainAdapter != null) terrainAdapter.onChunkLoad(x, z);
-
         for (AbstractPhysicsBody obj : objectManager.getAll()) {
             if (obj instanceof DisplayedPhysicsBody displayed) {
                 RVec3 pos = displayed.getBody().getPosition();
@@ -252,14 +259,11 @@ public class PhysicsWorld implements AutoCloseable {
         if (terrainAdapter != null) terrainAdapter.onChunkUnload(x, z);
     }
 
-    // --- Cleanup ---
-
     @Override
     public void close() {
         InertiaLogger.info("Closing world: " + worldName);
         physicsLoop.stop();
         objectManager.clearAll();
-
         if (terrainAdapter != null) terrainAdapter.onDisable();
 
         BodyInterface bi = physicsSystem.getBodyInterface();
@@ -273,15 +277,64 @@ public class PhysicsWorld implements AutoCloseable {
         Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), chunkTicketManager::releaseAll);
     }
 
-    // --- Getters ---
-    public PhysicsSystem getPhysicsSystem() { return physicsSystem; }
-    public BodyInterface getBodyInterface() { return physicsSystem.getBodyInterface(); }
-    public WorldsConfig.WorldProfile getSettings() { return settings; }
-    public World getWorldBukkit() { return worldBukkit; }
+    public PhysicsSystem getPhysicsSystem() {
+        return physicsSystem;
+    }
+
+    public BodyInterface getBodyInterface() {
+        return physicsSystem.getBodyInterface();
+    }
+
+    public WorldsConfig.WorldProfile getSettings() {
+        return settings;
+    }
+
+    public World getWorldBukkit() {
+        return worldBukkit;
+    }
+
     public @Nullable ConstBody getBodyById(int id) {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
     }
 
-    // DTO for raycast results (re-declared to keep this class self-contained as requested by previous contexts)
-    public record RaycastResult(Long va, RVec3 hitPos) {}
+    @Override
+    public @NotNull World getBukkitWorld() {
+        return worldBukkit;
+    }
+
+    @Override
+    public void setSimulationPaused(boolean paused) {
+        this.isPaused.set(paused);
+    }
+
+    @Override
+    public boolean isSimulationPaused() {
+        return isPaused.get();
+    }
+
+    @Override
+    public void setGravity(@NotNull Vector gravity) {
+        if (gravity == null) return;
+        physicsSystem.setGravity(ConvertUtils.toVec3(gravity));
+    }
+
+    @Override
+    public @NotNull Vector getGravity() {
+        Vec3 g = physicsSystem.getGravity();
+        return ConvertUtils.toBukkit(g);
+    }
+
+    @Override
+    public @NotNull Collection<InertiaPhysicsBody> getBodies() {
+        return Collections.unmodifiableCollection(objectManager.getAll());
+    }
+
+    @Override
+    public @NotNull PhysicsInteraction getInteraction() {
+        return queryEngine;
+    }
+
+    // Внутренняя запись для обратной совместимости инструментов
+    public record RaycastResult(Long va, RVec3 hitPos) {
+    }
 }

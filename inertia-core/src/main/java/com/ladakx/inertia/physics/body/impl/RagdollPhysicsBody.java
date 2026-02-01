@@ -5,8 +5,10 @@ import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.api.body.type.IRagdoll;
 import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -28,12 +30,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class RagdollPhysicsBody extends DisplayedPhysicsBody {
+public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll {
 
     private final String bodyId;
-    private final String partName; // Добавляем поле, чтобы знать, какую часть восстанавливать
+    private final String partName;
     private boolean removed = false;
     private final CollisionGroup collisionGroup;
+
+    // Ссылка на констрейнт для возможности отрыва части тела
+    private TwoBodyConstraintRef parentJointRef;
+    // ID тела родителя в Jolt (для поиска через API)
+    private Integer parentBodyId = null;
 
     public RagdollPhysicsBody(@NotNull PhysicsWorld space,
                               @NotNull String bodyId,
@@ -57,6 +64,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
         if (partDef.parentName() != null) {
             Body parentBody = spawnedParts.get(partDef.parentName());
             if (parentBody != null) {
+                this.parentBodyId = parentBody.getId();
                 createConstraint(partDef, parentBody, getBody(), groupFilter);
             }
         }
@@ -67,17 +75,15 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
     @Override
     protected PhysicsDisplayComposite recreateDisplay() {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
-        String renderModelId = ((RagdollDefinition)model.bodyDefinition()).parts().get(partName).renderModelId();
+        String renderModelId = ((RagdollDefinition) model.bodyDefinition()).parts().get(partName).renderModelId();
         if (renderModelId == null) return null;
 
         var renderConfig = InertiaPlugin.getInstance().getConfigManager().getRenderConfig();
         var renderDefOpt = renderConfig.find(renderModelId);
-
         if (renderDefOpt.isEmpty()) return null;
-        RenderModelDefinition renderDef = renderDefOpt.get();
 
+        RenderModelDefinition renderDef = renderDefOpt.get();
         World world = getSpace().getWorldBukkit();
-        // Use current position
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
         UUID bodyUuid = getUuid();
@@ -86,8 +92,8 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
         for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
             String entityKey = entry.getKey();
             RenderEntityDefinition entityDef = entry.getValue();
-
             VisualEntity visual = renderFactory.create(world, spawnLoc, entityDef);
+
             if (visual.isValid()) {
                 InertiaPDCUtils.applyInertiaTags(
                         visual,
@@ -101,8 +107,6 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
         }
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
     }
-
-    // ... (Остальные методы createBodySettings, createConstraint без изменений)
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
                                                            PhysicsBodyRegistry registry,
@@ -130,8 +134,8 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
 
         CollisionGroup group = new CollisionGroup(groupFilter, 0, partIndex);
         settings.setCollisionGroup(group);
-        settings.getMassProperties().setMass(partDef.mass());
 
+        settings.getMassProperties().setMass(partDef.mass());
         RagdollDefinition.PartPhysicsSettings phys = partDef.physics();
         settings.setLinearDamping(phys.linearDamping());
         settings.setAngularDamping(phys.angularDamping());
@@ -170,11 +174,13 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
         SixDofConstraintSettings settings = new SixDofConstraintSettings();
 
         for (String axis : joint.fixedAxes()) {
-            try { settings.makeFixedAxis(EAxis.valueOf(axis)); } catch (Exception ignored) {}
+            try {
+                settings.makeFixedAxis(EAxis.valueOf(axis));
+            } catch (Exception ignored) {
+            }
         }
 
         float defaultLimit = (float) Math.PI - 0.2f;
-
         if (!joint.limits().containsKey(EAxis.RotationX) && !joint.fixedAxes().contains("RotationX"))
             settings.setLimitedAxis(EAxis.RotationX, -defaultLimit, defaultLimit);
         if (!joint.limits().containsKey(EAxis.RotationY) && !joint.fixedAxes().contains("RotationY"))
@@ -194,22 +200,63 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
         constraint.setNumPositionStepsOverride(5);
 
         getSpace().addConstraint(constraint);
-        addRelatedConstraint(constraint.toRef());
+        this.parentJointRef = constraint.toRef();
+        addRelatedConstraint(parentJointRef);
     }
 
-    @Override public @NotNull String getBodyId() { return bodyId; }
-    @Override public @NotNull PhysicsBodyType getType() { return PhysicsBodyType.RAGDOLL; }
-    @Override public void remove() { destroy(); }
-    @Override public void destroy() {
+    // --- IRagdoll Implementation ---
+
+    @Override
+    public @NotNull String getPartName() {
+        return partName;
+    }
+
+    @Override
+    public @Nullable InertiaPhysicsBody getParentPart() {
+        if (parentBodyId == null) return null;
+        // Jolt ID уникален в рамках PhysicsSystem, но getObjectByVa требует address (va).
+        // Мы можем получить тело по ID из интерфейса блокировки и взять его адрес.
+        // Или, так как AbstractPhysicsBody не хранит мапу ID->Object, мы должны обратиться к Space.
+
+        // Оптимальный путь через PhysicsWorld:
+        // У нас есть ID родителя. Нужно найти объект Java, которому он принадлежит.
+        // PhysicsObjectManager хранит Map<Long (VA), AbstractPhysicsBody>.
+        // Нам нужно получить VA из ID.
+
+        com.github.stephengold.joltjni.readonly.ConstBody body = getSpace().getBodyById(parentBodyId);
+        if (body != null) {
+            return getSpace().getObjectByVa(body.va());
+        }
+        return null;
+    }
+
+    @Override
+    public void detachFromParent() {
+        if (parentJointRef != null) {
+            TwoBodyConstraint constraint = parentJointRef.getPtr();
+            if (constraint != null) {
+                getSpace().removeConstraint(constraint);
+            }
+            removeRelatedConstraint(parentJointRef);
+            parentJointRef = null;
+            parentBodyId = null;
+        }
+    }
+
+    @Override
+    public @NotNull String getBodyId() {
+        return bodyId;
+    }
+
+    @Override
+    public @NotNull PhysicsBodyType getType() {
+        return PhysicsBodyType.RAGDOLL;
+    }
+
+    @Override
+    public void destroy() {
         if (removed) return;
         removed = true;
         super.destroy();
-    }
-    @Override public boolean isValid() { return !removed && getBody() != null; }
-    @Override public void teleport(@NotNull Location location) {}
-    @Override public void setLinearVelocity(@NotNull Vector velocity) {}
-    @Override public @NotNull Location getLocation() {
-        RVec3 pos = getBody().getPosition();
-        return new Location(getSpace().getWorldBukkit(), pos.xx(), pos.yy(), pos.zz());
     }
 }

@@ -10,23 +10,22 @@ import com.ladakx.inertia.physics.world.terrain.impl.FlatFloorAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PhysicsWorldRegistry {
-
     private final InertiaPlugin plugin;
     private final ConfigurationService configurationService;
     private final PhysicsEngine physicsEngine;
-
     private final Map<UUID, PhysicsWorld> spaces = new ConcurrentHashMap<>();
 
     public PhysicsWorldRegistry(InertiaPlugin plugin, ConfigurationService configurationService, PhysicsEngine physicsEngine) {
         this.plugin = plugin;
         this.configurationService = configurationService;
         this.physicsEngine = physicsEngine;
-
         InertiaLogger.info("Loading existing worlds into Inertia Jolt...");
         for (World world : Bukkit.getWorlds()) {
             createSpace(world);
@@ -47,11 +46,8 @@ public class PhysicsWorldRegistry {
         InertiaLogger.info("Creating physics space for world: " + world.getName());
         WorldsConfig.WorldProfile settings = configurationService.getWorldsConfig().getWorldSettings(world.getName());
 
-        // Factory Logic for Terrain Adapter
         TerrainAdapter terrainAdapter = null;
         if (settings.floorPlane().enabled()) {
-            // В будущем здесь можно переключать адаптеры через switch(settings.simulation().type())
-            // Например: case CHUNK_SIMULATION -> new ChunkBlockAdapter(...)
             terrainAdapter = new FlatFloorAdapter(settings.floorPlane(), settings.size());
         }
 
@@ -87,5 +83,9 @@ public class PhysicsWorldRegistry {
             space.close();
         }
         spaces.clear();
+    }
+
+    public Collection<PhysicsWorld> getAllSpaces() {
+        return Collections.unmodifiableCollection(spaces.values());
     }
 }
