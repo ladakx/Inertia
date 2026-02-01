@@ -53,4 +53,14 @@ public class ArmorStandEntity implements VisualEntity {
     public void setGlowing(boolean glowing) {
         stand.setGlowing(glowing);
     }
+
+    @Override
+    public boolean getPersistent() {
+        return stand.isPersistent();
+    }
+
+    @Override
+    public void setPersistent(boolean persistent) {
+        stand.setPersistent(persistent);
+    }
 }

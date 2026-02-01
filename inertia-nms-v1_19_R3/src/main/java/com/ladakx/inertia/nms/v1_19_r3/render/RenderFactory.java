@@ -85,6 +85,7 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
 
     private void applyCommonDisplayTraits(Display display, RenderEntityDefinition def) {
         display.setPersistent(false);
+
         if (def.viewRange() != null) display.setViewRange(def.viewRange());
         if (def.shadowRadius() != null) display.setShadowRadius(def.shadowRadius());
         if (def.shadowStrength() != null) display.setShadowStrength(def.shadowStrength());
