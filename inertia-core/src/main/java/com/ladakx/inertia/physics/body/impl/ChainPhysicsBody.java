@@ -6,6 +6,7 @@ import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.api.body.type.IChain;
 import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
@@ -28,11 +29,16 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-public class ChainPhysicsBody extends DisplayedPhysicsBody {
+public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
 
     private final String bodyId;
     private boolean removed = false;
     private final int calculatedIterations;
+    private final int linkIndex;
+    private final int totalChainLength;
+
+    // Храним ссылку на констрейнт, соединяющий с родителем, для возможности разрыва
+    private TwoBodyConstraintRef parentConstraintRef;
 
     public ChainPhysicsBody(@NotNull PhysicsWorld space,
                             @NotNull String bodyId,
@@ -47,6 +53,8 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
                             int totalChainLength) {
         super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, chainIndex, totalChainLength), renderFactory, modelRegistry);
         this.bodyId = bodyId;
+        this.linkIndex = chainIndex;
+        this.totalChainLength = totalChainLength;
         this.calculatedIterations = calculateIterations(modelRegistry.require(bodyId), totalChainLength);
 
         if (parentBody != null) {
@@ -60,13 +68,10 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
     protected PhysicsDisplayComposite recreateDisplay() {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
-
         if (renderOpt.isEmpty()) return null;
 
         RenderModelDefinition renderDef = renderOpt.get();
         World world = getSpace().getWorldBukkit();
-
-        // Use current body position
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
         UUID bodyUuid = getUuid();
@@ -75,8 +80,8 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
             String entityKey = entry.getKey();
             RenderEntityDefinition entityDef = entry.getValue();
-
             VisualEntity visual = renderFactory.create(world, spawnLoc, entityDef);
+
             if (visual.isValid()) {
                 InertiaPDCUtils.applyInertiaTags(
                         visual,
@@ -90,9 +95,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         }
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
     }
-
-    // ... (Остальные методы calculateGravity, calculateIterations, getLerpFactor, createBodySettings, createConstraint без изменений)
-    // Копируем методы из предыдущей версии ChainPhysicsBody, они не меняются логически, только конструктор и recreateDisplay
 
     private static float calculateGravity(PhysicsBodyRegistry.BodyModel model, int length) {
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def) || !def.adaptive().enabled()) {
@@ -130,7 +132,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) {
             throw new IllegalArgumentException("Body '" + bodyId + "' is not a CHAIN definition.");
         }
-
         BodyPhysicsSettings phys = def.physicsSettings();
         ConstShape shape = shapeFactory.createShape(def.shapeLines());
 
@@ -155,7 +156,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         if (phys.motionType() == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {
             settings.setMotionQuality(EMotionQuality.LinearCast);
         }
-
         settings.setAllowSleeping(true);
 
         return settings;
@@ -201,30 +201,48 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         }
 
         getSpace().addConstraint(constraint);
-        addRelatedConstraint(constraint.toRef());
+        this.parentConstraintRef = constraint.toRef();
+        addRelatedConstraint(parentConstraintRef);
     }
 
-    @Override public @NotNull String getBodyId() { return bodyId; }
-    @Override public @NotNull PhysicsBodyType getType() { return PhysicsBodyType.CHAIN; }
-    @Override public void remove() { destroy(); }
-    @Override public void destroy() {
+    // --- IChain Implementation ---
+
+    @Override
+    public int getLinkIndex() {
+        return linkIndex;
+    }
+
+    @Override
+    public int getChainLength() {
+        return totalChainLength;
+    }
+
+    @Override
+    public void breakLink() {
+        if (parentConstraintRef != null) {
+            TwoBodyConstraint constraint = parentConstraintRef.getPtr();
+            if (constraint != null) {
+                getSpace().removeConstraint(constraint);
+            }
+            removeRelatedConstraint(parentConstraintRef);
+            parentConstraintRef = null;
+        }
+    }
+
+    @Override
+    public @NotNull String getBodyId() {
+        return bodyId;
+    }
+
+    @Override
+    public @NotNull PhysicsBodyType getType() {
+        return PhysicsBodyType.CHAIN;
+    }
+
+    @Override
+    public void destroy() {
         if (removed) return;
         removed = true;
         super.destroy();
-    }
-    @Override public boolean isValid() { return !removed && getBody() != null; }
-    @Override public void teleport(@NotNull Location location) {
-        if (!isValid()) return;
-        RVec3 pos = new RVec3(location.getX(), location.getY(), location.getZ());
-        getSpace().getBodyInterface().setPosition(getBody().getId(), pos, EActivation.Activate);
-    }
-    @Override public void setLinearVelocity(@NotNull Vector velocity) {
-        if (!isValid()) return;
-        getSpace().getBodyInterface().setLinearVelocity(getBody().getId(), ConvertUtils.toVec3(velocity));
-    }
-    @Override public @NotNull Location getLocation() {
-        if (!isValid()) return new Location(getSpace().getWorldBukkit(), 0, 0, 0);
-        RVec3 pos = getBody().getPosition();
-        return new Location(getSpace().getWorldBukkit(), pos.xx(), pos.yy(), pos.zz());
     }
 }

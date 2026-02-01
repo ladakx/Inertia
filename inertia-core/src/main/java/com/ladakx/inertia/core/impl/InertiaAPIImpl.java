@@ -2,6 +2,7 @@ package com.ladakx.inertia.core.impl;
 
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
+import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
@@ -15,12 +16,16 @@ import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 
-public class InertiaAPIImpl extends InertiaAPI {
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 
+public class InertiaAPIImpl extends InertiaAPI {
     private final InertiaPlugin plugin;
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final ConfigurationService configurationService;
@@ -30,7 +35,7 @@ public class InertiaAPIImpl extends InertiaAPI {
     public InertiaAPIImpl(InertiaPlugin plugin,
                           PhysicsWorldRegistry physicsWorldRegistry,
                           ConfigurationService configurationService,
-                          JShapeFactory shapeFactory) { // Inject
+                          JShapeFactory shapeFactory) {
         this.plugin = plugin;
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.configurationService = configurationService;
@@ -50,9 +55,7 @@ public class InertiaAPIImpl extends InertiaAPI {
             return null;
         }
 
-        // Используем configManager вместо статики
         PhysicsBodyRegistry modelRegistry = configurationService.getPhysicsBodyRegistry();
-
         if (modelRegistry.find(bodyId).isEmpty()) {
             InertiaLogger.warn("Cannot create body: Body ID '" + bodyId + "' not found in registry.");
             return null;
@@ -65,7 +68,6 @@ public class InertiaAPIImpl extends InertiaAPI {
         Quat initialRot = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
         PhysicsBodyType type = modelRegistry.require(bodyId).bodyDefinition().type();
-
         try {
             if (type == PhysicsBodyType.BLOCK) {
                 return new BlockPhysicsBody(
@@ -90,5 +92,20 @@ public class InertiaAPIImpl extends InertiaAPI {
     @Override
     public boolean isWorldSimulated(@NotNull String worldName) {
         return configurationService.getWorldsConfig().getWorldSettings(worldName) != null;
+    }
+
+    @Override
+    public @Nullable IPhysicsWorld getPhysicsWorld(@NotNull World world) {
+        return physicsWorldRegistry.getSpace(world);
+    }
+
+    @Override
+    public @NotNull Collection<IPhysicsWorld> getAllPhysicsWorlds() {
+        // PhysicsWorldRegistry doesn't expose a clean getAll right now that returns collection of IPhysicsWorld directly from map values properly typed in one go without potential modification issues if concurrent map
+        // But PhysicsWorld implements IPhysicsWorld, so we can construct a list.
+        // We need to access values from registry.
+        // Currently Registry stores Map<UUID, PhysicsWorld>.
+        // We need to add a method to PhysicsWorldRegistry to get all worlds safely.
+        return new ArrayList<>(physicsWorldRegistry.getAllSpaces());
     }
 }

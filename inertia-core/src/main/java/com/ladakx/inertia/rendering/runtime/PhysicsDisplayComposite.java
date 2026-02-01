@@ -165,7 +165,6 @@ public final class PhysicsDisplayComposite {
     }
 
     public void destroy() {
-        // Called from Main Thread
         for (DisplayPart part : parts) {
             part.visual().remove();
         }

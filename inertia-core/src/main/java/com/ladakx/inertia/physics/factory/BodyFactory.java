@@ -1,6 +1,7 @@
 package com.ladakx.inertia.physics.factory;
 
 import com.github.stephengold.joltjni.*;
+import com.ladakx.inertia.api.events.PhysicsBodySpawnEvent;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
@@ -16,6 +17,7 @@ import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -26,12 +28,7 @@ import org.joml.Vector3d;
 
 import java.util.*;
 
-/**
- * Сервіс, що відповідає за логіку спавну фізичних об'єктів.
- * Використовує Inertia API та внутрішні механізми Jolt.
- */
 public class BodyFactory {
-
     private final InertiaPlugin plugin;
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final JShapeFactory shapeFactory;
@@ -47,34 +44,30 @@ public class BodyFactory {
         this.shapeFactory = shapeFactory;
     }
 
-    /**
-     * Спавнить одиночне тіло (блок, простий об'єкт).
-     */
     public boolean spawnBody(Location location, String bodyId) {
         if (location.getWorld() == null) return false;
+
         PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
         if (space == null) return false;
 
-        // PRE-CHECK: Limit
         if (!space.canSpawnBodies(1)) {
             return false;
         }
 
         InertiaPhysicsBody obj = InertiaAPI.get().createBody(location, bodyId);
-        return obj != null;
+        if (obj != null) {
+            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
+            return true;
+        }
+        return false;
     }
 
-    /**
-     * Спавнить ланцюг, що вільно висить або падає.
-     */
     public void spawnChain(Player player, String bodyId, int size) {
         PhysicsBodyRegistry registry = configurationService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
-
         if (modelOpt.isEmpty()) {
             throw new IllegalArgumentException("Chain body not found: " + bodyId);
         }
-
         if (!(modelOpt.get().bodyDefinition() instanceof ChainBodyDefinition def)) {
             throw new IllegalArgumentException("Body ID '" + bodyId + "' is not of type CHAIN.");
         }
@@ -90,23 +83,18 @@ public class BodyFactory {
 
         Location startLoc = getSpawnLocation(player, 3.0);
         Vector direction = new Vector(0, -1, 0);
-
         double spacing = def.creation().spacing();
 
         Quaternionf jomlQuat = new Quaternionf().rotationTo(new org.joml.Vector3f(0, 1, 0), new org.joml.Vector3f(0, -1, 0));
         Quat linkRotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
         Body parentBody = null;
-
-        // ВАЖНО: Создаем фильтр коллизий для этой цепочки
         GroupFilterTable groupFilter = new GroupFilterTable(size);
 
         for (int i = 0; i < size; i++) {
-            // Отключаем коллизию с предыдущим звеном, чтобы они не взрывались при спавне
             if (i > 0) {
                 groupFilter.disableCollision(i, i - 1);
             }
-
             Location currentLoc = startLoc.clone().add(direction.clone().multiply(i * spacing));
             RVec3 pos = new RVec3(currentLoc.getX(), currentLoc.getY(), currentLoc.getZ());
 
@@ -124,12 +112,10 @@ public class BodyFactory {
                     size
             );
             parentBody = link.getBody();
+            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(link));
         }
     }
 
-    /**
-     * Спавнить регдолл.
-     */
     public void spawnRagdoll(Player player, String bodyId) {
         PhysicsBodyRegistry registry = configurationService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
@@ -140,7 +126,6 @@ public class BodyFactory {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
-        // --- PRE-CHECK: Проверяем лимит ---
         int partsCount = def.parts().size();
         if (!space.canSpawnBodies(partsCount)) {
             configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
@@ -149,7 +134,6 @@ public class BodyFactory {
         }
 
         Location spawnLoc = getSpawnLocation(player, 3.0);
-
         float yaw = -player.getLocation().getYaw() + 180;
         double yawRad = Math.toRadians(yaw);
         Quaternionf jomlQuat = new Quaternionf(new AxisAngle4f((float) yawRad, 0, 1, 0));
@@ -158,6 +142,7 @@ public class BodyFactory {
         Map<String, Body> spawnedParts = new HashMap<>();
         int totalParts = def.parts().size();
         GroupFilterTable groupFilter = new GroupFilterTable(totalParts);
+
         Map<String, Integer> partIndices = new HashMap<>();
         int indexCounter = 0;
         for (String key : def.parts().keySet()) {
@@ -173,14 +158,10 @@ public class BodyFactory {
 
         RVec3 rootPos = new RVec3(spawnLoc.getX(), spawnLoc.getY(), spawnLoc.getZ());
 
-        // Pass necessary params
         createRagdollPart(space, bodyId, rootPart, rootPos, rotation, spawnedParts, groupFilter, partIndices.get(rootPart));
         spawnRagdollChildren(space, bodyId, rootPart, def, rotation, spawnedParts, yawRad, groupFilter, partIndices);
     }
 
-    /**
-     * Спавнить безліч блоків у формі.
-     */
     public int spawnShape(Player player, DebugShapeGenerator generator, String bodyId, double... params) {
         Location center = getSpawnLocation(player, 5.0);
         List<Vector> offsets = generator.generatePoints(center, params);
@@ -188,7 +169,6 @@ public class BodyFactory {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return 0;
 
-        // PRE-CHECK: Limit for the whole shape
         if (!space.canSpawnBodies(offsets.size())) {
             configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
                     "{limit}", String.valueOf(space.getSettings().maxBodies()));
@@ -198,15 +178,14 @@ public class BodyFactory {
         int count = 0;
         for (Vector offset : offsets) {
             Location loc = center.clone().add(offset);
-            // Прямой вызов API, так как проверку мы уже сделали выше
-            if (InertiaAPI.get().createBody(loc, bodyId) != null) {
+            InertiaPhysicsBody body = InertiaAPI.get().createBody(loc, bodyId);
+            if (body != null) {
+                Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(body));
                 count++;
             }
         }
         return count;
     }
-
-    // --- Private Helpers ---
 
     private void createRagdollPart(PhysicsWorld space, String bodyId, String partName, RVec3 pos, Quat rot,
                                    Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex) {
@@ -218,6 +197,7 @@ public class BodyFactory {
                 groupFilter, partIndex
         );
         spawnedBodies.put(partName, obj.getBody());
+        Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
     }
 
     private void spawnRagdollChildren(PhysicsWorld space, String bodyId, String parentName,
@@ -228,6 +208,7 @@ public class BodyFactory {
         if (parentBody == null) return;
 
         RVec3 parentPos = parentBody.getPosition();
+
         def.parts().forEach((partName, partDef) -> {
             if (parentName.equals(partDef.parentName())) {
                 var joint = partDef.joint();
@@ -251,38 +232,22 @@ public class BodyFactory {
         });
     }
 
-    /**
-     * Spawns a physics-based TNT entity with a fuse and explosion force.
-     *
-     * @param location       Spawn location.
-     * @param bodyId         The body ID from bodies.yml (visual/shape).
-     * @param explosionForce The force applied to nearby bodies upon detonation.
-     * @param velocity       Initial velocity (optional, can be null).
-     */
     public void spawnTNT(Location location, String bodyId, float explosionForce, @Nullable Vector velocity) {
         if (location.getWorld() == null) return;
         PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
         if (space == null) return;
 
-        // PRE-CHECK: Limit
         if (!space.canSpawnBodies(1)) {
-            // Если вызывается тулом, сообщение будет отправлено через handleException или проверку в туле.
-            // Но лучше бросить контролируемое исключение, чтобы тул знал причину.
             throw new IllegalStateException("World body limit reached");
         }
 
-        // Verify body exists
         if (getRegistry().find(bodyId).isEmpty()) {
             throw new IllegalArgumentException("Body ID not found: " + bodyId);
         }
 
-        // Coordinates
         RVec3 pos = new RVec3(location.getX(), location.getY(), location.getZ());
-
-        // Rotation (Identity for simplicity, or based on location yaw/pitch)
         Quat rot = new Quat(0, 0, 0, 1);
 
-        // Create Object
         TNTPhysicsBody tnt = new TNTPhysicsBody(
                 space,
                 bodyId,
@@ -292,10 +257,9 @@ public class BodyFactory {
                 pos,
                 rot,
                 explosionForce,
-                80 // 4 seconds fuse (standard Minecraft)
+                80
         );
 
-        // Apply initial velocity if provided (e.g., throwing)
         if (velocity != null) {
             com.github.stephengold.joltjni.Vec3 linearVel = new com.github.stephengold.joltjni.Vec3(
                     (float) velocity.getX(),
@@ -304,13 +268,13 @@ public class BodyFactory {
             );
             tnt.getBody().setLinearVelocity(linearVel);
         }
+        Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(tnt));
     }
 
     private Location getSpawnLocation(Player player, double distance) {
         return player.getEyeLocation().add(player.getLocation().getDirection().multiply(distance));
     }
 
-    // Helper needed for private methods to access registry
     private PhysicsBodyRegistry getRegistry() {
         return configurationService.getPhysicsBodyRegistry();
     }

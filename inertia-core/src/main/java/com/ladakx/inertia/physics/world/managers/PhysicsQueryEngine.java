@@ -3,19 +3,22 @@ package com.ladakx.inertia.physics.world.managers;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstBody;
+import com.github.stephengold.joltjni.readonly.ConstBodyLockInterfaceLocking;
 import com.github.stephengold.joltjni.readonly.ConstBroadPhaseQuery;
+import com.ladakx.inertia.api.interaction.PhysicsInteraction;
+import com.ladakx.inertia.api.interaction.RaycastHit;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import com.ladakx.inertia.common.utils.MiscUtils;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
-import com.ladakx.inertia.physics.world.PhysicsWorld;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-public class PhysicsQueryEngine {
+public class PhysicsQueryEngine implements PhysicsInteraction {
 
     private final PhysicsSystem physicsSystem;
     private final PhysicsObjectManager objectManager;
@@ -25,41 +28,140 @@ public class PhysicsQueryEngine {
         this.objectManager = objectManager;
     }
 
-    public void createExplosion(@NotNull Vec3 origin, float force, float radius) {
+    @Override
+    public @Nullable RaycastHit raycast(@NotNull Location start, @NotNull Vector direction, double distance) {
+        Vector dir = direction.clone().normalize().multiply(distance);
+        RVec3 startVec = ConvertUtils.toRVec3(start);
+        Vec3 dirVec = new Vec3((float) dir.getX(), (float) dir.getY(), (float) dir.getZ());
+
+        RRayCast ray = new RRayCast(startVec, dirVec);
+        ClosestHitCastRayCollector collector = new ClosestHitCastRayCollector();
+        RayCastSettings settings = new RayCastSettings();
+
+        physicsSystem.getNarrowPhaseQuery().castRay(ray, settings, collector);
+
+        if (collector.hadHit()) {
+            RayCastResult hit = collector.getHit();
+            ConstBodyLockInterfaceLocking bli = physicsSystem.getBodyLockInterface();
+            try (BodyLockRead lock = new BodyLockRead(bli, hit.getBodyId())) {
+                if (lock.succeeded()) {
+                    ConstBody body = lock.getBody();
+                    AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
+                    if (obj != null) {
+                        Vector hitPos = MiscUtils.lerpVec(start.toVector(), start.toVector().add(dir), hit.getFraction());
+                        return new RaycastHit(obj, hitPos, hit.getFraction());
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public @NotNull List<RaycastHit> raycastAll(@NotNull Location start, @NotNull Vector direction, double distance) {
+        Vector dir = direction.clone().normalize().multiply(distance);
+        RVec3 startVec = ConvertUtils.toRVec3(start);
+        Vec3 dirVec = new Vec3((float) dir.getX(), (float) dir.getY(), (float) dir.getZ());
+
+        RRayCast ray = new RRayCast(startVec, dirVec);
+        AllHitCastRayCollector collector = new AllHitCastRayCollector();
+        RayCastSettings settings = new RayCastSettings();
+
+        physicsSystem.getNarrowPhaseQuery().castRay(ray, settings, collector);
+
+        List<RayCastResult> hits = collector.getHits();
+        if (hits.isEmpty()) return Collections.emptyList();
+
+        // Сортировка списка результатов
+        hits.sort(Comparator.comparingDouble(RayCastResult::getFraction));
+
+        List<RaycastHit> results = new ArrayList<>();
+        ConstBodyLockInterfaceLocking bli = physicsSystem.getBodyLockInterface();
+
+        for (RayCastResult hit : hits) {
+            try (BodyLockRead lock = new BodyLockRead(bli, hit.getBodyId())) {
+                if (lock.succeeded()) {
+                    ConstBody body = lock.getBody();
+                    AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
+                    if (obj != null) {
+                        Vector hitPos = MiscUtils.lerpVec(start.toVector(), start.toVector().add(dir), hit.getFraction());
+                        results.add(new RaycastHit(obj, hitPos, hit.getFraction()));
+                    }
+                }
+            }
+        }
+
+        return results;
+    }
+
+    @Override
+    public @NotNull Collection<InertiaPhysicsBody> getOverlappingSphere(@NotNull Location center, double radius) {
+        Vec3 centerVec = ConvertUtils.toVec3(center);
+
+        try (AllHitCollideShapeBodyCollector collector = new AllHitCollideShapeBodyCollector()) {
+            physicsSystem.getBroadPhaseQuery().collideSphere(centerVec, (float) radius, collector);
+
+            if (collector.getHits().length == 0) return Collections.emptyList();
+
+            Set<InertiaPhysicsBody> bodies = new HashSet<>();
+            ConstBodyLockInterfaceLocking bli = physicsSystem.getBodyLockInterface();
+            int[] hitIds = collector.getHits();
+
+            for (int bodyId : hitIds) {
+                try (BodyLockRead lock = new BodyLockRead(bli, bodyId)) {
+                    if (lock.succeeded()) {
+                        ConstBody body = lock.getBody();
+                        AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
+                        if (obj != null) {
+                            bodies.add(obj);
+                        }
+                    }
+                }
+            }
+            return bodies;
+        }
+    }
+
+    @Override
+    public void createExplosion(@NotNull Location center, float force, float radius) {
+        Vec3 origin = ConvertUtils.toVec3(center);
+        createExplosionInternal(origin, force, radius);
+    }
+
+    private void createExplosionInternal(@NotNull Vec3 origin, float force, float radius) {
         if (force <= 0f || radius <= 0f) return;
-        
         final float scaledForce = force * 500;
         final float radiusSq = radius * radius;
-
         BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
         ConstBroadPhaseQuery broadPhase = physicsSystem.getBroadPhaseQuery();
 
         try (AllHitCollideShapeBodyCollector collector = new AllHitCollideShapeBodyCollector()) {
             broadPhase.collideSphere(origin, radius, collector);
             int[] hits = collector.getHits();
-            
             if (hits == null || hits.length == 0) return;
 
             for (int bodyId : hits) {
                 if (!isValidExplosionTarget(bodyInterface, bodyId)) continue;
-
                 RVec3 com = bodyInterface.getCenterOfMassPosition(bodyId);
-                Vec3 offset = new Vec3(
-                        (float) com.xx() - origin.getX(),
-                        (float) com.yy() - origin.getY(),
-                        (float) com.zz() - origin.getZ()
-                );
 
-                float distSq = offset.lengthSq();
+                double dx = com.xx() - origin.getX();
+                double dy = com.yy() - origin.getY();
+                double dz = com.zz() - origin.getZ();
+
+                float dxF = (float) dx;
+                float dyF = (float) dy;
+                float dzF = (float) dz;
+
+                float distSq = dxF*dxF + dyF*dyF + dzF*dzF;
+
                 if (distSq <= 1.0e-6f || distSq > radiusSq) continue;
 
                 float dist = (float) Math.sqrt(distSq);
                 float factor = 1.0f - (dist / radius);
-                
+
                 if (factor > 0f) {
-                    Vec3 impulse = offset.normalized();
+                    Vec3 impulse = new Vec3(dxF, dyF, dzF).normalized();
                     impulse.scaleInPlace(scaledForce * factor);
-                    
                     bodyInterface.activateBody(bodyId);
                     bodyInterface.addImpulse(bodyId, impulse);
                 }
@@ -69,38 +171,5 @@ public class PhysicsQueryEngine {
 
     private boolean isValidExplosionTarget(BodyInterface bi, int bodyId) {
         return bi.getMotionType(bodyId) == EMotionType.Dynamic && !bi.isSensor(bodyId);
-    }
-
-    public List<PhysicsWorld.RaycastResult> raycastEntity(@NotNull Location startPoint, @NotNull Vector direction, double maxDistance) {
-        Vector endOffset = direction.clone().normalize().multiply(maxDistance);
-        Vector endPoint = startPoint.clone().add(endOffset).toVector();
-
-        AllHitRayCastBodyCollector collector = new AllHitRayCastBodyCollector();
-        physicsSystem.getBroadPhaseQuery().castRay(
-                new RayCast(ConvertUtils.toVec3(startPoint), ConvertUtils.toVec3(endOffset)),
-                collector
-        );
-
-        List<PhysicsWorld.RaycastResult> results = new ArrayList<>();
-        
-        // Используем BodyLockInterface для безопасного чтения тел в многопоточной среде, 
-        // если этот метод вызывается асинхронно
-        var bli = physicsSystem.getBodyLockInterfaceNoLock();
-
-        for (BroadPhaseCastResult hit : collector.getHits()) {
-            try (BodyLockRead lock = new BodyLockRead(bli, hit.getBodyId())) {
-                if (lock.succeeded()) {
-                    ConstBody body = lock.getBody();
-                    AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
-                    
-                    if (obj != null) {
-                        Vector hitPos0 = MiscUtils.lerpVec(startPoint.toVector(), endPoint, hit.getFraction());
-                        RVec3 hitPos = ConvertUtils.toRVec3(hitPos0);
-                        results.add(new PhysicsWorld.RaycastResult(body.targetVa(), hitPos));
-                    }
-                }
-            }
-        }
-        return results;
     }
 }

@@ -72,7 +72,6 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
      */
     public void checkAndRestoreVisuals() {
         if (displayComposite != null && !displayComposite.isValid()) {
-            // Визуал сломан (энтити удалены), но физическое тело живо. Восстанавливаем.
             displayComposite = recreateDisplay();
         }
     }
