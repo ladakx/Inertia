@@ -5,6 +5,8 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
+import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
+import com.ladakx.inertia.physics.world.terrain.impl.FlatFloorAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
@@ -20,7 +22,6 @@ public class PhysicsWorldRegistry {
 
     private final Map<UUID, PhysicsWorld> spaces = new ConcurrentHashMap<>();
 
-    // Внедрение зависимостей
     public PhysicsWorldRegistry(InertiaPlugin plugin, ConfigurationService configurationService, PhysicsEngine physicsEngine) {
         this.plugin = plugin;
         this.configurationService = configurationService;
@@ -44,20 +45,27 @@ public class PhysicsWorldRegistry {
 
     private PhysicsWorld createSpaceInternal(World world) {
         InertiaLogger.info("Creating physics space for world: " + world.getName());
-        // Используем инстанс configManager
         WorldsConfig.WorldProfile settings = configurationService.getWorldsConfig().getWorldSettings(world.getName());
+
+        // Factory Logic for Terrain Adapter
+        TerrainAdapter terrainAdapter = null;
+        if (settings.floorPlane().enabled()) {
+            // В будущем здесь можно переключать адаптеры через switch(settings.simulation().type())
+            // Например: case CHUNK_SIMULATION -> new ChunkBlockAdapter(...)
+            terrainAdapter = new FlatFloorAdapter(settings.floorPlane(), settings.size());
+        }
 
         return new PhysicsWorld(
                 world,
                 settings,
                 physicsEngine.getJobSystem(),
-                physicsEngine.getTempAllocator()
+                physicsEngine.getTempAllocator(),
+                terrainAdapter
         );
     }
 
     public void createSpace(World world) {
         if (!spaces.containsKey(world.getUID())) {
-            // Используем инстанс configManager
             if (configurationService.getWorldsConfig().getAllWorlds().containsKey(world.getName())) {
                 spaces.put(world.getUID(), createSpaceInternal(world));
             } else {
