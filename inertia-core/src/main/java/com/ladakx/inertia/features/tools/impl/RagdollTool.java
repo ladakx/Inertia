@@ -96,7 +96,6 @@ public class RagdollTool extends Tool {
         Map<String, Body> spawnedBodies = new HashMap<>();
 
         // --- Setup Group Filter for Collisions ---
-        int totalParts = def.parts().size();
         // Створюємо таблицю фільтрів з розміром = кількості частин
         GroupFilterTable groupFilter = new GroupFilterTable(totalParts);
 
