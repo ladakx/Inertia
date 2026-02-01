@@ -225,7 +225,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
 
         com.github.stephengold.joltjni.readonly.ConstBody body = getSpace().getBodyById(parentBodyId);
         if (body != null) {
-            return getSpace().getObjectByVa(body.va());
+            return getSpace().getObjectByVa(body.targetVa());
         }
         return null;
     }
