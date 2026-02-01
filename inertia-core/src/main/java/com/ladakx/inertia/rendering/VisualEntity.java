@@ -22,4 +22,8 @@ public interface VisualEntity {
     PersistentDataContainer getPersistentDataContainer();
 
     boolean isValid();
+
+    boolean getPersistent();
+
+    void setPersistent(boolean persistent);
 }

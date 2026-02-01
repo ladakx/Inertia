@@ -10,6 +10,7 @@ import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.World;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -135,19 +136,21 @@ public final class PhysicsDisplayComposite {
 
                 // Маркируем как статику
                 pdc.set(
-                        com.ladakx.inertia.common.pdc.InertiaPDCKeys.INERTIA_ENTITY_STATIC,
-                        org.bukkit.persistence.PersistentDataType.STRING,
+                        InertiaPDCKeys.INERTIA_ENTITY_STATIC,
+                        PersistentDataType.STRING,
                         "true"
                 );
 
                 // Если передан ID кластера (для цепей/рэгдоллов), записываем его
                 if (clusterId != null) {
                     pdc.set(
-                            com.ladakx.inertia.common.pdc.InertiaPDCKeys.INERTIA_CLUSTER_UUID,
-                            org.bukkit.persistence.PersistentDataType.STRING,
+                            InertiaPDCKeys.INERTIA_CLUSTER_UUID,
+                            PersistentDataType.STRING,
                             clusterId.toString()
                     );
                 }
+
+                visual.setPersistent(true);
             }
         }
     }

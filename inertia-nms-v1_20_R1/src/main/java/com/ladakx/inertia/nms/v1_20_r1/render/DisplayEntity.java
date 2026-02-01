@@ -61,4 +61,14 @@ public class DisplayEntity implements VisualEntity {
     public boolean isValid() {
         return display.isValid();
     }
+
+    @Override
+    public boolean getPersistent() {
+        return display.isPersistent();
+    }
+
+    @Override
+    public void setPersistent(boolean persistent) {
+        display.setPersistent(persistent);
+    }
 }
