@@ -31,7 +31,7 @@ import java.util.UUID;
 public class RagdollPhysicsBody extends DisplayedPhysicsBody {
 
     private final String bodyId;
-    private final PhysicsDisplayComposite displayComposite;
+    private final String partName; // Добавляем поле, чтобы знать, какую часть восстанавливать
     private boolean removed = false;
     private final CollisionGroup collisionGroup;
 
@@ -46,8 +46,9 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
                               @NotNull Map<String, Body> spawnedParts,
                               @NotNull GroupFilterTable groupFilter,
                               int partIndex) {
-        super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, partIndex));
+        super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, partIndex), renderFactory, modelRegistry);
         this.bodyId = bodyId;
+        this.partName = partName;
         this.collisionGroup = getBody().getCollisionGroup();
 
         RagdollDefinition def = (RagdollDefinition) modelRegistry.require(bodyId).bodyDefinition();
@@ -60,8 +61,48 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
             }
         }
 
-        this.displayComposite = createVisuals(space, bodyId, partName, modelRegistry, renderFactory, initialPosition);
+        this.displayComposite = recreateDisplay();
     }
+
+    @Override
+    protected PhysicsDisplayComposite recreateDisplay() {
+        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
+        String renderModelId = ((RagdollDefinition)model.bodyDefinition()).parts().get(partName).renderModelId();
+        if (renderModelId == null) return null;
+
+        var renderConfig = InertiaPlugin.getInstance().getConfigManager().getRenderConfig();
+        var renderDefOpt = renderConfig.find(renderModelId);
+
+        if (renderDefOpt.isEmpty()) return null;
+        RenderModelDefinition renderDef = renderDefOpt.get();
+
+        World world = getSpace().getWorldBukkit();
+        // Use current position
+        RVec3 currentPos = getBody().getPosition();
+        Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
+        UUID bodyUuid = getUuid();
+
+        List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
+        for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
+            String entityKey = entry.getKey();
+            RenderEntityDefinition entityDef = entry.getValue();
+
+            VisualEntity visual = renderFactory.create(world, spawnLoc, entityDef);
+            if (visual.isValid()) {
+                InertiaPDCUtils.applyInertiaTags(
+                        visual,
+                        bodyId,
+                        bodyUuid,
+                        renderModelId,
+                        entityKey
+                );
+                parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
+            }
+        }
+        return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
+    }
+
+    // ... (Остальные методы createBodySettings, createConstraint без изменений)
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
                                                            PhysicsBodyRegistry registry,
@@ -156,48 +197,14 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody {
         addRelatedConstraint(constraint.toRef());
     }
 
-    private PhysicsDisplayComposite createVisuals(PhysicsWorld space, String bodyId, String partName,
-                                                  PhysicsBodyRegistry registry, RenderFactory factory,
-                                                  RVec3 initialPos) {
-        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
-        String renderModelId = ((RagdollDefinition)model.bodyDefinition()).parts().get(partName).renderModelId();
-        if (renderModelId == null) return null;
-
-        var renderConfig = InertiaPlugin.getInstance().getConfigManager().getRenderConfig();
-        var renderDefOpt = renderConfig.find(renderModelId);
-
-        if (renderDefOpt.isEmpty()) return null;
-        RenderModelDefinition renderDef = renderDefOpt.get();
-
-        World world = space.getWorldBukkit();
-        Location spawnLoc = new Location(world, initialPos.xx(), initialPos.yy(), initialPos.zz());
-        UUID bodyUuid = getUuid();
-
-        List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-        for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
-            String entityKey = entry.getKey();
-            RenderEntityDefinition entityDef = entry.getValue();
-
-            VisualEntity visual = factory.create(world, spawnLoc, entityDef);
-            if (visual.isValid()) {
-                InertiaPDCUtils.applyInertiaTags(
-                        visual,
-                        bodyId,         // ID всего рэгдолла (например "ragdolls.steve")
-                        bodyUuid,       // UUID конкретной физической части
-                        renderModelId,  // ID рендер модели части (например "ragdoll_head")
-                        entityKey       // Ключ энтити (например "display")
-                );
-                parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
-            }
-        }
-        return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
-    }
-
-    @Override public @Nullable PhysicsDisplayComposite getDisplay() { return displayComposite; }
     @Override public @NotNull String getBodyId() { return bodyId; }
     @Override public @NotNull PhysicsBodyType getType() { return PhysicsBodyType.RAGDOLL; }
     @Override public void remove() { destroy(); }
-    @Override public void destroy() { if (removed) return; removed = true; super.destroy(); if (displayComposite != null) displayComposite.destroy(); }
+    @Override public void destroy() {
+        if (removed) return;
+        removed = true;
+        super.destroy();
+    }
     @Override public boolean isValid() { return !removed && getBody() != null; }
     @Override public void teleport(@NotNull Location location) {}
     @Override public void setLinearVelocity(@NotNull Vector velocity) {}

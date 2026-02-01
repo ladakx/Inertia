@@ -30,8 +30,6 @@ import java.util.*;
 public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhysicsBody {
 
     private final String bodyId;
-    private final PhysicsDisplayComposite displayComposite;
-
     private boolean removed = false;
 
     public BlockPhysicsBody(@NotNull PhysicsWorld space,
@@ -41,16 +39,23 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
                             @NotNull JShapeFactory shapeFactory,
                             @NotNull RVec3 initialPosition,
                             @NotNull Quat initialRotation) {
-        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation));
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation), renderFactory, modelRegistry);
         this.bodyId = bodyId;
+        this.displayComposite = recreateDisplay();
+    }
 
+    @Override
+    protected PhysicsDisplayComposite recreateDisplay() {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
 
         if (renderOpt.isPresent()) {
             RenderModelDefinition renderDef = renderOpt.get();
-            World world = space.getWorldBukkit();
-            Location spawnLocation = new Location(world, initialPosition.xx(), initialPosition.yy(), initialPosition.zz());
+            World world = getSpace().getWorldBukkit();
+
+            // Используем ТЕКУЩУЮ позицию тела, а не начальную
+            RVec3 currentPos = getBody().getPosition();
+            Location spawnLocation = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
 
             List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
             UUID bodyUuid = getUuid();
@@ -72,13 +77,12 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
                 }
             }
 
-            this.displayComposite = new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
-        } else {
-            this.displayComposite = null;
+            return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
         }
+        return null;
     }
 
-    // --- Static Helpers ---
+    // --- Static Helpers (без изменений) ---
     private static BodyCreationSettings createBodySettings(String bodyId,
                                                            PhysicsBodyRegistry modelRegistry,
                                                            JShapeFactory shapeFactory,
@@ -89,7 +93,6 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
         BodyPhysicsSettings phys = def.physicsSettings();
         List<String> shapeLines = def.shapeLines();
 
-        // Use instance instead of static call
         ConstShape shape = shapeFactory.createShape(shapeLines);
 
         BodyCreationSettings settings = new BodyCreationSettings()
@@ -113,27 +116,6 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
         return settings;
     }
 
-    // --- AbstractPhysicsBody Implementation ---
-
-    @Override
-    public @Nullable PhysicsDisplayComposite getDisplay() {
-        return displayComposite;
-    }
-
-    @Override
-    public void destroy() {
-        if (removed) return;
-        removed = true;
-        super.destroy();
-        if (displayComposite != null) {
-            // Note: Destroy must be called on Main Thread.
-            // AbstractPhysicsBody.destroy calls space.removeObject, which is usually safe.
-            // But displayComposite.destroy() touches Bukkit Entities.
-            // Ideally, schedule this if we are not on main thread, but this method is usually called from Tool (main thread).
-            displayComposite.destroy();
-        }
-    }
-
     // --- InertiaPhysicsBody Implementation (API) ---
 
     @Override
@@ -149,6 +131,13 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody implements InertiaPhy
     @Override
     public void remove() {
         destroy();
+    }
+
+    @Override
+    public void destroy() {
+        if (removed) return;
+        removed = true;
+        super.destroy(); // DisplayComposite destroy is handled in super
     }
 
     @Override
