@@ -155,6 +155,15 @@ public final class PhysicsDisplayComposite {
         }
     }
 
+    public boolean isValid() {
+        for (DisplayPart part : parts) {
+            if (!part.visual().isValid()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public void destroy() {
         // Called from Main Thread
         for (DisplayPart part : parts) {

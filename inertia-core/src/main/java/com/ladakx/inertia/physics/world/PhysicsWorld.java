@@ -558,4 +558,32 @@ public class PhysicsWorld implements AutoCloseable {
         }
         return results;
     }
+
+    /**
+     * Вызывается при загрузке чанка в Bukkit.
+     * Сканирует объекты, которые должны быть в этом чанке, и при необходимости восстанавливает их визуальную часть.
+     * * @param chunkX Координата X чанка
+     * @param chunkZ Координата Z чанка
+     */
+    public void onChunkLoad(int chunkX, int chunkZ) {
+        // Чтобы не итерировать по 5000 объектам в основном потоке, запускаем задачу в пуле
+        // Но восстановление Entity должно быть в Main Thread.
+        // Поэтому итерируем быстро (список в памяти), проверяем координаты.
+
+        // Для 5000 объектов это очень быстро (микросекунды).
+        for (AbstractPhysicsBody obj : objects) {
+            if (obj instanceof DisplayedPhysicsBody displayed) {
+                // Получаем позицию из Jolt (это безопасно, так как BodyInterface потокобезопасен для чтения)
+                // Или используем кешированную позицию, если есть. Для точности берем из Jolt.
+                RVec3 pos = displayed.getBody().getPosition();
+
+                int objChunkX = (int) Math.floor(pos.xx()) >> 4;
+                int objChunkZ = (int) Math.floor(pos.zz()) >> 4;
+
+                if (objChunkX == chunkX && objChunkZ == chunkZ) {
+                    displayed.checkAndRestoreVisuals();
+                }
+            }
+        }
+    }
 }

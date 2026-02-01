@@ -19,7 +19,7 @@ import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import com.ladakx.inertia.common.utils.ConvertUtils;
-import com.ladakx.inertia.common.utils.MiscUtils; // Assuming lerp is here
+import com.ladakx.inertia.common.utils.MiscUtils;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
@@ -31,10 +31,7 @@ import java.util.*;
 public class ChainPhysicsBody extends DisplayedPhysicsBody {
 
     private final String bodyId;
-    private final PhysicsDisplayComposite displayComposite;
     private boolean removed = false;
-
-    // Храним вычисленные адаптивные параметры для использования в констрейнтах
     private final int calculatedIterations;
 
     public ChainPhysicsBody(@NotNull PhysicsWorld space,
@@ -47,45 +44,72 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
                             @Nullable Body parentBody,
                             @NotNull GroupFilterTable groupFilter,
                             int chainIndex,
-                            int totalChainLength) { // Принимаем длину цепи
-        // Сначала вычисляем настройки, потом вызываем super
-        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, chainIndex, totalChainLength));
+                            int totalChainLength) {
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, chainIndex, totalChainLength), renderFactory, modelRegistry);
         this.bodyId = bodyId;
-
-        // Сохраняем итерации для констрейнтов
         this.calculatedIterations = calculateIterations(modelRegistry.require(bodyId), totalChainLength);
 
         if (parentBody != null) {
             createConstraint(modelRegistry, bodyId, parentBody);
         }
 
-        this.displayComposite = createVisuals(space, bodyId, modelRegistry, renderFactory, initialPosition);
+        this.displayComposite = recreateDisplay();
     }
 
-    // --- Логика адаптации ---
+    @Override
+    protected PhysicsDisplayComposite recreateDisplay() {
+        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
+        Optional<RenderModelDefinition> renderOpt = model.renderModel();
+
+        if (renderOpt.isEmpty()) return null;
+
+        RenderModelDefinition renderDef = renderOpt.get();
+        World world = getSpace().getWorldBukkit();
+
+        // Use current body position
+        RVec3 currentPos = getBody().getPosition();
+        Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
+        UUID bodyUuid = getUuid();
+
+        List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
+        for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
+            String entityKey = entry.getKey();
+            RenderEntityDefinition entityDef = entry.getValue();
+
+            VisualEntity visual = renderFactory.create(world, spawnLoc, entityDef);
+            if (visual.isValid()) {
+                InertiaPDCUtils.applyInertiaTags(
+                        visual,
+                        bodyId,
+                        bodyUuid,
+                        renderDef.id(),
+                        entityKey
+                );
+                parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
+            }
+        }
+        return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
+    }
+
+    // ... (Остальные методы calculateGravity, calculateIterations, getLerpFactor, createBodySettings, createConstraint без изменений)
+    // Копируем методы из предыдущей версии ChainPhysicsBody, они не меняются логически, только конструктор и recreateDisplay
 
     private static float calculateGravity(PhysicsBodyRegistry.BodyModel model, int length) {
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def) || !def.adaptive().enabled()) {
-            // Если адаптация выключена, берем из physics settings
             return ((ChainBodyDefinition) model.bodyDefinition()).physicsSettings().gravityFactor();
         }
-
         ChainBodyDefinition.AdaptiveSettings adapt = def.adaptive();
-        // Lerp (Linear Interpolation)
         double factor = getLerpFactor(length, adapt.minLength(), adapt.maxLength());
         return (float) MiscUtils.lerp(adapt.maxGravity(), adapt.minGravity(), factor);
     }
 
     private int calculateIterations(PhysicsBodyRegistry.BodyModel model, int length) {
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) return 2;
-
         if (!def.adaptive().enabled()) {
             return def.stabilization().positionIterations();
         }
-
         ChainBodyDefinition.AdaptiveSettings adapt = def.adaptive();
         double factor = getLerpFactor(length, adapt.minLength(), adapt.maxLength());
-        // Интерполируем количество итераций (для коротких мало, для длинных много)
         return (int) MiscUtils.lerp(adapt.minIterations(), adapt.maxIterations(), factor);
     }
 
@@ -122,7 +146,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         settings.setLinearDamping(phys.linearDamping());
         settings.setAngularDamping(phys.angularDamping());
 
-        // Применяем АДАПТИВНУЮ гравитацию
         float adaptiveGravity = calculateGravity(model, totalLength);
         settings.setGravityFactor(adaptiveGravity);
 
@@ -171,13 +194,8 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
 
         TwoBodyConstraint constraint = settings.create(parentBody, getBody());
 
-        // Применяем АДАПТИВНЫЕ итерации
-        // Если адаптация выключена, calculatedIterations будет равен stabilization.position-iterations
         if (calculatedIterations > 0) {
             constraint.setNumPositionStepsOverride(calculatedIterations);
-            // Для скорости берем пропорционально меньше (например, половину), или читаем отдельно, если усложнять конфиг.
-            // Для простоты используем то же масштабирование или дефолт.
-            // Тут можно взять базовый velocityIter, так как он менее критичен для растяжения.
             int velIter = chainDef.stabilization().velocityIterations();
             constraint.setNumVelocityStepsOverride(velIter);
         }
@@ -186,40 +204,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         addRelatedConstraint(constraint.toRef());
     }
 
-    private PhysicsDisplayComposite createVisuals(PhysicsWorld space, String bodyId,
-                                                  PhysicsBodyRegistry registry, RenderFactory factory,
-                                                  RVec3 initialPos) {
-        PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
-        Optional<RenderModelDefinition> renderOpt = model.renderModel();
-
-        if (renderOpt.isEmpty()) return null;
-
-        RenderModelDefinition renderDef = renderOpt.get();
-        World world = space.getWorldBukkit();
-        Location spawnLoc = new Location(world, initialPos.xx(), initialPos.yy(), initialPos.zz());
-        UUID bodyUuid = getUuid();
-
-        List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-        for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
-            String entityKey = entry.getKey();
-            RenderEntityDefinition entityDef = entry.getValue();
-
-            VisualEntity visual = factory.create(world, spawnLoc, entityDef);
-            if (visual.isValid()) {
-                InertiaPDCUtils.applyInertiaTags(
-                        visual,
-                        bodyId,
-                        bodyUuid,
-                        renderDef.id(),
-                        entityKey
-                );
-                parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
-            }
-        }
-        return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
-    }
-
-    @Override public @Nullable PhysicsDisplayComposite getDisplay() { return displayComposite; }
     @Override public @NotNull String getBodyId() { return bodyId; }
     @Override public @NotNull PhysicsBodyType getType() { return PhysicsBodyType.CHAIN; }
     @Override public void remove() { destroy(); }
@@ -227,9 +211,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody {
         if (removed) return;
         removed = true;
         super.destroy();
-        if (displayComposite != null) {
-            displayComposite.destroy();
-        }
     }
     @Override public boolean isValid() { return !removed && getBody() != null; }
     @Override public void teleport(@NotNull Location location) {
