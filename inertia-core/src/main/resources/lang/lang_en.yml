@@ -175,28 +175,10 @@ tnt-invalid-force:
 tnt-tool-usage:
   - "{prefix} &cUsage: /inertia tool tntspawner <bodyId> <force>"
 
-help-command:
-  - ' '
-  - '&c&lInertia &8&l|&r &7Commands'
-  - ' '
-  - '&c&l» General&8:'
-  - '&c› &c/inertia help &7- &fShow available commands'
-  - ' '
-help-command-admin:
-  - ' '
-  - '&c&lInertia &8&l|&r &7Admin Commands'
-  - ' '
-  - '&c&l» Main&8:'
-  - '&c› &c/inertia reload &7- &fReload configuration'
-  - '&c› &c/inertia clear &7- &fRemove all physics objects'
-  - ' '
-  - '&c&l» Spawning&8:'
-  - '&c› &c/inertia spawn body <id> &7- &fSpawn a physics body'
-  - '&c› &c/inertia spawn chain <id> [size] &7- &fSpawn a chain'
-  - '&c› &c/inertia spawn ragdoll <id> &7- &fSpawn a ragdoll'
-  - '&c› &c/inertia spawn-shape <type> <params> <id> &7- &fSpawn a shape of blocks'
-  - ' '
-  - '&c&l» Tools&8:'
-  - '&c› &c/inertia tool <grabber|welder|remover> &7- &fGet utility tools'
-  - '&c› &c/inertia tool <chain|ragdoll|shape> ... &7- &fGet creation tools'
-  - ' '
+
+# --- Dynamic Help Menu ---
+help-page-header: "&c&lInertia Help &8(&7{page}/{max_pages}&8)"
+help-page-footer: "&8&m------------------------------"
+help-command-desc: "&7{description}"
+help-next-page: "&cNext &l»"
+help-prev-page: "&l« &cPrev"

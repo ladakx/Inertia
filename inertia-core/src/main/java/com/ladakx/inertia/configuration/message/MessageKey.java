@@ -100,8 +100,11 @@ public enum MessageKey {
     TNT_TOOL_USAGE("tnt-tool-usage"),
 
     // Help
-    HELP_COMMAND("help-command"),
-    HELP_COMMAND_ADMIN("help-command-admin");
+    HELP_PAGE_HEADER("help-page-header"), // Заголовок страницы
+    HELP_PAGE_FOOTER("help-page-footer"), // Футер
+    HELP_COMMAND_DESC("help-command-desc"), // Описание
+    HELP_NEXT_PAGE("help-next-page"), // Кнопка "Вперед"
+    HELP_PREV_PAGE("help-prev-page"); // Кнопка "Назад"
 
     private final String path;
 
