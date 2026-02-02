@@ -9,7 +9,6 @@ import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.incendo.cloud.Command;
 import org.incendo.cloud.CommandManager;
 import org.incendo.cloud.description.Description;
 import org.incendo.cloud.parser.standard.DoubleParser;
@@ -32,28 +31,29 @@ public class SpawnCommands extends CloudModule {
 
     @Override
     public void register() {
-        // Создаем базовый билдер для /inertia spawn
         var spawnRoot = rootBuilder().literal("spawn").permission("inertia.commands.spawn");
 
-        // /inertia spawn body <id>
         manager.command(spawnRoot
                 .literal("body")
                 .required("id", BodyIdParser.bodyIdParser(config))
                 .handler(ctx -> {
                     if (!validatePlayer(ctx.sender())) return;
                     Player player = (Player) ctx.sender();
+
+                    // Note: validateWorld check is also inside spawnBody, but good to fail fast here too
+                    // or let spawnBody handle it. Since we pass player to spawnBody, it will handle messaging.
+                    // However, safe to check world support first.
                     if (!validateWorld(player)) return;
 
                     String id = ctx.get("id");
-                    if (bodyFactory.spawnBody(player.getLocation(), id)) {
+                    // Pass player to receive specific error messages (e.g. Obstructed)
+                    if (bodyFactory.spawnBody(player.getLocation(), id, player)) {
                         send(player, MessageKey.SPAWN_SUCCESS, "{id}", id);
-                    } else {
-                        send(player, MessageKey.ERROR_OCCURRED, "{error}", "Failed to spawn (Limit reached?)");
                     }
+                    // If false, spawnBody already sent the specific error message (Obstructed/Limits/World)
                 })
         );
 
-        // /inertia spawn chain <id> [size]
         manager.command(spawnRoot
                 .literal("chain")
                 .required("id", BodyIdParser.bodyIdParser(config))
@@ -76,7 +76,6 @@ public class SpawnCommands extends CloudModule {
                 })
         );
 
-        // /inertia spawn ragdoll <id>
         manager.command(spawnRoot
                 .literal("ragdoll")
                 .required("id", BodyIdParser.bodyIdParser(config))
@@ -86,6 +85,7 @@ public class SpawnCommands extends CloudModule {
                     if (!validateWorld(player)) return;
 
                     String id = ctx.get("id");
+
                     try {
                         bodyFactory.spawnRagdoll(player, id);
                         send(player, MessageKey.RAGDOLL_SPAWN_SUCCESS, "{id}", id);
@@ -95,7 +95,6 @@ public class SpawnCommands extends CloudModule {
                 })
         );
 
-        // /inertia spawn tnt <id> [force]
         manager.command(spawnRoot
                 .literal("tnt")
                 .required("id", BodyIdParser.bodyIdParser(config))
@@ -118,23 +117,18 @@ public class SpawnCommands extends CloudModule {
                 })
         );
 
-        // /inertia spawn-shape <type> <id> <params>
-        manager.command(rootBuilder()
+        manager.command(spawnRoot
                 .literal("spawn-shape")
                 .permission("inertia.commands.spawn")
                 .required("type", StringParser.stringParser(),
                         SuggestionProvider.blockingStrings((c, i) -> debugShapeManager.getAvailableShapes()))
                 .required("id", BodyIdParser.bodyIdParser(config))
                 .required("params", StringParser.greedyStringParser(),
-                        // ИСПРАВЛЕНИЕ: Возвращаем CompletableFuture
                         (ctx, input) -> {
                             String type = ctx.getOrDefault("type", null);
                             if (type == null) return java.util.concurrent.CompletableFuture.completedFuture(java.util.Collections.emptyList());
-
                             var generator = debugShapeManager.getGenerator(type);
                             if (generator == null) return java.util.concurrent.CompletableFuture.completedFuture(java.util.Collections.emptyList());
-
-                            // Оборачиваем результат
                             return java.util.concurrent.CompletableFuture.completedFuture(
                                     java.util.List.of(org.incendo.cloud.suggestion.Suggestion.suggestion(generator.getUsage()))
                             );
@@ -166,7 +160,6 @@ public class SpawnCommands extends CloudModule {
 
                         int count = bodyFactory.spawnShape(player, generator, id, params);
                         send(player, MessageKey.SHAPE_SPAWN_SUCCESS, "{count}", String.valueOf(count), "{shape}", type);
-
                     } catch (NumberFormatException e) {
                         send(player, MessageKey.SHAPE_INVALID_PARAMS);
                     } catch (Exception e) {

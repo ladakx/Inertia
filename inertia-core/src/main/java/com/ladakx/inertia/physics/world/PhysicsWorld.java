@@ -233,6 +233,43 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
     }
 
+    /**
+     * Checks if the given shape overlaps with any STATIC objects at the specified position/rotation.
+     * Used to prevent spawning objects inside walls or floors.
+     *
+     * @param shape    The shape to test
+     * @param position The world position (RVec3)
+     * @param rotation The rotation (Quat)
+     * @return true if an overlap is detected, false otherwise.
+     */
+    public boolean checkOverlap(@NotNull com.github.stephengold.joltjni.readonly.ConstShape shape,
+                                @NotNull RVec3 position,
+                                @NotNull Quat rotation) {
+        CollideShapeSettings settings = new CollideShapeSettings();
+        settings.setActiveEdgeMode(EActiveEdgeMode.CollideOnlyWithActive);
+
+        // Используем AnyHitCollector, так как нам достаточно знать сам факт пересечения (быстро)
+        // Фильтруем: Ищем пересечения только со статическими объектами (PhysicsLayers.OBJ_STATIC)
+        // В BroadPhase статика обычно находится в слое 0.
+        try (AnyHitCollideShapeCollector collector = new AnyHitCollideShapeCollector();
+             SpecifiedBroadPhaseLayerFilter bpFilter = new SpecifiedBroadPhaseLayerFilter(0);
+             SpecifiedObjectLayerFilter objFilter = new SpecifiedObjectLayerFilter(PhysicsLayers.OBJ_STATIC)) {
+
+            physicsSystem.getNarrowPhaseQuery().collideShape(
+                    shape,
+                    Vec3.sReplicate(1.0f), // Scale 1.0
+                    RMat44.sRotationTranslation(rotation, position),
+                    settings,
+                    RVec3.sZero(),
+                    collector,
+                    bpFilter,
+                    objFilter
+            );
+
+            return collector.hadHit();
+        }
+    }
+
     // --- Coordinate Conversion Methods ---
 
     public RVec3 toJolt(Location location) {

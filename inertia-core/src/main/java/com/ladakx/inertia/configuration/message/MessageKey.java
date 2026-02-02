@@ -14,6 +14,8 @@ public enum MessageKey {
 
     // Errors
     SPAWN_LIMIT_REACHED("spawn-limit-reached"),
+    SPAWN_FAIL_OBSTRUCTED("spawn-fail-obstructed"),
+    SPAWN_FAIL_OUT_OF_BOUNDS("spawn-fail-out-of-bounds"),
 
     // Spawn
     SPAWN_SUCCESS("spawn-success"),

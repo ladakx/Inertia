@@ -39,9 +39,10 @@ public class ToolRegistry implements Listener {
         register(new GrabberTool(configurationService, physicsWorldRegistry));
         register(new StaticTool(configurationService, physicsWorldRegistry));
 
-        register(new ChainTool(configurationService, physicsWorldRegistry, shapeFactory));
-        register(new RagdollTool(configurationService, physicsWorldRegistry, shapeFactory));
+        // Pass bodyFactory to ChainTool
+        register(new ChainTool(configurationService, physicsWorldRegistry, shapeFactory, bodyFactory));
 
+        register(new RagdollTool(configurationService, physicsWorldRegistry, shapeFactory));
         register(new ShapeTool(configurationService, physicsWorldRegistry, bodyFactory));
         register(new TNTSpawnTool(configurationService, physicsWorldRegistry, bodyFactory));
     }
@@ -88,7 +89,6 @@ public class ToolRegistry implements Listener {
     public void onHotbarChange(PlayerItemHeldEvent event) {
         ItemStack item = event.getPlayer().getInventory().getItem(event.getPreviousSlot());
         Tool tool = getToolFromItem(item);
-
         if (tool != null) {
             int newSlot = event.getNewSlot();
             int oldSlot = event.getPreviousSlot();
