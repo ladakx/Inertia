@@ -1,17 +1,49 @@
 world:
-  gravity: "0.0 -17.18 0.0" # "x y z" Real world: y = "-9.81" | Minecraft: y = "-31.36"
-  tick-rate: 20 # Physics tick rate (TPS)
-  collision-steps: 4 # Number of collision iterations per tick
-  max-bodies: 5000; # Maximum number of physics bodies allowed in the world //65536
-  floor-plane:
-    enable: true
-    y-level: 4
-    y-size: 1
-    friction: 1.0
-    restitution: 0.025
+  gravity: "0.0 -17.18 0.0"
+  tick-rate: 20
+  collision-steps: 4
+
   simulation:
     enable: false
-    type: RAYON # Chunk simulation
+    type: FLOOR_PLANE
+    floor-plane:
+      y-level: 4
+      y-size: 1
+      friction: 1.0
+      restitution: 0.025
+      size:
+        origin: "0 0 0"
+        min: "-5000000 -5000000"
+        max: "5000000 5000000"
+
   size:
-    min: "-5000000 -64 -5000000"
+    origin: "0 0 0"
+    min: "-5000000 0 -5000000"
     max: "5000000 1024 5000000"
+
+  solver:
+    velocity-iterations: 10
+    position-iterations: 2
+    baumgarte-stabilization: 0.2
+    speculative-contact-distance: 0.02
+    penetration-slop: 0.02
+    linear-cast-threshold: 0.75
+    linear-cast-max-penetration: 0.25
+    manifold-tolerance: 1.0e-3
+    max-penetration-distance: 0.2
+    constraint-warm-start: true
+    use-body-pair-contact-cache: true
+    use-large-island-splitter: true
+    allow-sleeping: true
+    deterministic-simulation: true
+
+  performance:
+    max-bodies: 65536
+    num-body-mutexes: 0
+    max-body-pairs: 65536
+    max-contact-constraints: 10240
+    temp-allocator-size: 10485760
+
+  sleeping:
+    point-velocity-threshold: 0.03
+    time-before-sleep: 0.5

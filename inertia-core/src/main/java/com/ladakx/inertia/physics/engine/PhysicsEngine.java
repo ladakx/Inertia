@@ -4,8 +4,6 @@ import com.github.stephengold.joltjni.*;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
-import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
-import com.ladakx.inertia.common.mesh.BlockBenchMeshProvider;
 
 public class PhysicsEngine {
 
@@ -20,7 +18,6 @@ public class PhysicsEngine {
         this.tempAllocator = new TempAllocatorMalloc();
 
         int availableProcessors = Runtime.getRuntime().availableProcessors();
-        // Берем настройки из переданного инстанса конфига, а не статики
         int numThreads = Math.max(configurationService.getInertiaConfig().PHYSICS.workerThreads, availableProcessors - 1);
 
         this.jobSystem = new JobSystemThreadPool(
