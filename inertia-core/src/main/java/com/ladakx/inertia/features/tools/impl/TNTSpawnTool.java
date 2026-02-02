@@ -2,7 +2,7 @@ package com.ladakx.inertia.features.tools.impl;
 
 import com.ladakx.inertia.common.utils.StringUtils;
 import com.ladakx.inertia.configuration.message.MessageManager;
-import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -22,21 +22,15 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.getString;
-import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.setString;
-
 public class TNTSpawnTool extends Tool {
-
-    private static final String KEY_BODY = "tnt_body";
-    private static final String KEY_FORCE = "tnt_force";
-
     private final BodyFactory bodyFactory;
     private final PhysicsWorldRegistry physicsWorldRegistry;
 
     public TNTSpawnTool(ConfigurationService configurationService,
                         PhysicsWorldRegistry physicsWorldRegistry,
-                        BodyFactory bodyFactory) {
-        super("tnt_spawner", configurationService);
+                        BodyFactory bodyFactory,
+                        ToolDataManager toolDataManager) {
+        super("tnt_spawner", configurationService, toolDataManager);
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.bodyFactory = bodyFactory;
     }
@@ -56,7 +50,6 @@ public class TNTSpawnTool extends Tool {
 
     private void spawnTNT(Player player, ItemStack item, boolean isThrow) {
         if (!validateWorld(player)) return;
-
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
@@ -65,45 +58,30 @@ public class TNTSpawnTool extends Tool {
             return;
         }
 
-        String bodyId = getString(InertiaPlugin.getInstance(), item, KEY_BODY);
-        String forceStr = getString(InertiaPlugin.getInstance(), item, KEY_FORCE);
+        String bodyId = toolDataManager.getBodyId(item);
+        float force = toolDataManager.getTntForce(item, -1f);
 
-        if (bodyId == null || forceStr == null) {
+        if (bodyId == null || force < 0) {
             send(player, MessageKey.TOOL_BROKEN_NBT);
-            return;
-        }
-
-        float force;
-        try {
-            force = Float.parseFloat(forceStr);
-        } catch (NumberFormatException e) {
-            send(player, MessageKey.TOOL_INVALID_PARAMS);
             return;
         }
 
         Location spawnLoc;
         Vector velocity = null;
-
         if (isThrow) {
             spawnLoc = player.getEyeLocation();
-            // Calculate throw vector
-            velocity = player.getLocation().getDirection().multiply(15.0); // Adjust speed as needed
+            velocity = player.getLocation().getDirection().multiply(15.0);
         } else {
-            // Spawn at feet, slight offset up
             spawnLoc = player.getLocation().add(0, 0.5, 0);
         }
 
         try {
             bodyFactory.spawnTNT(spawnLoc, bodyId, force, velocity);
             player.playSound(player.getLocation(), Sound.ENTITY_TNT_PRIMED, 1.0f, 1.0f);
-            
             if (isThrow) {
                 player.swingMainHand();
             }
         } catch (Exception e) {
-            // Handled via InertiaLogger in service usually, but good to catch strictly here too
-            // InertiaLogger.error("Failed to spawn TNT", e); // Provided guidelines say don't printTrace manually if Service handles it, but Service methods throw exceptions in current code.
-            // Using existing pattern:
             send(player, MessageKey.ERROR_OCCURRED, "{error}", e.getMessage());
         }
     }
@@ -112,16 +90,12 @@ public class TNTSpawnTool extends Tool {
         ItemStack item = getBaseItem();
         item = markItemAsTool(item);
 
-        setString(InertiaPlugin.getInstance(), item, KEY_BODY, bodyId);
-        setString(InertiaPlugin.getInstance(), item, KEY_FORCE, String.valueOf(force));
+        toolDataManager.setBodyId(item, bodyId);
+        toolDataManager.setTntForce(item, force);
 
         ItemMeta meta = item.getItemMeta();
         MessageManager msg = configurationService.getMessageManager();
-
-        // Localized Name
         meta.displayName(msg.getSingle(MessageKey.TOOL_TNT_NAME));
-
-        // Localized Lore
         List<Component> lore = new ArrayList<>();
         for (Component line : msg.get(MessageKey.TOOL_TNT_LORE)) {
             lore.add(StringUtils.replace(line,
@@ -130,7 +104,6 @@ public class TNTSpawnTool extends Tool {
             ));
         }
         meta.lore(lore);
-
         item.setItemMeta(meta);
         return item;
     }

@@ -1,16 +1,12 @@
 package com.ladakx.inertia.features.tools.impl;
 
-import com.github.stephengold.joltjni.Body;
-import com.github.stephengold.joltjni.TwoBodyConstraint;
-import com.github.stephengold.joltjni.TwoBodyConstraintRef;
-import com.ladakx.inertia.common.PhysicsGraphUtils;
-import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.configuration.message.MessageManager;
 import com.ladakx.inertia.features.tools.Tool;
+import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
-import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import org.bukkit.Material;
@@ -21,15 +17,18 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.*;
-
 public class StaticTool extends Tool {
 
     private final PhysicsWorldRegistry physicsWorldRegistry;
+    private final PhysicsManipulationService manipulationService;
 
-    public StaticTool(ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry) {
-        super("static_tool", configurationService);
+    public StaticTool(ConfigurationService configurationService,
+                      PhysicsWorldRegistry physicsWorldRegistry,
+                      PhysicsManipulationService manipulationService,
+                      ToolDataManager toolDataManager) {
+        super("static_tool", configurationService, toolDataManager);
         this.physicsWorldRegistry = physicsWorldRegistry;
+        this.manipulationService = manipulationService;
     }
 
     @Override
@@ -48,37 +47,16 @@ public class StaticTool extends Tool {
 
     private void applyFreeze(Player player) {
         if (!validateWorld(player)) return;
-
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
-        List<PhysicsWorld.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 10);
+        java.util.List<PhysicsWorld.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 10);
         if (results.isEmpty()) return;
 
-        PhysicsWorld.RaycastResult result = results.get(0);
-        Long va = result.va();
-        if (va == null) return;
-
-        AbstractPhysicsBody hitBody = space.getObjectByVa(va);
+        AbstractPhysicsBody hitBody = space.getObjectByVa(results.get(0).va());
         if (hitBody == null) return;
 
-        // REFACTOR: Использование PhysicsGraphUtils вместо дублирования кода
-        Set<AbstractPhysicsBody> cluster = PhysicsGraphUtils.collectConnectedBodies(space, hitBody);
-        java.util.UUID clusterId = java.util.UUID.randomUUID();
-        int frozenCount = 0;
-
-        for (AbstractPhysicsBody body : cluster) {
-            if (body instanceof DisplayedPhysicsBody displayedBody) {
-                try {
-                    displayedBody.freeze(clusterId);
-                    frozenCount++;
-                } catch (Exception e) {
-                    InertiaLogger.error("Failed to freeze body part via StaticTool", e);
-                }
-            } else {
-                body.destroy();
-            }
-        }
+        int frozenCount = manipulationService.freezeCluster(space, hitBody);
 
         if (frozenCount > 0) {
             send(player, MessageKey.BODY_FROZEN);

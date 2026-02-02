@@ -1,9 +1,11 @@
 package com.ladakx.inertia.physics.world;
 
+import com.github.stephengold.joltjni.PhysicsSystem;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
+import com.ladakx.inertia.physics.engine.JoltSystemFactory;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
 import com.ladakx.inertia.physics.world.terrain.SimulationType;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
@@ -22,14 +24,15 @@ public class PhysicsWorldRegistry {
     private final InertiaPlugin plugin;
     private final ConfigurationService configurationService;
     private final PhysicsEngine physicsEngine;
+    private final JoltSystemFactory systemFactory;
     private final Map<UUID, PhysicsWorld> spaces = new ConcurrentHashMap<>();
 
     public PhysicsWorldRegistry(InertiaPlugin plugin, ConfigurationService configurationService, PhysicsEngine physicsEngine) {
         this.plugin = plugin;
         this.configurationService = configurationService;
         this.physicsEngine = physicsEngine;
+        this.systemFactory = new JoltSystemFactory();
 
-        // Initial load
         Bukkit.getScheduler().runTask(plugin, () -> {
             InertiaLogger.info("Loading existing worlds into Inertia Jolt...");
             for (World world : Bukkit.getWorlds()) {
@@ -50,6 +53,8 @@ public class PhysicsWorldRegistry {
         InertiaLogger.info("Creating physics space for world: " + world.getName());
         WorldsConfig.WorldProfile settings = configurationService.getWorldsConfig().getWorldSettings(world.getName());
 
+        PhysicsSystem physicsSystem = systemFactory.createSystem(settings);
+
         TerrainAdapter terrainAdapter = null;
         if (settings.simulation().enabled() && settings.simulation().type() == SimulationType.FLOOR_PLANE) {
             terrainAdapter = new FlatFloorAdapter(settings.simulation().floorPlane());
@@ -58,6 +63,7 @@ public class PhysicsWorldRegistry {
         return new PhysicsWorld(
                 world,
                 settings,
+                physicsSystem,
                 physicsEngine.getJobSystem(),
                 physicsEngine.getTempAllocator(),
                 terrainAdapter
@@ -73,9 +79,6 @@ public class PhysicsWorldRegistry {
                 } catch (Exception e) {
                     InertiaLogger.error("Failed to initialize physics world: " + world.getName(), e);
                 }
-            } else {
-                // Not necessarily an error, maybe user didn't configure this world
-                // InertiaLogger.debug("World " + world.getName() + " is not configured for Inertia Jolt.");
             }
         }
     }
@@ -87,14 +90,8 @@ public class PhysicsWorldRegistry {
         }
     }
 
-    /**
-     * Reloads all physics worlds based on the new configuration.
-     * Warning: This destroys all current physics bodies!
-     */
     public void reload() {
         InertiaLogger.info("Reloading Physics World Registry...");
-
-        // 1. Close all existing worlds
         for (PhysicsWorld space : spaces.values()) {
             try {
                 space.close();
@@ -103,12 +100,9 @@ public class PhysicsWorldRegistry {
             }
         }
         spaces.clear();
-
-        // 2. Re-initialize worlds that are currently loaded in Bukkit
         for (World world : Bukkit.getWorlds()) {
             createSpace(world);
         }
-
         InertiaLogger.info("Physics worlds reloaded.");
     }
 

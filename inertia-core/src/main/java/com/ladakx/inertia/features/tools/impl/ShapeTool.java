@@ -2,7 +2,7 @@ package com.ladakx.inertia.features.tools.impl;
 
 import com.ladakx.inertia.common.utils.StringUtils;
 import com.ladakx.inertia.configuration.message.MessageManager;
-import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
@@ -24,24 +24,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.getString;
-import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.setString;
 import static com.ladakx.inertia.common.utils.PlayerUtils.getTargetLocation;
 
 public class ShapeTool extends Tool {
-
-    private static final String KEY_SHAPE = "shape_type";
-    private static final String KEY_BODY = "shape_body";
-    private static final String KEY_PARAMS = "shape_params";
-
     private final BodyFactory bodyFactory;
     private final DebugShapeManager debugShapeManager;
     private final PhysicsWorldRegistry physicsWorldRegistry;
 
     public ShapeTool(ConfigurationService configurationService,
                      PhysicsWorldRegistry physicsWorldRegistry,
-                     BodyFactory bodyFactory) {
-        super("shape_tool", configurationService);
+                     BodyFactory bodyFactory,
+                     ToolDataManager toolDataManager) {
+        super("shape_tool", configurationService, toolDataManager);
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.bodyFactory = bodyFactory;
         this.debugShapeManager = new DebugShapeManager();
@@ -49,7 +43,6 @@ public class ShapeTool extends Tool {
 
     @Override
     public void onLeftClick(PlayerInteractEvent event) {
-        // Placeholder
     }
 
     @Override
@@ -58,9 +51,9 @@ public class ShapeTool extends Tool {
         if (!validateWorld(player)) return;
 
         ItemStack item = event.getItem();
-        String shapeName = getString(InertiaPlugin.getInstance(), item, KEY_SHAPE);
-        String bodyId = getString(InertiaPlugin.getInstance(), item, KEY_BODY);
-        String paramsStr = getString(InertiaPlugin.getInstance(), item, KEY_PARAMS);
+        String shapeName = toolDataManager.getShapeType(item);
+        String bodyId = toolDataManager.getBodyId(item);
+        double[] params = toolDataManager.getShapeParams(item);
 
         if (shapeName == null || bodyId == null) {
             send(player, MessageKey.TOOL_BROKEN_NBT);
@@ -73,36 +66,10 @@ public class ShapeTool extends Tool {
             return;
         }
 
-        double[] params;
         try {
-            params = Arrays.stream(paramsStr.split(";")).mapToDouble(Double::parseDouble).toArray();
-        } catch (Exception e) {
-            send(player, MessageKey.TOOL_INVALID_PARAMS);
-            return;
-        }
-
-        try {
-            Location center = getTargetLocation(player, event);
-            center.add(0, 1, 0);
-
-            List<org.bukkit.util.Vector> offsets = generator.generatePoints(center, params);
-            int count = 0;
-            for (org.bukkit.util.Vector offset : offsets) {
-                PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
-                if (space != null && !space.canSpawnBodies(offsets.size())) {
-                    send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
-                    return;
-                }
-
-                Location loc = center.clone().add(offset);
-                if (bodyFactory.spawnBody(loc, bodyId)) {
-                    count++;
-                }
-            }
-
+            int count = bodyFactory.spawnShape(player, generator, bodyId, params);
             send(player, MessageKey.SHAPE_SPAWNED, "{count}", String.valueOf(count), "{shape}", shapeName);
-            player.playSound(center, Sound.ENTITY_ITEM_PICKUP, 1f, 1f);
-
+            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 1f);
         } catch (Exception e) {
             send(player, MessageKey.SHAPE_SPAWN_ERROR, "{error}", e.getMessage());
         }
@@ -116,19 +83,14 @@ public class ShapeTool extends Tool {
         ItemStack item = getBaseItem();
         item = markItemAsTool(item);
 
-        String storedParams = String.join(";", Arrays.stream(params).mapToObj(String::valueOf).toArray(String[]::new));
-        setString(InertiaPlugin.getInstance(), item, KEY_SHAPE, shape);
-        setString(InertiaPlugin.getInstance(), item, KEY_BODY, bodyId);
-        setString(InertiaPlugin.getInstance(), item, KEY_PARAMS, storedParams);
+        toolDataManager.setBodyId(item, bodyId);
+        toolDataManager.setShapeData(item, shape, params);
 
         ItemMeta meta = item.getItemMeta();
         MessageManager msg = configurationService.getMessageManager();
-
-        // Localized Name
         Component name = msg.getSingle(MessageKey.TOOL_SHAPE_NAME);
         meta.displayName(StringUtils.replace(name, "{shape}", shape));
 
-        // Localized Lore (List with replacements)
         List<Component> lore = new ArrayList<>();
         for (Component line : msg.get(MessageKey.TOOL_SHAPE_LORE)) {
             lore.add(StringUtils.replace(line,
@@ -137,7 +99,6 @@ public class ShapeTool extends Tool {
             ));
         }
         meta.lore(lore);
-
         item.setItemMeta(meta);
         return item;
     }

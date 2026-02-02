@@ -1,9 +1,8 @@
 package com.ladakx.inertia.features.tools.impl;
 
-import com.github.stephengold.joltjni.*;
 import com.ladakx.inertia.common.utils.StringUtils;
 import com.ladakx.inertia.configuration.message.MessageManager;
-import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.physics.factory.BodyFactory;
@@ -17,30 +16,15 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.getString;
-import static com.ladakx.inertia.common.pdc.InertiaPDCUtils.setString;
-
 public class RagdollTool extends Tool {
-
-    public static final String BODY_ID_KEY = "ragdoll_body_id";
-    private final PhysicsWorldRegistry physicsWorldRegistry;
-    private final JShapeFactory shapeFactory;
-    private final BodyFactory bodyFactory; // We need BodyFactory here now
-
-    // Need to update ToolRegistry to pass BodyFactory, similar to ChainTool
-    public RagdollTool(ConfigurationService configurationService,
-                       PhysicsWorldRegistry physicsWorldRegistry,
-                       JShapeFactory shapeFactory) {
-        this(configurationService, physicsWorldRegistry, shapeFactory, null);
-    }
+    private final BodyFactory bodyFactory;
 
     public RagdollTool(ConfigurationService configurationService,
                        PhysicsWorldRegistry physicsWorldRegistry,
                        JShapeFactory shapeFactory,
-                       BodyFactory bodyFactory) {
-        super("ragdoll_tool", configurationService);
-        this.physicsWorldRegistry = physicsWorldRegistry;
-        this.shapeFactory = shapeFactory;
+                       BodyFactory bodyFactory,
+                       ToolDataManager toolDataManager) {
+        super("ragdoll_tool", configurationService, toolDataManager);
         this.bodyFactory = bodyFactory;
     }
 
@@ -60,28 +44,24 @@ public class RagdollTool extends Tool {
     private void spawnRagdoll(Player player, ItemStack toolItem, boolean applyImpulse) {
         if (!validateWorld(player)) return;
 
-        String bodyId = getString(InertiaPlugin.getInstance(), toolItem, BODY_ID_KEY);
+        String bodyId = toolDataManager.getBodyId(toolItem);
         if (bodyId == null) {
             send(player, MessageKey.TOOL_BROKEN_NBT);
             return;
         }
 
-        // Delegate to BodyFactory which now handles validation and messaging
-        if (bodyFactory != null) {
-            try {
-                bodyFactory.spawnRagdoll(player, bodyId, applyImpulse);
-            } catch (Exception e) {
-                send(player, MessageKey.ERROR_OCCURRED, "{error}", e.getMessage());
-            }
-        } else {
-            send(player, MessageKey.ERROR_OCCURRED, "{error}", "BodyFactory not initialized in tool");
+        try {
+            bodyFactory.spawnRagdoll(player, bodyId, applyImpulse);
+        } catch (Exception e) {
+            send(player, MessageKey.ERROR_OCCURRED, "{error}", e.getMessage());
         }
     }
 
     public ItemStack getToolItem(String bodyId) {
         ItemStack item = getBaseItem();
         item = markItemAsTool(item);
-        setString(InertiaPlugin.getInstance(), item, BODY_ID_KEY, bodyId);
+        toolDataManager.setBodyId(item, bodyId);
+
         ItemMeta meta = item.getItemMeta();
         MessageManager msg = configurationService.getMessageManager();
         Component name = msg.getSingle(MessageKey.TOOL_RAGDOLL_NAME);

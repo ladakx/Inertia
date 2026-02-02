@@ -1,7 +1,9 @@
 package com.ladakx.inertia.features.tools;
 
+import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
+import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.features.tools.impl.*;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
@@ -23,28 +25,30 @@ public class ToolRegistry implements Listener {
     private final Map<String, Tool> tools = new HashMap<>();
     private final ConfigurationService configurationService;
     private final PhysicsWorldRegistry physicsWorldRegistry;
+    private final ToolDataManager toolDataManager;
 
     public ToolRegistry(InertiaPlugin plugin,
                         ConfigurationService configurationService,
                         PhysicsWorldRegistry physicsWorldRegistry,
                         JShapeFactory shapeFactory,
-                        BodyFactory bodyFactory) {
+                        BodyFactory bodyFactory,
+                        PhysicsManipulationService manipulationService,
+                        ToolDataManager toolDataManager) {
         this.configurationService = configurationService;
         this.physicsWorldRegistry = physicsWorldRegistry;
+        this.toolDataManager = toolDataManager;
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        register(new DeleteTool(configurationService, physicsWorldRegistry));
-        register(new WeldTool(configurationService, physicsWorldRegistry));
-        register(new GrabberTool(configurationService, physicsWorldRegistry));
-        register(new StaticTool(configurationService, physicsWorldRegistry));
+        register(new DeleteTool(configurationService, physicsWorldRegistry, manipulationService, toolDataManager));
+        register(new WeldTool(configurationService, physicsWorldRegistry, manipulationService, toolDataManager));
+        register(new GrabberTool(configurationService, physicsWorldRegistry, manipulationService, toolDataManager));
+        register(new StaticTool(configurationService, physicsWorldRegistry, manipulationService, toolDataManager));
 
-        // Pass bodyFactory to ChainTool
-        register(new ChainTool(configurationService, physicsWorldRegistry, shapeFactory, bodyFactory));
-
-        register(new RagdollTool(configurationService, physicsWorldRegistry, shapeFactory));
-        register(new ShapeTool(configurationService, physicsWorldRegistry, bodyFactory));
-        register(new TNTSpawnTool(configurationService, physicsWorldRegistry, bodyFactory));
+        register(new ChainTool(configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, toolDataManager));
+        register(new RagdollTool(configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, toolDataManager));
+        register(new ShapeTool(configurationService, physicsWorldRegistry, bodyFactory, toolDataManager));
+        register(new TNTSpawnTool(configurationService, physicsWorldRegistry, bodyFactory, toolDataManager));
     }
 
     public void register(Tool tool) {
@@ -107,6 +111,10 @@ public class ToolRegistry implements Listener {
         Tool chainTool = getTool("chain_tool");
         if (chainTool instanceof ChainTool ct) {
             ct.onSwapHands(event.getPlayer());
+        }
+        Tool grabberTool = getTool("grabber");
+        if (grabberTool instanceof GrabberTool gt) {
+            gt.release(event.getPlayer());
         }
     }
 }
