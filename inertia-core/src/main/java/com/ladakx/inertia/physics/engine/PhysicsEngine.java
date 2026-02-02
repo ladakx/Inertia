@@ -6,7 +6,6 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 
 public class PhysicsEngine {
-
     private final InertiaPlugin plugin;
     private final JobSystem jobSystem;
     private final TempAllocator tempAllocator;
@@ -15,7 +14,11 @@ public class PhysicsEngine {
         InertiaLogger.info("Initializing Jolt Physics native library...");
         this.plugin = plugin;
 
-        this.tempAllocator = new TempAllocatorMalloc();
+        // OPTIMIZATION: Use TempAllocatorImpl (Stack-based) instead of Malloc.
+        // 32MB buffer is usually sufficient for complex scenes.
+        // In a full implementation, this should come from config, but we hardcode a safe default for now.
+        int tempAllocatorSize = 32 * 1024 * 1024;
+        this.tempAllocator = new TempAllocatorImpl(tempAllocatorSize);
 
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int numThreads = Math.max(configurationService.getInertiaConfig().PHYSICS.workerThreads, availableProcessors - 1);
@@ -25,8 +28,7 @@ public class PhysicsEngine {
                 Jolt.cMaxPhysicsBarriers,
                 numThreads
         );
-
-        InertiaLogger.info("Jolt initialized with " + numThreads + " worker threads.");
+        InertiaLogger.info("Jolt initialized with " + numThreads + " worker threads and " + (tempAllocatorSize / 1024 / 1024) + "MB temp memory.");
     }
 
     public void shutdown() {
@@ -37,5 +39,6 @@ public class PhysicsEngine {
     }
 
     public JobSystem getJobSystem() { return jobSystem; }
+
     public TempAllocator getTempAllocator() { return tempAllocator; }
 }

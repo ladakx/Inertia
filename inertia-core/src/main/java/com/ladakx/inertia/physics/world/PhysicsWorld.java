@@ -16,13 +16,10 @@ import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
 import com.ladakx.inertia.physics.world.loop.PhysicsLoop;
-import com.ladakx.inertia.physics.world.managers.PhysicsContactListener;
-import com.ladakx.inertia.physics.world.managers.PhysicsObjectManager;
-import com.ladakx.inertia.physics.world.managers.PhysicsQueryEngine;
-import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
-import com.ladakx.inertia.physics.world.managers.WorldBoundaryManager;
+import com.ladakx.inertia.physics.world.managers.*;
 import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
-import com.ladakx.inertia.physics.world.snapshot.VisualUpdate;
+import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
+import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.rendering.VisualEntity;
 import com.ladakx.inertia.common.utils.ConvertUtils;
@@ -63,6 +60,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final List<Body> staticBodies = new ArrayList<>();
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
 
+    private final SnapshotPool snapshotPool;
+    private final InertiaBodyActivationListener bodyActivationListener;
+
     public PhysicsWorld(World world,
                         WorldsConfig.WorldProfile settings,
                         PhysicsSystem physicsSystem,
@@ -82,13 +82,15 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.chunkTicketManager = new ChunkTicketManager(world);
         this.objectManager = new PhysicsObjectManager();
         this.taskManager = new PhysicsTaskManager();
+        this.snapshotPool = new SnapshotPool();
 
         // Initialize managers that depend on the system
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.contactListener = new PhysicsContactListener(objectManager);
-
-        // Link listener to system (Setter injection)
         this.physicsSystem.setContactListener(contactListener);
+
+        this.bodyActivationListener = new InertiaBodyActivationListener(objectManager);
+        this.physicsSystem.setBodyActivationListener(bodyActivationListener);
 
         this.boundaryManager = new WorldBoundaryManager(this, settings.size());
         this.boundaryManager.createBoundaries();
@@ -125,17 +127,24 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     private PhysicsSnapshot collectSnapshot() {
-        List<AbstractPhysicsBody> bodies = objectManager.getAll();
-        List<VisualUpdate> updates = new ArrayList<>(bodies.size());
+        Collection<AbstractPhysicsBody> activeBodies = objectManager.getActive();
+
+        List<VisualState> updates = snapshotPool.borrowList();
         java.util.Set<Long> activeChunks = new java.util.HashSet<>();
         List<AbstractPhysicsBody> toDestroy = new ArrayList<>();
 
+        // BodyInterface is needed for position checks
         BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
         WorldsConfig.WorldSizeSettings sizeSettings = settings.size();
 
-        for (AbstractPhysicsBody obj : bodies) {
+        for (AbstractPhysicsBody obj : activeBodies) {
             if (!obj.isValid()) continue;
 
+            // Jolt logic: getActive() already ensures they are somewhat active,
+            // but we check boundaries here.
+
+            // Note: Since we are iterating active bodies only, we don't need "if (isActive)" check usually,
+            // but for safety in case of race condition between listener and loop:
             if (obj.getBody().isActive()) {
                 RVec3 joltPos = bodyInterface.getCenterOfMassPosition(obj.getBody().getId());
 
@@ -150,15 +159,14 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
                 double worldX = joltPos.xx() + origin.xx();
                 double worldZ = joltPos.zz() + origin.zz();
-
                 int chunkX = (int) Math.floor(worldX) >> 4;
                 int chunkZ = (int) Math.floor(worldZ) >> 4;
-
                 activeChunks.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
             }
 
             if (obj instanceof DisplayedPhysicsBody displayed) {
-                displayed.captureSnapshot(updates);
+                // Passing origin is crucial for rendering conversion
+                displayed.captureSnapshot(updates, snapshotPool, origin);
             }
         }
         return new PhysicsSnapshot(updates, activeChunks, toDestroy);
@@ -171,16 +179,18 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             }
         }
 
-        for (VisualUpdate update : snapshot.updates()) {
-            VisualEntity visual = update.visual();
+        for (VisualState state : snapshot.updates()) {
+            VisualEntity visual = state.getVisual();
             if (visual.isValid()) {
-                Location loc = new Location(worldBukkit, update.position().x, update.position().y, update.position().z);
-                visual.update(loc, update.rotation(), update.centerOffset(), update.rotateTranslation());
-                visual.setVisible(update.visible());
+                Location loc = new Location(worldBukkit, state.getPosition().x, state.getPosition().y, state.getPosition().z);
+                visual.update(loc, state.getRotation(), state.getCenterOffset(), state.isRotateTranslation());
+                visual.setVisible(state.isVisible());
             }
         }
 
         chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
+
+        snapshot.release(snapshotPool);
     }
 
     public boolean checkOverlap(@NotNull com.github.stephengold.joltjni.readonly.ConstShape shape,

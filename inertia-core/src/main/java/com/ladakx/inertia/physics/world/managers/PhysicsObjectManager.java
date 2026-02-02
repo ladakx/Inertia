@@ -11,30 +11,53 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class PhysicsObjectManager {
-
     private final List<AbstractPhysicsBody> objects = new CopyOnWriteArrayList<>();
+    // Используем Set для быстрого добавления/удаления без дубликатов
+    private final Set<AbstractPhysicsBody> activeObjects = ConcurrentHashMap.newKeySet();
+
     private final Map<Long, AbstractPhysicsBody> objectMap = new ConcurrentHashMap<>();
+    // Дополнительная карта для быстрого поиска по ID тела (int), так как Listener дает ID, а не указатель (long)
+    private final Map<Integer, AbstractPhysicsBody> bodyIdMap = new ConcurrentHashMap<>();
+
     private final Map<UUID, AbstractPhysicsBody> uuidMap = new ConcurrentHashMap<>();
 
     public void add(@NotNull AbstractPhysicsBody object) {
         objects.add(object);
         uuidMap.put(object.getUuid(), object);
         registerBody(object, object.getBody());
+
+        // Если тело создано активным, добавляем сразу
+        if (object.getBody().isActive()) {
+            activeObjects.add(object);
+        }
     }
 
     public void remove(@NotNull AbstractPhysicsBody object) {
         objects.remove(object);
+        activeObjects.remove(object);
         uuidMap.remove(object.getUuid());
-        // Очистка objectMap от ссылок на это тело происходит сложнее, 
-        // так как одно тело может иметь несколько Jolt-тел (ragdoll).
-        // Для простоты и производительности удаляем по итератору при разрушении 
-        // или доверяем тому, что VA адрес перестанет быть валидным.
         objectMap.values().removeIf(o -> o == object);
+        bodyIdMap.values().removeIf(o -> o == object);
     }
 
     public void registerBody(@NotNull AbstractPhysicsBody object, @Nullable Body body) {
         if (body != null) {
             objectMap.put(body.va(), object);
+            bodyIdMap.put(body.getId(), object);
+        }
+    }
+
+    public void onBodyActivated(int bodyId) {
+        AbstractPhysicsBody obj = bodyIdMap.get(bodyId);
+        if (obj != null) {
+            activeObjects.add(obj);
+        }
+    }
+
+    public void onBodyDeactivated(int bodyId) {
+        AbstractPhysicsBody obj = bodyIdMap.get(bodyId);
+        if (obj != null) {
+            activeObjects.remove(obj);
         }
     }
 
@@ -50,8 +73,11 @@ public class PhysicsObjectManager {
         return objects;
     }
 
+    public @NotNull Collection<AbstractPhysicsBody> getActive() {
+        return activeObjects;
+    }
+
     public void clearAll() {
-        // Создаем копию для безопасной итерации при удалении
         List<AbstractPhysicsBody> snapshot = new ArrayList<>(objects);
         int count = 0;
         for (AbstractPhysicsBody obj : snapshot) {
@@ -63,7 +89,9 @@ public class PhysicsObjectManager {
             }
         }
         objects.clear();
+        activeObjects.clear();
         objectMap.clear();
+        bodyIdMap.clear();
         uuidMap.clear();
         InertiaLogger.info("ObjectManager cleared " + count + " objects.");
     }

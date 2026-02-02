@@ -2,6 +2,7 @@ package com.ladakx.inertia.nms.v1_21_r3.render;
 
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Location;
+import org.bukkit.craftbukkit.entity.CraftDisplay;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -10,12 +11,9 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 public class DisplayEntity implements VisualEntity {
-
     private final Display display;
     private final boolean isBlockDisplay;
-
     private final float originalViewRange;
-
     private final Vector3f originalTrans;
     private final Vector3f originalScale;
     private final Quaternionf originalRightRot;
@@ -33,7 +31,24 @@ public class DisplayEntity implements VisualEntity {
     public void update(Location location, Quaternionf rotation, Vector3f center, boolean rotateTranslation) {
         if (!display.isValid()) return;
 
-        display.teleport(location);
+        // Optimization: Fast path for in-chunk movement
+        int oldCX = display.getLocation().getBlockX() >> 4;
+        int oldCZ = display.getLocation().getBlockZ() >> 4;
+        int newCX = location.getBlockX() >> 4;
+        int newCZ = location.getBlockZ() >> 4;
+
+        if (oldCX == newCX && oldCZ == newCZ) {
+            net.minecraft.world.entity.Display handle = ((CraftDisplay) display).getHandle();
+            handle.moveTo(
+                    location.getX(),
+                    location.getY(),
+                    location.getZ(),
+                    location.getYaw(),
+                    location.getPitch()
+            );
+        } else {
+            display.teleport(location);
+        }
 
         Vector3f translation;
         if (isBlockDisplay) {

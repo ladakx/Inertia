@@ -1,7 +1,6 @@
 package com.ladakx.inertia.physics.body.impl;
 
 import com.github.stephengold.joltjni.*;
-import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
@@ -19,11 +18,9 @@ import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
-import com.ladakx.inertia.common.utils.ConvertUtils;
 import com.ladakx.inertia.common.utils.MiscUtils;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
