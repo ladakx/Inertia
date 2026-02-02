@@ -1,9 +1,6 @@
 package com.ladakx.inertia.features.tools.impl;
 
-import com.github.stephengold.joltjni.Body;
-import com.github.stephengold.joltjni.GroupFilterTable;
-import com.github.stephengold.joltjni.Quat;
-import com.github.stephengold.joltjni.RVec3;
+import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.common.logging.InertiaLogger;
@@ -13,6 +10,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.physics.body.impl.ChainPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
@@ -42,11 +40,16 @@ public class ChainTool extends Tool {
     private final Map<UUID, Location> startPoints = new HashMap<>();
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final JShapeFactory shapeFactory;
+    private final BodyFactory bodyFactory;
 
-    public ChainTool(ConfigurationService configurationService, PhysicsWorldRegistry physicsWorldRegistry, JShapeFactory shapeFactory) {
+    public ChainTool(ConfigurationService configurationService,
+                     PhysicsWorldRegistry physicsWorldRegistry,
+                     JShapeFactory shapeFactory,
+                     BodyFactory bodyFactory) {
         super("chain_tool", configurationService);
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.shapeFactory = shapeFactory;
+        this.bodyFactory = bodyFactory;
     }
 
     @Override
@@ -56,7 +59,6 @@ public class ChainTool extends Tool {
 
         Location loc = getTargetLocation(player, event);
         startPoints.put(player.getUniqueId(), loc);
-
         send(player, MessageKey.CHAIN_POINT_SET, "{location}", formatLoc(loc));
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.5f);
         event.setCancelled(true);
@@ -98,25 +100,15 @@ public class ChainTool extends Tool {
 
     public ItemStack getToolItem(String bodyId) {
         ItemStack item = getBaseItem();
-
         item = markItemAsTool(item);
         setString(InertiaPlugin.getInstance(), item, BODY_ID_KEY, bodyId);
-
         ItemMeta meta = item.getItemMeta();
         var msgManager = configurationService.getMessageManager();
-
-        // 1. Display Name
-        // Берем шаблон из конфига
         Component nameTemplate = msgManager.getSingle(MessageKey.TOOL_CHAIN_NAME);
-        // Выполняем замену {body} -> bodyId
         meta.displayName(StringUtils.replace(nameTemplate, "{body}", bodyId));
-
-        // 2. Lore
         List<Component> lore = msgManager.get(MessageKey.TOOL_CHAIN_LORE);
         meta.lore(lore);
-
         item.setItemMeta(meta);
-
         return item;
     }
 
@@ -137,23 +129,19 @@ public class ChainTool extends Tool {
             send(player, MessageKey.INVALID_CHAIN_BODY, "{id}", bodyId);
             return;
         }
-
         ChainBodyDefinition def = (ChainBodyDefinition) modelOpt.get().bodyDefinition();
+
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
         Vector directionVector = end.toVector().subtract(start.toVector());
         double totalDistance = directionVector.length();
         Vector direction = directionVector.clone().normalize();
-
-        // Используем настройки из новой секции creation
         double spacing = def.creation().spacing();
-
         int linkCount = (int) Math.ceil(totalDistance / spacing);
         if (linkCount < 1) linkCount = 1;
 
-        // --- PRE-CHECK: Проверяем лимит ---
-        if (!space.canSpawnBodies(linkCount + 1)) { // +1 на всякий случай или запас
+        if (!space.canSpawnBodies(linkCount + 1)) {
             send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
             return;
         }
@@ -162,20 +150,42 @@ public class ChainTool extends Tool {
                 new org.joml.Vector3f((float)direction.getX(), (float)direction.getY(), (float)direction.getZ()));
         Quat linkRotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
-        Body parentBody = null;
+        // --- VALIDATION PHASE ---
+        ShapeRefC shapeRef = shapeFactory.createShape(def.shapeLines());
+        try {
+            for (int i = 0; i <= linkCount; i++) {
+                double distanceTraveled = i * spacing;
+                Vector offset = direction.clone().multiply(distanceTraveled);
+                Location currentLoc = start.clone().add(offset);
+                // Fix last link pos to exact end? Not for checking, as chain physically fits spacing.
+                if (i == linkCount) currentLoc = end.clone();
+                RVec3 pos = space.toJolt(currentLoc);
 
+                BodyFactory.ValidationResult result = bodyFactory.canSpawnAt(space, shapeRef, pos, linkRotation);
+                if (result != BodyFactory.ValidationResult.SUCCESS) {
+                    MessageKey key = (result == BodyFactory.ValidationResult.OUT_OF_BOUNDS)
+                            ? MessageKey.SPAWN_FAIL_OUT_OF_BOUNDS
+                            : MessageKey.SPAWN_FAIL_OBSTRUCTED;
+                    send(player, key);
+                    return; // Abort
+                }
+            }
+        } finally {
+            shapeRef.close();
+        }
+        // ------------------------
+
+        Body parentBody = null;
         GroupFilterTable groupFilter = new GroupFilterTable(linkCount + 1);
 
         for (int i = 0; i <= linkCount; i++) {
             if (i > 0) {
                 groupFilter.disableCollision(i, i - 1);
             }
-
             double distanceTraveled = i * spacing;
             Vector offset = direction.clone().multiply(distanceTraveled);
             Location currentLoc = start.clone().add(offset);
             if (i == linkCount) currentLoc = end.clone();
-
             RVec3 pos = new RVec3(currentLoc.getX(), currentLoc.getY(), currentLoc.getZ());
 
             try {
@@ -185,12 +195,12 @@ public class ChainTool extends Tool {
                         registry,
                         InertiaPlugin.getInstance().getRenderFactory(),
                         shapeFactory,
-                        pos,
+                        space.toJolt(currentLoc), // FIX: Use local coords!
                         linkRotation,
                         parentBody,
                         groupFilter,
                         i,
-                        linkCount + 1 // [NEW] Передаем общую длину цепи
+                        linkCount + 1
                 );
 
                 if (i == 0 || i == linkCount) {
@@ -200,13 +210,13 @@ public class ChainTool extends Tool {
                             EActivation.DontActivate
                     );
                 }
+
                 parentBody = link.getBody();
             } catch (Exception e) {
                 InertiaLogger.error("Failed to spawn chain link " + i, e);
                 break;
             }
         }
-
         send(player, MessageKey.CHAIN_CREATED, "{count}", String.valueOf(linkCount + 1));
     }
 }

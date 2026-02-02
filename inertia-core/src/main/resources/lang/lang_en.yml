@@ -64,6 +64,11 @@ static-success:
 static-no-match:
   - "{prefix} &cNo active physics entities found to freeze."
 
+spawn-fail-obstructed:
+  - "{prefix} &cSpawn blocked! Target location is obstructed."
+spawn-fail-out-of-bounds:
+  - "{prefix} &cSpawn blocked! Object would be outside world boundaries."
+
 # --- Tool Items ---
 tool-chain-name: "&6Chain Tool: &e{body}"
 tool-chain-lore:

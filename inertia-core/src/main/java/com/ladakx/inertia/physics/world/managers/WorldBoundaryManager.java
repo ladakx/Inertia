@@ -128,6 +128,18 @@ public class WorldBoundaryManager {
                 point.zz() >= min.getZ() && point.zz() <= max.getZ();
     }
 
+    public boolean isAABBInside(com.github.stephengold.joltjni.AaBox aabb) {
+        com.github.stephengold.joltjni.Vec3 min = settings.localMin();
+        com.github.stephengold.joltjni.Vec3 max = settings.localMax();
+        com.github.stephengold.joltjni.Vec3 boxMin = aabb.getMin();
+        com.github.stephengold.joltjni.Vec3 boxMax = aabb.getMax();
+
+        // Проверяем, что все координаты коробки находятся внутри границ мира
+        return boxMin.getX() >= min.getX() && boxMax.getX() <= max.getX() &&
+                boxMin.getY() >= min.getY() && boxMax.getY() <= max.getY() &&
+                boxMin.getZ() >= min.getZ() && boxMax.getZ() <= max.getZ();
+    }
+
     /**
      * Checks if a point (in Jolt Local Space) is below the minimum Y threshold configured in Min/Max.
      */

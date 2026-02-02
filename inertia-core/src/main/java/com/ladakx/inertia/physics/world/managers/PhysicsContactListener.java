@@ -35,9 +35,9 @@ public class PhysicsContactListener extends CustomContactListener {
             Vector contactPoint = ConvertUtils.toBukkit(contactPointJolt);
 
             PhysicsCollisionEvent event = new PhysicsCollisionEvent(obj1, obj2, contactPoint);
-            Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+            //Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
                 Bukkit.getPluginManager().callEvent(event);
-            });
+            //});
         }
     }
 }

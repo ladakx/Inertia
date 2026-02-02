@@ -148,7 +148,6 @@ public class WorldsConfig {
     }
 
     private WorldSizeSettings parseWorldSize(ConfigurationSection sizeSec) {
-        // Defaults
         boolean createWalls = false;
         boolean killBelowMinY = false;
         boolean preventExit = true;
@@ -156,8 +155,6 @@ public class WorldsConfig {
         RVec3 finalOrigin;
         RVec3 finalMin;
         RVec3 finalMax;
-
-        // Default vertical bounds for "infinite" feeling
 
         if (sizeSec == null) {
             finalOrigin = new RVec3(0, 0, 0);
@@ -184,29 +181,26 @@ public class WorldsConfig {
                 configMax = RVec3Serializer.serializeXZ(sizeSec.getString("max"));
             }
 
-            heightSize = new Vec3(-128, 0, 1024); // Default height size
+            heightSize = new Vec3(-128, 0, 1024);
             if (sizeSec.contains("height-size")) {
                 heightSize = Vec3Serializer.serializeXZ(sizeSec.getString("height-size"));
             }
 
-            // Logic: Explicit Min/Max > Radius/Dimensions
             if (configMin != null && configMax != null) {
                 finalMin = configMin;
                 finalMax = configMax;
-                // If origin is explicit, use it. Else calculate horizontal center.
+
                 if (configOrigin != null) {
                     finalOrigin = configOrigin;
                 } else {
                     finalOrigin = new RVec3(
                             (finalMin.xx() + finalMax.xx()) * 0.5,
-                            0.0, // Always 0 Y for origin
+                            0.0,
                             (finalMin.zz() + finalMax.zz()) * 0.5
                     );
                 }
             } else {
-                // Dimensions based logic
                 RVec3 center = (configOrigin != null) ? configOrigin : new RVec3(0, 0, 0);
-
                 double dx = 500.0;
                 double dz = 500.0;
 
@@ -219,24 +213,25 @@ public class WorldsConfig {
                     if (sizeSec.contains("length")) dz = sizeSec.getDouble("length") / 2.0;
                 }
 
-                heightSize = new Vec3(-128, 0, 1024); // Default height size
+                heightSize = new Vec3(-128, 0, 1024);
                 if (sizeSec.contains("height-size")) {
                     heightSize = Vec3Serializer.serializeXZ(sizeSec.getString("height-size"));
                 }
 
-                finalMin = new RVec3(center.xx() - dx, configMin.y(), center.zz() - dz);
-                finalMax = new RVec3(center.xx() + dx, configMax.y(), center.zz() + dz);
+                finalMin = new RVec3(center.xx() - dx, configMin != null ? configMin.y() : 0, center.zz() - dz);
+                finalMax = new RVec3(center.xx() + dx, configMax != null ? configMax.y() : 0, center.zz() + dz);
                 finalOrigin = center;
             }
         }
 
-        // Compute local bounds (relative to origin)
         float lMinX = (float) (finalMin.xx() - finalOrigin.xx());
-        float lMinY = (float) (finalMin.yy() - finalOrigin.yy());
+        // Fix: Use heightSize.X (min Y) for local min Y
+        float lMinY = heightSize.getX();
         float lMinZ = (float) (finalMin.zz() - finalOrigin.zz());
 
         float lMaxX = (float) (finalMax.xx() - finalOrigin.xx());
-        float lMaxY = (float) (finalMax.yy() - finalOrigin.yy());
+        // Fix: Use heightSize.Z (max Y) for local max Y
+        float lMaxY = heightSize.getZ();
         float lMaxZ = (float) (finalMax.zz() - finalOrigin.zz());
 
         Vec3 localMin = new Vec3(lMinX, lMinY, lMinZ);
