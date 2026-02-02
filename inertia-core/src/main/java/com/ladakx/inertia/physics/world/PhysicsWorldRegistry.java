@@ -5,6 +5,7 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
+import com.ladakx.inertia.physics.world.terrain.SimulationType;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.physics.world.terrain.impl.FlatFloorAdapter;
 import org.bukkit.Bukkit;
@@ -47,9 +48,14 @@ public class PhysicsWorldRegistry {
         WorldsConfig.WorldProfile settings = configurationService.getWorldsConfig().getWorldSettings(world.getName());
 
         TerrainAdapter terrainAdapter = null;
-        if (settings.floorPlane().enabled()) {
-            terrainAdapter = new FlatFloorAdapter(settings.floorPlane(), settings.size());
+
+        // Проверяем тип симуляции и наличие настроек пола
+        if (settings.simulation().type() == SimulationType.FLOOR_PLANE) {
+            terrainAdapter = new FlatFloorAdapter(settings.simulation().floorPlane());
         }
+
+        // Также можно использовать settings.tempAllocatorSize() при создании PhysicsWorld, если передать его в PhysicsEngine
+        // Но пока используем глобальный аллокатор из PhysicsEngine
 
         return new PhysicsWorld(
                 world,

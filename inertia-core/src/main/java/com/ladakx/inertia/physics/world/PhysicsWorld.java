@@ -103,11 +103,50 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         ObjectVsBroadPhaseLayerFilter ovbFilter = new ObjectVsBroadPhaseLayerFilterTable(layerMap, PhysicsLayers.NUM_BP_LAYERS, ovoFilter, PhysicsLayers.NUM_OBJ_LAYERS);
 
         PhysicsSystem sys = new PhysicsSystem();
-        sys.init(settings.maxBodies(), 0, 20_480, 65_536, layerMap, ovbFilter, ovoFilter);
+
+        // Лимиты производительности
+        sys.init(
+                settings.performance().maxBodies(),
+                settings.performance().numBodyMutexes(),
+                settings.performance().maxBodyPairs(),
+                settings.performance().maxContactConstraints(),
+                layerMap,
+                ovbFilter,
+                ovoFilter
+        );
+
+        // Настройки физики (Solver, Sleeping, etc.)
+        PhysicsSettings physSettings = new PhysicsSettings();
+
+        // Solver
+        WorldsConfig.SolverSettings solverSettings = settings.solver();
+        physSettings.setNumVelocitySteps(solverSettings.velocityIterations());
+        physSettings.setNumPositionSteps(solverSettings.positionIterations());
+        physSettings.setBaumgarte(solverSettings.baumgarte());
+        physSettings.setSpeculativeContactDistance(solverSettings.speculativeContactDistance());
+        physSettings.setPenetrationSlop(solverSettings.penetrationSlop());
+        physSettings.setLinearCastThreshold(solverSettings.linearCastThreshold());
+        physSettings.setLinearCastMaxPenetration(solverSettings.linearCastMaxPenetration());
+        physSettings.setManifoldTolerance(solverSettings.manifoldTolerance());
+        physSettings.setMaxPenetrationDistance(solverSettings.maxPenetrationDistance());
+        physSettings.setConstraintWarmStart(solverSettings.constraintWarmStart());
+        physSettings.setUseBodyPairContactCache(solverSettings.useBodyPairContactCache());
+        physSettings.setUseLargeIslandSplitter(solverSettings.useLargeIslandSplitter());
+        physSettings.setAllowSleeping(solverSettings.allowSleeping());
+        physSettings.setDeterministicSimulation(solverSettings.deterministicSimulation());
+
+        // Sleeping
+        WorldsConfig.SleepSettings sleepSettings = settings.sleeping();
+        physSettings.setTimeBeforeSleep(sleepSettings.timeBeforeSleep());
+        physSettings.setPointVelocitySleepThreshold(sleepSettings.pointVelocityThreshold());
+
+        sys.setPhysicsSettings(physSettings);
+
         sys.setGravity(settings.gravity());
         sys.optimizeBroadPhase();
         return sys;
     }
+
 
     private void runPhysicsStep() {
         if (isPaused.get()) {
@@ -155,21 +194,15 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     public void createExplosion(@NotNull Vec3 origin, float force, float radius) {
-        // Конвертация Vec3 (Jolt) в Location (Bukkit) для вызова API метода
-        // Так как мы внутри PhysicsWorld, мы знаем мир
         Location loc = new Location(worldBukkit, origin.getX(), origin.getY(), origin.getZ());
         queryEngine.createExplosion(loc, force, radius);
     }
 
-    // Восстанавливаем метод raycastEntity для обратной совместимости с инструментами
     public List<RaycastResult> raycastEntity(@NotNull Location start, @NotNull Vector dir, double dist) {
         RaycastHit hit = queryEngine.raycast(start, dir, dist);
         if (hit == null) return Collections.emptyList();
 
-        // Конвертируем API RaycastHit обратно во внутренний RaycastResult, ожидаемый инструментами
         RVec3 hitPos = ConvertUtils.toRVec3(hit.point().toLocation(worldBukkit));
-        // Для получения VA нам нужно тело. В RaycastHit есть InertiaPhysicsBody.
-        // Приводим к AbstractPhysicsBody, чтобы получить нативное тело
         if (hit.body() instanceof AbstractPhysicsBody abstractBody) {
             long va = abstractBody.getBody().targetVa();
             return Collections.singletonList(new RaycastResult(va, hitPos));
@@ -214,7 +247,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     public boolean canSpawnBodies(int amount) {
-        return physicsSystem.getNumBodies() + amount <= settings.maxBodies();
+        return physicsSystem.getNumBodies() + amount <= settings.performance().maxBodies();
     }
 
     public void addConstraint(Constraint constraint) {
@@ -334,7 +367,6 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         return queryEngine;
     }
 
-    // Внутренняя запись для обратной совместимости инструментов
     public record RaycastResult(Long va, RVec3 hitPos) {
     }
 }

@@ -16,36 +16,51 @@ import java.util.Objects;
 public class FlatFloorAdapter implements TerrainAdapter {
 
     private final WorldsConfig.FloorPlaneSettings settings;
-    private final WorldsConfig.WorldSizeSettings sizeSettings;
     private Integer bodyId;
     private PhysicsWorld world;
 
-    public FlatFloorAdapter(WorldsConfig.FloorPlaneSettings settings, WorldsConfig.WorldSizeSettings sizeSettings) {
+    public FlatFloorAdapter(WorldsConfig.FloorPlaneSettings settings) {
         this.settings = Objects.requireNonNull(settings);
-        this.sizeSettings = Objects.requireNonNull(sizeSettings);
     }
 
     @Override
     public void onEnable(PhysicsWorld world) {
         this.world = world;
-        if (!settings.enabled()) return;
 
         try {
             BodyInterface bi = world.getBodyInterface();
-            Vec3 min = sizeSettings.min();
-            Vec3 max = sizeSettings.max();
 
-            float sizeX = Math.abs(max.getX() - min.getX()) * 0.5f;
-            float sizeZ = Math.abs(max.getZ() - min.getZ()) * 0.5f;
-            float halfExtent = Math.max(sizeX, sizeZ);
+            WorldsConfig.FloorBounds bounds = settings.bounds();
 
-            double centerX = min.getX() + sizeX;
-            double centerZ = min.getZ() + sizeZ;
+            // Вычисляем размеры на основе min/max и origin
+            // Origin - это смещение всей системы координат пола
+            float originX = bounds.origin().getX();
+            float originZ = bounds.origin().getZ();
 
-            ConstPlane plane = new Plane(Vec3.sAxisY(), 0.0f);
-            ConstShape floorShape = new com.github.stephengold.joltjni.PlaneShape(plane, null, halfExtent);
+            float actualMinX = bounds.minX() + originX;
+            float actualMaxX = bounds.maxX() + originX;
+            float actualMinZ = bounds.minZ() + originZ;
+            float actualMaxZ = bounds.maxZ() + originZ;
 
-            RVec3 position = new RVec3(centerX, settings.yLevel(), centerZ);
+            float sizeX = Math.abs(actualMaxX - actualMinX) * 0.5f;
+            float sizeZ = Math.abs(actualMaxZ - actualMinZ) * 0.5f;
+
+            // BoxShape (или PlaneShape с bounds) требует half-extents
+            float halfExtentX = sizeX;
+            float halfExtentZ = sizeZ;
+            // Для BoxShape толщина задается через Y
+            float halfExtentY = settings.ySize() * 0.5f;
+
+            // Центр пола
+            double centerX = actualMinX + sizeX;
+            double centerZ = actualMinZ + sizeZ;
+            double centerY = settings.yLevel() - halfExtentY; // Смещаем вниз, чтобы верхняя грань была на yLevel
+
+            // Создаем BoxShape, так как PlaneShape бесконечен или сложен в настройке bounds в старых версиях Jolt
+            // BoxShape надежнее для ограниченного пола
+            ConstShape floorShape = new BoxShape(new Vec3(halfExtentX, halfExtentY, halfExtentZ));
+
+            RVec3 position = new RVec3(centerX, centerY, centerZ);
 
             BodyCreationSettings bcs = new BodyCreationSettings();
             bcs.setPosition(position);
@@ -57,9 +72,10 @@ public class FlatFloorAdapter implements TerrainAdapter {
 
             Body floor = bi.createBody(bcs);
             bi.addBody(floor, EActivation.DontActivate);
-            
+
             this.bodyId = floor.getId();
-            InertiaLogger.info("Flat floor generated at Y=" + settings.yLevel());
+            InertiaLogger.info("Flat floor generated at Y=" + settings.yLevel() + " with size " + (sizeX*2) + "x" + (sizeZ*2));
+
         } catch (Exception e) {
             InertiaLogger.error("Failed to create flat floor", e);
         }
@@ -77,11 +93,10 @@ public class FlatFloorAdapter implements TerrainAdapter {
 
     @Override
     public void onChunkLoad(int x, int z) {
-        // Flat floor is global, chunk events ignored
+        // Для плоского пола чанки не важны
     }
 
     @Override
     public void onChunkUnload(int x, int z) {
-        // Flat floor is global, chunk events ignored
     }
 }
