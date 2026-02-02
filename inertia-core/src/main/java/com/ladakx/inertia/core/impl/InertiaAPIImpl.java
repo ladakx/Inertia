@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 public class InertiaAPIImpl extends InertiaAPI {
+
     private final InertiaPlugin plugin;
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final ConfigurationService configurationService;
@@ -55,19 +56,28 @@ public class InertiaAPIImpl extends InertiaAPI {
             return null;
         }
 
+        // Validate Bounds
+        if (!space.isInsideWorld(location)) {
+            InertiaLogger.debug("Attempted to spawn body '" + bodyId + "' outside world boundaries at " + location);
+            return null;
+        }
+
         PhysicsBodyRegistry modelRegistry = configurationService.getPhysicsBodyRegistry();
         if (modelRegistry.find(bodyId).isEmpty()) {
             InertiaLogger.warn("Cannot create body: Body ID '" + bodyId + "' not found in registry.");
             return null;
         }
 
-        RVec3 initialPos = new RVec3(location.getX(), location.getY(), location.getZ());
+        // Convert Spawn Location to Jolt Space (Local)
+        RVec3 initialPos = space.toJolt(location);
+
         float yawRad = (float) Math.toRadians(-location.getYaw());
         float pitchRad = (float) Math.toRadians(location.getPitch());
         Quaternionf jomlQuat = new Quaternionf().rotationYXZ(yawRad, pitchRad, 0f);
         Quat initialRot = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
         PhysicsBodyType type = modelRegistry.require(bodyId).bodyDefinition().type();
+
         try {
             if (type == PhysicsBodyType.BLOCK) {
                 return new BlockPhysicsBody(
@@ -101,11 +111,6 @@ public class InertiaAPIImpl extends InertiaAPI {
 
     @Override
     public @NotNull Collection<IPhysicsWorld> getAllPhysicsWorlds() {
-        // PhysicsWorldRegistry doesn't expose a clean getAll right now that returns collection of IPhysicsWorld directly from map values properly typed in one go without potential modification issues if concurrent map
-        // But PhysicsWorld implements IPhysicsWorld, so we can construct a list.
-        // We need to access values from registry.
-        // Currently Registry stores Map<UUID, PhysicsWorld>.
-        // We need to add a method to PhysicsWorldRegistry to get all worlds safely.
         return new ArrayList<>(physicsWorldRegistry.getAllSpaces());
     }
 }

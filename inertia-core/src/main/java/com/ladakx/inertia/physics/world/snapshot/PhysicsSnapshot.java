@@ -1,19 +1,18 @@
 package com.ladakx.inertia.physics.world.snapshot;
 
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Immutable container representing the state of the physics world at a specific tick.
- * Passed atomically from the Physics Thread to the Bukkit Main Thread.
- */
 public record PhysicsSnapshot(
         List<VisualUpdate> updates,
-        Set<Long> activeChunkKeys
+        Set<Long> activeChunkKeys,
+        List<AbstractPhysicsBody> bodiesToDestroy
 ) {
     public PhysicsSnapshot {
         updates = Collections.unmodifiableList(updates);
         activeChunkKeys = Collections.unmodifiableSet(activeChunkKeys);
+        bodiesToDestroy = Collections.unmodifiableList(bodiesToDestroy);
     }
 }

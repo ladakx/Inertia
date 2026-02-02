@@ -1,5 +1,6 @@
 package com.ladakx.inertia.common.serializers;
 
+import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -58,13 +59,25 @@ public final class Vec3Serializer {
         }
     }
 
-    /**
-     * Прочитати Vec3 із Bukkit-конфігу.
-     * ⚠ Тут я роблю припущення про формат:
-     *   path.x, path.y, path.z – double в конфігу.
-     * Якщо в тебе інший формат (наприклад "x, y, z" одним рядком) –
-     * змінюй реалізацію під свій формат.
-     */
+    public static Vec3 serializeXZ(String str) {
+        if (str == null || str.isEmpty()) return new Vec3(0, 0, 0);
+
+        try {
+            String[] parts = str.trim().split("\\s+"); // сплит по пробелам
+            if (parts.length < 2)
+                throw new IllegalArgumentException("Not enough vector components for XZ");
+
+            float x = Float.parseFloat(parts[0]);
+            float z = Float.parseFloat(parts[1]);
+
+            return new Vec3(x, 0, z);
+        } catch (Exception e) {
+            InertiaLogger.warn("Failed to parse XZ vector string: '" + str +
+                    "'. Using 0,0,0. Error: " + e.getMessage());
+            return new Vec3(0, 0, 0);
+        }
+    }
+
     public static Vec3 serialize(String path, FileConfiguration cfg) {
         float x = (float) cfg.getDouble(path + ".x", 0.0);
         float y = (float) cfg.getDouble(path + ".y", 0.0);
@@ -72,9 +85,6 @@ public final class Vec3Serializer {
         return new Vec3(x, y, z);
     }
 
-    /**
-     * Конвертація Vec3 → Bukkit Vector (аналог toBukkit(Vector3f) з оригіналу) [1].
-     */
     public static Vector toBukkit(Vec3 vec3) {
         return new Vector(vec3.getX(), vec3.getY(), vec3.getZ());
     }

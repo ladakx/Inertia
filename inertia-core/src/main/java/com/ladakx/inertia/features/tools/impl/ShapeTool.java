@@ -90,7 +90,7 @@ public class ShapeTool extends Tool {
             for (org.bukkit.util.Vector offset : offsets) {
                 PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
                 if (space != null && !space.canSpawnBodies(offsets.size())) {
-                    send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+                    send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
                     return;
                 }
 

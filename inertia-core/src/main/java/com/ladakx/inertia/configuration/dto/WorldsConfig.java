@@ -1,8 +1,9 @@
 package com.ladakx.inertia.configuration.dto;
 
+import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.common.logging.InertiaLogger;
-import com.ladakx.inertia.common.utils.ConfigUtils;
+import com.ladakx.inertia.common.serializers.RVec3Serializer;
 import com.ladakx.inertia.common.serializers.Vec3Serializer;
 import com.ladakx.inertia.physics.world.terrain.SimulationType;
 import org.bukkit.configuration.ConfigurationSection;
@@ -45,24 +46,18 @@ public class WorldsConfig {
         // --- Performance ---
         ConfigurationSection perfSec = section.getConfigurationSection("performance");
         int maxBodiesDefault = section.getInt("max-bodies", 65536);
-
         int maxBodies = perfSec != null ? perfSec.getInt("max-bodies", maxBodiesDefault) : maxBodiesDefault;
         int numBodyMutexes = perfSec != null ? perfSec.getInt("num-body-mutexes", 0) : 0;
         int maxBodyPairs = perfSec != null ? perfSec.getInt("max-body-pairs", 65536) : 65536;
         int maxContactConstraints = perfSec != null ? perfSec.getInt("max-contact-constraints", 10240) : 10240;
         int tempAllocSize = perfSec != null ? perfSec.getInt("temp-allocator-size", 10 * 1024 * 1024) : 10 * 1024 * 1024;
-
         PerformanceSettings perfSettings = new PerformanceSettings(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints, tempAllocSize);
 
         // --- Solver ---
         ConfigurationSection solvSec = section.getConfigurationSection("solver");
-
-        // Базовые
         int velSteps = solvSec != null ? solvSec.getInt("velocity-iterations", 10) : 10;
         int posSteps = solvSec != null ? solvSec.getInt("position-iterations", 2) : 2;
         float baumgarte = solvSec != null ? (float) solvSec.getDouble("baumgarte-stabilization", 0.2) : 0.2f;
-
-        // Расширенные (с дефолтными значениями из Jolt)
         float specContactDist = solvSec != null ? (float) solvSec.getDouble("speculative-contact-distance", 0.02) : 0.02f;
         float penSlop = solvSec != null ? (float) solvSec.getDouble("penetration-slop", 0.02) : 0.02f;
         float linCastThresh = solvSec != null ? (float) solvSec.getDouble("linear-cast-threshold", 0.75) : 0.75f;
@@ -88,7 +83,7 @@ public class WorldsConfig {
         float timeBeforeSleep = sleepSec != null ? (float) sleepSec.getDouble("time-before-sleep", 0.5) : 0.5f;
         SleepSettings sleepSettings = new SleepSettings(sleepThreshold, timeBeforeSleep);
 
-        // --- Simulation ---
+        // --- Simulation (Terrain/Floors) ---
         ConfigurationSection simSec = section.getConfigurationSection("simulation");
         boolean simEnable = false;
         SimulationType simType = SimulationType.NONE;
@@ -116,7 +111,7 @@ public class WorldsConfig {
                     float maxX = 5000000f, maxZ = 5000000f;
 
                     if (fSizeSec != null) {
-                        fOrigin = Vec3Serializer.serialize(fSizeSec.getString("origin", "0 0 0"));
+                        fOrigin = Vec3Serializer.serializeXZ(fSizeSec.getString("origin", "0 0"));
                         String minStr = fSizeSec.getString("min");
                         if (minStr != null) {
                             String[] parts = minStr.split("\\s+");
@@ -143,26 +138,130 @@ public class WorldsConfig {
         if (floorSettings == null) {
             floorSettings = new FloorPlaneSettings(0, 1, 1, 0, new FloorBounds(new Vec3(0,0,0), -100, -100, 100, 100));
         }
-
         SimulationSettings simulation = new SimulationSettings(simEnable, simType, floorSettings);
 
-        // --- World Size ---
+        // --- World Size & Boundaries ---
         ConfigurationSection sizeSec = section.getConfigurationSection("size");
-        Vec3 origin = new Vec3(0, 0, 0);
-        Vec3 min = new Vec3(-5000000, 0, -5000000);
-        Vec3 max = new Vec3(5000000, 1024, 5000000);
+        WorldSizeSettings sizeSettings = parseWorldSize(sizeSec);
 
-        if (sizeSec != null) {
-            origin = Vec3Serializer.serialize(sizeSec.getString("origin", "0 0 0"));
-            String minStr = sizeSec.getString("min");
-            String maxStr = sizeSec.getString("max");
-            if (minStr != null) min = Vec3Serializer.serialize(minStr);
-            if (maxStr != null) max = Vec3Serializer.serialize(maxStr);
+        return new WorldProfile(gravity, tickRate, collisionSteps, solverSettings, perfSettings, sleepSettings, simulation, sizeSettings);
+    }
+
+    private WorldSizeSettings parseWorldSize(ConfigurationSection sizeSec) {
+        // Defaults
+        boolean createWalls = false;
+        boolean killBelowMinY = false;
+        boolean preventExit = true;
+        Vec3 heightSize;
+        RVec3 finalOrigin;
+        RVec3 finalMin;
+        RVec3 finalMax;
+
+        // Default vertical bounds for "infinite" feeling
+
+        if (sizeSec == null) {
+            finalOrigin = new RVec3(0, 0, 0);
+            heightSize = new Vec3(-128, 0, 1024);
+            finalMin = new RVec3(-1000, -128, -1000);
+            finalMax = new RVec3(1000, 1024, 1000);
+        } else {
+            createWalls = sizeSec.getBoolean("create-walls", false);
+            killBelowMinY = sizeSec.getBoolean("kill-below-min-y", false);
+            preventExit = sizeSec.getBoolean("prevent-exit", true);
+
+            RVec3 configOrigin = null;
+            if (sizeSec.contains("origin")) {
+                configOrigin = parseVectorXZ(sizeSec.getString("origin"), 0.0);
+            }
+
+            RVec3 configMin = null;
+            if (sizeSec.contains("min")) {
+                configMin = RVec3Serializer.serializeXZ(sizeSec.getString("min"));
+            }
+
+            RVec3 configMax = null;
+            if (sizeSec.contains("max")) {
+                configMax = RVec3Serializer.serializeXZ(sizeSec.getString("max"));
+            }
+
+            heightSize = new Vec3(-128, 0, 1024); // Default height size
+            if (sizeSec.contains("height-size")) {
+                heightSize = Vec3Serializer.serializeXZ(sizeSec.getString("height-size"));
+            }
+
+            // Logic: Explicit Min/Max > Radius/Dimensions
+            if (configMin != null && configMax != null) {
+                finalMin = configMin;
+                finalMax = configMax;
+                // If origin is explicit, use it. Else calculate horizontal center.
+                if (configOrigin != null) {
+                    finalOrigin = configOrigin;
+                } else {
+                    finalOrigin = new RVec3(
+                            (finalMin.xx() + finalMax.xx()) * 0.5,
+                            0.0, // Always 0 Y for origin
+                            (finalMin.zz() + finalMax.zz()) * 0.5
+                    );
+                }
+            } else {
+                // Dimensions based logic
+                RVec3 center = (configOrigin != null) ? configOrigin : new RVec3(0, 0, 0);
+
+                double dx = 500.0;
+                double dz = 500.0;
+
+                if (sizeSec.contains("radius")) {
+                    double radius = sizeSec.getDouble("radius");
+                    dx = radius;
+                    dz = radius;
+                } else {
+                    if (sizeSec.contains("width")) dx = sizeSec.getDouble("width") / 2.0;
+                    if (sizeSec.contains("length")) dz = sizeSec.getDouble("length") / 2.0;
+                }
+
+                heightSize = new Vec3(-128, 0, 1024); // Default height size
+                if (sizeSec.contains("height-size")) {
+                    heightSize = Vec3Serializer.serializeXZ(sizeSec.getString("height-size"));
+                }
+
+                finalMin = new RVec3(center.xx() - dx, configMin.y(), center.zz() - dz);
+                finalMax = new RVec3(center.xx() + dx, configMax.y(), center.zz() + dz);
+                finalOrigin = center;
+            }
         }
 
-        WorldSizeSettings size = new WorldSizeSettings(origin, min, max);
+        // Compute local bounds (relative to origin)
+        float lMinX = (float) (finalMin.xx() - finalOrigin.xx());
+        float lMinY = (float) (finalMin.yy() - finalOrigin.yy());
+        float lMinZ = (float) (finalMin.zz() - finalOrigin.zz());
 
-        return new WorldProfile(gravity, tickRate, collisionSteps, solverSettings, perfSettings, sleepSettings, simulation, size);
+        float lMaxX = (float) (finalMax.xx() - finalOrigin.xx());
+        float lMaxY = (float) (finalMax.yy() - finalOrigin.yy());
+        float lMaxZ = (float) (finalMax.zz() - finalOrigin.zz());
+
+        Vec3 localMin = new Vec3(lMinX, lMinY, lMinZ);
+        Vec3 localMax = new Vec3(lMaxX, lMaxY, lMaxZ);
+
+        return new WorldSizeSettings(
+                finalOrigin, finalMin, finalMax, heightSize, localMin, localMax,
+                createWalls, killBelowMinY, preventExit
+        );
+    }
+
+    // Helper to parse "x z" string into RVec3(x, fixedY, z)
+    private RVec3 parseVectorXZ(String str, double fixedY) {
+        if (str == null) return null;
+        String[] parts = str.trim().split("\\s+");
+        if (parts.length >= 2) {
+            try {
+                double x = Double.parseDouble(parts[0]);
+                double z = Double.parseDouble(parts[1]);
+                return new RVec3(x, fixedY, z);
+            } catch (NumberFormatException e) {
+                // ignore
+            }
+        }
+        return null;
     }
 
     public WorldProfile getWorldSettings(String worldName) {
@@ -211,5 +310,15 @@ public class WorldsConfig {
 
     public record FloorBounds(Vec3 origin, float minX, float minZ, float maxX, float maxZ) {}
 
-    public record WorldSizeSettings(Vec3 origin, Vec3 min, Vec3 max) {}
+    public record WorldSizeSettings(
+            RVec3 origin,
+            RVec3 worldMin,
+            RVec3 worldMax,
+            Vec3 heightSize,
+            Vec3 localMin,
+            Vec3 localMax,
+            boolean createWalls,
+            boolean killBelowMinY,
+            boolean preventExit
+    ) {}
 }

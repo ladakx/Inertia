@@ -7,10 +7,9 @@ import com.github.stephengold.joltjni.readonly.ConstBodyLockInterfaceLocking;
 import com.github.stephengold.joltjni.readonly.ConstBroadPhaseQuery;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
-import com.ladakx.inertia.common.utils.ConvertUtils;
-import com.ladakx.inertia.common.utils.MiscUtils;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
+import com.ladakx.inertia.physics.world.PhysicsWorld;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -20,18 +19,24 @@ import java.util.*;
 
 public class PhysicsQueryEngine implements PhysicsInteraction {
 
+    private final PhysicsWorld physicsWorld;
     private final PhysicsSystem physicsSystem;
     private final PhysicsObjectManager objectManager;
 
-    public PhysicsQueryEngine(PhysicsSystem physicsSystem, PhysicsObjectManager objectManager) {
+    public PhysicsQueryEngine(PhysicsWorld physicsWorld, PhysicsSystem physicsSystem, PhysicsObjectManager objectManager) {
+        this.physicsWorld = physicsWorld;
         this.physicsSystem = physicsSystem;
         this.objectManager = objectManager;
     }
 
     @Override
     public @Nullable RaycastHit raycast(@NotNull Location start, @NotNull Vector direction, double distance) {
+        // Convert Start Location to Jolt Space
+        RVec3 startVec = physicsWorld.toJolt(start);
+
+        // Direction is relative, usually doesn't need origin shift, but math is:
+        // RayStart(Jolt) + Direction * fraction -> HitPoint(Jolt)
         Vector dir = direction.clone().normalize().multiply(distance);
-        RVec3 startVec = ConvertUtils.toRVec3(start);
         Vec3 dirVec = new Vec3((float) dir.getX(), (float) dir.getY(), (float) dir.getZ());
 
         RRayCast ray = new RRayCast(startVec, dirVec);
@@ -48,8 +53,12 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
                     ConstBody body = lock.getBody();
                     AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
                     if (obj != null) {
-                        Vector hitPos = MiscUtils.lerpVec(start.toVector(), start.toVector().add(dir), hit.getFraction());
-                        return new RaycastHit(obj, hitPos, hit.getFraction());
+                        // Calculate hit position in Jolt Space
+                        RVec3 hitPosJolt = ray.getPointOnRay(hit.getFraction());
+                        // Convert Jolt Hit Pos to Bukkit Location
+                        Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
+
+                        return new RaycastHit(obj, hitPosBukkit, hit.getFraction());
                     }
                 }
             }
@@ -59,8 +68,10 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
 
     @Override
     public @NotNull List<RaycastHit> raycastAll(@NotNull Location start, @NotNull Vector direction, double distance) {
+        // Convert Start Location to Jolt Space
+        RVec3 startVec = physicsWorld.toJolt(start);
+
         Vector dir = direction.clone().normalize().multiply(distance);
-        RVec3 startVec = ConvertUtils.toRVec3(start);
         Vec3 dirVec = new Vec3((float) dir.getX(), (float) dir.getY(), (float) dir.getZ());
 
         RRayCast ray = new RRayCast(startVec, dirVec);
@@ -71,8 +82,6 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
 
         List<RayCastResult> hits = collector.getHits();
         if (hits.isEmpty()) return Collections.emptyList();
-
-        // Сортировка списка результатов
         hits.sort(Comparator.comparingDouble(RayCastResult::getFraction));
 
         List<RaycastHit> results = new ArrayList<>();
@@ -84,22 +93,27 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
                     ConstBody body = lock.getBody();
                     AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
                     if (obj != null) {
-                        Vector hitPos = MiscUtils.lerpVec(start.toVector(), start.toVector().add(dir), hit.getFraction());
-                        results.add(new RaycastHit(obj, hitPos, hit.getFraction()));
+                        // Calculate hit position in Jolt Space
+                        RVec3 hitPosJolt = ray.getPointOnRay(hit.getFraction());
+                        // Convert Jolt Hit Pos to Bukkit Location
+                        Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
+
+                        results.add(new RaycastHit(obj, hitPosBukkit, hit.getFraction()));
                     }
                 }
             }
         }
-
         return results;
     }
 
     @Override
     public @NotNull Collection<InertiaPhysicsBody> getOverlappingSphere(@NotNull Location center, double radius) {
-        Vec3 centerVec = ConvertUtils.toVec3(center);
+        // Convert Center to Jolt Space
+        RVec3 centerVec = physicsWorld.toJolt(center);
+        Vec3 centerVecF = new Vec3((float)centerVec.xx(), (float)centerVec.yy(), (float)centerVec.zz());
 
         try (AllHitCollideShapeBodyCollector collector = new AllHitCollideShapeBodyCollector()) {
-            physicsSystem.getBroadPhaseQuery().collideSphere(centerVec, (float) radius, collector);
+            physicsSystem.getBroadPhaseQuery().collideSphere(centerVecF, (float) radius, collector);
 
             if (collector.getHits().length == 0) return Collections.emptyList();
 
@@ -124,12 +138,16 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
 
     @Override
     public void createExplosion(@NotNull Location center, float force, float radius) {
-        Vec3 origin = ConvertUtils.toVec3(center);
+        // Convert Center to Jolt Space
+        RVec3 centerVec = physicsWorld.toJolt(center);
+        Vec3 origin = new Vec3((float)centerVec.xx(), (float)centerVec.yy(), (float)centerVec.zz());
+
         createExplosionInternal(origin, force, radius);
     }
 
     private void createExplosionInternal(@NotNull Vec3 origin, float force, float radius) {
         if (force <= 0f || radius <= 0f) return;
+
         final float scaledForce = force * 500;
         final float radiusSq = radius * radius;
         BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
@@ -142,8 +160,8 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
 
             for (int bodyId : hits) {
                 if (!isValidExplosionTarget(bodyInterface, bodyId)) continue;
-                RVec3 com = bodyInterface.getCenterOfMassPosition(bodyId);
 
+                RVec3 com = bodyInterface.getCenterOfMassPosition(bodyId);
                 double dx = com.xx() - origin.getX();
                 double dy = com.yy() - origin.getY();
                 double dz = com.zz() - origin.getZ();
@@ -153,7 +171,6 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
                 float dzF = (float) dz;
 
                 float distSq = dxF*dxF + dyF*dyF + dzF*dzF;
-
                 if (distSq <= 1.0e-6f || distSq > radiusSq) continue;
 
                 float dist = (float) Math.sqrt(distSq);
