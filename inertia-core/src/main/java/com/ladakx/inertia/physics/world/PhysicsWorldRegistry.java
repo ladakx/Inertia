@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PhysicsWorldRegistry {
+
     private final InertiaPlugin plugin;
     private final ConfigurationService configurationService;
     private final PhysicsEngine physicsEngine;
@@ -27,20 +28,22 @@ public class PhysicsWorldRegistry {
         this.plugin = plugin;
         this.configurationService = configurationService;
         this.physicsEngine = physicsEngine;
-        InertiaLogger.info("Loading existing worlds into Inertia Jolt...");
-        for (World world : Bukkit.getWorlds()) {
-            createSpace(world);
-        }
+
+        // Initial load
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            InertiaLogger.info("Loading existing worlds into Inertia Jolt...");
+            for (World world : Bukkit.getWorlds()) {
+                createSpace(world);
+            }
+        });
     }
 
     public PhysicsWorld getSpace(World world) {
-        return spaces.computeIfAbsent(world.getUID(), k -> createSpaceInternal(world));
+        return spaces.get(world.getUID());
     }
 
     public PhysicsWorld getSpace(UUID worldId) {
-        World world = Bukkit.getWorld(worldId);
-        if (world == null) return null;
-        return getSpace(world);
+        return spaces.get(worldId);
     }
 
     private PhysicsWorld createSpaceInternal(World world) {
@@ -48,14 +51,9 @@ public class PhysicsWorldRegistry {
         WorldsConfig.WorldProfile settings = configurationService.getWorldsConfig().getWorldSettings(world.getName());
 
         TerrainAdapter terrainAdapter = null;
-
-        // Проверяем тип симуляции и наличие настроек пола
-        if (settings.simulation().type() == SimulationType.FLOOR_PLANE) {
+        if (settings.simulation().enabled() && settings.simulation().type() == SimulationType.FLOOR_PLANE) {
             terrainAdapter = new FlatFloorAdapter(settings.simulation().floorPlane());
         }
-
-        // Также можно использовать settings.tempAllocatorSize() при создании PhysicsWorld, если передать его в PhysicsEngine
-        // Но пока используем глобальный аллокатор из PhysicsEngine
 
         return new PhysicsWorld(
                 world,
@@ -69,9 +67,15 @@ public class PhysicsWorldRegistry {
     public void createSpace(World world) {
         if (!spaces.containsKey(world.getUID())) {
             if (configurationService.getWorldsConfig().getAllWorlds().containsKey(world.getName())) {
-                spaces.put(world.getUID(), createSpaceInternal(world));
+                try {
+                    PhysicsWorld space = createSpaceInternal(world);
+                    spaces.put(world.getUID(), space);
+                } catch (Exception e) {
+                    InertiaLogger.error("Failed to initialize physics world: " + world.getName(), e);
+                }
             } else {
-                InertiaLogger.info("World " + world.getName() + " is not configured for Inertia Jolt. Skipping space creation.");
+                // Not necessarily an error, maybe user didn't configure this world
+                // InertiaLogger.debug("World " + world.getName() + " is not configured for Inertia Jolt.");
             }
         }
     }
@@ -81,6 +85,31 @@ public class PhysicsWorldRegistry {
         if (space != null) {
             space.close();
         }
+    }
+
+    /**
+     * Reloads all physics worlds based on the new configuration.
+     * Warning: This destroys all current physics bodies!
+     */
+    public void reload() {
+        InertiaLogger.info("Reloading Physics World Registry...");
+
+        // 1. Close all existing worlds
+        for (PhysicsWorld space : spaces.values()) {
+            try {
+                space.close();
+            } catch (Exception e) {
+                InertiaLogger.error("Error closing world during reload: " + space.getBukkitWorld().getName(), e);
+            }
+        }
+        spaces.clear();
+
+        // 2. Re-initialize worlds that are currently loaded in Bukkit
+        for (World world : Bukkit.getWorlds()) {
+            createSpace(world);
+        }
+
+        InertiaLogger.info("Physics worlds reloaded.");
     }
 
     public void shutdown() {

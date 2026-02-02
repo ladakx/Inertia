@@ -15,10 +15,7 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
 
     protected final RenderFactory renderFactory;
     protected final PhysicsBodyRegistry modelRegistry;
-
-    // Теперь не final, так как может быть пересоздан
     protected PhysicsDisplayComposite displayComposite;
-
     private boolean wasActive = true;
 
     public DisplayedPhysicsBody(@NotNull PhysicsWorld space,
@@ -37,24 +34,24 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
     public void captureSnapshot(List<VisualUpdate> accumulator) {
         if (displayComposite == null) return;
 
-        boolean isActive = getBody().isActive();
+        // Pass World Origin to display composite for correct rendering position
+        var origin = getSpace().getOrigin();
 
+        boolean isActive = getBody().isActive();
         if (isActive) {
-            accumulator.addAll(displayComposite.capture(false));
+            accumulator.addAll(displayComposite.capture(false, origin));
             wasActive = true;
         } else if (wasActive) {
-            accumulator.addAll(displayComposite.capture(true));
+            accumulator.addAll(displayComposite.capture(true, origin));
             wasActive = false;
         }
     }
 
     public void freeze(@Nullable java.util.UUID clusterId) {
         if (!isValid()) return;
-
         if (displayComposite != null) {
             displayComposite.markAsStatic(clusterId);
         }
-
         super.destroy();
     }
 
@@ -66,18 +63,11 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
         }
     }
 
-    /**
-     * Проверяет состояние визуальной части и восстанавливает её, если она была удалена чанком.
-     * Вызывается при загрузке чанка.
-     */
     public void checkAndRestoreVisuals() {
         if (displayComposite != null && !displayComposite.isValid()) {
             displayComposite = recreateDisplay();
         }
     }
 
-    /**
-     * Абстрактный метод для пересоздания композита конкретным типом тела.
-     */
     protected abstract PhysicsDisplayComposite recreateDisplay();
 }

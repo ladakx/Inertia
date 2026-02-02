@@ -61,7 +61,7 @@ public class TNTSpawnTool extends Tool {
         if (space == null) return;
 
         if (!space.canSpawnBodies(1)) {
-            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
             return;
         }
 

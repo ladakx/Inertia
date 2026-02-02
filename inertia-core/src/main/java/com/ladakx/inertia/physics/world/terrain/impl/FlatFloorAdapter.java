@@ -3,7 +3,6 @@ package com.ladakx.inertia.physics.world.terrain.impl;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
-import com.github.stephengold.joltjni.readonly.ConstPlane;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
@@ -26,14 +25,12 @@ public class FlatFloorAdapter implements TerrainAdapter {
     @Override
     public void onEnable(PhysicsWorld world) {
         this.world = world;
-
         try {
             BodyInterface bi = world.getBodyInterface();
+            RVec3 origin = world.getOrigin();
 
+            // Calculate floor parameters relative to World Origin
             WorldsConfig.FloorBounds bounds = settings.bounds();
-
-            // Вычисляем размеры на основе min/max и origin
-            // Origin - это смещение всей системы координат пола
             float originX = bounds.origin().getX();
             float originZ = bounds.origin().getZ();
 
@@ -45,22 +42,21 @@ public class FlatFloorAdapter implements TerrainAdapter {
             float sizeX = Math.abs(actualMaxX - actualMinX) * 0.5f;
             float sizeZ = Math.abs(actualMaxZ - actualMinZ) * 0.5f;
 
-            // BoxShape (или PlaneShape с bounds) требует half-extents
             float halfExtentX = sizeX;
             float halfExtentZ = sizeZ;
-            // Для BoxShape толщина задается через Y
             float halfExtentY = settings.ySize() * 0.5f;
 
-            // Центр пола
             double centerX = actualMinX + sizeX;
             double centerZ = actualMinZ + sizeZ;
-            double centerY = settings.yLevel() - halfExtentY; // Смещаем вниз, чтобы верхняя грань была на yLevel
+            double centerY = settings.yLevel() - halfExtentY;
 
-            // Создаем BoxShape, так как PlaneShape бесконечен или сложен в настройке bounds в старых версиях Jolt
-            // BoxShape надежнее для ограниченного пола
+            // Apply Origin offset
+            double joltX = centerX - origin.xx();
+            double joltY = centerY - origin.yy();
+            double joltZ = centerZ - origin.zz();
+
             ConstShape floorShape = new BoxShape(new Vec3(halfExtentX, halfExtentY, halfExtentZ));
-
-            RVec3 position = new RVec3(centerX, centerY, centerZ);
+            RVec3 position = new RVec3(joltX, joltY, joltZ);
 
             BodyCreationSettings bcs = new BodyCreationSettings();
             bcs.setPosition(position);
@@ -72,9 +68,9 @@ public class FlatFloorAdapter implements TerrainAdapter {
 
             Body floor = bi.createBody(bcs);
             bi.addBody(floor, EActivation.DontActivate);
-
             this.bodyId = floor.getId();
-            InertiaLogger.info("Flat floor generated at Y=" + settings.yLevel() + " with size " + (sizeX*2) + "x" + (sizeZ*2));
+
+            InertiaLogger.info("Flat floor generated at Local Y=" + joltY + " (World Y=" + settings.yLevel() + ") with size " + (sizeX*2) + "x" + (sizeZ*2));
 
         } catch (Exception e) {
             InertiaLogger.error("Failed to create flat floor", e);
@@ -93,7 +89,6 @@ public class FlatFloorAdapter implements TerrainAdapter {
 
     @Override
     public void onChunkLoad(int x, int z) {
-        // Для плоского пола чанки не важны
     }
 
     @Override

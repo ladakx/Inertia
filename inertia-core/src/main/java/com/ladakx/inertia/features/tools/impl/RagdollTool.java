@@ -81,7 +81,7 @@ public class RagdollTool extends Tool {
         // Check spawn limit
         int totalParts = def.parts().size();
         if (!space.canSpawnBodies(totalParts)) {
-            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
             return;
         }
 

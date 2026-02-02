@@ -2,11 +2,11 @@ package com.ladakx.inertia.physics.body.impl;
 
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
-import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.api.body.MotionType;
 import com.ladakx.inertia.api.events.PhysicsBodyDestroyEvent;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.utils.ConvertUtils;
+import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import org.bukkit.Bukkit;
@@ -23,7 +23,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
 
     private final List<Integer> relatedBodies = new CopyOnWriteArrayList<>();
     private final List<TwoBodyConstraintRef> constraints = new CopyOnWriteArrayList<>();
-
     private final @NotNull PhysicsWorld space;
     private final @NotNull BodyCreationSettings bodySettings;
     private final @NotNull Body body;
@@ -39,8 +38,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         space.addObject(this);
     }
 
-    // --- Internal Management ---
-
     public void addRelated(@NotNull Body related) {
         if (related == null) {
             InertiaLogger.warn("Attempted to register a null related body in AbstractPhysicsBody.");
@@ -53,7 +50,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         if (related == null) return;
         TwoBodyConstraint newConstraint = related.getPtr();
         if (newConstraint == null) return;
-
         long newVa = newConstraint.va();
         for (TwoBodyConstraintRef existing : constraints) {
             TwoBodyConstraint existingConstraint = existing.getPtr();
@@ -91,8 +87,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         return uuid;
     }
 
-    // --- InertiaPhysicsBody Implementation ---
-
     @Override
     public boolean isValid() {
         return !destroyed.get() && getBody() != null;
@@ -103,14 +97,14 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         if (!destroyed.compareAndSet(false, true)) {
             return;
         }
-
-        // Fire event
-        Bukkit.getPluginManager().callEvent(new PhysicsBodyDestroyEvent(this));
+        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+            Bukkit.getPluginManager().callEvent(new PhysicsBodyDestroyEvent(this));
+        });
 
         BodyInterface bodyInterface = space.getBodyInterface();
         String worldName = space.getWorldBukkit().getName();
 
-        // Remove constraints
+        // 1. Constraints
         List<TwoBodyConstraintRef> constraintSnapshot = new ArrayList<>(constraints);
         for (TwoBodyConstraintRef ref : constraintSnapshot) {
             if (ref == null) continue;
@@ -125,7 +119,7 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         }
         constraints.clear();
 
-        // Remove related bodies (like chain links or ragdoll parts)
+        // 2. Related Bodies
         List<Integer> relatedSnapshot = new ArrayList<>(relatedBodies);
         for (int relatedId : relatedSnapshot) {
             try {
@@ -141,7 +135,7 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         }
         relatedBodies.clear();
 
-        // Remove main body
+        // 3. Main Body
         int mainBodyId = body.getId();
         try {
             bodyInterface.removeBody(mainBodyId);
@@ -157,19 +151,17 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         space.removeObject(this);
     }
 
-    // --- Positioning ---
-
     @Override
     public @NotNull Location getLocation() {
         if (!isValid()) return new Location(space.getWorldBukkit(), 0, 0, 0);
         RVec3 pos = body.getPosition();
-        return new Location(space.getWorldBukkit(), pos.xx(), pos.yy(), pos.zz());
+        return space.toBukkit(pos); // Use Space conversion
     }
 
     @Override
     public void teleport(@NotNull Location location) {
         if (!isValid()) return;
-        RVec3 pos = new RVec3(location.getX(), location.getY(), location.getZ());
+        RVec3 pos = space.toJolt(location); // Use Space conversion
         space.getBodyInterface().setPosition(body.getId(), pos, EActivation.Activate);
     }
 
@@ -177,11 +169,10 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     public void move(@NotNull Vector offset) {
         if (!isValid()) return;
         RVec3 current = body.getPosition();
+        // Offset is relative, no origin shift needed for addition
         RVec3 newPos = new RVec3(current.xx() + offset.getX(), current.yy() + offset.getY(), current.zz() + offset.getZ());
         space.getBodyInterface().setPosition(body.getId(), newPos, EActivation.Activate);
     }
-
-    // --- Motion ---
 
     @Override
     public @NotNull Vector getLinearVelocity() {
@@ -219,8 +210,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         space.getBodyInterface().addTorque(body.getId(), ConvertUtils.toVec3(torque));
     }
 
-    // --- Properties ---
-
     @Override
     public void setFriction(float friction) {
         if (!isValid()) return;
@@ -257,8 +246,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         return space.getBodyInterface().getGravityFactor(body.getId());
     }
 
-    // --- State ---
-
     @Override
     public void activate() {
         if (!isValid()) return;
@@ -280,10 +267,10 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     @Override
     public void setMotionType(@NotNull MotionType motionType) {
         if (!isValid()) return;
-        EMotionType joltType = switch (motionType) {
-            case STATIC -> EMotionType.Static;
-            case KINEMATIC -> EMotionType.Kinematic;
-            case DYNAMIC -> EMotionType.Dynamic;
+        com.github.stephengold.joltjni.enumerate.EMotionType joltType = switch (motionType) {
+            case STATIC -> com.github.stephengold.joltjni.enumerate.EMotionType.Static;
+            case KINEMATIC -> com.github.stephengold.joltjni.enumerate.EMotionType.Kinematic;
+            case DYNAMIC -> com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic;
         };
         space.getBodyInterface().setMotionType(body.getId(), joltType, EActivation.Activate);
     }
@@ -291,9 +278,9 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     @Override
     public @NotNull MotionType getMotionType() {
         if (!isValid()) return MotionType.STATIC;
-        EMotionType type = space.getBodyInterface().getMotionType(body.getId());
-        if (type == EMotionType.Static) return MotionType.STATIC;
-        if (type == EMotionType.Kinematic) return MotionType.KINEMATIC;
+        com.github.stephengold.joltjni.enumerate.EMotionType type = space.getBodyInterface().getMotionType(body.getId());
+        if (type == com.github.stephengold.joltjni.enumerate.EMotionType.Static) return MotionType.STATIC;
+        if (type == com.github.stephengold.joltjni.enumerate.EMotionType.Kinematic) return MotionType.KINEMATIC;
         return MotionType.DYNAMIC;
     }
 }

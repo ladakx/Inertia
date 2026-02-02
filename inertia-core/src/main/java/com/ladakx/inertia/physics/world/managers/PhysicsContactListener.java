@@ -1,8 +1,10 @@
 package com.ladakx.inertia.physics.world.managers;
 
 import com.github.stephengold.joltjni.*;
+import com.ladakx.inertia.api.events.PhysicsBodySpawnEvent;
 import com.ladakx.inertia.api.events.PhysicsCollisionEvent;
 import com.ladakx.inertia.common.utils.ConvertUtils;
+import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import org.bukkit.Bukkit;
 import org.bukkit.util.Vector;
@@ -33,7 +35,9 @@ public class PhysicsContactListener extends CustomContactListener {
             Vector contactPoint = ConvertUtils.toBukkit(contactPointJolt);
 
             PhysicsCollisionEvent event = new PhysicsCollisionEvent(obj1, obj2, contactPoint);
-            Bukkit.getPluginManager().callEvent(event);
+            Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+                Bukkit.getPluginManager().callEvent(event);
+            });
         }
     }
 }

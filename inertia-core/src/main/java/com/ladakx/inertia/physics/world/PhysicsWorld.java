@@ -20,6 +20,7 @@ import com.ladakx.inertia.physics.world.managers.PhysicsContactListener;
 import com.ladakx.inertia.physics.world.managers.PhysicsObjectManager;
 import com.ladakx.inertia.physics.world.managers.PhysicsQueryEngine;
 import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
+import com.ladakx.inertia.physics.world.managers.WorldBoundaryManager;
 import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.VisualUpdate;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
@@ -40,19 +41,25 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
+
     private final String worldName;
     private final World worldBukkit;
     private final WorldsConfig.WorldProfile settings;
+    private final RVec3 origin; // World Center in Minecraft Coordinates
+
     private final PhysicsSystem physicsSystem;
     private final JobSystem jobSystem;
     private final TempAllocator tempAllocator;
     private final PhysicsLoop physicsLoop;
+
     private final PhysicsObjectManager objectManager;
     private final PhysicsTaskManager taskManager;
     private final PhysicsQueryEngine queryEngine;
     private final ChunkTicketManager chunkTicketManager;
     private final TerrainAdapter terrainAdapter;
     private final PhysicsContactListener contactListener;
+    private final WorldBoundaryManager boundaryManager;
+
     private final List<Body> staticBodies = new ArrayList<>();
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
 
@@ -64,18 +71,23 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.worldBukkit = world;
         this.worldName = world.getName();
         this.settings = settings;
+        this.origin = settings.size().origin();
         this.jobSystem = jobSystem;
         this.tempAllocator = tempAllocator;
         this.terrainAdapter = terrainAdapter;
+
         this.chunkTicketManager = new ChunkTicketManager(world);
         this.objectManager = new PhysicsObjectManager();
         this.taskManager = new PhysicsTaskManager();
 
         this.physicsSystem = initializeJoltSystem();
-        this.queryEngine = new PhysicsQueryEngine(physicsSystem, objectManager);
-
+        this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.contactListener = new PhysicsContactListener(objectManager);
         this.physicsSystem.setContactListener(contactListener);
+
+        // Initialize Boundary Manager
+        this.boundaryManager = new WorldBoundaryManager(this, settings.size());
+        this.boundaryManager.createBoundaries();
 
         if (this.terrainAdapter != null) {
             this.terrainAdapter.onEnable(this);
@@ -103,8 +115,6 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         ObjectVsBroadPhaseLayerFilter ovbFilter = new ObjectVsBroadPhaseLayerFilterTable(layerMap, PhysicsLayers.NUM_BP_LAYERS, ovoFilter, PhysicsLayers.NUM_OBJ_LAYERS);
 
         PhysicsSystem sys = new PhysicsSystem();
-
-        // Лимиты производительности
         sys.init(
                 settings.performance().maxBodies(),
                 settings.performance().numBodyMutexes(),
@@ -115,10 +125,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 ovoFilter
         );
 
-        // Настройки физики (Solver, Sleeping, etc.)
         PhysicsSettings physSettings = new PhysicsSettings();
-
-        // Solver
         WorldsConfig.SolverSettings solverSettings = settings.solver();
         physSettings.setNumVelocitySteps(solverSettings.velocityIterations());
         physSettings.setNumPositionSteps(solverSettings.positionIterations());
@@ -135,28 +142,29 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         physSettings.setAllowSleeping(solverSettings.allowSleeping());
         physSettings.setDeterministicSimulation(solverSettings.deterministicSimulation());
 
-        // Sleeping
         WorldsConfig.SleepSettings sleepSettings = settings.sleeping();
         physSettings.setTimeBeforeSleep(sleepSettings.timeBeforeSleep());
         physSettings.setPointVelocitySleepThreshold(sleepSettings.pointVelocityThreshold());
 
         sys.setPhysicsSettings(physSettings);
-
         sys.setGravity(settings.gravity());
         sys.optimizeBroadPhase();
+
         return sys;
     }
-
 
     private void runPhysicsStep() {
         if (isPaused.get()) {
             return;
         }
+
         float deltaTime = 1.0f / settings.tickRate();
         int errors = physicsSystem.update(deltaTime, settings.collisionSteps(), tempAllocator, jobSystem);
+
         if (errors != EPhysicsUpdateError.None) {
             InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
         }
+
         taskManager.runAll();
     }
 
@@ -164,24 +172,56 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         List<AbstractPhysicsBody> bodies = objectManager.getAll();
         List<VisualUpdate> updates = new ArrayList<>(bodies.size());
         java.util.Set<Long> activeChunks = new java.util.HashSet<>();
-
+        List<AbstractPhysicsBody> toDestroy = new ArrayList<>();
         BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
+        WorldsConfig.WorldSizeSettings sizeSettings = settings.size();
 
         for (AbstractPhysicsBody obj : bodies) {
+            if (!obj.isValid()) continue;
+
+            // Boundary Checks
+            if (obj.getBody().isActive()) {
+                RVec3 joltPos = bodyInterface.getCenterOfMassPosition(obj.getBody().getId());
+
+                // 1. Kill below Min Y
+                if (sizeSettings.killBelowMinY() && boundaryManager.isBelowBottom(joltPos)) {
+                    toDestroy.add(obj);
+                    continue; // Skip further processing for this object
+                }
+
+                // 2. Prevent Exit
+                if (sizeSettings.preventExit() && !boundaryManager.isInside(joltPos)) {
+                    toDestroy.add(obj);
+                    continue; // Skip
+                }
+
+                // Chunk Ticket Updates
+                // Convert Jolt Position to Bukkit Position manually for efficiency
+                double worldX = joltPos.xx() + origin.xx();
+                double worldZ = joltPos.zz() + origin.zz();
+
+                int chunkX = (int) Math.floor(worldX) >> 4;
+                int chunkZ = (int) Math.floor(worldZ) >> 4;
+                activeChunks.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
+            }
+
+            // Visual Updates
             if (obj instanceof DisplayedPhysicsBody displayed) {
                 displayed.captureSnapshot(updates);
             }
-            if (obj.getBody().isActive()) {
-                RVec3 pos = bodyInterface.getCenterOfMassPosition(obj.getBody().getId());
-                int chunkX = (int) Math.floor(pos.xx()) >> 4;
-                int chunkZ = (int) Math.floor(pos.zz()) >> 4;
-                activeChunks.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
-            }
         }
-        return new PhysicsSnapshot(updates, activeChunks);
+        return new PhysicsSnapshot(updates, activeChunks, toDestroy);
     }
 
     private void applySnapshot(PhysicsSnapshot snapshot) {
+        // Handle Destruction
+        for (AbstractPhysicsBody body : snapshot.bodiesToDestroy()) {
+            if (body.isValid()) {
+                schedulePhysicsTask(() -> body.destroy());
+            }
+        }
+
+        // Handle Visuals
         for (VisualUpdate update : snapshot.updates()) {
             VisualEntity visual = update.visual();
             if (visual.isValid()) {
@@ -193,8 +233,49 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
     }
 
-    public void createExplosion(@NotNull Vec3 origin, float force, float radius) {
-        Location loc = new Location(worldBukkit, origin.getX(), origin.getY(), origin.getZ());
+    // --- Coordinate Conversion Methods ---
+
+    public RVec3 toJolt(Location location) {
+        return new RVec3(
+                location.getX() - origin.xx(),
+                location.getY() - origin.yy(),
+                location.getZ() - origin.zz()
+        );
+    }
+
+    public Location toBukkit(RVec3 joltVec) {
+        return new Location(worldBukkit,
+                joltVec.xx() + origin.xx(),
+                joltVec.yy() + origin.yy(),
+                joltVec.zz() + origin.zz()
+        );
+    }
+
+    public Vector toBukkitVec(RVec3 joltVec) {
+        return new Vector(
+                joltVec.xx() + origin.xx(),
+                joltVec.yy() + origin.yy(),
+                joltVec.zz() + origin.zz()
+        );
+    }
+
+    public RVec3 getOrigin() {
+        return origin;
+    }
+
+    public boolean isInsideWorld(Location location) {
+        if (!location.getWorld().getName().equals(worldName)) return false;
+        return boundaryManager.isInside(toJolt(location));
+    }
+
+    public WorldBoundaryManager getBoundaryManager() {
+        return boundaryManager;
+    }
+
+    // -------------------------------------
+
+    public void createExplosion(@NotNull Vec3 originLocal, float force, float radius) {
+        Location loc = new Location(worldBukkit, originLocal.getX() + origin.xx(), originLocal.getY() + origin.yy(), originLocal.getZ() + origin.zz());
         queryEngine.createExplosion(loc, force, radius);
     }
 
@@ -202,10 +283,11 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         RaycastHit hit = queryEngine.raycast(start, dir, dist);
         if (hit == null) return Collections.emptyList();
 
-        RVec3 hitPos = ConvertUtils.toRVec3(hit.point().toLocation(worldBukkit));
+        RVec3 hitPosLocal = toJolt(hit.point().toLocation(worldBukkit));
+
         if (hit.body() instanceof AbstractPhysicsBody abstractBody) {
             long va = abstractBody.getBody().targetVa();
-            return Collections.singletonList(new RaycastResult(va, hitPos));
+            return Collections.singletonList(new RaycastResult(va, hitPosLocal));
         }
         return Collections.emptyList();
     }
@@ -278,10 +360,14 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
     public void onChunkLoad(int x, int z) {
         if (terrainAdapter != null) terrainAdapter.onChunkLoad(x, z);
+
         for (AbstractPhysicsBody obj : objectManager.getAll()) {
             if (obj instanceof DisplayedPhysicsBody displayed) {
                 RVec3 pos = displayed.getBody().getPosition();
-                if (((int) Math.floor(pos.xx()) >> 4) == x && ((int) Math.floor(pos.zz()) >> 4) == z) {
+                double worldX = pos.xx() + origin.xx();
+                double worldZ = pos.zz() + origin.zz();
+
+                if (((int) Math.floor(worldX) >> 4) == x && ((int) Math.floor(worldZ) >> 4) == z) {
                     displayed.checkAndRestoreVisuals();
                 }
             }
@@ -297,7 +383,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         InertiaLogger.info("Closing world: " + worldName);
         physicsLoop.stop();
         objectManager.clearAll();
+
         if (terrainAdapter != null) terrainAdapter.onDisable();
+        if (boundaryManager != null) boundaryManager.destroyBoundaries();
 
         BodyInterface bi = physicsSystem.getBodyInterface();
         for (Body b : staticBodies) {

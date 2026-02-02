@@ -20,34 +20,28 @@ import com.ladakx.inertia.infrastructure.nms.player.PlayerTools;
 import com.ladakx.inertia.infrastructure.nms.player.PlayerToolsInit;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.infrastructure.nms.render.RenderFactoryInit;
-import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.features.tools.ToolRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.stream.Collectors;
 
 public final class InertiaPlugin extends JavaPlugin {
 
     private static InertiaPlugin instance;
 
-    // Core Dependencies
     private ConfigurationService configurationService;
     private PhysicsEngine physicsEngine;
     private PhysicsWorldRegistry physicsWorldRegistry;
     private ToolRegistry toolRegistry;
     private ItemRegistry itemRegistry;
-
-    // NMS / Native
     private LibraryLoader libraryLoader;
+
     private PlayerTools playerTools;
     private JoltTools joltTools;
     private RenderFactory renderFactory;
+
     private JShapeFactory shapeFactory;
     private BodyFactory bodyFactory;
     private BlockBenchMeshProvider meshProvider;
-
-    // Commands
     private InertiaCommandManager commandManager;
 
     @Override
@@ -56,42 +50,29 @@ public final class InertiaPlugin extends JavaPlugin {
         InertiaLogger.init(this);
         InertiaLogger.info("Starting Inertia initialization...");
 
-        // 0. Prepare low-level services
         this.meshProvider = new BlockBenchMeshProvider(this);
         this.shapeFactory = new JShapeFactory(meshProvider);
-
-        // 1. Config (First, because others depend on it)
         this.configurationService = new ConfigurationService(this, meshProvider);
 
-        // 2. Items (DI initialization)
         this.itemRegistry = new ItemRegistry(configurationService);
         this.itemRegistry.reload();
 
-        // 3. Natives
         if (!setupNativeLibraries()) {
             InertiaLogger.error("Failed to initialize Jolt Physics Engine. Disabling plugin.");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
 
-        // 4. NMS
         setupNMSTools();
 
-        // 5. Jolt & Space Managers
         this.physicsEngine = new PhysicsEngine(this, configurationService);
         this.physicsWorldRegistry = new PhysicsWorldRegistry(this, configurationService, physicsEngine);
-
-        // Body Factory (needs config and shapeFactory)
         this.bodyFactory = new BodyFactory(this, physicsWorldRegistry, configurationService, shapeFactory);
-
-        // 6. Tools (Now initialized with dependencies)
         this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry, shapeFactory, bodyFactory);
 
-        // 7. API
         InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory));
         InertiaLogger.info("Inertia API registered.");
 
-        // 8. Commands & Listeners
         registerCommands();
         registerListeners();
 
@@ -120,8 +101,20 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     public void reload() {
-        if (configurationService != null) configurationService.reloadAsync();
-        InertiaLogger.info("Inertia configuration reloaded.");
+        if (configurationService != null) {
+            configurationService.reloadAsync().thenRun(() -> {
+                // Reload physics worlds on main thread after config is ready
+                Bukkit.getScheduler().runTask(this, () -> {
+                    if (physicsWorldRegistry != null) {
+                        physicsWorldRegistry.reload();
+                    }
+                    if (itemRegistry != null) {
+                        itemRegistry.reload();
+                    }
+                    InertiaLogger.info("Inertia systems reloaded.");
+                });
+            });
+        }
     }
 
     private boolean setupNativeLibraries() {
@@ -129,6 +122,7 @@ public final class InertiaPlugin extends JavaPlugin {
             this.libraryLoader = new LibraryLoader();
             String precisionStr = this.getConfig().getString("physics.precision", "SP");
             Precision precision = "DP".equalsIgnoreCase(precisionStr) ? Precision.DP : Precision.SP;
+
             InertiaLogger.info("Jolt Precision set to: " + precision);
             this.libraryLoader.init(this, precision);
             return true;
@@ -145,14 +139,15 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     public static InertiaPlugin getInstance() { return instance; }
+
     public PlayerTools getPlayerTools() { return playerTools; }
     public JoltTools getJoltTools() { return joltTools; }
     public RenderFactory getRenderFactory() { return renderFactory; }
+
     public JShapeFactory getShapeFactory() { return shapeFactory; }
     public BodyFactory getBodyFactory() { return bodyFactory; }
     public BlockBenchMeshProvider getMeshProvider() { return meshProvider; }
 
-    // Геттеры для DI
     public ConfigurationService getConfigManager() { return configurationService; }
     public PhysicsWorldRegistry getSpaceManager() { return physicsWorldRegistry; }
     public ToolRegistry getToolManager() { return toolRegistry; }

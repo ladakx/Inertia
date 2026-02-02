@@ -29,6 +29,7 @@ import org.joml.Vector3d;
 import java.util.*;
 
 public class BodyFactory {
+
     private final InertiaPlugin plugin;
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final JShapeFactory shapeFactory;
@@ -50,13 +51,20 @@ public class BodyFactory {
         PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
         if (space == null) return false;
 
+        // Check bounds before API call to be explicit
+        if (!space.isInsideWorld(location)) {
+            return false;
+        }
+
         if (!space.canSpawnBodies(1)) {
             return false;
         }
 
         InertiaPhysicsBody obj = InertiaAPI.get().createBody(location, bodyId);
         if (obj != null) {
-            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
+            Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+                Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
+            });
             return true;
         }
         return false;
@@ -65,6 +73,7 @@ public class BodyFactory {
     public void spawnChain(Player player, String bodyId, int size) {
         PhysicsBodyRegistry registry = configurationService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
+
         if (modelOpt.isEmpty()) {
             throw new IllegalArgumentException("Chain body not found: " + bodyId);
         }
@@ -75,15 +84,23 @@ public class BodyFactory {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
-        if (!space.canSpawnBodies(size)) {
-            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
-                    "{limit}", String.valueOf(space.getSettings().maxBodies()));
+        Location startLoc = getSpawnLocation(player, 3.0);
+        if (!space.isInsideWorld(startLoc)) {
+            configurationService.getMessageManager().send(player, MessageKey.ERROR_OCCURRED, "{error}", "Outside of world bounds!");
             return;
         }
 
-        Location startLoc = getSpawnLocation(player, 3.0);
+        if (!space.canSpawnBodies(size)) {
+            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
+                    "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
+            return;
+        }
+
         Vector direction = new Vector(0, -1, 0);
         double spacing = def.creation().spacing();
+
+        // Convert Start to Local Jolt
+        RVec3 localStartPos = space.toJolt(startLoc);
 
         Quaternionf jomlQuat = new Quaternionf().rotationTo(new org.joml.Vector3f(0, 1, 0), new org.joml.Vector3f(0, -1, 0));
         Quat linkRotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
@@ -95,8 +112,10 @@ public class BodyFactory {
             if (i > 0) {
                 groupFilter.disableCollision(i, i - 1);
             }
-            Location currentLoc = startLoc.clone().add(direction.clone().multiply(i * spacing));
-            RVec3 pos = new RVec3(currentLoc.getX(), currentLoc.getY(), currentLoc.getZ());
+
+            // Calculate position in Jolt Space relative to start
+            double offsetY = i * spacing * direction.getY();
+            RVec3 pos = new RVec3(localStartPos.xx(), localStartPos.yy() + offsetY, localStartPos.zz());
 
             ChainPhysicsBody link = new ChainPhysicsBody(
                     space,
@@ -111,14 +130,18 @@ public class BodyFactory {
                     i,
                     size
             );
+
             parentBody = link.getBody();
-            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(link));
+            Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+                Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(link));
+            });
         }
     }
 
     public void spawnRagdoll(Player player, String bodyId) {
         PhysicsBodyRegistry registry = configurationService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
+
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {
             throw new IllegalArgumentException("Ragdoll body not found or invalid type: " + bodyId);
         }
@@ -126,16 +149,22 @@ public class BodyFactory {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
-        int partsCount = def.parts().size();
-        if (!space.canSpawnBodies(partsCount)) {
-            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
-                    "{limit}", String.valueOf(space.getSettings().maxBodies()));
+        Location spawnLoc = getSpawnLocation(player, 3.0);
+        if (!space.isInsideWorld(spawnLoc)) {
+            configurationService.getMessageManager().send(player, MessageKey.ERROR_OCCURRED, "{error}", "Outside of world bounds!");
             return;
         }
 
-        Location spawnLoc = getSpawnLocation(player, 3.0);
+        int partsCount = def.parts().size();
+        if (!space.canSpawnBodies(partsCount)) {
+            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
+                    "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
+            return;
+        }
+
         float yaw = -player.getLocation().getYaw() + 180;
         double yawRad = Math.toRadians(yaw);
+
         Quaternionf jomlQuat = new Quaternionf(new AxisAngle4f((float) yawRad, 0, 1, 0));
         Quat rotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
@@ -156,7 +185,8 @@ public class BodyFactory {
 
         if (rootPart == null) return;
 
-        RVec3 rootPos = new RVec3(spawnLoc.getX(), spawnLoc.getY(), spawnLoc.getZ());
+        // Convert to Jolt Local
+        RVec3 rootPos = space.toJolt(spawnLoc);
 
         createRagdollPart(space, bodyId, rootPart, rootPos, rotation, spawnedParts, groupFilter, partIndices.get(rootPart));
         spawnRagdollChildren(space, bodyId, rootPart, def, rotation, spawnedParts, yawRad, groupFilter, partIndices);
@@ -164,23 +194,33 @@ public class BodyFactory {
 
     public int spawnShape(Player player, DebugShapeGenerator generator, String bodyId, double... params) {
         Location center = getSpawnLocation(player, 5.0);
-        List<Vector> offsets = generator.generatePoints(center, params);
-
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return 0;
 
+        if (!space.isInsideWorld(center)) {
+            configurationService.getMessageManager().send(player, MessageKey.ERROR_OCCURRED, "{error}", "Outside of world bounds!");
+            return 0;
+        }
+
+        List<Vector> offsets = generator.generatePoints(center, params);
         if (!space.canSpawnBodies(offsets.size())) {
             configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
-                    "{limit}", String.valueOf(space.getSettings().maxBodies()));
+                    "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
             return 0;
         }
 
         int count = 0;
         for (Vector offset : offsets) {
             Location loc = center.clone().add(offset);
+
+            // Check individual body bounds
+            if (!space.isInsideWorld(loc)) continue;
+
             InertiaPhysicsBody body = InertiaAPI.get().createBody(loc, bodyId);
             if (body != null) {
-                Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(body));
+                Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+                    Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(body));
+                });
                 count++;
             }
         }
@@ -197,7 +237,9 @@ public class BodyFactory {
                 groupFilter, partIndex
         );
         spawnedBodies.put(partName, obj.getBody());
-        Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
+        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
+        });
     }
 
     private void spawnRagdollChildren(PhysicsWorld space, String bodyId, String parentName,
@@ -237,6 +279,10 @@ public class BodyFactory {
         PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
         if (space == null) return;
 
+        if (!space.isInsideWorld(location)) {
+            throw new IllegalArgumentException("Cannot spawn TNT outside world bounds");
+        }
+
         if (!space.canSpawnBodies(1)) {
             throw new IllegalStateException("World body limit reached");
         }
@@ -245,9 +291,10 @@ public class BodyFactory {
             throw new IllegalArgumentException("Body ID not found: " + bodyId);
         }
 
-        RVec3 pos = new RVec3(location.getX(), location.getY(), location.getZ());
-        Quat rot = new Quat(0, 0, 0, 1);
+        // Convert to Jolt
+        RVec3 pos = space.toJolt(location);
 
+        Quat rot = new Quat(0, 0, 0, 1);
         TNTPhysicsBody tnt = new TNTPhysicsBody(
                 space,
                 bodyId,
@@ -268,7 +315,10 @@ public class BodyFactory {
             );
             tnt.getBody().setLinearVelocity(linearVel);
         }
-        Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(tnt));
+
+        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(tnt));
+        });
     }
 
     private Location getSpawnLocation(Player player, double distance) {

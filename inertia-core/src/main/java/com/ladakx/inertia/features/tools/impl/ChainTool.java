@@ -154,7 +154,7 @@ public class ChainTool extends Tool {
 
         // --- PRE-CHECK: Проверяем лимит ---
         if (!space.canSpawnBodies(linkCount + 1)) { // +1 на всякий случай или запас
-            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().maxBodies()));
+            send(player, MessageKey.SPAWN_LIMIT_REACHED, "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
             return;
         }
 
