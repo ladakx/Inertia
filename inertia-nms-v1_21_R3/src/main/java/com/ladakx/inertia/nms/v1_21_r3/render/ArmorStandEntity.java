@@ -2,6 +2,7 @@ package com.ladakx.inertia.nms.v1_21_r3.render;
 
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Location;
+import org.bukkit.craftbukkit.entity.CraftArmorStand;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.util.EulerAngle;
@@ -20,8 +21,26 @@ public class ArmorStandEntity implements VisualEntity {
     @Override
     public void update(Location location, Quaternionf rotation, Vector3f center, boolean rotateTranslation) {
         if (!stand.isValid()) return;
-        
-        stand.teleport(location);
+
+        int oldCX = stand.getLocation().getBlockX() >> 4;
+        int oldCZ = stand.getLocation().getBlockZ() >> 4;
+        int newCX = location.getBlockX() >> 4;
+        int newCZ = location.getBlockZ() >> 4;
+
+        if (oldCX == newCX && oldCZ == newCZ) {
+            net.minecraft.world.entity.decoration.ArmorStand handle = ((CraftArmorStand) stand).getHandle();
+            // NMS fast path: setPos + setYRot/setXRot (yaw/pitch)
+            // moveTo handles updating the bounding box and position
+            handle.moveTo(
+                    location.getX(),
+                    location.getY(),
+                    location.getZ(),
+                    location.getYaw(),
+                    location.getPitch()
+            );
+        } else {
+            stand.teleport(location);
+        }
 
         EulerAngle angle = toEulerAngle(rotation);
         stand.setHeadPose(angle);

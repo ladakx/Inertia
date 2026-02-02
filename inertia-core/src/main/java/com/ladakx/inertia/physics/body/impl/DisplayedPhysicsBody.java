@@ -2,7 +2,7 @@ package com.ladakx.inertia.physics.body.impl;
 
 import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
-import com.ladakx.inertia.physics.world.snapshot.VisualUpdate;
+import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
@@ -31,18 +31,15 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
         return displayComposite;
     }
 
-    public void captureSnapshot(List<VisualUpdate> accumulator) {
+    public void captureSnapshot(java.util.List<com.ladakx.inertia.physics.world.snapshot.VisualState> accumulator, com.ladakx.inertia.physics.world.snapshot.SnapshotPool pool, com.github.stephengold.joltjni.RVec3 origin) {
         if (displayComposite == null) return;
-
-        // Pass World Origin to display composite for correct rendering position
-        var origin = getSpace().getOrigin();
 
         boolean isActive = getBody().isActive();
         if (isActive) {
-            accumulator.addAll(displayComposite.capture(false, origin));
+            displayComposite.capture(false, origin, accumulator, pool);
             wasActive = true;
         } else if (wasActive) {
-            accumulator.addAll(displayComposite.capture(true, origin));
+            displayComposite.capture(true, origin, accumulator, pool);
             wasActive = false;
         }
     }
