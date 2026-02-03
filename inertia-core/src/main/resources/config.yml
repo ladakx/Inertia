@@ -3,6 +3,10 @@ general:
   debug:
     console: true
     boss-bar: "%-4s | Bodies: %-4s | Vehicles: %-4s | Physics MSPT: %-4s | Simulation MSPT: %-4s"
+    hitboxes:
+      default-range: 20
+      max-range: 100
+      render-interval-ticks: 2
 
 physics:
   precision: DP # DP/SP for double/single precision physics calculations

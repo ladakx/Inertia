@@ -39,15 +39,25 @@ public class InertiaConfig {
 
             public boolean consoleDebug = true;
             public final String debugPlaceholderBar;
+            public final int hitboxDefaultRange;
+            public final int hitboxMaxRange;
+            public final int hitboxRenderIntervalTicks;
 
             public DebugSettings(ConfigurationSection section, FileConfiguration root) {
                 if (section == null) {
                     this.debugPlaceholderBar = "Debug info...";
+                    this.hitboxDefaultRange = 20;
+                    this.hitboxMaxRange = 100;
+                    this.hitboxRenderIntervalTicks = 2;
                     return;
                 }
 
                 this.consoleDebug = section.getBoolean("console", true);
                 this.debugPlaceholderBar = section.getString("boss-bar", "%-4s | Bodies: %-4s | Vehicles: %-4s");
+                ConfigurationSection hitboxes = section.getConfigurationSection("hitboxes");
+                this.hitboxDefaultRange = hitboxes != null ? hitboxes.getInt("default-range", 20) : 20;
+                this.hitboxMaxRange = hitboxes != null ? hitboxes.getInt("max-range", 100) : 100;
+                this.hitboxRenderIntervalTicks = hitboxes != null ? hitboxes.getInt("render-interval-ticks", 2) : 2;
             }
         }
     }
