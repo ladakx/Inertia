@@ -69,6 +69,7 @@ public class FlatFloorAdapter implements TerrainAdapter {
             Body floor = bi.createBody(bcs);
             bi.addBody(floor, EActivation.DontActivate);
             this.bodyId = floor.getId();
+            world.registerSystemStaticBody(this.bodyId);
 
             InertiaLogger.info("Flat floor generated at Local Y=" + joltY + " (World Y=" + settings.yLevel() + ") with size " + (sizeX*2) + "x" + (sizeZ*2));
 
@@ -81,6 +82,7 @@ public class FlatFloorAdapter implements TerrainAdapter {
     public void onDisable() {
         if (bodyId != null && world != null) {
             BodyInterface bi = world.getBodyInterface();
+            world.unregisterSystemStaticBody(bodyId);
             bi.removeBody(bodyId);
             bi.destroyBody(bodyId);
             bodyId = null;

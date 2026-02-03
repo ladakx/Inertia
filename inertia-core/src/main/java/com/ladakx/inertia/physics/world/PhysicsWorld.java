@@ -3,6 +3,7 @@ package com.ladakx.inertia.physics.world;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.*;
 import com.github.stephengold.joltjni.readonly.ConstBody;
+import com.ladakx.inertia.api.body.MotionType;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
@@ -35,7 +36,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
@@ -56,6 +59,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final PhysicsContactListener contactListener;
     private final WorldBoundaryManager boundaryManager;
     private final List<Body> staticBodies = new ArrayList<>();
+    private final Set<Integer> systemStaticBodyIds = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     private final SnapshotPool snapshotPool;
     private final InertiaBodyActivationListener bodyActivationListener;
@@ -105,7 +109,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 this::collectSnapshot,
                 this::applySnapshot,
                 () -> physicsSystem.getNumActiveBodies(EBodyType.RigidBody),
-                physicsSystem::getNumBodies
+                physicsSystem::getNumBodies,
+                this::countStaticBodies
         );
 
         if (metricsService != null) {
@@ -370,6 +375,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             bi.destroyBody(b.getId());
         }
         staticBodies.clear();
+        systemStaticBodyIds.clear();
 
         physicsSystem.destroyAllBodies();
 
@@ -386,6 +392,28 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
     public WorldsConfig.WorldProfile getSettings() {
         return settings;
+    }
+
+    public void registerSystemStaticBody(int bodyId) {
+        systemStaticBodyIds.add(bodyId);
+    }
+
+    public void unregisterSystemStaticBody(int bodyId) {
+        systemStaticBodyIds.remove(bodyId);
+    }
+
+    public Set<Integer> getSystemStaticBodyIds() {
+        return Collections.unmodifiableSet(systemStaticBodyIds);
+    }
+
+    private int countStaticBodies() {
+        int count = systemStaticBodyIds.size();
+        for (AbstractPhysicsBody obj : objectManager.getAll()) {
+            if (obj.isValid() && obj.getMotionType() == MotionType.STATIC) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public World getWorldBukkit() {

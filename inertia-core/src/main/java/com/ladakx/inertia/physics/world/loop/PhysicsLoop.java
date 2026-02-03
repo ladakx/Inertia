@@ -33,7 +33,7 @@ public class PhysicsLoop {
     private final AtomicLong tickCounter = new AtomicLong(0);
     private final Supplier<Integer> activeBodyCounter;
     private final Supplier<Integer> totalBodyCounter;
-    private final Supplier<Integer> staticBodyCounter; // Пока не используется в PhysicsSystem напрямую, нужно считать отдельно
+    private final Supplier<Integer> staticBodyCounter;
     private final int maxBodyLimit;
 
     public PhysicsLoop(String name,
@@ -43,7 +43,8 @@ public class PhysicsLoop {
                        Supplier<PhysicsSnapshot> snapshotProducer,
                        Consumer<PhysicsSnapshot> snapshotConsumer,
                        Supplier<Integer> activeBodyCounter,
-                       Supplier<Integer> totalBodyCounter) {
+                       Supplier<Integer> totalBodyCounter,
+                       Supplier<Integer> staticBodyCounter) {
         this.name = name;
         this.maxBodyLimit = maxBodyLimit;
         this.physicsStep = physicsStep;
@@ -51,7 +52,7 @@ public class PhysicsLoop {
         this.snapshotConsumer = snapshotConsumer;
         this.activeBodyCounter = activeBodyCounter;
         this.totalBodyCounter = totalBodyCounter;
-        this.staticBodyCounter = () -> 0; // TODO: Реализовать подсчет статики через ObjectManager, если нужно точно
+        this.staticBodyCounter = staticBodyCounter;
 
         this.tickExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "inertia-loop-" + name);
@@ -90,8 +91,10 @@ public class PhysicsLoop {
                 // Если нужно точное число статики, его нужно пробрасывать из PhysicsWorld.
                 // Пока передадим 0 или заглушку, так как Jolt PhysicsSystem.getNumBodies() возвращает всех.
 
+                int staticBodies = staticBodyCounter.get();
+
                 for (LoopTickListener listener : listeners) {
-                    listener.onTickEnd(tick, duration, active, total, 0, maxBodyLimit);
+                    listener.onTickEnd(tick, duration, active, total, staticBodies, maxBodyLimit);
                 }
 
                 if (snapshot != null) snapshotQueue.offer(snapshot);
