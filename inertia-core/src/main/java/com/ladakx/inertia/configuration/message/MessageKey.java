@@ -1,7 +1,6 @@
 package com.ladakx.inertia.configuration.message;
 
 public enum MessageKey {
-    // System
     PREFIX("prefix"),
     RELOAD_PLUGIN("reload-plugin"),
     NO_PERMISSIONS("no-permissions"),
@@ -12,30 +11,26 @@ public enum MessageKey {
     WRONG_ARGS_COMMAND("wrong-args-command"),
     ERROR_OCCURRED("error-occurred"),
 
-    // Errors
     SPAWN_LIMIT_REACHED("spawn-limit-reached"),
     SPAWN_FAIL_OBSTRUCTED("spawn-fail-obstructed"),
     SPAWN_FAIL_OUT_OF_BOUNDS("spawn-fail-out-of-bounds"),
-
-    // Spawn
     SPAWN_SUCCESS("spawn-success"),
     SPAWN_FAIL_INVALID_ID("spawn-fail-invalid-id"),
     CHAIN_SPAWN_SUCCESS("chain-spawn-success"),
     RAGDOLL_SPAWN_SUCCESS("ragdoll-spawn-success"),
     SHAPE_SPAWN_SUCCESS("shape-spawn-success"),
+
     CLEAR_SUCCESS("clear-success"),
     CLEAR_SUCCESS_RADIUS("clear-success-radius"),
     CLEAR_SUCCESS_FILTER("clear-success-filter"),
     CLEAR_SUCCESS_COMBO("clear-success-combo"),
     CLEAR_NO_MATCH("clear-no-match"),
 
-    // Shapes
     SHAPE_NOT_FOUND("shape-not-found"),
     SHAPE_LIST_AVAILABLE("shape-list-available"),
     SHAPE_USAGE("shape-usage"),
     SHAPE_INVALID_PARAMS("shape-invalid-params"),
 
-    // Tools - Generic
     TOOL_RECEIVED("tool-received"),
     TOOL_NOT_FOUND("tool-not-found"),
     TOOL_BROKEN_NBT("tool-broken-nbt"),
@@ -43,57 +38,43 @@ public enum MessageKey {
 
     BODY_FROZEN("body-frozen"),
     CANNOT_FREEZE_BODY("cannot-freeze-body"),
-
-    // Commands
     STATIC_SUCCESS("static-success"),
     STATIC_NO_MATCH("static-no-match"),
 
-    // Tools - Names & Lore
     TOOL_CHAIN_NAME("tool-chain-name"),
     TOOL_CHAIN_LORE("tool-chain-lore"),
-
     TOOL_RAGDOLL_NAME("tool-ragdoll-name"),
     TOOL_RAGDOLL_LORE("tool-ragdoll-lore"),
-
     TOOL_SHAPE_NAME("tool-shape-name"),
     TOOL_SHAPE_LORE("tool-shape-lore"),
-
     TOOL_TNT_NAME("tool-tnt-name"),
     TOOL_TNT_LORE("tool-tnt-lore"),
-
     TOOL_STATIC_NAME("tool-static-name"),
     TOOL_STATIC_LORE("tool-static-lore"),
-
     TOOL_GRABBER_NAME("tool-grabber-name"),
     TOOL_GRABBER_LORE("tool-grabber-lore"),
-
     TOOL_WELDER_NAME("tool-welder-name"),
     TOOL_WELDER_LORE("tool-welder-lore"),
-
     TOOL_REMOVER_NAME("tool-remover-name"),
     TOOL_REMOVER_LORE("tool-remover-lore"),
+    TOOL_INSPECT_NAME("tool-inspect-name"),
+    TOOL_INSPECT_LORE("tool-inspect-lore"),
 
-    // Tools - Specific
     SHAPE_SPAWNED("shape-spawned"),
     SHAPE_SPAWN_ERROR("shape-spawn-error"),
-
     CHAIN_POINT_SET("chain-point-set"),
     CHAIN_SELECT_FIRST("chain-select-first"),
     CHAIN_MISSING_ID("chain-missing-id"),
     CHAIN_BUILDING("chain-building"),
-
     SELECTION_CLEARED("selection-cleared"),
     CHAIN_CREATED("chain-created"),
     INVALID_CHAIN_BODY("invalid-chain-body"),
-
     INVALID_RAGDOLL_BODY("invalid-ragdoll-body"),
-
     WELD_MODE_CHANGE("weld-mode-change"),
     WELD_REMOVED("weld-removed"),
     WELD_FIRST_SELECTED("weld-first-selected"),
     WELD_DESELECTED("weld-deselected"),
     WELD_CONNECTED("weld-connected"),
-
     REMOVER_USED("remover-used"),
 
     TNT_SPAWNED("tnt-spawned"),
@@ -101,12 +82,29 @@ public enum MessageKey {
     TNT_INVALID_FORCE("tnt-invalid-force"),
     TNT_TOOL_USAGE("tnt-tool-usage"),
 
-    // Help
-    HELP_PAGE_HEADER("help-page-header"), // Заголовок страницы
-    HELP_PAGE_FOOTER("help-page-footer"), // Футер
-    HELP_COMMAND_DESC("help-command-desc"), // Описание
-    HELP_NEXT_PAGE("help-next-page"), // Кнопка "Вперед"
-    HELP_PREV_PAGE("help-prev-page"); // Кнопка "Назад"
+    ADMIN_SIMULATION_PAUSED("admin-simulation-paused"),
+    ADMIN_STATS_HEADER("admin-stats-header"),
+    ADMIN_STATS_PERFORMANCE("admin-stats-performance"),
+    ADMIN_STATS_BODIES("admin-stats-bodies"),
+    ADMIN_STATS_FOOTER("admin-stats-footer"),
+
+    DEBUG_INSPECT_HEADER("debug-inspect-header"),
+    DEBUG_INSPECT_INFO("debug-inspect-info"),
+    DEBUG_INSPECT_VELOCITY("debug-inspect-velocity"),
+    DEBUG_INSPECT_PROPS("debug-inspect-props"),
+    DEBUG_INSPECT_STATE("debug-inspect-state"),
+    DEBUG_INSPECT_FOOTER("debug-inspect-footer"),
+    DEBUG_INSPECT_MISS("debug-inspect-miss"),
+
+    DEBUG_PERF_TOGGLE("debug-perf-toggle"),
+    DEBUG_PERF_FORMAT("debug-perf-format"),
+    DEBUG_HITBOX_TOGGLE("debug-hitbox-toggle"),
+
+    HELP_PAGE_HEADER("help-page-header"),
+    HELP_PAGE_FOOTER("help-page-footer"),
+    HELP_COMMAND_DESC("help-command-desc"),
+    HELP_NEXT_PAGE("help-next-page"),
+    HELP_PREV_PAGE("help-prev-page");
 
     private final String path;
 
