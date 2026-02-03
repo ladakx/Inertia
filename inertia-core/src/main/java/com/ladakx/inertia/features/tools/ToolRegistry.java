@@ -44,11 +44,11 @@ public class ToolRegistry implements Listener {
         register(new WeldTool(configurationService, physicsWorldRegistry, manipulationService, toolDataManager));
         register(new GrabberTool(configurationService, physicsWorldRegistry, manipulationService, toolDataManager));
         register(new StaticTool(configurationService, physicsWorldRegistry, manipulationService, toolDataManager));
-
         register(new ChainTool(configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, toolDataManager));
         register(new RagdollTool(configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, toolDataManager));
         register(new ShapeTool(configurationService, physicsWorldRegistry, bodyFactory, toolDataManager));
         register(new TNTSpawnTool(configurationService, physicsWorldRegistry, bodyFactory, toolDataManager));
+        register(new InspectTool(configurationService, physicsWorldRegistry, toolDataManager));
     }
 
     public void register(Tool tool) {

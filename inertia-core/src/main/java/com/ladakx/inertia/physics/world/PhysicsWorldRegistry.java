@@ -1,6 +1,7 @@
 package com.ladakx.inertia.physics.world;
 
 import com.github.stephengold.joltjni.PhysicsSystem;
+import com.ladakx.inertia.api.service.PhysicsMetricsService;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.configuration.ConfigurationService;
@@ -25,12 +26,17 @@ public class PhysicsWorldRegistry {
     private final ConfigurationService configurationService;
     private final PhysicsEngine physicsEngine;
     private final JoltSystemFactory systemFactory;
+    private final PhysicsMetricsService metricsService;
     private final Map<UUID, PhysicsWorld> spaces = new ConcurrentHashMap<>();
 
-    public PhysicsWorldRegistry(InertiaPlugin plugin, ConfigurationService configurationService, PhysicsEngine physicsEngine) {
+    public PhysicsWorldRegistry(InertiaPlugin plugin,
+                                ConfigurationService configurationService,
+                                PhysicsEngine physicsEngine,
+                                PhysicsMetricsService metricsService) {
         this.plugin = plugin;
         this.configurationService = configurationService;
         this.physicsEngine = physicsEngine;
+        this.metricsService = metricsService;
         this.systemFactory = new JoltSystemFactory();
 
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -66,7 +72,8 @@ public class PhysicsWorldRegistry {
                 physicsSystem,
                 physicsEngine.getJobSystem(),
                 physicsEngine.getTempAllocator(),
-                terrainAdapter
+                terrainAdapter,
+                metricsService
         );
     }
 

@@ -180,6 +180,41 @@ tnt-invalid-force:
 tnt-tool-usage:
   - "{prefix} &cUsage: /inertia tool tntspawner <bodyId> <force>"
 
+admin-simulation-paused:
+  - "{prefix} &7Physics simulation state: &f{state} &7(Worlds affected: {count})"
+admin-stats-header: "&c&l===== Inertia Statistics ====="
+admin-stats-performance:
+  - "&7Avg. MSPT (1s/5s/1m): &f{avg} &7ms"
+  - "&7Peak MSPT (1s): &c{peak} &7ms"
+admin-stats-bodies:
+  - "&7Bodies: &f{dynamic} &7Dynamic | &f{static} &7Static"
+admin-stats-footer: "&c&l=============================="
+tool-inspect-name: "&dInspector Tool"
+tool-inspect-lore:
+  - "&7R-Click: Inspect physics object"
+  - "&7(Shows mass, velocity, friction, etc)"
+debug-inspect-header: "&d&l===== Inertia Inspector ====="
+debug-inspect-info:
+  - "&7Body ID: &f{id}"
+  - "&7UUID: &f{uuid}"
+  - "&7Type: &f{type} &7(Layer: {layer})"
+  - "&7Mass: &f{mass} kg"
+debug-inspect-velocity:
+  - "&7Lin. Vel: &f{lin_vel} &8(&f{speed} m/s&8)"
+  - "&7Ang. Vel: &f{ang_vel}"
+debug-inspect-props:
+  - "&7Friction: &f{friction} &7| Restitution: &f{restitution}"
+debug-inspect-state:
+  - "&7State: {state}"
+debug-inspect-footer: "&d&l============================="
+debug-inspect-miss:
+  - "{prefix} &cNo physics object found."
+debug-perf-toggle:
+  - "{prefix} &7Performance Monitor: {state}"
+debug-perf-format: "Server: &b{srv}ms &8| &7Phys: &b{phys}ms &8(&e{perc}%&8) &8| &7Bodies: &a{act}&7/&8{sleep}&7/&c{max} &8| &7Static: &e{stat}"
+debug-hitbox-toggle:
+  - "{prefix} &7Hitbox Debugging: {state}"
+
 
 # --- Dynamic Help Menu ---
 help-page-header: "&c&lInertia Help &8(&7{page}/{max_pages}&8)"

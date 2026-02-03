@@ -4,11 +4,13 @@ import com.ladakx.inertia.rendering.ItemModelResolver;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.enums.InertiaDisplayMode;
 import com.ladakx.inertia.rendering.VisualEntity;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
 
 public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory {
 
@@ -24,6 +26,24 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
         return spawnEmulatedEntity(world, origin, def);
     }
 
+    @Override
+    public VisualEntity createDebugLine(World world, Vector start, Vector end, float thickness, Color color) {
+        // В 1.16.5 нет BlockDisplay, поэтому возвращаем пустую реализацию.
+        // Статическая отладка просто не будет работать на старых версиях,
+        // что нормально и безопасно.
+        return new VisualEntity() {
+            @Override public void update(Location l, org.joml.Quaternionf r, org.joml.Vector3f c, boolean b) {}
+            @Override public void setVisible(boolean v) {}
+            @Override public void remove() {}
+            @Override public void setGlowing(boolean g) {}
+            @Override public org.bukkit.persistence.PersistentDataContainer getPersistentDataContainer() { return null; }
+            @Override public boolean isValid() { return false; }
+            @Override public boolean getPersistent() { return false; }
+            @Override public void setPersistent(boolean p) {}
+        };
+    }
+
+    // ... остальной код (ensureChunkLoaded, spawnEmulatedEntity и т.д.) без изменений ...
     private void ensureChunkLoaded(World world, Location loc) {
         int x = loc.getBlockX() >> 4;
         int z = loc.getBlockZ() >> 4;
@@ -41,45 +61,37 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
             entity.setMarker(def.marker());
             entity.setInvisible(def.invisible() || isDisplayEntity(def));
             entity.setPersistent(false);
-
             applyContent(entity, def);
         });
-
         return new ArmorStandEntity(stand);
     }
 
     private boolean isDisplayEntity(RenderEntityDefinition def) {
         return def.kind() == RenderEntityDefinition.EntityKind.BLOCK_DISPLAY ||
-               def.kind() == RenderEntityDefinition.EntityKind.ITEM_DISPLAY;
+                def.kind() == RenderEntityDefinition.EntityKind.ITEM_DISPLAY;
     }
 
     private void applyContent(ArmorStand stand, RenderEntityDefinition def) {
         ItemStack item = null;
-
         switch (def.kind()) {
             case ITEM_DISPLAY:
                 if (def.itemModelKey() != null) {
                     item = itemModelResolver.resolve(def.itemModelKey());
                 }
                 if (item == null) item = new ItemStack(Material.BARRIER);
-
                 equipItem(stand, item, def.displayMode());
                 break;
-
             case BLOCK_DISPLAY:
                 Material mat = def.blockType();
                 if (mat == null) mat = Material.STONE;
-
-                item = new ItemStack(mat); 
+                item = new ItemStack(mat);
                 stand.getEquipment().setHelmet(item);
                 break;
-                
             case ARMOR_STAND:
                 if (def.itemModelKey() != null) {
                     item = itemModelResolver.resolve(def.itemModelKey());
                 }
                 if (item == null) item = new ItemStack(Material.BARRIER);
-
                 equipItem(stand, item, InertiaDisplayMode.HEAD);
                 break;
         }
@@ -87,7 +99,6 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
 
     private void equipItem(ArmorStand stand, ItemStack item, InertiaDisplayMode mode) {
         if (mode == null) mode = InertiaDisplayMode.HEAD;
-
         switch (mode) {
             case THIRDPERSON_RIGHTHAND:
             case FIRSTPERSON_RIGHTHAND:
