@@ -1,8 +1,12 @@
 package com.ladakx.inertia.api.service;
 
+import com.github.stephengold.joltjni.AaBox;
+import com.github.stephengold.joltjni.RMat44;
 import com.github.stephengold.joltjni.RVec3;
+import com.github.stephengold.joltjni.Vec3;
 import com.github.stephengold.joltjni.readonly.ConstBody;
 import com.github.stephengold.joltjni.readonly.ConstBodyLockInterfaceLocking;
+import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.core.InertiaPlugin;
@@ -11,6 +15,7 @@ import com.ladakx.inertia.physics.debug.ShapeDrawer;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
@@ -32,25 +37,34 @@ public class StaticDebugManager {
 
         double rangeSq = range * range;
 
-        List<AbstractPhysicsBody> nearbyStatic = new ArrayList<>();
+        Set<Integer> nearbyStatic = new HashSet<>();
         for (AbstractPhysicsBody obj : space.getObjects()) {
             if (obj.isValid() && obj.getMotionType() == com.ladakx.inertia.api.body.MotionType.STATIC) {
                 if (obj.getLocation().distanceSquared(player.getLocation()) <= rangeSq) {
-                    nearbyStatic.add(obj);
+                    nearbyStatic.add(obj.getBody().getId());
                 }
             }
         }
 
-        for (AbstractPhysicsBody obj : nearbyStatic) {
-            int id = obj.getBody().getId();
+        for (int bodyId : space.getSystemStaticBodyIds()) {
+            try (com.github.stephengold.joltjni.BodyLockRead lock = new com.github.stephengold.joltjni.BodyLockRead(bli, bodyId)) {
+                if (lock.succeeded()) {
+                    ConstBody body = lock.getBody();
+                    if (isBodyInRange(body, space, player, rangeSq, origin)) {
+                        nearbyStatic.add(bodyId);
+                    }
+                }
+            }
+        }
 
-            if (!staticVisuals.containsKey(id)) {
-                createVisuals(space, id, world, origin, bli);
+        for (int bodyId : nearbyStatic) {
+            if (!staticVisuals.containsKey(bodyId)) {
+                createVisuals(space, bodyId, world, origin, bli);
             }
 
-            viewers.computeIfAbsent(id, k -> ConcurrentHashMap.newKeySet()).add(player.getUniqueId());
+            viewers.computeIfAbsent(bodyId, k -> ConcurrentHashMap.newKeySet()).add(player.getUniqueId());
 
-            List<VisualEntity> displays = staticVisuals.get(id);
+            List<VisualEntity> displays = staticVisuals.get(bodyId);
             if (displays != null) {
                 for (VisualEntity ve : displays) {
                     if (ve.isValid()) {
@@ -80,7 +94,7 @@ public class StaticDebugManager {
             Set<UUID> bodyViewers = entry.getValue();
 
             if (bodyViewers.contains(player.getUniqueId())) {
-                boolean stillInRate = nearbyStatic.stream().anyMatch(o -> o.getBody().getId() == bodyId);
+                boolean stillInRate = nearbyStatic.contains(bodyId);
 
                 if (!stillInRate) {
                     bodyViewers.remove(player.getUniqueId());
@@ -131,6 +145,49 @@ public class StaticDebugManager {
         } catch (Exception e) {
             InertiaLogger.error("Failed to create static debug visuals for body " + bodyId, e);
         }
+    }
+
+    private boolean isBodyInRange(ConstBody body, PhysicsWorld space, Player player, double rangeSq, RVec3 origin) {
+        Location playerLoc = player.getLocation();
+        Location bodyLoc = space.toBukkit(body.getPosition());
+        if (bodyLoc.distanceSquared(playerLoc) <= rangeSq) {
+            return true;
+        }
+
+        ConstShape shape = body.getShape();
+        AaBox bounds = shape.getWorldSpaceBounds(RMat44.sRotationTranslation(body.getRotation(), body.getPosition()), Vec3.sReplicate(1.0f));
+        Vec3 min = bounds.getMin();
+        Vec3 max = bounds.getMax();
+
+        double minX = min.getX() + origin.xx();
+        double minY = min.getY() + origin.yy();
+        double minZ = min.getZ() + origin.zz();
+        double maxX = max.getX() + origin.xx();
+        double maxY = max.getY() + origin.yy();
+        double maxZ = max.getZ() + origin.zz();
+
+        double dx = 0.0;
+        if (playerLoc.getX() < minX) {
+            dx = minX - playerLoc.getX();
+        } else if (playerLoc.getX() > maxX) {
+            dx = playerLoc.getX() - maxX;
+        }
+
+        double dy = 0.0;
+        if (playerLoc.getY() < minY) {
+            dy = minY - playerLoc.getY();
+        } else if (playerLoc.getY() > maxY) {
+            dy = playerLoc.getY() - maxY;
+        }
+
+        double dz = 0.0;
+        if (playerLoc.getZ() < minZ) {
+            dz = minZ - playerLoc.getZ();
+        } else if (playerLoc.getZ() > maxZ) {
+            dz = playerLoc.getZ() - maxZ;
+        }
+
+        return (dx * dx + dy * dy + dz * dz) <= rangeSq;
     }
 
     public void cleanup() {
