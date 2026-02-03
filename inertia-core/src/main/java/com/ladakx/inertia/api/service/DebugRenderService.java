@@ -56,7 +56,6 @@ public class DebugRenderService {
 
     private void renderTick() {
         if (debugPlayers.isEmpty()) return;
-
         Map<PhysicsWorld, List<Player>> worldPlayers = new HashMap<>();
         for (UUID uuid : debugPlayers.keySet()) {
             Player p = Bukkit.getPlayer(uuid);
@@ -69,30 +68,27 @@ public class DebugRenderService {
                 worldPlayers.computeIfAbsent(space, k -> new ArrayList<>()).add(p);
             }
         }
-
         for (Map.Entry<PhysicsWorld, List<Player>> entry : worldPlayers.entrySet()) {
             PhysicsWorld space = entry.getKey();
             List<Player> players = entry.getValue();
-
             ConstBodyLockInterfaceLocking bli = space.getPhysicsSystem().getBodyLockInterface();
             RVec3 origin = space.getOrigin();
 
-            // 1. Обработка статики (через менеджер, оптимизировано)
+            // 1. Обновление статичных тел (BlockDisplays) - Использует пользовательский range
             for (Player p : players) {
                 int range = debugPlayers.get(p.getUniqueId());
                 staticDebugManager.update(p, space, range);
             }
 
-            // 2. Обработка динамики (particles, каждый тик)
+            // 2. Отрисовка динамических тел (Particles) - Жесткий лимит 8 блоков
             Set<Integer> dynamicBodiesToRender = new HashSet<>();
-            for (Player p : players) {
-                int range = debugPlayers.get(p.getUniqueId());
-                double rangeSq = range * range;
-                Location pLoc = p.getLocation();
+            double particleRangeSq = 8.0 * 8.0; // Hardcoded radius for particles
 
+            for (Player p : players) {
+                Location pLoc = p.getLocation();
                 for (AbstractPhysicsBody obj : space.getObjects()) {
                     if (obj.isValid() && obj.getMotionType() != MotionType.STATIC) {
-                        if (obj.getLocation().distanceSquared(pLoc) <= rangeSq) {
+                        if (obj.getLocation().distanceSquared(pLoc) <= particleRangeSq) {
                             dynamicBodiesToRender.add(obj.getBody().getId());
                         }
                     }
