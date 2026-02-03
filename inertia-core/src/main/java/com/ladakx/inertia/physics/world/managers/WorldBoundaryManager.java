@@ -103,6 +103,7 @@ public class WorldBoundaryManager {
         Body body = bi.createBody(bcs);
         bi.addBody(body, EActivation.DontActivate);
         boundaryBodyIds.add(body.getId());
+        physicsWorld.registerSystemStaticBody(body.getId());
     }
 
     public void destroyBoundaries() {
@@ -110,6 +111,7 @@ public class WorldBoundaryManager {
 
         BodyInterface bi = physicsWorld.getBodyInterface();
         for (int id : boundaryBodyIds) {
+            physicsWorld.unregisterSystemStaticBody(id);
             bi.removeBody(id);
             bi.destroyBody(id);
         }
