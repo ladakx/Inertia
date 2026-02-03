@@ -81,7 +81,7 @@ public final class InertiaPlugin extends JavaPlugin {
         this.bodyFactory = new BodyFactory(this, physicsWorldRegistry, configurationService, shapeFactory);
         this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, manipulationService, toolDataManager);
 
-        this.debugRenderService = new DebugRenderService(physicsWorldRegistry);
+        this.debugRenderService = new DebugRenderService(physicsWorldRegistry, configurationService);
         this.debugRenderService.start();
 
         this.perfMonitor = new BossBarPerformanceMonitor(this, metricsService, configurationService);
