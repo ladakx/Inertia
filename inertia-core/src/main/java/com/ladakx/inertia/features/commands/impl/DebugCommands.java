@@ -32,22 +32,24 @@ public class DebugCommands extends CloudModule {
     @Override
     public void register() {
         var debugRoot = rootBuilder().literal("debug").permission("inertia.command.debug");
+        int maxRange = config.getInertiaConfig().GENERAL.DEBUG.hitboxMaxRange;
+        int defaultRange = config.getInertiaConfig().GENERAL.DEBUG.hitboxDefaultRange;
 
         // Command: /inertia debug hitboxes [range]
         manager.command(debugRoot
                 .literal("hitboxes")
                 .permission("inertia.debug.hitboxes")
-                .optional("range", IntegerParser.integerParser(1, 100))
+                .optional("range", IntegerParser.integerParser(1, Math.max(1, maxRange)))
                 .handler(ctx -> {
                     if (!validatePlayer(ctx.sender())) return;
                     Player player = (Player) ctx.sender();
                     
                     Integer range = ctx.getOrDefault("range", null);
-                    debugRenderService.toggleDebug(player, range);
+                    int resolvedRange = debugRenderService.toggleDebug(player, range != null ? range : defaultRange);
                     
                     boolean state = debugRenderService.isDebugEnabled(player);
                     String stateStr = state ? "&aEnabled" : "&cDisabled";
-                    String rangeStr = state ? " &7(Range: " + (range != null ? range : "Default") + ")" : "";
+                    String rangeStr = state ? " &7(Range: " + resolvedRange + ")" : "";
                     
                     send(player, MessageKey.DEBUG_HITBOX_TOGGLE, "{state}", stateStr + rangeStr);
                 })
