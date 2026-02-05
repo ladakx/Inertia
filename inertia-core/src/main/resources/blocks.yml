@@ -1,0 +1,183 @@
+# Профили материалов (шаблоны)
+materials:
+  default:
+    density: 0.5
+    friction: 0.6
+    restitution: 0.1
+  # Профиль для отключения коллизии (параметры не важны, главное - пустой список боксов в блоках)
+  ignored:
+    density: 0.0
+    friction: 0.0
+    restitution: 0.0
+
+blocks:
+  # ============================
+  # ЛИСТВА (Foliage)
+  # ============================
+  OAK_LEAVES:
+    profile: ignored
+    bounding_box: []
+  SPRUCE_LEAVES:
+    profile: ignored
+    bounding_box: []
+  BIRCH_LEAVES:
+    profile: ignored
+    bounding_box: []
+  JUNGLE_LEAVES:
+    profile: ignored
+    bounding_box: []
+  ACACIA_LEAVES:
+    profile: ignored
+    bounding_box: []
+  DARK_OAK_LEAVES:
+    profile: ignored
+    bounding_box: []
+  MANGROVE_LEAVES:
+    profile: ignored
+    bounding_box: []
+  CHERRY_LEAVES:
+    profile: ignored
+    bounding_box: []
+  AZALEA_LEAVES:
+    profile: ignored
+    bounding_box: []
+  FLOWERING_AZALEA_LEAVES:
+    profile: ignored
+    bounding_box: []
+
+  # ============================
+  # МЕЛКИЕ ДЕКОРАЦИИ (Small decorations)
+  # ============================
+  
+  # Прутья и цепи
+  IRON_BARS:
+    profile: ignored
+    bounding_box: []
+  CHAIN:
+    profile: ignored
+    bounding_box: []
+  
+  # Горшки (Обычный и с растениями - нужно перечислять все варианты, если они являются отдельными ID)
+  FLOWER_POT:
+    profile: ignored
+    bounding_box: []
+  POTTED_OAK_SAPLING:
+    profile: ignored
+    bounding_box: []
+  # (Добавьте другие POTTED_*, если они мешают)
+
+  # Стеклянные панели (Glass Panes)
+  GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  WHITE_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  ORANGE_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  MAGENTA_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  LIGHT_BLUE_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  YELLOW_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  LIME_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  PINK_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  GRAY_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  LIGHT_GRAY_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  CYAN_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  PURPLE_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  BLUE_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  BROWN_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  GREEN_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  RED_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+  BLACK_STAINED_GLASS_PANE:
+    profile: ignored
+    bounding_box: []
+
+  # Освещение (Фонари, факелы, свечи)
+  LANTERN:
+    profile: ignored
+    bounding_box: []
+  SOUL_LANTERN:
+    profile: ignored
+    bounding_box: []
+  TORCH:
+    profile: ignored
+    bounding_box: []
+  SOUL_TORCH:
+    profile: ignored
+    bounding_box: []
+  REDSTONE_TORCH:
+    profile: ignored
+    bounding_box: []
+  END_ROD:
+    profile: ignored
+    bounding_box: []
+  CANDLE:
+    profile: ignored
+    bounding_box: []
+  
+  # Прочее мелкое (Кнопки, крюки)
+  TRIPWIRE_HOOK:
+    profile: ignored
+    bounding_box: []
+  STONE_BUTTON:
+    profile: ignored
+    bounding_box: []
+  OAK_BUTTON:
+    profile: ignored
+    bounding_box: []
+  LEVER:
+    profile: ignored
+    bounding_box: []
+  
+  # Растительность (Трава, цветы - обычно в ваниле и так без коллизии, но для уверенности)
+  GRASS:
+    profile: ignored
+    bounding_box: []
+  TALL_GRASS:
+    profile: ignored
+    bounding_box: []
+  FERN:
+    profile: ignored
+    bounding_box: []
+  LARGE_FERN:
+    profile: ignored
+    bounding_box: []
+  DEAD_BUSH:
+    profile: ignored
+    bounding_box: []
+  SEAGRASS:
+    profile: ignored
+    bounding_box: []
+  KELP:
+    profile: ignored
+    bounding_box: []
+  KELP_PLANT:
+    profile: ignored
+    bounding_box: []

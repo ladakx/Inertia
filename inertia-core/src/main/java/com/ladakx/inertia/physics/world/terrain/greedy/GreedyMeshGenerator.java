@@ -27,7 +27,6 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     @Override
     public GreedyMeshData generate(Chunk chunk) {
         Objects.requireNonNull(chunk, "chunk");
-
         int minSectionY = joltTools.getMinSectionY(chunk);
         int sectionsCount = joltTools.getSectionsCount(chunk);
         int minHeight = minSectionY << 4;
@@ -37,56 +36,100 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         boolean[][][] visited = new boolean[16][height][16];
         List<GreedyMeshShape> shapes = new ArrayList<>();
 
+        // Кэш для ускорения
+        java.util.Map<Material, java.util.Optional<PhysicalProfile>> materialCache = new java.util.HashMap<>();
+
+        // Debug counters
+        int debugBlocksFound = 0;
+        boolean debugPrinted = false;
+
         for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
             int sectionY = minSectionY + sectionIndex;
             if (joltTools.hasOnlyAir(chunk, sectionY)) {
                 continue;
             }
+
             int baseY = sectionIndex << 4;
             for (int x = 0; x < 16; x++) {
                 for (int z = 0; z < 16; z++) {
                     for (int y = 0; y < 16; y++) {
                         int worldIndexY = baseY + y;
                         Material material = joltTools.getMaterial(chunk, sectionY, x, y, z);
-                        if (material == Material.AIR) {
+
+                        if (material == null || material == Material.AIR || material.isAir()) {
                             continue;
                         }
-                        Optional<PhysicalProfile> profile = blocksConfig.find(material);
-                        if (profile.isPresent() && !profile.get().boundingBoxes().isEmpty()) {
-                            profiles[x][worldIndexY][z] = profile.get();
+
+                        // Debug: Print info about the first few solid blocks found in this chunk
+                        if (debugBlocksFound < 3) {
+//                            com.ladakx.inertia.common.logging.InertiaLogger.info(String.format(
+//                                    "[Debug Gen] Chunk [%d, %d] Found material: %s at local [%d, %d, %d]",
+//                                    chunk.getX(), chunk.getZ(), material.name(), x, worldIndexY, z
+//                            ));
+//                            debugBlocksFound++;
+//                            debugPrinted = true;
+                        }
+
+                        Optional<PhysicalProfile> profileOpt = blocksConfig.find(material);
+
+                        if (profileOpt.isEmpty()) {
+                            profileOpt = materialCache.computeIfAbsent(material, mat -> {
+                                try {
+                                    // Fallback: пробуем получить коллизию из ванильного BlockState
+                                    org.bukkit.block.BlockState state = joltTools.createBlockState(mat);
+                                    List<AaBox> boxes = joltTools.boundingBoxes(state);
+
+                                    if (boxes != null && !boxes.isEmpty()) {
+                                        // Debug fallback success
+                                        if (true) {
+//                                            com.ladakx.inertia.common.logging.InertiaLogger.info("[Debug Gen] Fallback SUCCESS for " + mat.name() + ". Boxes: " + boxes.size());
+                                        }
+                                        return Optional.of(new PhysicalProfile(mat.name(), 0.5f, 0.6f, 0.2f, boxes));
+                                    } else {
+                                        // Debug fallback fail
+                                        if (true) {
+//                                            com.ladakx.inertia.common.logging.InertiaLogger.info("[Debug Gen] Fallback EMPTY for " + mat.name() + " (No collision boxes)");
+                                        }
+                                    }
+                                } catch (Exception e) {
+//                                    com.ladakx.inertia.common.logging.InertiaLogger.warn("[Debug Gen] Error creating fallback for " + mat.name() + ": " + e.getMessage());
+                                }
+                                return Optional.empty();
+                            });
+                        } else if (debugBlocksFound <= 3) {
+                            // Debug config match
+//                            com.ladakx.inertia.common.logging.InertiaLogger.info("[Debug Gen] Config MATCH for " + material.name());
+                        }
+
+                        if (profileOpt.isPresent() && !profileOpt.get().boundingBoxes().isEmpty()) {
+                            profiles[x][worldIndexY][z] = profileOpt.get();
                         }
                     }
                 }
             }
         }
 
+        // --- Standard Greedy Meshing Logic ---
+
+        // Pass 1: Complex shapes (do not merge)
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
                 for (int y = 0; y < height; y++) {
                     PhysicalProfile profile = profiles[x][y][z];
-                    if (profile == null || profile.boundingBoxes().size() <= 1) {
-                        continue;
+                    if (profile != null && profile.boundingBoxes().size() > 1) {
+                        int worldY = minHeight + y;
+                        List<SerializedBoundingBox> boxes = toAbsoluteBoxes(profile.boundingBoxes(), x, worldY, z, x + 1, worldY + 1, z + 1);
+                        shapes.add(new GreedyMeshShape(
+                                profile.id(), profile.density(), profile.friction(), profile.restitution(),
+                                boxes, x, worldY, z, x + 1, worldY + 1, z + 1
+                        ));
+                        visited[x][y][z] = true;
                     }
-                    int worldY = minHeight + y;
-                    List<SerializedBoundingBox> boxes = toAbsoluteBoxes(profile.boundingBoxes(), x, worldY, z, x + 1, worldY + 1, z + 1);
-                    shapes.add(new GreedyMeshShape(
-                            profile.id(),
-                            profile.density(),
-                            profile.friction(),
-                            profile.restitution(),
-                            boxes,
-                            x,
-                            worldY,
-                            z,
-                            x + 1,
-                            worldY + 1,
-                            z + 1
-                    ));
-                    visited[x][y][z] = true;
                 }
             }
         }
 
+        // Pass 2: Simple shapes (merge)
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
                 for (int y = 0; y < height; y++) {
@@ -105,18 +148,10 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                     int maxZ = z + depth;
 
                     List<SerializedBoundingBox> boxes = toAbsoluteBoxes(profile.boundingBoxes(), x, worldY, z, maxX, maxY, maxZ);
+
                     shapes.add(new GreedyMeshShape(
-                            profile.id(),
-                            profile.density(),
-                            profile.friction(),
-                            profile.restitution(),
-                            boxes,
-                            x,
-                            worldY,
-                            z,
-                            maxX,
-                            maxY,
-                            maxZ
+                            profile.id(), profile.density(), profile.friction(), profile.restitution(),
+                            boxes, x, worldY, z, maxX, maxY, maxZ
                     ));
 
                     for (int dx = x; dx < maxX; dx++) {
