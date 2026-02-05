@@ -27,4 +27,10 @@ public interface TerrainAdapter {
      * Вызывается при выгрузке чанка.
      */
     void onChunkUnload(int x, int z);
+
+    /**
+     * Вызывается при изменении блока, чтобы инвалидировать кеш terrain-данных.
+     */
+    default void onBlockChange(int x, int y, int z) {
+    }
 }
