@@ -3,9 +3,10 @@ package com.ladakx.inertia.physics.world.terrain.greedy;
 import com.github.stephengold.joltjni.AaBox;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.configuration.dto.BlocksConfig;
+import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.physics.world.terrain.PhysicsGenerator;
 import com.ladakx.inertia.physics.world.terrain.profile.PhysicalProfile;
-import org.bukkit.ChunkSnapshot;
+import org.bukkit.Chunk;
 import org.bukkit.Material;
 
 import java.util.ArrayList;
@@ -16,31 +17,44 @@ import java.util.Optional;
 public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
     private final BlocksConfig blocksConfig;
+    private final JoltTools joltTools;
 
-    public GreedyMeshGenerator(BlocksConfig blocksConfig) {
+    public GreedyMeshGenerator(BlocksConfig blocksConfig, JoltTools joltTools) {
         this.blocksConfig = Objects.requireNonNull(blocksConfig, "blocksConfig");
+        this.joltTools = Objects.requireNonNull(joltTools, "joltTools");
     }
 
     @Override
-    public GreedyMeshData generate(ChunkSnapshot snapshot) {
-        Objects.requireNonNull(snapshot, "snapshot");
+    public GreedyMeshData generate(Chunk chunk) {
+        Objects.requireNonNull(chunk, "chunk");
 
-        int minHeight = snapshot.getMinHeight();
-        int maxHeight = snapshot.getMaxHeight();
-        int height = maxHeight - minHeight;
+        int minSectionY = joltTools.getMinSectionY(chunk);
+        int sectionsCount = joltTools.getSectionsCount(chunk);
+        int minHeight = minSectionY << 4;
+        int height = sectionsCount << 4;
 
         PhysicalProfile[][][] profiles = new PhysicalProfile[16][height][16];
         boolean[][][] visited = new boolean[16][height][16];
         List<GreedyMeshShape> shapes = new ArrayList<>();
 
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = 0; y < height; y++) {
-                    int worldY = minHeight + y;
-                    Material material = snapshot.getBlockType(x, worldY, z);
-                    Optional<PhysicalProfile> profile = blocksConfig.find(material);
-                    if (profile.isPresent() && !profile.get().boundingBoxes().isEmpty()) {
-                        profiles[x][y][z] = profile.get();
+        for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
+            int sectionY = minSectionY + sectionIndex;
+            if (joltTools.hasOnlyAir(chunk, sectionY)) {
+                continue;
+            }
+            int baseY = sectionIndex << 4;
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        int worldIndexY = baseY + y;
+                        Material material = joltTools.getMaterial(chunk, sectionY, x, y, z);
+                        if (material == Material.AIR) {
+                            continue;
+                        }
+                        Optional<PhysicalProfile> profile = blocksConfig.find(material);
+                        if (profile.isPresent() && !profile.get().boundingBoxes().isEmpty()) {
+                            profiles[x][worldIndexY][z] = profile.get();
+                        }
                     }
                 }
             }

@@ -1,7 +1,7 @@
 package com.ladakx.inertia.physics.world.terrain;
 
-import org.bukkit.ChunkSnapshot;
+import org.bukkit.Chunk;
 
 public interface PhysicsGenerator<T> {
-    T generate(ChunkSnapshot snapshot);
+    T generate(Chunk chunk);
 }
