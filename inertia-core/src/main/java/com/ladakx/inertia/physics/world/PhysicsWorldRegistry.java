@@ -11,6 +11,7 @@ import com.ladakx.inertia.physics.engine.PhysicsEngine;
 import com.ladakx.inertia.physics.world.terrain.SimulationType;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.physics.world.terrain.impl.FlatFloorAdapter;
+import com.ladakx.inertia.physics.world.terrain.impl.GreedyMeshAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
@@ -62,8 +63,12 @@ public class PhysicsWorldRegistry {
         PhysicsSystem physicsSystem = systemFactory.createSystem(settings);
 
         TerrainAdapter terrainAdapter = null;
-        if (settings.simulation().enabled() && settings.simulation().type() == SimulationType.FLOOR_PLANE) {
-            terrainAdapter = new FlatFloorAdapter(settings.simulation().floorPlane());
+        if (settings.simulation().enabled()) {
+            if (settings.simulation().type() == SimulationType.FLOOR_PLANE) {
+                terrainAdapter = new FlatFloorAdapter(settings.simulation().floorPlane());
+            } else if (settings.simulation().type() == SimulationType.GREEDY_MESH) {
+                terrainAdapter = new GreedyMeshAdapter();
+            }
         }
 
         return new PhysicsWorld(
