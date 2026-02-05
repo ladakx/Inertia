@@ -49,17 +49,46 @@ public class JoltTools implements com.ladakx.inertia.infrastructure.nms.jolt.Jol
     @Override
     public List<AaBox> boundingBoxes(BlockState blockState) {
         BlockBehaviour.BlockStateBase stateHandle = ((CraftBlockState) blockState).getHandle();
-        // Используем BlockPos из состояния, если оно привязано к миру, иначе создаем фиктивный
-        BlockPos blockPosHandle = ((CraftBlock) blockState.getBlock()).getPosition();
-        net.minecraft.world.level.Level worldHandle = ((CraftWorld) blockState.getWorld()).getHandle();
 
-        // NMS метод получения формы коллизии
-        net.minecraft.world.phys.shapes.VoxelShape voxelShape = stateHandle.getCollisionShape(worldHandle, blockPosHandle);
+        net.minecraft.world.level.BlockGetter level;
+        BlockPos pos;
+
+        if (blockState.isPlaced()) {
+            level = ((CraftWorld) blockState.getWorld()).getHandle();
+            pos = ((CraftBlock) blockState.getBlock()).getPosition();
+        } else {
+            level = net.minecraft.world.level.EmptyBlockGetter.INSTANCE;
+            pos = BlockPos.ZERO;
+        }
+
+        net.minecraft.world.phys.shapes.VoxelShape voxelShape = stateHandle.getCollisionShape(level, pos);
         List<net.minecraft.world.phys.AABB> boundingBoxes = voxelShape.toAabbs();
-
         return boundingBoxes.stream()
                 .map(JoltWrapUtils::convert)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public AaBox boundingBox(BlockState blockState) {
+        BlockBehaviour.BlockStateBase stateHandle = ((CraftBlockState) blockState).getHandle();
+
+        net.minecraft.world.level.BlockGetter level;
+        BlockPos pos;
+
+        if (blockState.isPlaced()) {
+            level = ((CraftWorld) blockState.getWorld()).getHandle();
+            pos = ((CraftBlock) blockState.getBlock()).getPosition();
+        } else {
+            level = net.minecraft.world.level.EmptyBlockGetter.INSTANCE;
+            pos = BlockPos.ZERO;
+        }
+
+        net.minecraft.world.phys.shapes.VoxelShape voxelShape = stateHandle.getCollisionShape(level, pos);
+        if (voxelShape.isEmpty()) {
+            return null;
+        } else {
+            return JoltWrapUtils.convert(voxelShape.bounds());
+        }
     }
 
     @Override
@@ -71,18 +100,6 @@ public class JoltTools implements com.ladakx.inertia.infrastructure.nms.jolt.Jol
     @Override
     public boolean equalsById(BlockState blockState1, BlockState blockState2) {
         return getBlockId(blockState1) == getBlockId(blockState2);
-    }
-
-    @Override
-    public AaBox boundingBox(BlockState blockState) {
-        BlockBehaviour.BlockStateBase stateHandle = ((CraftBlockState) blockState).getHandle();
-        // Получаем ограничивающий параллелепипед из формы
-        net.minecraft.world.phys.shapes.VoxelShape voxelShape = stateHandle.getCollisionShape(((CraftBlock) blockState.getBlock()).getHandle(), ((CraftBlock) blockState.getBlock()).getPosition());
-        if (voxelShape.isEmpty()) {
-            return null;
-        } else {
-            return JoltWrapUtils.convert(voxelShape.bounds());
-        }
     }
 
     @Override
