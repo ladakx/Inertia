@@ -1,0 +1,98 @@
+package com.ladakx.inertia.physics.world.terrain;
+
+import com.ladakx.inertia.common.chunk.ChunkUtils;
+import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
+import org.bukkit.ChunkSnapshot;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+public class ChunkPhysicsManager implements AutoCloseable {
+
+    private final Set<Long> queuedChunks = ConcurrentHashMap.newKeySet();
+    private final Map<Long, CompletableFuture<GreedyMeshData>> inFlight = new ConcurrentHashMap<>();
+    private final GenerationQueue generationQueue;
+    private final ChunkPhysicsCache cache;
+    private final PhysicsGenerator<GreedyMeshData> generator;
+
+    public ChunkPhysicsManager(GenerationQueue generationQueue, ChunkPhysicsCache cache, PhysicsGenerator<GreedyMeshData> generator) {
+        this.generationQueue = generationQueue;
+        this.cache = cache;
+        this.generator = generator;
+    }
+
+    public void requestChunkGeneration(String worldName,
+                                       int chunkX,
+                                       int chunkZ,
+                                       Supplier<ChunkSnapshot> snapshotSupplier,
+                                       Consumer<GreedyMeshData> onReady) {
+        long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
+        if (!queuedChunks.add(key) || cache == null || generator == null || generationQueue == null) {
+            return;
+        }
+
+        Optional<GreedyMeshData> cached = cache.get(worldName, chunkX, chunkZ);
+        if (cached.isPresent()) {
+            queuedChunks.remove(key);
+            onReady.accept(cached.get());
+            return;
+        }
+
+        ChunkSnapshot snapshot;
+        try {
+            snapshot = snapshotSupplier.get();
+        } catch (Exception ex) {
+            queuedChunks.remove(key);
+            InertiaLogger.warn("Failed to capture chunk snapshot for " + worldName + " at " + chunkX + ", " + chunkZ, ex);
+            return;
+        }
+        if (snapshot == null) {
+            queuedChunks.remove(key);
+            return;
+        }
+
+        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot));
+        inFlight.put(key, future);
+        future.whenComplete((data, throwable) -> {
+            inFlight.remove(key);
+            queuedChunks.remove(key);
+            if (throwable != null) {
+                InertiaLogger.warn("Failed to generate physics chunk at " + chunkX + ", " + chunkZ, throwable);
+                return;
+            }
+            cache.put(worldName, chunkX, chunkZ, data);
+            onReady.accept(data);
+        });
+    }
+
+    public void cancelChunk(int chunkX, int chunkZ) {
+        long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
+        queuedChunks.remove(key);
+        CompletableFuture<GreedyMeshData> future = inFlight.remove(key);
+        if (future != null) {
+            future.cancel(true);
+        }
+    }
+
+    public void invalidate(String worldName, int chunkX, int chunkZ) {
+        if (cache != null) {
+            cache.invalidate(worldName, chunkX, chunkZ);
+        }
+    }
+
+    @Override
+    public void close() {
+        inFlight.values().forEach(future -> future.cancel(true));
+        inFlight.clear();
+        queuedChunks.clear();
+        if (generationQueue != null) {
+            generationQueue.close();
+        }
+    }
+}
