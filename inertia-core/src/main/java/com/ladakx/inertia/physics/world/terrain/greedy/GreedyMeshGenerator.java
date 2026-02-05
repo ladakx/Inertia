@@ -177,7 +177,11 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         if (visited || profile == null) {
             return false;
         }
-        return profile == target || (profile.id().equals(target.id()) && profile.boundingBoxes().equals(target.boundingBoxes()));
+        return profile == target || (profile.id().equals(target.id())
+                && profile.boundingBoxes().equals(target.boundingBoxes())
+                && Float.compare(profile.density(), target.density()) == 0
+                && Float.compare(profile.friction(), target.friction()) == 0
+                && Float.compare(profile.restitution(), target.restitution()) == 0);
     }
 
     private List<SerializedBoundingBox> toAbsoluteBoxes(List<AaBox> localBoxes,
