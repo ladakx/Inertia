@@ -16,6 +16,7 @@ import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsCache;
@@ -37,6 +38,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     private PhysicsWorld world;
     private ChunkPhysicsManager chunkPhysicsManager;
+    private JoltTools joltTools;
     private final Map<Long, List<Integer>> chunkBodies = new HashMap<>();
 
     @Override
@@ -44,9 +46,13 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         this.world = world;
         InertiaConfig config = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig();
         int workerThreads = config.PHYSICS.workerThreads;
+        this.joltTools = InertiaPlugin.getInstance().getJoltTools();
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         ChunkPhysicsCache cache = new ChunkPhysicsCache(InertiaPlugin.getInstance().getDataFolder());
-        GreedyMeshGenerator generator = new GreedyMeshGenerator(InertiaPlugin.getInstance().getConfigManager().getBlocksConfig());
+        GreedyMeshGenerator generator = new GreedyMeshGenerator(
+                InertiaPlugin.getInstance().getConfigManager().getBlocksConfig(),
+                joltTools
+        );
         this.chunkPhysicsManager = new ChunkPhysicsManager(generationQueue, cache, generator);
         for (Chunk chunk : world.getWorldBukkit().getLoadedChunks()) {
             requestChunkGeneration(chunk.getX(), chunk.getZ());
@@ -64,6 +70,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             chunkPhysicsManager.close();
         }
         chunkPhysicsManager = null;
+        joltTools = null;
         world = null;
     }
 
@@ -107,7 +114,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 worldName,
                 x,
                 z,
-                () -> world.getWorldBukkit().getChunkAt(x, z).getChunkSnapshot(true, true, false),
+                () -> world.getWorldBukkit().getChunkAt(x, z),
                 data -> {
                     if (world != null) {
                         world.schedulePhysicsTask(() -> applyMeshData(x, z, data));
