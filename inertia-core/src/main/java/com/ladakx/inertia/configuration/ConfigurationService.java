@@ -2,6 +2,7 @@ package com.ladakx.inertia.configuration;
 
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.BodiesConfig;
+import com.ladakx.inertia.configuration.dto.BlocksConfig;
 import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import com.ladakx.inertia.configuration.dto.RenderConfig;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
@@ -36,9 +37,11 @@ public class ConfigurationService {
     // Volatile is important for thread visibility if configs are swapped
     private volatile InertiaConfig inertiaConfig;
     private volatile BodiesConfig bodiesConfig;
+    private volatile BlocksConfig blocksConfig;
     private volatile RenderConfig renderConfig;
     private volatile WorldsConfig worldsConfig;
 
+    private BlocksFile blocksFile;
     private BodiesFile bodiesFile;
     private ItemsFile itemsFile;
     private RenderFile renderFile;
@@ -99,6 +102,8 @@ public class ConfigurationService {
         this.inertiaConfig = new InertiaConfig(plugin.getConfig());
 
         this.itemsFile = new ItemsFile(plugin);
+        this.blocksFile = new BlocksFile(plugin);
+        this.blocksConfig = new BlocksConfig(blocksFile.getConfig());
         this.bodiesFile = new BodiesFile(plugin);
         this.bodiesConfig = new BodiesConfig(bodiesFile.getConfig());
 
@@ -173,6 +178,7 @@ public class ConfigurationService {
 
     // Getters...
     public BodiesConfig getBodiesConfig() { return bodiesConfig; }
+    public BlocksConfig getBlocksConfig() { return blocksConfig; }
     public RenderConfig getRenderConfig() { return renderConfig; }
     public WorldsConfig getWorldsConfig() { return worldsConfig; }
     public InertiaConfig getInertiaConfig() { return inertiaConfig; }
