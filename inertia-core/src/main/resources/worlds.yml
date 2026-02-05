@@ -37,7 +37,6 @@ world:
 
   # --- Симуляция окружения (Пол) ---
   simulation:
-    enable: true
     type: FLOOR_PLANE
     floor-plane:
       y-level: 300
