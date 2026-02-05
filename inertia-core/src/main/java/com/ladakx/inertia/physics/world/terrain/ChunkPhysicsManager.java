@@ -3,7 +3,7 @@ package com.ladakx.inertia.physics.world.terrain;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
-import org.bukkit.ChunkSnapshot;
+import org.bukkit.Chunk;
 
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +30,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
     public void requestChunkGeneration(String worldName,
                                        int chunkX,
                                        int chunkZ,
-                                       Supplier<ChunkSnapshot> snapshotSupplier,
+                                       Supplier<Chunk> chunkSupplier,
                                        Consumer<GreedyMeshData> onReady) {
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
         if (!queuedChunks.add(key) || cache == null || generator == null || generationQueue == null) {
@@ -44,20 +44,20 @@ public class ChunkPhysicsManager implements AutoCloseable {
             return;
         }
 
-        ChunkSnapshot snapshot;
+        Chunk chunk;
         try {
-            snapshot = snapshotSupplier.get();
+            chunk = chunkSupplier.get();
         } catch (Exception ex) {
             queuedChunks.remove(key);
-            InertiaLogger.warn("Failed to capture chunk snapshot for " + worldName + " at " + chunkX + ", " + chunkZ, ex);
+            InertiaLogger.warn("Failed to capture chunk for " + worldName + " at " + chunkX + ", " + chunkZ, ex);
             return;
         }
-        if (snapshot == null) {
+        if (chunk == null) {
             queuedChunks.remove(key);
             return;
         }
 
-        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot));
+        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(chunk));
         inFlight.put(key, future);
         future.whenComplete((data, throwable) -> {
             inFlight.remove(key);
