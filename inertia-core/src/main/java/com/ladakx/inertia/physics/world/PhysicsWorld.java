@@ -359,6 +359,12 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (terrainAdapter != null) terrainAdapter.onChunkUnload(x, z);
     }
 
+    public void onBlockChange(int x, int y, int z) {
+        if (terrainAdapter != null) {
+            terrainAdapter.onBlockChange(x, y, z);
+        }
+    }
+
     @Override
     public void close() {
         InertiaLogger.info("Closing world: " + worldName);
