@@ -6,12 +6,11 @@ import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.api.body.type.IChain;
-import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
-import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.physics.body.config.BodyPhysicsSettings;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -71,24 +70,12 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         World world = getSpace().getWorldBukkit();
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
-        UUID bodyUuid = getUuid();
-
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
         for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
             String entityKey = entry.getKey();
             RenderEntityDefinition entityDef = entry.getValue();
-            VisualEntity visual = renderFactory.create(world, spawnLoc, entityDef);
-
-            if (visual.isValid()) {
-                InertiaPDCUtils.applyInertiaTags(
-                        visual,
-                        bodyId,
-                        bodyUuid,
-                        renderDef.id(),
-                        entityKey
-                );
-                parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
-            }
+            NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
+            parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
     }
