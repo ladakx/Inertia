@@ -12,8 +12,14 @@ import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
@@ -65,10 +71,10 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         short[] profileIndices = buffers.profileIndices;
         boolean[] visited = buffers.visited;
         int[] touchedIndices = buffers.touchedIndices;
-        int[] simpleIndices = buffers.simpleIndices;
         int[] complexIndices = buffers.complexIndices;
+        short[] layerProfiles = buffers.layerProfiles;
+        boolean[] layerVisited = buffers.layerVisited;
         int touchedCount = 0;
-        int simpleCount = 0;
         int complexCount = 0;
         List<GreedyMeshShape> shapes = new ArrayList<>();
 
@@ -98,8 +104,6 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                             profileIndices[index] = (short) (material.ordinal() + 1);
                             if (profile.boundingBoxes().size() > 1) {
                                 complexIndices[complexCount++] = index;
-                            } else {
-                                simpleIndices[simpleCount++] = index;
                             }
                         }
                     }
@@ -128,43 +132,109 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
             visited[index] = true;
         }
 
-        // Pass 2: Simple shapes (merge)
-        for (int i = 0; i < simpleCount; i++) {
-            int index = simpleIndices[i];
-            if (visited[index]) {
-                continue;
-            }
-            short profileIndex = profileIndices[index];
-            PhysicalProfile profile = profileFromIndex(profileIndex);
-            if (profile == null) {
-                continue;
-            }
+        // Pass 2: Simple shapes (greedy 2D mask per layer)
+        @SuppressWarnings("unchecked")
+        List<LayerRect>[] layerRects = new List[height];
+        for (int y = 0; y < height; y++) {
+            Arrays.fill(layerProfiles, EMPTY_PROFILE);
+            Arrays.fill(layerVisited, false);
 
-            int x = index & 0xF;
-            int z = (index >> 4) & 0xF;
-            int y = index >> 8;
-
-            int width = expandX(profileIndices, visited, profileIndex, profile, x, y, z);
-            int depth = expandZ(profileIndices, visited, profileIndex, profile, x, y, z, width);
-            int tall = expandY(profileIndices, visited, profileIndex, profile, x, y, z, width, depth, height);
-
-            int worldY = minHeight + y;
-            int maxX = x + width;
-            int maxY = worldY + tall;
-            int maxZ = z + depth;
-
-            List<SerializedBoundingBox> boxes = toAbsoluteBoxes(profile.boundingBoxes(), x, worldY, z, maxX, maxY, maxZ);
-
-            shapes.add(new GreedyMeshShape(
-                    profile.id(), profile.density(), profile.friction(), profile.restitution(),
-                    boxes, x, worldY, z, maxX, maxY, maxZ
-            ));
-
-            for (int dx = x; dx < maxX; dx++) {
-                for (int dz = z; dz < maxZ; dz++) {
-                    for (int dy = y; dy < y + tall; dy++) {
-                        visited[flattenIndex(dx, dy, dz)] = true;
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    int index = flattenIndex(x, y, z);
+                    if (visited[index]) {
+                        continue;
                     }
+                    short profileIndex = profileIndices[index];
+                    if (profileIndex == EMPTY_PROFILE) {
+                        continue;
+                    }
+                    layerProfiles[layerIndex(x, z)] = profileIndex;
+                }
+            }
+
+            for (int z = 0; z < 16; z++) {
+                for (int x = 0; x < 16; x++) {
+                    int maskIndex = layerIndex(x, z);
+                    if (layerVisited[maskIndex]) {
+                        continue;
+                    }
+                    short profileIndex = layerProfiles[maskIndex];
+                    if (profileIndex == EMPTY_PROFILE) {
+                        continue;
+                    }
+                    PhysicalProfile profile = profileFromIndex(profileIndex);
+                    if (profile == null || profile.boundingBoxes().size() != 1) {
+                        layerVisited[maskIndex] = true;
+                        continue;
+                    }
+
+                    int width = expandLayerX(layerProfiles, layerVisited, profileIndex, x, z);
+                    int depth = expandLayerZ(layerProfiles, layerVisited, profileIndex, x, z, width);
+                    markLayerVisited(layerVisited, x, z, width, depth);
+
+                    if (layerRects[y] == null) {
+                        layerRects[y] = new ArrayList<>();
+                    }
+                    layerRects[y].add(new LayerRect(x, z, width, depth, y, profileIndex));
+                }
+            }
+        }
+
+        if (settings.verticalMerging()) {
+            int maxTall = settings.maxVerticalSize();
+            Map<RectKey, ActiveRect> active = new HashMap<>();
+            for (int y = 0; y < height; y++) {
+                List<LayerRect> rects = layerRects[y];
+                Set<RectKey> touchedKeys = new HashSet<>();
+                if (rects != null) {
+                    for (LayerRect rect : rects) {
+                        RectKey key = new RectKey(rect);
+                        ActiveRect current = active.get(key);
+                        if (current != null && current.startY + current.height == y && current.height < maxTall) {
+                            current.height++;
+                        } else {
+                            if (current != null) {
+                                addMergedShape(shapes, current, minHeight);
+                            }
+                            active.put(key, new ActiveRect(rect));
+                        }
+                        touchedKeys.add(key);
+                    }
+                }
+
+                Iterator<Map.Entry<RectKey, ActiveRect>> iterator = active.entrySet().iterator();
+                while (iterator.hasNext()) {
+                    Map.Entry<RectKey, ActiveRect> entry = iterator.next();
+                    if (!touchedKeys.contains(entry.getKey())) {
+                        addMergedShape(shapes, entry.getValue(), minHeight);
+                        iterator.remove();
+                    }
+                }
+            }
+
+            for (ActiveRect remaining : active.values()) {
+                addMergedShape(shapes, remaining, minHeight);
+            }
+        } else {
+            for (int y = 0; y < height; y++) {
+                List<LayerRect> rects = layerRects[y];
+                if (rects == null) {
+                    continue;
+                }
+                for (LayerRect rect : rects) {
+                    PhysicalProfile profile = profileFromIndex(rect.profileIndex);
+                    if (profile == null) {
+                        continue;
+                    }
+                    int worldY = minHeight + rect.y;
+                    int maxX = rect.x + rect.width;
+                    int maxZ = rect.z + rect.depth;
+                    List<SerializedBoundingBox> boxes = toAbsoluteBoxes(profile.boundingBoxes(), rect.x, worldY, rect.z, maxX, worldY + 1, maxZ);
+                    shapes.add(new GreedyMeshShape(
+                            profile.id(), profile.density(), profile.friction(), profile.restitution(),
+                            boxes, rect.x, worldY, rect.z, maxX, worldY + 1, maxZ
+                    ));
                 }
             }
         }
@@ -178,12 +248,11 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         return new GreedyMeshData(shapes);
     }
 
-    private int expandX(short[] profiles, boolean[] visited, short targetIndex, PhysicalProfile target,
-                        int x, int y, int z) {
+    private int expandLayerX(short[] profiles, boolean[] visited, short targetIndex, int x, int z) {
         int width = 1;
         while (x + width < 16) {
-            int index = flattenIndex(x + width, y, z);
-            if (!canMerge(profiles, visited, index, targetIndex, target)) {
+            int maskIndex = layerIndex(x + width, z);
+            if (visited[maskIndex] || profiles[maskIndex] != targetIndex) {
                 break;
             }
             width++;
@@ -191,14 +260,13 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         return width;
     }
 
-    private int expandZ(short[] profiles, boolean[] visited, short targetIndex, PhysicalProfile target,
-                        int x, int y, int z, int width) {
+    private int expandLayerZ(short[] profiles, boolean[] visited, short targetIndex, int x, int z, int width) {
         int depth = 1;
         while (z + depth < 16) {
             boolean matches = true;
             for (int dx = x; dx < x + width; dx++) {
-                int index = flattenIndex(dx, y, z + depth);
-                if (!canMerge(profiles, visited, index, targetIndex, target)) {
+                int maskIndex = layerIndex(dx, z + depth);
+                if (visited[maskIndex] || profiles[maskIndex] != targetIndex) {
                     matches = false;
                     break;
                 }
@@ -211,57 +279,12 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         return depth;
     }
 
-    private int expandY(short[] profiles, boolean[] visited, short targetIndex, PhysicalProfile target,
-                        int x, int y, int z, int width, int depth, int heightLimit) {
-
-        if (!settings.verticalMerging()) {
-            return 1;
-        }
-
-        int maxTall = settings.maxVerticalSize();
-        int tall = 1;
-
-        while (y + tall < heightLimit && tall < maxTall) {
-            boolean matches = true;
+    private void markLayerVisited(boolean[] visited, int x, int z, int width, int depth) {
+        for (int dz = z; dz < z + depth; dz++) {
             for (int dx = x; dx < x + width; dx++) {
-                for (int dz = z; dz < z + depth; dz++) {
-                    int index = flattenIndex(dx, y + tall, dz);
-                    if (!canMerge(profiles, visited, index, targetIndex, target)) {
-                        matches = false;
-                        break;
-                    }
-                }
-                if (!matches) {
-                    break;
-                }
+                visited[layerIndex(dx, dz)] = true;
             }
-            if (!matches) {
-                break;
-            }
-            tall++;
         }
-        return tall;
-    }
-
-    private boolean canMerge(short[] profiles, boolean[] visited, int index, short targetIndex, PhysicalProfile target) {
-        if (visited[index]) {
-            return false;
-        }
-        short profileIndex = profiles[index];
-        if (profileIndex == EMPTY_PROFILE) {
-            return false;
-        }
-        if (profileIndex == targetIndex) {
-            return true;
-        }
-        PhysicalProfile profile = profileFromIndex(profileIndex);
-        if (profile == null) {
-            return false;
-        }
-        return profile == target || (profile.id().equals(target.id())
-                && Float.compare(profile.density(), target.density()) == 0
-                && Float.compare(profile.friction(), target.friction()) == 0
-                && Float.compare(profile.restitution(), target.restitution()) == 0);
     }
 
     private PhysicalProfile profileFromIndex(short profileIndex) {
@@ -273,6 +296,105 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
     private int flattenIndex(int x, int y, int z) {
         return (y << 8) | (z << 4) | x;
+    }
+
+    private int layerIndex(int x, int z) {
+        return (z << 4) | x;
+    }
+
+    private void addMergedShape(List<GreedyMeshShape> shapes, ActiveRect rect, int minHeight) {
+        PhysicalProfile profile = profileFromIndex(rect.profileIndex);
+        if (profile == null) {
+            return;
+        }
+        int worldY = minHeight + rect.startY;
+        int maxX = rect.x + rect.width;
+        int maxZ = rect.z + rect.depth;
+        int maxY = worldY + rect.height;
+        List<SerializedBoundingBox> boxes = toAbsoluteBoxes(profile.boundingBoxes(), rect.x, worldY, rect.z, maxX, maxY, maxZ);
+        shapes.add(new GreedyMeshShape(
+                profile.id(), profile.density(), profile.friction(), profile.restitution(),
+                boxes, rect.x, worldY, rect.z, maxX, maxY, maxZ
+        ));
+    }
+
+    private static final class LayerRect {
+        private final int x;
+        private final int z;
+        private final int width;
+        private final int depth;
+        private final int y;
+        private final short profileIndex;
+
+        private LayerRect(int x, int z, int width, int depth, int y, short profileIndex) {
+            this.x = x;
+            this.z = z;
+            this.width = width;
+            this.depth = depth;
+            this.y = y;
+            this.profileIndex = profileIndex;
+        }
+    }
+
+    private static final class RectKey {
+        private final int x;
+        private final int z;
+        private final int width;
+        private final int depth;
+        private final short profileIndex;
+
+        private RectKey(LayerRect rect) {
+            this.x = rect.x;
+            this.z = rect.z;
+            this.width = rect.width;
+            this.depth = rect.depth;
+            this.profileIndex = rect.profileIndex;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof RectKey other)) {
+                return false;
+            }
+            return x == other.x
+                    && z == other.z
+                    && width == other.width
+                    && depth == other.depth
+                    && profileIndex == other.profileIndex;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Integer.hashCode(x);
+            result = 31 * result + Integer.hashCode(z);
+            result = 31 * result + Integer.hashCode(width);
+            result = 31 * result + Integer.hashCode(depth);
+            result = 31 * result + Short.hashCode(profileIndex);
+            return result;
+        }
+    }
+
+    private static final class ActiveRect {
+        private final int x;
+        private final int z;
+        private final int width;
+        private final int depth;
+        private final short profileIndex;
+        private final int startY;
+        private int height;
+
+        private ActiveRect(LayerRect rect) {
+            this.x = rect.x;
+            this.z = rect.z;
+            this.width = rect.width;
+            this.depth = rect.depth;
+            this.profileIndex = rect.profileIndex;
+            this.startY = rect.y;
+            this.height = 1;
+        }
     }
 
     private List<SerializedBoundingBox> toAbsoluteBoxes(List<AaBox> localBoxes,
@@ -306,8 +428,9 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         private short[] profileIndices = new short[0];
         private boolean[] visited = new boolean[0];
         private int[] touchedIndices = new int[0];
-        private int[] simpleIndices = new int[0];
         private int[] complexIndices = new int[0];
+        private short[] layerProfiles = new short[0];
+        private boolean[] layerVisited = new boolean[0];
 
         private void ensureCapacity(int height) {
             int total = 16 * height * 16;
@@ -320,11 +443,14 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
             if (touchedIndices.length < total) {
                 touchedIndices = new int[total];
             }
-            if (simpleIndices.length < total) {
-                simpleIndices = new int[total];
-            }
             if (complexIndices.length < total) {
                 complexIndices = new int[total];
+            }
+            if (layerProfiles.length < 256) {
+                layerProfiles = new short[256];
+            }
+            if (layerVisited.length < 256) {
+                layerVisited = new boolean[256];
             }
         }
     }
