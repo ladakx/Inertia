@@ -301,7 +301,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         double minX = (chunkX * 16.0) - origin.xx();
         double minZ = (chunkZ * 16.0) - origin.zz();
 
-        // Determine Y bounds. Using localMin/Max from settings, or reasonable defaults if infinite
         double minY = sizeSettings.localMin().getY();
         double maxY = sizeSettings.localMax().getY();
 
@@ -313,22 +312,29 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         AaBox box = new AaBox(boxMin, boxMax);
 
-        AllHitCollideShapeBodyCollector collector = new AllHitCollideShapeBodyCollector();
-        BroadPhaseLayerFilter bpFilter = new DefaultBroadPhaseLayerFilter();
-        ObjectLayerFilter objFilter = new DefaultObjectLayerFilter();
-
         try {
-            system.getBroadPhaseQuery().collideAaBox(box, collector, bpFilter, objFilter);
-            int[] bodyIds = collector.getHits();
-            if (bodyIds != null && bodyIds.length > 0) {
-                bi.activateBodies(bodyIds);
+            try (AllHitCollideShapeBodyCollector collector = new AllHitCollideShapeBodyCollector();
+                 SpecifiedBroadPhaseLayerFilter bpFilter = new SpecifiedBroadPhaseLayerFilter(0);
+                 SpecifiedObjectLayerFilter objFilter = new SpecifiedObjectLayerFilter(PhysicsLayers.OBJ_MOVING)) {
+
+                system.getBroadPhaseQuery().collideAaBox(box, collector, bpFilter, objFilter);
+                int[] bodyIds = collector.getHits();
+                if (bodyIds == null || bodyIds.length == 0) return;
+
+                for (int id : bodyIds) {
+                    if (id == 0) continue;
+                    try {
+                        if (bi.getMotionType(id) == EMotionType.Dynamic && !bi.isSensor(id)) {
+                            bi.activateBody(id);
+                        }
+                    } catch (Exception ignored) {
+                        // Body might have been removed between query and activation
+                    }
+                }
             }
         } catch (Exception e) {
             InertiaLogger.warn("Failed to wake bodies in chunk " + chunkX + "," + chunkZ + ": " + e.getMessage());
         } finally {
-            collector.close();
-            bpFilter.close();
-            objFilter.close();
             box.close();
         }
     }
