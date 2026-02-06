@@ -6,6 +6,7 @@ import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.configuration.dto.BlocksConfig;
 import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.core.InertiaPlugin;
@@ -22,6 +23,7 @@ import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshShape;
 import com.ladakx.inertia.physics.world.terrain.greedy.SerializedBoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.Material;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
@@ -32,6 +34,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private PhysicsWorld world;
     private ChunkPhysicsManager chunkPhysicsManager;
     private JoltTools joltTools;
+    private BlocksConfig blocksConfig;
     private final Map<Long, List<Integer>> chunkBodies = new HashMap<>();
     private final Set<Long> loadedChunks = ConcurrentHashMap.newKeySet();
     private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
@@ -43,6 +46,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         InertiaConfig config = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig();
         int workerThreads = config.PHYSICS.workerThreads;
         this.joltTools = InertiaPlugin.getInstance().getJoltTools();
+        this.blocksConfig = InertiaPlugin.getInstance().getConfigManager().getBlocksConfig();
 
         this.chunkSettings = world.getSettings().chunkManagement();
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
@@ -51,7 +55,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         ChunkPhysicsCache cache = new ChunkPhysicsCache(InertiaPlugin.getInstance().getDataFolder());
 
         GreedyMeshGenerator generator = new GreedyMeshGenerator(
-                InertiaPlugin.getInstance().getConfigManager().getBlocksConfig(),
+                blocksConfig,
                 joltTools,
                 meshingSettings
         );
@@ -112,8 +116,12 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     }
 
     @Override
-    public void onBlockChange(int x, int y, int z) {
+    public void onBlockChange(int x, int y, int z, Material oldMaterial, Material newMaterial) {
         if (world == null || chunkPhysicsManager == null || !chunkSettings.updateOnBlockChange()) {
+            return;
+        }
+
+        if (!hasPhysicalProfile(oldMaterial) && !hasPhysicalProfile(newMaterial)) {
             return;
         }
 
@@ -196,6 +204,13 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     }
 
     private record PhysicsProperties(float friction, float restitution) {}
+
+    private boolean hasPhysicalProfile(Material material) {
+        if (material == null || blocksConfig == null) {
+            return false;
+        }
+        return blocksConfig.find(material).isPresent();
+    }
 
     private void applyMeshData(int x, int z, GreedyMeshData data) {
         long key = ChunkUtils.getChunkKey(x, z);
