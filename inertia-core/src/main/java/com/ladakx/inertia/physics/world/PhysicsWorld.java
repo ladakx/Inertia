@@ -23,7 +23,6 @@ import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
-import com.ladakx.inertia.rendering.VisualEntity;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -191,14 +190,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             }
         }
 
-        for (VisualState state : snapshot.updates()) {
-            VisualEntity visual = state.getVisual();
-            if (visual.isValid()) {
-                Location loc = new Location(worldBukkit, state.getPosition().x, state.getPosition().y, state.getPosition().z);
-                visual.update(loc, state.getRotation(), state.getCenterOffset(), state.isRotateTranslation());
-                visual.setVisible(state.isVisible());
-            }
-        }
+        // Packet-based визуализация будет обрабатываться NetworkEntityTracker.
 
         chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
         snapshot.release(snapshotPool);
