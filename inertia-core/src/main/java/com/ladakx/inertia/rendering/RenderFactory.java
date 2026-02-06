@@ -7,8 +7,8 @@ import org.bukkit.World;
 import org.bukkit.util.Vector;
 
 public interface RenderFactory {
-    VisualEntity create(World world, Location origin, RenderEntityDefinition definition);
+    NetworkVisual create(World world, Location origin, RenderEntityDefinition definition);
 
     // Новый метод для создания дебаг-линий
-    VisualEntity createDebugLine(World world, Vector start, Vector end, float thickness, Color color);
+    NetworkVisual createDebugLine(World world, Vector start, Vector end, float thickness, Color color);
 }
