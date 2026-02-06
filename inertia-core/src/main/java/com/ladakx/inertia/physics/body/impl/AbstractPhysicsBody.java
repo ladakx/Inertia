@@ -97,9 +97,14 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         if (!destroyed.compareAndSet(false, true)) {
             return;
         }
-        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+        InertiaPlugin plugin = InertiaPlugin.getInstance();
+        if (plugin != null && plugin.isEnabled()) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                Bukkit.getPluginManager().callEvent(new PhysicsBodyDestroyEvent(this));
+            });
+        } else {
             Bukkit.getPluginManager().callEvent(new PhysicsBodyDestroyEvent(this));
-        });
+        }
 
         BodyInterface bodyInterface = space.getBodyInterface();
         String worldName = space.getWorldBukkit().getName();
