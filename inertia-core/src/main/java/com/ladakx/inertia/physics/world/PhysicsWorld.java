@@ -405,7 +405,12 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
         physicsSystem.destroyAllBodies();
 
-        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), chunkTicketManager::releaseAll);
+        InertiaPlugin plugin = InertiaPlugin.getInstance();
+        if (plugin != null && plugin.isEnabled()) {
+            Bukkit.getScheduler().runTask(plugin, chunkTicketManager::releaseAll);
+        } else {
+            chunkTicketManager.releaseAll();
+        }
     }
 
     public PhysicsSystem getPhysicsSystem() {
