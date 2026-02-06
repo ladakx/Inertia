@@ -59,7 +59,8 @@ public class WeldTool extends Tool {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
-        List<PhysicsWorld.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 16);
+        var eye = player.getEyeLocation();
+        List<PhysicsWorld.RaycastResult> results = space.raycastEntity(eye, eye.getDirection(), 16);
         if (results.isEmpty()) return;
 
         AbstractPhysicsBody hitBody = space.getObjectByVa(results.get(0).va());
