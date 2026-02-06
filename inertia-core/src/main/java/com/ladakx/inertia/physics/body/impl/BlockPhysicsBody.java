@@ -5,12 +5,11 @@ import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
-import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
-import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.body.config.BodyPhysicsSettings;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -51,23 +50,11 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
             Location spawnLocation = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
 
             List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-            UUID bodyUuid = getUuid();
-
             for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
                 String entityKey = entry.getKey();
                 RenderEntityDefinition entityDef = entry.getValue();
-                VisualEntity visual = renderFactory.create(world, spawnLocation, entityDef);
-
-                if (visual.isValid()) {
-                    InertiaPDCUtils.applyInertiaTags(
-                            visual,
-                            bodyId,
-                            bodyUuid,
-                            renderDef.id(),
-                            entityKey
-                    );
-                    parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
-                }
+                NetworkVisual visual = renderFactory.create(world, spawnLocation, entityDef);
+                parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
             }
             return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
         }
