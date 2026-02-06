@@ -54,9 +54,10 @@ public class InspectTool extends Tool {
         PhysicsWorld space = worldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
+        var eye = player.getEyeLocation();
         List<PhysicsWorld.RaycastResult> hits = space.raycastEntity(
-                player.getEyeLocation(),
-                player.getLocation().getDirection(),
+                eye,
+                eye.getDirection(),
                 32.0 // Long range for inspection
         );
 

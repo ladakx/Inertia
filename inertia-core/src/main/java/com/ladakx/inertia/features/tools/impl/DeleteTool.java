@@ -13,7 +13,6 @@ import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -57,7 +56,8 @@ public class DeleteTool extends Tool {
     }
 
     private boolean tryRemoveActiveBody(Player player, PhysicsWorld space) {
-        List<PhysicsWorld.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 16);
+        var eye = player.getEyeLocation();
+        List<PhysicsWorld.RaycastResult> results = space.raycastEntity(eye, eye.getDirection(), 16);
         if (results.isEmpty()) return false;
 
         AbstractPhysicsBody hitBody = space.getObjectByVa(results.get(0).va());
@@ -73,9 +73,10 @@ public class DeleteTool extends Tool {
     }
 
     private void tryRemoveStaticEntity(Player player) {
+        var eye = player.getEyeLocation();
         RayTraceResult result = player.getWorld().rayTraceEntities(
-                player.getEyeLocation(),
-                player.getLocation().getDirection(),
+                eye,
+                eye.getDirection(),
                 16.0,
                 0.5,
                 entity -> entity.getPersistentDataContainer().has(InertiaPDCKeys.INERTIA_ENTITY_STATIC, PersistentDataType.STRING)

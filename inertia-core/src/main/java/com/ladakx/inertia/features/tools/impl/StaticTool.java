@@ -50,7 +50,8 @@ public class StaticTool extends Tool {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
-        java.util.List<PhysicsWorld.RaycastResult> results = space.raycastEntity(player.getEyeLocation(), player.getLocation().getDirection(), 10);
+        var eye = player.getEyeLocation();
+        java.util.List<PhysicsWorld.RaycastResult> results = space.raycastEntity(eye, eye.getDirection(), 10);
         if (results.isEmpty()) return;
 
         AbstractPhysicsBody hitBody = space.getObjectByVa(results.get(0).va());
