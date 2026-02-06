@@ -7,6 +7,7 @@ import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.features.tools.impl.*;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -57,6 +58,28 @@ public class ToolRegistry implements Listener {
 
     public Tool getTool(String id) {
         return tools.get(id);
+    }
+
+    public void handleNetworkInteraction(Player player, AbstractPhysicsBody body, boolean attack) {
+        if (body == null) return;
+        Tool tool = getToolFromItem(player.getInventory().getItemInMainHand());
+        if (tool == null) return;
+
+        Action action = attack ? Action.LEFT_CLICK_AIR : Action.RIGHT_CLICK_AIR;
+        PlayerInteractEvent event = new PlayerInteractEvent(
+                player,
+                action,
+                player.getInventory().getItemInMainHand(),
+                null,
+                null
+        );
+        event.setCancelled(true);
+
+        if (attack) {
+            tool.onLeftClick(event);
+        } else {
+            tool.onRightClick(event);
+        }
     }
 
     private Tool getToolFromItem(ItemStack stack) {

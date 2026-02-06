@@ -297,8 +297,20 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         objectManager.registerBody(object, body);
     }
 
+    public void registerNetworkEntityId(AbstractPhysicsBody object, int entityId) {
+        objectManager.registerNetworkEntityId(object, entityId);
+    }
+
+    public void unregisterNetworkEntityId(int entityId) {
+        objectManager.unregisterNetworkEntityId(entityId);
+    }
+
     public @Nullable AbstractPhysicsBody getObjectByVa(long va) {
         return objectManager.getByVa(va);
+    }
+
+    public @Nullable AbstractPhysicsBody getObjectByNetworkEntityId(int entityId) {
+        return objectManager.getByNetworkEntityId(entityId);
     }
 
     public @Nullable AbstractPhysicsBody getObjectByUuid(UUID uuid) {
