@@ -23,6 +23,7 @@ import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
+import com.ladakx.inertia.rendering.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -62,6 +63,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     private final SnapshotPool snapshotPool;
     private final InertiaBodyActivationListener bodyActivationListener;
+    private final NetworkEntityTracker networkEntityTracker;
 
     public PhysicsWorld(World world,
                         WorldsConfig.WorldProfile settings,
@@ -84,6 +86,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.taskManager = new PhysicsTaskManager();
         this.snapshotPool = new SnapshotPool();
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
+        this.networkEntityTracker = new NetworkEntityTracker();
 
         this.contactListener = new PhysicsContactListener(objectManager);
         this.physicsSystem.setContactListener(contactListener);
@@ -127,6 +130,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (errors != EPhysicsUpdateError.None) {
             InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
         }
+
+        int viewDistanceBlocks = worldBukkit.getViewDistance() * 16;
+        double viewDistanceSquared = (double) viewDistanceBlocks * viewDistanceBlocks;
+        networkEntityTracker.tick(Bukkit.getOnlinePlayers(), viewDistanceSquared);
 
         taskManager.runAll();
     }
