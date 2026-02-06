@@ -373,9 +373,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         }
     }
 
-    public void onBlockChange(int x, int y, int z) {
+    public void onBlockChange(int x, int y, int z, org.bukkit.Material oldMaterial, org.bukkit.Material newMaterial) {
         if (terrainAdapter != null) {
-            terrainAdapter.onBlockChange(x, y, z);
+            terrainAdapter.onBlockChange(x, y, z, oldMaterial, newMaterial);
         }
     }
 
