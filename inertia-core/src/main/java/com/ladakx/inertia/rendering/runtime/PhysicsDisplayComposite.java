@@ -3,15 +3,13 @@ package com.ladakx.inertia.rendering.runtime;
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
-import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
-import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.World;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -25,7 +23,7 @@ public final class PhysicsDisplayComposite {
 
     public record DisplayPart(
             RenderEntityDefinition definition,
-            VisualEntity visual
+            NetworkVisual visual
     ) {
         public DisplayPart {
             Objects.requireNonNull(definition);
@@ -73,7 +71,7 @@ public final class PhysicsDisplayComposite {
 
         for (DisplayPart part : parts) {
             RenderEntityDefinition def = part.definition();
-            VisualEntity visual = part.visual();
+            NetworkVisual visual = part.visual();
             boolean visible = sleeping ? def.showWhenSleeping() : def.showWhenActive();
 
             // Calculate Position
@@ -107,47 +105,18 @@ public final class PhysicsDisplayComposite {
     }
 
     public void setGlowing(boolean glowing) {
-        for (DisplayPart part : parts) {
-            if (part.visual().isValid()) {
-                part.visual().setGlowing(glowing);
-            }
-        }
+        // Packet-based visuals handle metadata per-player in a different layer.
     }
 
     public void markAsStatic(@org.jetbrains.annotations.Nullable java.util.UUID clusterId) {
-        for (DisplayPart part : parts) {
-            VisualEntity visual = part.visual();
-            if (visual != null && visual.isValid()) {
-                var pdc = visual.getPersistentDataContainer();
-                pdc.set(
-                        InertiaPDCKeys.INERTIA_ENTITY_STATIC,
-                        PersistentDataType.STRING,
-                        "true"
-                );
-                if (clusterId != null) {
-                    pdc.set(
-                            InertiaPDCKeys.INERTIA_CLUSTER_UUID,
-                            PersistentDataType.STRING,
-                            clusterId.toString()
-                    );
-                }
-                visual.setPersistent(true);
-            }
-        }
+        // Packet-based visuals do not rely on Bukkit PersistentDataContainer.
     }
 
     public boolean isValid() {
-        for (DisplayPart part : parts) {
-            if (!part.visual().isValid()) {
-                return false;
-            }
-        }
         return true;
     }
 
     public void destroy() {
-        for (DisplayPart part : parts) {
-            part.visual().remove();
-        }
+        // Destroying packet-based visuals is handled by the network layer.
     }
 }
