@@ -3,6 +3,7 @@ package com.ladakx.inertia.physics.listeners;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
@@ -28,12 +29,12 @@ public class BlockChangeListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlockReplacedState().getType(), event.getBlock().getType());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), Material.AIR);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -48,7 +49,7 @@ public class BlockChangeListener implements Listener {
     public void onBlockExplode(BlockExplodeEvent event) {
         handleWorldUpdate(event.getBlock().getWorld());
         for (Block block : event.blockList()) {
-            handleUpdate(block);
+            handleUpdate(block, block.getType(), Material.AIR);
         }
     }
 
@@ -56,7 +57,7 @@ public class BlockChangeListener implements Listener {
     public void onEntityExplode(EntityExplodeEvent event) {
         handleWorldUpdate(event.getLocation().getWorld());
         for (Block block : event.blockList()) {
-            handleUpdate(block);
+            handleUpdate(block, block.getType(), Material.AIR);
         }
     }
 
@@ -64,19 +65,21 @@ public class BlockChangeListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
-        handleUpdate(event.getBlock()); // Сам поршень (голова)
+        handleUpdate(event.getBlock(), event.getBlock().getType(), event.getBlock().getType()); // Сам поршень (голова)
         for (Block block : event.getBlocks()) {
-            handleUpdate(block); // Старая позиция
-            handleUpdate(block.getRelative(event.getDirection())); // Новая позиция
+            handleUpdate(block, block.getType(), Material.AIR); // Старая позиция
+            Block destination = block.getRelative(event.getDirection());
+            handleUpdate(destination, destination.getType(), block.getType()); // Новая позиция
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), event.getBlock().getType());
         for (Block block : event.getBlocks()) {
-            handleUpdate(block);
-            handleUpdate(block.getRelative(event.getDirection()));
+            handleUpdate(block, block.getType(), Material.AIR);
+            Block destination = block.getRelative(event.getDirection());
+            handleUpdate(destination, destination.getType(), block.getType());
         }
     }
 
@@ -84,43 +87,43 @@ public class BlockChangeListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBurn(BlockBurnEvent event) {
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), Material.AIR);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockFade(BlockFadeEvent event) {
         // Таяние льда, снега, высыхание коралла
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), event.getNewState().getType());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockForm(BlockFormEvent event) {
         // Образование снега, льда, булыжника из лавы+воды, затвердевание бетона
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), event.getNewState().getType());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockGrow(BlockGrowEvent event) {
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), event.getNewState().getType());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onLeavesDecay(LeavesDecayEvent event) {
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), Material.AIR);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onStructureGrow(StructureGrowEvent event) {
         // Выращивание деревьев из саженцев
         for (BlockState state : event.getBlocks()) {
-            handleUpdate(state.getBlock());
+            handleUpdate(state.getBlock(), state.getBlock().getType(), state.getType());
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockSpread(BlockSpreadEvent event) {
         // Распространение огня, грибов, травы
-        handleUpdate(event.getBlock());
+        handleUpdate(event.getBlock(), event.getBlock().getType(), event.getNewState().getType());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -158,21 +161,23 @@ public class BlockChangeListener implements Listener {
 
         // Обработка ЛКМ (ломка в креативе, удар)
         if (event.getAction() == Action.LEFT_CLICK_BLOCK && event.getClickedBlock() != null) {
-            handleUpdate(event.getClickedBlock());
+            Block block = event.getClickedBlock();
+            handleUpdate(block, block.getType(), block.getType());
         }
         // Обработка ПКМ (изменение состояния: открытие дверей, нажатие кнопок, рычагов)
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock() != null) {
             // Мы обновляем блок, так как его коллизия могла измениться (дверь открылась)
-            handleUpdate(event.getClickedBlock());
+            Block block = event.getClickedBlock();
+            handleUpdate(block, block.getType(), block.getType());
         }
     }
 
     // --- Вспомогательные методы ---
 
-    private void handleUpdate(Block block) {
+    private void handleUpdate(Block block, Material oldMaterial, Material newMaterial) {
         PhysicsWorld space = physicsWorldRegistry.getSpace(block.getWorld());
         if (space != null) {
-            space.onBlockChange(block.getX(), block.getY(), block.getZ());
+            space.onBlockChange(block.getX(), block.getY(), block.getZ(), oldMaterial, newMaterial);
         }
     }
 

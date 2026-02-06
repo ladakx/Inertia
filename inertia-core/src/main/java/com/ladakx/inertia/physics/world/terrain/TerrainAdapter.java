@@ -1,6 +1,7 @@
 package com.ladakx.inertia.physics.world.terrain;
 
 import com.ladakx.inertia.physics.world.PhysicsWorld;
+import org.bukkit.Material;
 
 /**
  * Определяет стратегию генерации статичной физической среды (ландшафта).
@@ -31,7 +32,7 @@ public interface TerrainAdapter {
     /**
      * Вызывается при изменении блока, чтобы инвалидировать кеш terrain-данных.
      */
-    default void onBlockChange(int x, int y, int z) {
+    default void onBlockChange(int x, int y, int z, Material oldMaterial, Material newMaterial) {
     }
 
     default void onChunkChange(int x, int z) {
