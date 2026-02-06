@@ -229,14 +229,34 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         int chunkOffsetX = x << 4;
         int chunkOffsetZ = z << 4;
 
+        Map<HalfExtentsKey, ConstShape> boxShapeCache = new HashMap<>();
+
         for (GreedyMeshShape shapeData : data.shapes()) {
             if (shapeData.boundingBoxes().isEmpty()) continue;
 
-            ConstShape subShape = buildShape(shapeData, chunkOffsetX, chunkOffsetZ);
-            if (subShape == null) continue;
-
             PhysicsProperties props = new PhysicsProperties(shapeData.friction(), shapeData.restitution());
             StaticCompoundShapeSettings compoundSettings = groups.computeIfAbsent(props, k -> new StaticCompoundShapeSettings());
+
+            if (shapeData.boundingBoxes().size() > 1) {
+                for (SerializedBoundingBox box : shapeData.boundingBoxes()) {
+                    ConstShape child = createBoxShape(box, chunkOffsetX, chunkOffsetZ, boxShapeCache);
+                    if (child == null) continue;
+
+                    double boxCenterX = (box.minX() + box.maxX()) * 0.5 + chunkOffsetX;
+                    double boxCenterY = (box.minY() + box.maxY()) * 0.5;
+                    double boxCenterZ = (box.minZ() + box.maxZ()) * 0.5 + chunkOffsetZ;
+
+                    float localX = (float) (boxCenterX - chunkWorldX);
+                    float localY = (float) (boxCenterY);
+                    float localZ = (float) (boxCenterZ - chunkWorldZ);
+
+                    compoundSettings.addShape(new Vec3(localX, localY, localZ), Quat.sIdentity(), child);
+                }
+                continue;
+            }
+
+            ConstShape subShape = buildShape(shapeData, chunkOffsetX, chunkOffsetZ, boxShapeCache);
+            if (subShape == null) continue;
 
             double shapeCenterX = ((double) shapeData.minX() + shapeData.maxX()) * 0.5 + chunkOffsetX;
             double shapeCenterY = ((double) shapeData.minY() + shapeData.maxY()) * 0.5;
@@ -339,46 +359,18 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         }
     }
 
-    private ConstShape buildShape(GreedyMeshShape shapeData, int chunkOffsetX, int chunkOffsetZ) {
+    private ConstShape buildShape(GreedyMeshShape shapeData, int chunkOffsetX, int chunkOffsetZ, Map<HalfExtentsKey, ConstShape> boxShapeCache) {
         List<SerializedBoundingBox> boxes = shapeData.boundingBoxes();
         if (boxes.isEmpty()) return null;
 
         if (boxes.size() == 1) {
-            return createBoxShape(boxes.get(0), chunkOffsetX, chunkOffsetZ);
+            return createBoxShape(boxes.get(0), chunkOffsetX, chunkOffsetZ, boxShapeCache);
         }
 
-        double shapeCenterX = ((double) shapeData.minX() + shapeData.maxX()) * 0.5 + chunkOffsetX;
-        double shapeCenterY = ((double) shapeData.minY() + shapeData.maxY()) * 0.5;
-        double shapeCenterZ = ((double) shapeData.minZ() + shapeData.maxZ()) * 0.5 + chunkOffsetZ;
-
-        StaticCompoundShapeSettings settings = new StaticCompoundShapeSettings();
-        boolean added = false;
-
-        for (SerializedBoundingBox box : boxes) {
-            ConstShape child = createBoxShape(box, chunkOffsetX, chunkOffsetZ);
-            if (child == null) continue;
-
-            double boxCenterX = (box.minX() + box.maxX()) * 0.5 + chunkOffsetX;
-            double boxCenterY = (box.minY() + box.maxY()) * 0.5;
-            double boxCenterZ = (box.minZ() + box.maxZ()) * 0.5 + chunkOffsetZ;
-
-            Vec3 localPos = new Vec3(
-                    (float) (boxCenterX - shapeCenterX),
-                    (float) (boxCenterY - shapeCenterY),
-                    (float) (boxCenterZ - shapeCenterZ)
-            );
-            settings.addShape(localPos, Quat.sIdentity(), child);
-            added = true;
-        }
-
-        if (!added) return null;
-
-        ShapeResult result = settings.create();
-        if (result.hasError()) return null;
-        return result.get();
+        return null;
     }
 
-    private ConstShape createBoxShape(SerializedBoundingBox box, int chunkOffsetX, int chunkOffsetZ) {
+    private ConstShape createBoxShape(SerializedBoundingBox box, int chunkOffsetX, int chunkOffsetZ, Map<HalfExtentsKey, ConstShape> boxShapeCache) {
         float minX = box.minX() + chunkOffsetX;
         float minY = box.minY();
         float minZ = box.minZ() + chunkOffsetZ;
@@ -393,7 +385,14 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (halfX <= 0.001f || halfY <= 0.001f || halfZ <= 0.001f) {
             return null;
         }
-        return new BoxShape(new Vec3(halfX, halfY, halfZ));
+        HalfExtentsKey key = HalfExtentsKey.of(halfX, halfY, halfZ);
+        return boxShapeCache.computeIfAbsent(key, ignored -> new BoxShape(new Vec3(halfX, halfY, halfZ)));
+    }
+
+    private record HalfExtentsKey(int halfXBits, int halfYBits, int halfZBits) {
+        private static HalfExtentsKey of(float halfX, float halfY, float halfZ) {
+            return new HalfExtentsKey(Float.floatToIntBits(halfX), Float.floatToIntBits(halfY), Float.floatToIntBits(halfZ));
+        }
     }
 
     private void removeChunkBodies(long key) {
