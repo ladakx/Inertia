@@ -44,14 +44,12 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         int workerThreads = config.PHYSICS.workerThreads;
         this.joltTools = InertiaPlugin.getInstance().getJoltTools();
 
-        // Load settings from World Profile
         this.chunkSettings = world.getSettings().chunkManagement();
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
 
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         ChunkPhysicsCache cache = new ChunkPhysicsCache(InertiaPlugin.getInstance().getDataFolder());
 
-        // Pass specific settings to generator
         GreedyMeshGenerator generator = new GreedyMeshGenerator(
                 InertiaPlugin.getInstance().getConfigManager().getBlocksConfig(),
                 joltTools,
@@ -69,7 +67,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onDisable() {
-        // Cancel all pending debounce tasks
         pendingUpdates.values().forEach(BukkitTask::cancel);
         pendingUpdates.clear();
 
@@ -102,7 +99,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.remove(key);
 
-        // Cancel any pending update for this chunk
         BukkitTask task = pendingUpdates.remove(key);
         if (task != null) task.cancel();
 
@@ -127,10 +123,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         if (!loadedChunks.contains(key)) return;
 
-        // Invalidate cache immediately so new request will force regen
         chunkPhysicsManager.invalidate(world.getWorldBukkit().getName(), chunkX, chunkZ);
 
-        // Debounce logic
         BukkitTask existing = pendingUpdates.get(key);
         if (existing != null) {
             existing.cancel();
@@ -147,12 +141,24 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         pendingUpdates.put(key, task);
     }
 
+    @Override
+    public void onChunkChange(int x, int z) {
+        if (world == null || chunkPhysicsManager == null) {
+            return;
+        }
+        long key = ChunkUtils.getChunkKey(x, z);
+        if (!loadedChunks.contains(key)) return;
+        chunkPhysicsManager.invalidate(world.getWorldBukkit().getName(), x, z);
+        BukkitTask pending = pendingUpdates.remove(key);
+        if (pending != null) pending.cancel();
+        requestChunkGeneration(x, z);
+    }
+
     private void requestChunkGeneration(int x, int z) {
         if (world == null || chunkPhysicsManager == null) {
             return;
         }
 
-        // --- Boundary Check ---
         com.ladakx.inertia.configuration.dto.WorldsConfig.WorldSizeSettings sizeSettings = world.getSettings().size();
         double minWorldX = sizeSettings.worldMin().xx();
         double minWorldZ = sizeSettings.worldMin().zz();
@@ -198,9 +204,12 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             return;
         }
 
+        // 1. Remove old bodies
         removeChunkBodies(key);
 
         if (world == null || data.shapes().isEmpty()) {
+            // Even if empty, we might need to wake up bodies (e.g. platform removed entirely)
+            activateBodiesInChunk(x, z);
             return;
         }
 
@@ -274,6 +283,53 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         if (!newBodyIds.isEmpty()) {
             chunkBodies.put(key, newBodyIds);
+        }
+
+        // 2. Wake up any dynamic bodies in this chunk area
+        // This ensures floating objects fall if support was removed/changed
+        activateBodiesInChunk(x, z);
+    }
+
+    private void activateBodiesInChunk(int chunkX, int chunkZ) {
+        if (world == null) return;
+
+        com.github.stephengold.joltjni.PhysicsSystem system = world.getPhysicsSystem();
+        BodyInterface bi = system.getBodyInterfaceNoLock();
+        RVec3 origin = world.getOrigin();
+        com.ladakx.inertia.configuration.dto.WorldsConfig.WorldSizeSettings sizeSettings = world.getSettings().size();
+
+        double minX = (chunkX * 16.0) - origin.xx();
+        double minZ = (chunkZ * 16.0) - origin.zz();
+
+        // Determine Y bounds. Using localMin/Max from settings, or reasonable defaults if infinite
+        double minY = sizeSettings.localMin().getY();
+        double maxY = sizeSettings.localMax().getY();
+
+        // Expand slightly to catch bodies on boundary
+        double expand = 0.5;
+
+        Vec3 boxMin = new Vec3((float)(minX - expand), (float)(minY - expand), (float)(minZ - expand));
+        Vec3 boxMax = new Vec3((float)(minX + 16.0 + expand), (float)(maxY + expand), (float)(minZ + 16.0 + expand));
+
+        AaBox box = new AaBox(boxMin, boxMax);
+
+        AllHitCollideShapeBodyCollector collector = new AllHitCollideShapeBodyCollector();
+        BroadPhaseLayerFilter bpFilter = new DefaultBroadPhaseLayerFilter();
+        ObjectLayerFilter objFilter = new DefaultObjectLayerFilter();
+
+        try {
+            system.getBroadPhaseQuery().collideAaBox(box, collector, bpFilter, objFilter);
+            int[] bodyIds = collector.getHits();
+            if (bodyIds != null && bodyIds.length > 0) {
+                bi.activateBodies(bodyIds);
+            }
+        } catch (Exception e) {
+            InertiaLogger.warn("Failed to wake bodies in chunk " + chunkX + "," + chunkZ + ": " + e.getMessage());
+        } finally {
+            collector.close();
+            bpFilter.close();
+            objFilter.close();
+            box.close();
         }
     }
 

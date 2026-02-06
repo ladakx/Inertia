@@ -15,6 +15,7 @@ import com.ladakx.inertia.features.ui.BossBarPerformanceMonitor;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
+import com.ladakx.inertia.physics.listeners.BlockChangeListener;
 import com.ladakx.inertia.physics.listeners.WorldLoadListener;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.infrastructure.nativelib.LibraryLoader;
@@ -58,36 +59,40 @@ public final class InertiaPlugin extends JavaPlugin {
         InertiaLogger.init(this);
         InertiaLogger.info("Starting Inertia initialization...");
 
-        this.meshProvider = new BlockBenchMeshProvider(this);
-        this.shapeFactory = new JShapeFactory(meshProvider);
-        this.configurationService = new ConfigurationService(this, meshProvider);
-
-        this.itemRegistry = new ItemRegistry(configurationService);
-        this.itemRegistry.reload();
-
+        // 1. Сначала загружаем нативные библиотеки, так как остальные сервисы (конфиг, фабрики) зависят от Jolt классов
         if (!setupNativeLibraries()) {
             InertiaLogger.error("Failed to initialize Jolt Physics Engine. Disabling plugin.");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
-        setupNMSTools();
+
+        // 3. Загружаем конфигурацию (теперь безопасно создавать AaBox и другие Jolt объекты)
+        this.configurationService = new ConfigurationService(this, meshProvider);
+
+        this.itemRegistry = new ItemRegistry(configurationService);
+        this.itemRegistry.reload();
+
+        this.meshProvider = new BlockBenchMeshProvider(this);
+        this.shapeFactory = new JShapeFactory(meshProvider);
+
+        // 2. Инициализируем базовые сервисы
+        setupNMSTools(); // Инициализация NMS инструментов (JoltTools, PlayerTools)
 
         this.metricsService = new PhysicsMetricsService();
         this.physicsEngine = new PhysicsEngine(this, configurationService);
         this.physicsWorldRegistry = new PhysicsWorldRegistry(this, configurationService, physicsEngine, metricsService);
-
         this.manipulationService = new PhysicsManipulationService();
         this.toolDataManager = new ToolDataManager(this);
         this.bodyFactory = new BodyFactory(this, physicsWorldRegistry, configurationService, shapeFactory);
         this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, manipulationService, toolDataManager);
-
         this.debugRenderService = new DebugRenderService(physicsWorldRegistry, configurationService);
         this.debugRenderService.start();
-
         this.perfMonitor = new BossBarPerformanceMonitor(this, metricsService, configurationService);
 
         InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory));
         InertiaLogger.info("Inertia API registered.");
+
+        new com.ladakx.inertia.features.integrations.WorldEditIntegration().init();
 
         registerCommands();
         registerListeners();
@@ -110,6 +115,7 @@ public final class InertiaPlugin extends JavaPlugin {
 
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new WorldLoadListener(physicsWorldRegistry), this);
+        Bukkit.getPluginManager().registerEvents(new BlockChangeListener(physicsWorldRegistry), this);
     }
 
     @Override

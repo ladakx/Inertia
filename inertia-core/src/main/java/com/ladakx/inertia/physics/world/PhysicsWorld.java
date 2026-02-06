@@ -368,12 +368,20 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     public void onChunkUnload(int x, int z) {
-        if (terrainAdapter != null) terrainAdapter.onChunkUnload(x, z);
+        if (terrainAdapter != null) {
+            terrainAdapter.onChunkUnload(x, z);
+        }
     }
 
     public void onBlockChange(int x, int y, int z) {
         if (terrainAdapter != null) {
             terrainAdapter.onBlockChange(x, y, z);
+        }
+    }
+
+    public void onChunkChange(int x, int z) {
+        if (terrainAdapter != null) {
+            terrainAdapter.onChunkChange(x, z);
         }
     }
 

@@ -1,183 +1,739 @@
-# Профили материалов (шаблоны)
+# ==========================================
+# Inertia Physics Configuration - Blocks
+# ==========================================
+
 materials:
   default:
     density: 0.5
     friction: 0.6
     restitution: 0.1
-  # Профиль для отключения коллизии (параметры не важны, главное - пустой список боксов в блоках)
+
+  # Профиль для блоков, которые должны игнорироваться физикой
   ignored:
     density: 0.0
     friction: 0.0
     restitution: 0.0
 
+  # Профиль для скользких блоков (Лёд)
+  ice:
+    density: 0.5
+    friction: 0.05
+    restitution: 0.1
+
+  # Профиль для упругих блоков (Слайм)
+  bouncy:
+    density: 0.2
+    friction: 0.8
+    restitution: 0.9
+
 blocks:
-  # ============================
-  # ЛИСТВА (Foliage)
-  # ============================
-  OAK_LEAVES:
-    profile: ignored
-    bounding_box: []
-  SPRUCE_LEAVES:
-    profile: ignored
-    bounding_box: []
-  BIRCH_LEAVES:
-    profile: ignored
-    bounding_box: []
-  JUNGLE_LEAVES:
-    profile: ignored
-    bounding_box: []
-  ACACIA_LEAVES:
-    profile: ignored
-    bounding_box: []
-  DARK_OAK_LEAVES:
-    profile: ignored
-    bounding_box: []
-  MANGROVE_LEAVES:
-    profile: ignored
-    bounding_box: []
-  CHERRY_LEAVES:
-    profile: ignored
-    bounding_box: []
-  AZALEA_LEAVES:
-    profile: ignored
-    bounding_box: []
-  FLOWERING_AZALEA_LEAVES:
-    profile: ignored
-    bounding_box: []
 
-  # ============================
-  # МЕЛКИЕ ДЕКОРАЦИИ (Small decorations)
-  # ============================
-  
-  # Прутья и цепи
-  IRON_BARS:
-    profile: ignored
-    bounding_box: []
-  CHAIN:
-    profile: ignored
-    bounding_box: []
-  
-  # Горшки (Обычный и с растениями - нужно перечислять все варианты, если они являются отдельными ID)
-  FLOWER_POT:
-    profile: ignored
-    bounding_box: []
-  POTTED_OAK_SAPLING:
-    profile: ignored
-    bounding_box: []
-  # (Добавьте другие POTTED_*, если они мешают)
+  # ==========================================================
+  # 1. МЕЛКИЕ / ТОНКИЕ / ПРОХОДИМЫЕ БЛОКИ -> ФИЗИКА УДАЛЕНА
+  # ==========================================================
 
-  # Стеклянные панели (Glass Panes)
-  GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  WHITE_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  ORANGE_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  MAGENTA_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  LIGHT_BLUE_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  YELLOW_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  LIME_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  PINK_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  GRAY_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  LIGHT_GRAY_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  CYAN_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  PURPLE_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  BLUE_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  BROWN_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  GREEN_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  RED_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
-  BLACK_STAINED_GLASS_PANE:
-    profile: ignored
-    bounding_box: []
+  # --- Листва (Foliage) ---
+  OAK_LEAVES: &ignored { profile: ignored, bounding_box: [] }
+  SPRUCE_LEAVES: *ignored
+  BIRCH_LEAVES: *ignored
+  JUNGLE_LEAVES: *ignored
+  ACACIA_LEAVES: *ignored
+  DARK_OAK_LEAVES: *ignored
+  MANGROVE_LEAVES: *ignored
+  CHERRY_LEAVES: *ignored
+  AZALEA_LEAVES: *ignored
+  FLOWERING_AZALEA_LEAVES: *ignored
+  NETHER_WART_BLOCK: *ignored
+  WARPED_WART_BLOCK: *ignored
+  SHROOMLIGHT: *ignored
 
-  # Освещение (Фонари, факелы, свечи)
-  LANTERN:
-    profile: ignored
-    bounding_box: []
-  SOUL_LANTERN:
-    profile: ignored
-    bounding_box: []
-  TORCH:
-    profile: ignored
-    bounding_box: []
-  SOUL_TORCH:
-    profile: ignored
-    bounding_box: []
-  REDSTONE_TORCH:
-    profile: ignored
-    bounding_box: []
-  END_ROD:
-    profile: ignored
-    bounding_box: []
-  CANDLE:
-    profile: ignored
-    bounding_box: []
-  
-  # Прочее мелкое (Кнопки, крюки)
-  TRIPWIRE_HOOK:
-    profile: ignored
-    bounding_box: []
-  STONE_BUTTON:
-    profile: ignored
-    bounding_box: []
-  OAK_BUTTON:
-    profile: ignored
-    bounding_box: []
-  LEVER:
-    profile: ignored
-    bounding_box: []
-  
-  # Растительность (Трава, цветы - обычно в ваниле и так без коллизии, но для уверенности)
-  GRASS:
-    profile: ignored
-    bounding_box: []
-  TALL_GRASS:
-    profile: ignored
-    bounding_box: []
-  FERN:
-    profile: ignored
-    bounding_box: []
-  LARGE_FERN:
-    profile: ignored
-    bounding_box: []
-  DEAD_BUSH:
-    profile: ignored
-    bounding_box: []
-  SEAGRASS:
-    profile: ignored
-    bounding_box: []
-  KELP:
-    profile: ignored
-    bounding_box: []
-  KELP_PLANT:
-    profile: ignored
-    bounding_box: []
+  # --- Растительность и Агрокультуры (Vegetation & Crops) ---
+#  GRASS: *ignored
+  TALL_GRASS: *ignored
+  FERN: *ignored
+  LARGE_FERN: *ignored
+  DEAD_BUSH: *ignored
+  SEAGRASS: *ignored
+  TALL_SEAGRASS: *ignored
+  KELP: *ignored
+  KELP_PLANT: *ignored
+  DANDELION: *ignored
+  POPPY: *ignored
+  BLUE_ORCHID: *ignored
+  ALLIUM: *ignored
+  AZURE_BLUET: *ignored
+  RED_TULIP: *ignored
+  ORANGE_TULIP: *ignored
+  WHITE_TULIP: *ignored
+  PINK_TULIP: *ignored
+  OXEYE_DAISY: *ignored
+  CORNFLOWER: *ignored
+  LILY_OF_THE_VALLEY: *ignored
+  WITHER_ROSE: *ignored
+  SUNFLOWER: *ignored
+  LILAC: *ignored
+  ROSE_BUSH: *ignored
+  PEONY: *ignored
+  WHEAT: *ignored
+  CARROTS: *ignored
+  POTATOES: *ignored
+  BEETROOTS: *ignored
+  MELON_STEM: *ignored
+  PUMPKIN_STEM: *ignored
+  ATTACHED_MELON_STEM: *ignored
+  ATTACHED_PUMPKIN_STEM: *ignored
+  NETHER_WART: *ignored
+  SWEET_BERRY_BUSH: *ignored
+  SUGAR_CANE: *ignored
+  BAMBOO: *ignored
+  BAMBOO_SAPLING: *ignored
+  COCOA: *ignored
+  VINE: *ignored
+  WEEPING_VINES: *ignored
+  WEEPING_VINES_PLANT: *ignored
+  TWISTING_VINES: *ignored
+  TWISTING_VINES_PLANT: *ignored
+  CRIMSON_FUNGUS: *ignored
+  WARPED_FUNGUS: *ignored
+  CRIMSON_ROOTS: *ignored
+  WARPED_ROOTS: *ignored
+  NETHER_SPROUTS: *ignored
+  BROWN_MUSHROOM: *ignored
+  RED_MUSHROOM: *ignored
+  LILY_PAD: *ignored
+
+  # --- Саженцы (Saplings) ---
+  OAK_SAPLING: *ignored
+  SPRUCE_SAPLING: *ignored
+  BIRCH_SAPLING: *ignored
+  JUNGLE_SAPLING: *ignored
+  ACACIA_SAPLING: *ignored
+  DARK_OAK_SAPLING: *ignored
+  MANGROVE_PROPAGULE: *ignored
+  CHERRY_SAPLING: *ignored
+
+  # --- Стекло и Решетки (Panes & Bars) ---
+  GLASS_PANE: *ignored
+  WHITE_STAINED_GLASS_PANE: *ignored
+  ORANGE_STAINED_GLASS_PANE: *ignored
+  MAGENTA_STAINED_GLASS_PANE: *ignored
+  LIGHT_BLUE_STAINED_GLASS_PANE: *ignored
+  YELLOW_STAINED_GLASS_PANE: *ignored
+  LIME_STAINED_GLASS_PANE: *ignored
+  PINK_STAINED_GLASS_PANE: *ignored
+  GRAY_STAINED_GLASS_PANE: *ignored
+  LIGHT_GRAY_STAINED_GLASS_PANE: *ignored
+  CYAN_STAINED_GLASS_PANE: *ignored
+  PURPLE_STAINED_GLASS_PANE: *ignored
+  BLUE_STAINED_GLASS_PANE: *ignored
+  BROWN_STAINED_GLASS_PANE: *ignored
+  GREEN_STAINED_GLASS_PANE: *ignored
+  RED_STAINED_GLASS_PANE: *ignored
+  BLACK_STAINED_GLASS_PANE: *ignored
+  IRON_BARS: *ignored
+  CHAIN: *ignored
+
+  # --- Ковры (Carpets) ---
+  WHITE_CARPET: *ignored
+  ORANGE_CARPET: *ignored
+  MAGENTA_CARPET: *ignored
+  LIGHT_BLUE_CARPET: *ignored
+  YELLOW_CARPET: *ignored
+  LIME_CARPET: *ignored
+  PINK_CARPET: *ignored
+  GRAY_CARPET: *ignored
+  LIGHT_GRAY_CARPET: *ignored
+  CYAN_CARPET: *ignored
+  PURPLE_CARPET: *ignored
+  BLUE_CARPET: *ignored
+  BROWN_CARPET: *ignored
+  GREEN_CARPET: *ignored
+  RED_CARPET: *ignored
+  BLACK_CARPET: *ignored
+  MOSS_CARPET: *ignored
+
+  # --- Освещение и Декор (Lights & Decor) ---
+  TORCH: *ignored
+  WALL_TORCH: *ignored
+  SOUL_TORCH: *ignored
+  SOUL_WALL_TORCH: *ignored
+  REDSTONE_TORCH: *ignored
+  REDSTONE_WALL_TORCH: *ignored
+  LANTERN: *ignored
+  SOUL_LANTERN: *ignored
+  CANDLE: *ignored
+  WHITE_CANDLE: *ignored
+  ORANGE_CANDLE: *ignored
+  MAGENTA_CANDLE: *ignored
+  LIGHT_BLUE_CANDLE: *ignored
+  YELLOW_CANDLE: *ignored
+  LIME_CANDLE: *ignored
+  PINK_CANDLE: *ignored
+  GRAY_CANDLE: *ignored
+  LIGHT_GRAY_CANDLE: *ignored
+  CYAN_CANDLE: *ignored
+  PURPLE_CANDLE: *ignored
+  BLUE_CANDLE: *ignored
+  BROWN_CANDLE: *ignored
+  GREEN_CANDLE: *ignored
+  RED_CANDLE: *ignored
+  BLACK_CANDLE: *ignored
+  END_ROD: *ignored
+  FLOWER_POT: *ignored
+  POTTED_OAK_SAPLING: *ignored
+  # (Все POTTED_ версии считаются ignored по умолчанию)
+
+  # --- Редстоун и Механизмы (Redstone & Rails) ---
+  REDSTONE_WIRE: *ignored
+  REPEATER: *ignored
+  COMPARATOR: *ignored
+  LEVER: *ignored
+  STONE_BUTTON: *ignored
+  OAK_BUTTON: *ignored
+  SPRUCE_BUTTON: *ignored
+  BIRCH_BUTTON: *ignored
+  JUNGLE_BUTTON: *ignored
+  ACACIA_BUTTON: *ignored
+  DARK_OAK_BUTTON: *ignored
+  CRIMSON_BUTTON: *ignored
+  WARPED_BUTTON: *ignored
+  POLISHED_BLACKSTONE_BUTTON: *ignored
+  TRIPWIRE: *ignored
+  TRIPWIRE_HOOK: *ignored
+  RAIL: *ignored
+  POWERED_RAIL: *ignored
+  DETECTOR_RAIL: *ignored
+  ACTIVATOR_RAIL: *ignored
+  STONE_PRESSURE_PLATE: *ignored
+  OAK_PRESSURE_PLATE: *ignored
+  SPRUCE_PRESSURE_PLATE: *ignored
+  BIRCH_PRESSURE_PLATE: *ignored
+  JUNGLE_PRESSURE_PLATE: *ignored
+  ACACIA_PRESSURE_PLATE: *ignored
+  DARK_OAK_PRESSURE_PLATE: *ignored
+  CRIMSON_PRESSURE_PLATE: *ignored
+  WARPED_PRESSURE_PLATE: *ignored
+  POLISHED_BLACKSTONE_PRESSURE_PLATE: *ignored
+  LIGHT_WEIGHTED_PRESSURE_PLATE: *ignored
+  HEAVY_WEIGHTED_PRESSURE_PLATE: *ignored
+
+  # --- Прочее (Misc) ---
+  SKELETON_SKULL: *ignored
+  WITHER_SKELETON_SKULL: *ignored
+  PLAYER_HEAD: *ignored
+  ZOMBIE_HEAD: *ignored
+  CREEPER_HEAD: *ignored
+  DRAGON_HEAD: *ignored
+  SKELETON_WALL_SKULL: *ignored
+  WITHER_SKELETON_WALL_SKULL: *ignored
+  PLAYER_WALL_HEAD: *ignored
+  ZOMBIE_WALL_HEAD: *ignored
+  CREEPER_WALL_HEAD: *ignored
+  DRAGON_WALL_HEAD: *ignored
+  TURTLE_EGG: *ignored
+  SEA_PICKLE: *ignored
+  SNOW: *ignored # Тонкий слой снега
+  SCAFFOLDING: *ignored
+  LADDER: *ignored
+  COBWEB: *ignored
+
+  # ==========================================================
+  # 2. НЕПОЛНЫЕ БЛОКИ -> РАСШИРЕНЫ ДО ПОЛНЫХ (1x1x1)
+  # ==========================================================
+
+  # --- Полублоки (Slabs) ---
+  OAK_SLAB: &slab { profile: default, bounding_box: ["x=0.5 y=0.25 z=0.5 center=[0.5 0.25 0.5]"] }
+  SPRUCE_SLAB: *slab
+  BIRCH_SLAB: *slab
+  JUNGLE_SLAB: *slab
+  ACACIA_SLAB: *slab
+  DARK_OAK_SLAB: *slab
+  MANGROVE_SLAB: *slab
+  CHERRY_SLAB: *slab
+  BAMBOO_SLAB: *slab
+  CRIMSON_SLAB: *slab
+  WARPED_SLAB: *slab
+  STONE_SLAB: *slab
+  SMOOTH_STONE_SLAB: *slab
+  SANDSTONE_SLAB: *slab
+  CUT_SANDSTONE_SLAB: *slab
+  PETRIFIED_OAK_SLAB: *slab
+  COBBLESTONE_SLAB: *slab
+  BRICK_SLAB: *slab
+  STONE_BRICK_SLAB: *slab
+  NETHER_BRICK_SLAB: *slab
+  QUARTZ_SLAB: *slab
+  RED_SANDSTONE_SLAB: *slab
+  CUT_RED_SANDSTONE_SLAB: *slab
+  PURPUR_SLAB: *slab
+  PRISMARINE_SLAB: *slab
+  PRISMARINE_BRICK_SLAB: *slab
+  DARK_PRISMARINE_SLAB: *slab
+  POLISHED_GRANITE_SLAB: *slab
+  SMOOTH_RED_SANDSTONE_SLAB: *slab
+  MOSSY_STONE_BRICK_SLAB: *slab
+  POLISHED_DIORITE_SLAB: *slab
+  MOSSY_COBBLESTONE_SLAB: *slab
+  END_STONE_BRICK_SLAB: *slab
+  SMOOTH_SANDSTONE_SLAB: *slab
+  SMOOTH_QUARTZ_SLAB: *slab
+  GRANITE_SLAB: *slab
+  ANDESITE_SLAB: *slab
+  RED_NETHER_BRICK_SLAB: *slab
+  POLISHED_ANDESITE_SLAB: *slab
+  DIORITE_SLAB: *slab
+  BLACKSTONE_SLAB: *slab
+  POLISHED_BLACKSTONE_SLAB: *slab
+  POLISHED_BLACKSTONE_BRICK_SLAB: *slab
+
+  # --- Ступеньки (Stairs) ---
+  OAK_STAIRS: &full { profile: default, bounding_box: ["x=0.5 y=0.5 z=0.5 center=[0.5 0.5 0.5]"] }
+  COBBLESTONE_STAIRS: *full
+  BRICK_STAIRS: *full
+  STONE_BRICK_STAIRS: *full
+  NETHER_BRICK_STAIRS: *full
+  SANDSTONE_STAIRS: *full
+  SPRUCE_STAIRS: *full
+  BIRCH_STAIRS: *full
+  JUNGLE_STAIRS: *full
+  CRIMSON_STAIRS: *full
+  WARPED_STAIRS: *full
+  QUARTZ_STAIRS: *full
+  ACACIA_STAIRS: *full
+  DARK_OAK_STAIRS: *full
+  MANGROVE_STAIRS: *full
+  CHERRY_STAIRS: *full
+  BAMBOO_STAIRS: *full
+  PRISMARINE_STAIRS: *full
+  PRISMARINE_BRICK_STAIRS: *full
+  DARK_PRISMARINE_STAIRS: *full
+  RED_SANDSTONE_STAIRS: *full
+  POLISHED_GRANITE_STAIRS: *full
+  SMOOTH_RED_SANDSTONE_STAIRS: *full
+  MOSSY_STONE_BRICK_STAIRS: *full
+  POLISHED_DIORITE_STAIRS: *full
+  MOSSY_COBBLESTONE_STAIRS: *full
+  END_STONE_BRICK_STAIRS: *full
+  STONE_STAIRS: *full
+  SMOOTH_SANDSTONE_STAIRS: *full
+  SMOOTH_QUARTZ_STAIRS: *full
+  GRANITE_STAIRS: *full
+  ANDESITE_STAIRS: *full
+  RED_NETHER_BRICK_STAIRS: *full
+  POLISHED_ANDESITE_STAIRS: *full
+  DIORITE_STAIRS: *full
+  BLACKSTONE_STAIRS: *full
+  POLISHED_BLACKSTONE_STAIRS: *full
+  POLISHED_BLACKSTONE_BRICK_STAIRS: *full
+
+  # --- Заборы (Fences) ---
+  OAK_FENCE: *full
+  ACACIA_FENCE: *full
+  DARK_OAK_FENCE: *full
+  SPRUCE_FENCE: *full
+  BIRCH_FENCE: *full
+  JUNGLE_FENCE: *full
+  CRIMSON_FENCE: *full
+  WARPED_FENCE: *full
+  MANGROVE_FENCE: *full
+  CHERRY_FENCE: *full
+  BAMBOO_FENCE: *full
+  NETHER_BRICK_FENCE: *full
+
+  # --- Калитки (Fence Gates) ---
+  OAK_FENCE_GATE: *full
+  SPRUCE_FENCE_GATE: *full
+  BIRCH_FENCE_GATE: *full
+  JUNGLE_FENCE_GATE: *full
+  ACACIA_FENCE_GATE: *full
+  DARK_OAK_FENCE_GATE: *full
+  CRIMSON_FENCE_GATE: *full
+  WARPED_FENCE_GATE: *full
+  MANGROVE_FENCE_GATE: *full
+  CHERRY_FENCE_GATE: *full
+  BAMBOO_FENCE_GATE: *full
+
+  # --- Стены (Walls) ---
+  COBBLESTONE_WALL: *full
+  MOSSY_COBBLESTONE_WALL: *full
+  BRICK_WALL: *full
+  PRISMARINE_WALL: *full
+  RED_SANDSTONE_WALL: *full
+  MOSSY_STONE_BRICK_WALL: *full
+  GRANITE_WALL: *full
+  STONE_BRICK_WALL: *full
+  NETHER_BRICK_WALL: *full
+  ANDESITE_WALL: *full
+  RED_NETHER_BRICK_WALL: *full
+  SANDSTONE_WALL: *full
+  END_STONE_BRICK_WALL: *full
+  DIORITE_WALL: *full
+  BLACKSTONE_WALL: *full
+  POLISHED_BLACKSTONE_WALL: *full
+  POLISHED_BLACKSTONE_BRICK_WALL: *full
+  DEEPSLATE_WALL: *full
+
+  # --- Люки (Trapdoors) ---
+  IRON_TRAPDOOR: *full
+  OAK_TRAPDOOR: *full
+  SPRUCE_TRAPDOOR: *full
+  BIRCH_TRAPDOOR: *full
+  JUNGLE_TRAPDOOR: *full
+  ACACIA_TRAPDOOR: *full
+  DARK_OAK_TRAPDOOR: *full
+  CRIMSON_TRAPDOOR: *full
+  WARPED_TRAPDOOR: *full
+  MANGROVE_TRAPDOOR: *full
+  CHERRY_TRAPDOOR: *full
+  BAMBOO_TRAPDOOR: *full
+
+  # --- Двери (Doors) ---
+  IRON_DOOR: *full
+  OAK_DOOR: *full
+  SPRUCE_DOOR: *full
+  BIRCH_DOOR: *full
+  JUNGLE_DOOR: *full
+  ACACIA_DOOR: *full
+  DARK_OAK_DOOR: *full
+  CRIMSON_DOOR: *full
+  WARPED_DOOR: *full
+  MANGROVE_DOOR: *full
+  CHERRY_DOOR: *full
+  BAMBOO_DOOR: *full
+
+  # --- Кровати (Beds) ---
+  WHITE_BED: *full
+  ORANGE_BED: *full
+  MAGENTA_BED: *full
+  LIGHT_BLUE_BED: *full
+  YELLOW_BED: *full
+  LIME_BED: *full
+  PINK_BED: *full
+  GRAY_BED: *full
+  LIGHT_GRAY_BED: *full
+  CYAN_BED: *full
+  PURPLE_BED: *full
+  BLUE_BED: *full
+  BROWN_BED: *full
+  GREEN_BED: *full
+  RED_BED: *full
+  BLACK_BED: *full
+
+  # --- Функциональные блоки сложной формы (Expanded) ---
+  ENCHANTING_TABLE: *full
+  LECTERN: *full
+  DAYLIGHT_DETECTOR: *full
+  CAMPFIRE: *full
+  SOUL_CAMPFIRE: *full
+  STONECUTTER: *full
+  GRINDSTONE: *full
+  ANVIL: *full
+  CHIPPED_ANVIL: *full
+  DAMAGED_ANVIL: *full
+  HOPPER: *full
+  CAULDRON: *full
+  COMPOSTER: *full
+  BREWING_STAND: *full
+  END_PORTAL_FRAME: *full
+  DRAGON_EGG: *full
+  CAKE: *full
+  BELL: *full
+  AMETHYST_CLUSTER: *full # Кристаллы аметиста тоже расширяем, чтобы не застревать
+
+  # --- Контейнеры (Expanded) ---
+  CHEST: *full
+  TRAPPED_CHEST: *full
+  ENDER_CHEST: *full
+  SHULKER_BOX: *full
+  WHITE_SHULKER_BOX: *full
+  ORANGE_SHULKER_BOX: *full
+  MAGENTA_SHULKER_BOX: *full
+  LIGHT_BLUE_SHULKER_BOX: *full
+  YELLOW_SHULKER_BOX: *full
+  LIME_SHULKER_BOX: *full
+  PINK_SHULKER_BOX: *full
+  GRAY_SHULKER_BOX: *full
+  LIGHT_GRAY_SHULKER_BOX: *full
+  CYAN_SHULKER_BOX: *full
+  PURPLE_SHULKER_BOX: *full
+  BLUE_SHULKER_BOX: *full
+  BROWN_SHULKER_BOX: *full
+  GREEN_SHULKER_BOX: *full
+  RED_SHULKER_BOX: *full
+  BLACK_SHULKER_BOX: *full
+
+  # ==========================================================
+  # 3. ПОЛНЫЕ БЛОКИ (Full Blocks) -> Default Physics
+  # ==========================================================
+
+  # --- Камни и Руды ---
+  STONE: &default { profile: default, bounding_box: ["x=0.5 y=0.5 z=0.5 center=[0.5 0.5 0.5]"] }
+  GRANITE: *default
+  POLISHED_GRANITE: *default
+  DIORITE: *default
+  POLISHED_DIORITE: *default
+  ANDESITE: *default
+  POLISHED_ANDESITE: *default
+  COBBLESTONE: *default
+  BEDROCK: *default
+  GOLD_ORE: *default
+  IRON_ORE: *default
+  COAL_ORE: *default
+  NETHER_GOLD_ORE: *default
+  LAPIS_ORE: *default
+  DIAMOND_ORE: *default
+  REDSTONE_ORE: *default
+  EMERALD_ORE: *default
+  NETHER_QUARTZ_ORE: *default
+  ANCIENT_DEBRIS: *default
+  COPPER_ORE: *default
+  DEEPSLATE: *default
+  COBBLED_DEEPSLATE: *default
+  POLISHED_DEEPSLATE: *default
+  DEEPSLATE_BRICKS: *default
+  DEEPSLATE_TILES: *default
+  TUFF: *default
+  CALCITE: *default
+  DRIPSTONE_BLOCK: *default
+
+  # --- Земля и Песок ---
+  GRASS_BLOCK: *default
+  DIRT: *default
+  COARSE_DIRT: *default
+  PODZOL: *default
+  ROOTED_DIRT: *default
+  MUD: *default
+  CLAY: *default
+  SAND: *default
+  RED_SAND: *default
+  GRAVEL: *default
+  MYCELIUM: *default
+  CRIMSON_NYLIUM: *default
+  WARPED_NYLIUM: *default
+  SOUL_SAND: *default
+  SOUL_SOIL: *default
+
+  # --- Дерево (Logs & Planks) ---
+  OAK_LOG: *default
+  SPRUCE_LOG: *default
+  BIRCH_LOG: *default
+  JUNGLE_LOG: *default
+  ACACIA_LOG: *default
+  DARK_OAK_LOG: *default
+  MANGROVE_LOG: *default
+  CHERRY_LOG: *default
+  CRIMSON_STEM: *default
+  WARPED_STEM: *default
+  STRIPPED_OAK_LOG: *default
+  STRIPPED_SPRUCE_LOG: *default
+  STRIPPED_BIRCH_LOG: *default
+  STRIPPED_JUNGLE_LOG: *default
+  STRIPPED_ACACIA_LOG: *default
+  STRIPPED_DARK_OAK_LOG: *default
+  STRIPPED_MANGROVE_LOG: *default
+  STRIPPED_CHERRY_LOG: *default
+  STRIPPED_CRIMSON_STEM: *default
+  STRIPPED_WARPED_STEM: *default
+  OAK_PLANKS: *default
+  SPRUCE_PLANKS: *default
+  BIRCH_PLANKS: *default
+  JUNGLE_PLANKS: *default
+  ACACIA_PLANKS: *default
+  DARK_OAK_PLANKS: *default
+  MANGROVE_PLANKS: *default
+  CHERRY_PLANKS: *default
+  CRIMSON_PLANKS: *default
+  WARPED_PLANKS: *default
+  BAMBOO_PLANKS: *default
+  BAMBOO_MOSAIC: *default
+
+  # --- Строительные блоки ---
+  BRICKS: *default
+  STONE_BRICKS: *default
+  MOSSY_STONE_BRICKS: *default
+  CRACKED_STONE_BRICKS: *default
+  CHISELED_STONE_BRICKS: *default
+  SANDSTONE: *default
+  CHISELED_SANDSTONE: *default
+  CUT_SANDSTONE: *default
+  RED_SANDSTONE: *default
+  CHISELED_RED_SANDSTONE: *default
+  CUT_RED_SANDSTONE: *default
+  PRISMARINE_BRICKS: *default
+  NETHER_BRICKS: *default
+  CRACKED_NETHER_BRICKS: *default
+  CHISELED_NETHER_BRICKS: *default
+  RED_NETHER_BRICKS: *default
+  END_STONE_BRICKS: *default
+  PURPUR_BLOCK: *default
+  PURPUR_PILLAR: *default
+  QUARTZ_BLOCK: *default
+  CHISELED_QUARTZ_BLOCK: *default
+  QUARTZ_BRICKS: *default
+  QUARTZ_PILLAR: *default
+  SMOOTH_QUARTZ: *default
+  SMOOTH_RED_SANDSTONE: *default
+  SMOOTH_SANDSTONE: *default
+  SMOOTH_STONE: *default
+  BLACKSTONE: *default
+  POLISHED_BLACKSTONE: *default
+  POLISHED_BLACKSTONE_BRICKS: *default
+  CHISELED_POLISHED_BLACKSTONE: *default
+  CRACKED_POLISHED_BLACKSTONE_BRICKS: *default
+  GILDED_BLACKSTONE: *default
+
+  # --- Бетон и Терракота ---
+  WHITE_CONCRETE: *default
+  ORANGE_CONCRETE: *default
+  MAGENTA_CONCRETE: *default
+  LIGHT_BLUE_CONCRETE: *default
+  YELLOW_CONCRETE: *default
+  LIME_CONCRETE: *default
+  PINK_CONCRETE: *default
+  GRAY_CONCRETE: *default
+  LIGHT_GRAY_CONCRETE: *default
+  CYAN_CONCRETE: *default
+  PURPLE_CONCRETE: *default
+  BLUE_CONCRETE: *default
+  BROWN_CONCRETE: *default
+  GREEN_CONCRETE: *default
+  RED_CONCRETE: *default
+  BLACK_CONCRETE: *default
+  WHITE_TERRACOTTA: *default
+  ORANGE_TERRACOTTA: *default
+  MAGENTA_TERRACOTTA: *default
+  LIGHT_BLUE_TERRACOTTA: *default
+  YELLOW_TERRACOTTA: *default
+  LIME_TERRACOTTA: *default
+  PINK_TERRACOTTA: *default
+  GRAY_TERRACOTTA: *default
+  LIGHT_GRAY_TERRACOTTA: *default
+  CYAN_TERRACOTTA: *default
+  PURPLE_TERRACOTTA: *default
+  BLUE_TERRACOTTA: *default
+  BROWN_TERRACOTTA: *default
+  GREEN_TERRACOTTA: *default
+  RED_TERRACOTTA: *default
+  BLACK_TERRACOTTA: *default
+  TERRACOTTA: *default
+
+  # --- Шерсть ---
+  WHITE_WOOL: *default
+  ORANGE_WOOL: *default
+  MAGENTA_WOOL: *default
+  LIGHT_BLUE_WOOL: *default
+  YELLOW_WOOL: *default
+  LIME_WOOL: *default
+  PINK_WOOL: *default
+  GRAY_WOOL: *default
+  LIGHT_GRAY_WOOL: *default
+  CYAN_WOOL: *default
+  PURPLE_WOOL: *default
+  BLUE_WOOL: *default
+  BROWN_WOOL: *default
+  GREEN_WOOL: *default
+  RED_WOOL: *default
+  BLACK_WOOL: *default
+
+  # --- Стекло (полные блоки) ---
+  GLASS: *default
+  WHITE_STAINED_GLASS: *default
+  ORANGE_STAINED_GLASS: *default
+  MAGENTA_STAINED_GLASS: *default
+  LIGHT_BLUE_STAINED_GLASS: *default
+  YELLOW_STAINED_GLASS: *default
+  LIME_STAINED_GLASS: *default
+  PINK_STAINED_GLASS: *default
+  GRAY_STAINED_GLASS: *default
+  LIGHT_GRAY_STAINED_GLASS: *default
+  CYAN_STAINED_GLASS: *default
+  PURPLE_STAINED_GLASS: *default
+  BLUE_STAINED_GLASS: *default
+  BROWN_STAINED_GLASS: *default
+  GREEN_STAINED_GLASS: *default
+  RED_STAINED_GLASS: *default
+  BLACK_STAINED_GLASS: *default
+  TINTED_GLASS: *default
+
+  # --- Функциональные блоки (полные) ---
+  CRAFTING_TABLE: *default
+  FURNACE: *default
+  BLAST_FURNACE: *default
+  SMOKER: *default
+  CARTOGRAPHY_TABLE: *default
+  FLETCHING_TABLE: *default
+  SMITHING_TABLE: *default
+  LOOM: *default
+  BARREL: *default
+  BOOKSHELF: *default
+  NOTE_BLOCK: *default
+  JUKEBOX: *default
+  DISPENSER: *default
+  DROPPER: *default
+  OBSERVER: *default
+  PISTON: *default
+  STICKY_PISTON: *default
+  TARGET: *default
+  BEACON: *default
+  CONDUIT: *default
+  SPAWNER: *default
+  LODESTONE: *default
+  RESPAWN_ANCHOR: *default
+  COMMAND_BLOCK: *default
+  REPEATING_COMMAND_BLOCK: *default
+  CHAIN_COMMAND_BLOCK: *default
+  STRUCTURE_BLOCK: *default
+  JIGSAW: *default
+
+  # --- Рудные блоки ---
+  GOLD_BLOCK: *default
+  IRON_BLOCK: *default
+  DIAMOND_BLOCK: *default
+  NETHERITE_BLOCK: *default
+  EMERALD_BLOCK: *default
+  LAPIS_BLOCK: *default
+  REDSTONE_BLOCK: *default
+  COAL_BLOCK: *default
+  COPPER_BLOCK: *default
+  EXPOSED_COPPER: *default
+  WEATHERED_COPPER: *default
+  OXIDIZED_COPPER: *default
+
+  # --- Особые материалы ---
+  OBSIDIAN: *default
+  CRYING_OBSIDIAN: *default
+  NETHERRACK: *default
+  BASALT: *default
+  POLISHED_BASALT: *default
+  SMOOTH_BASALT: *default
+  END_STONE: *default
+  PRISMARINE: *default
+  DARK_PRISMARINE: *default
+  SEA_LANTERN: *default
+  GLOWSTONE: *default
+  PUMPKIN: *default
+  CARVED_PUMPKIN: *default
+  JACK_O_LANTERN: *default
+  MELON: *default
+  HAY_BLOCK: *default
+  DRIED_KELP_BLOCK: *default
+  BONE_BLOCK: *default
+  MOSS_BLOCK: *default
+  SPONGE: *default
+  WET_SPONGE: *default
+  AMETHYST_BLOCK: *default
+  BUDDING_AMETHYST: *default
+
+  # ==========================================================
+  # 4. СПЕЦИАЛЬНЫЕ ФИЗИЧЕСКИЕ СВОЙСТВА
+  # ==========================================================
+
+  # --- Лёд (Скользкий) ---
+  ICE: &ice { profile: ice, bounding_box: ["x=0.5 y=0.5 z=0.5 center=[0.5 0.5 0.5]"] }
+  PACKED_ICE: *ice
+  BLUE_ICE: *ice
+  FROSTED_ICE: *ice
+
+  # --- Слайм (Прыгучий) ---
+  SLIME_BLOCK: &slime { profile: bouncy, bounding_box: ["x=0.5 y=0.5 z=0.5 center=[0.5 0.5 0.5]"] }
+  HONEY_BLOCK: *slime # Можно сделать липким (высокое трение), используем bouncy профиль с высоким трением

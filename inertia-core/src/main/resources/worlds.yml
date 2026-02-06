@@ -13,13 +13,13 @@ world:
     update-on-block-change: true
     # Задержка (в тиках) перед обновлением чанка после изменения блока
     # Помогает при массовом строительстве (WorldEdit)
-    update-debounce-ticks: 5
+    update-debounce-ticks: 1
 
   size:
     origin: "0 0"
-    height-size: "-128 1024"
-    min: "-500 -500"
-    max: "500 500"
+    height-size: "0 1024"
+    min: "-5120 -5120"
+    max: "5120 5120"
     create-walls: true
     kill-below-min-y: true
     prevent-exit: true

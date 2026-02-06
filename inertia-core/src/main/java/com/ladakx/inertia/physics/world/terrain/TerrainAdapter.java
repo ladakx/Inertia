@@ -33,4 +33,7 @@ public interface TerrainAdapter {
      */
     default void onBlockChange(int x, int y, int z) {
     }
+
+    default void onChunkChange(int x, int z) {
+    }
 }

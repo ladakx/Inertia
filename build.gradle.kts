@@ -17,6 +17,8 @@ subprojects {
 //        maven("https://s01.oss.sonatype.org/content/repositories/snapshots/") // Adventure Snapshots
 //        maven("https://repo.extendedclip.com/content/repositories/placeholderapi/") // PlaceholderAPI
 //        maven("https://jitpack.io") // Vault
+        mavenCentral()
+        maven("https://maven.enginehub.org/repo/")
     }
 
     dependencies {
@@ -28,7 +30,6 @@ subprojects {
 
         // JOML
         "implementation"("org.joml:joml:1.10.8")
-
         //    // Нативні бібліотеки Jolt для різних платформ і режимів (Sp/Dp)
         //    // Float (Single Precision)
         //    runtimeOnly("com.github.stephengold:jolt-jni-Windows64:$joltVersion:SpRelease")

@@ -20,7 +20,7 @@ public class ChunkPhysicsCache {
     private final Map<CacheKey, GreedyMeshData> memoryCache = new ConcurrentHashMap<>();
 
     public ChunkPhysicsCache(File dataFolder) {
-        this.baseDir = new File(dataFolder, ".cache/world");
+        this.baseDir = new File(dataFolder, ".cache");
     }
 
     public Optional<GreedyMeshData> get(String worldName, int x, int z) {
