@@ -9,22 +9,45 @@ import com.ladakx.inertia.physics.world.terrain.PhysicsGenerator;
 import com.ladakx.inertia.physics.world.terrain.profile.PhysicalProfile;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
+import org.bukkit.block.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
     private final BlocksConfig blocksConfig;
     private final JoltTools joltTools;
     private final WorldsConfig.GreedyMeshingSettings settings;
+    private final PhysicalProfile[] materialProfiles;
 
     public GreedyMeshGenerator(BlocksConfig blocksConfig, JoltTools joltTools, WorldsConfig.GreedyMeshingSettings settings) {
         this.blocksConfig = Objects.requireNonNull(blocksConfig, "blocksConfig");
         this.joltTools = Objects.requireNonNull(joltTools, "joltTools");
         this.settings = Objects.requireNonNull(settings, "settings");
+        this.materialProfiles = buildMaterialProfiles();
+    }
+
+    private PhysicalProfile[] buildMaterialProfiles() {
+        Material[] materials = Material.values();
+        PhysicalProfile[] profiles = new PhysicalProfile[materials.length];
+        for (Material material : materials) {
+            blocksConfig.find(material).ifPresentOrElse(
+                    profile -> profiles[material.ordinal()] = profile,
+                    () -> {
+                        try {
+                            BlockState state = joltTools.createBlockState(material);
+                            List<AaBox> boxes = joltTools.boundingBoxes(state);
+                            if (boxes != null && !boxes.isEmpty()) {
+                                profiles[material.ordinal()] = new PhysicalProfile(material.name(), 0.5f, 0.6f, 0.2f, boxes);
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
+            );
+        }
+        return profiles;
     }
 
     @Override
@@ -38,8 +61,6 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         PhysicalProfile[][][] profiles = new PhysicalProfile[16][height][16];
         boolean[][][] visited = new boolean[16][height][16];
         List<GreedyMeshShape> shapes = new ArrayList<>();
-
-        java.util.Map<Material, java.util.Optional<PhysicalProfile>> materialCache = new java.util.HashMap<>();
 
         for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
             int sectionY = minSectionY + sectionIndex;
@@ -58,25 +79,9 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                             continue;
                         }
 
-                        Optional<PhysicalProfile> profileOpt = blocksConfig.find(material);
-
-                        if (profileOpt.isEmpty()) {
-                            profileOpt = materialCache.computeIfAbsent(material, mat -> {
-                                try {
-                                    org.bukkit.block.BlockState state = joltTools.createBlockState(mat);
-                                    List<AaBox> boxes = joltTools.boundingBoxes(state);
-
-                                    if (boxes != null && !boxes.isEmpty()) {
-                                        return Optional.of(new PhysicalProfile(mat.name(), 0.5f, 0.6f, 0.2f, boxes));
-                                    }
-                                } catch (Exception ignored) {
-                                }
-                                return Optional.empty();
-                            });
-                        }
-
-                        if (profileOpt.isPresent() && !profileOpt.get().boundingBoxes().isEmpty()) {
-                            profiles[x][worldIndexY][z] = profileOpt.get();
+                        PhysicalProfile profile = materialProfiles[material.ordinal()];
+                        if (profile != null && !profile.boundingBoxes().isEmpty()) {
+                            profiles[x][worldIndexY][z] = profile;
                         }
                     }
                 }
