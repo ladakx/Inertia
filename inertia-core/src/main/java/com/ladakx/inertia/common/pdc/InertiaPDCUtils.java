@@ -31,36 +31,5 @@ public final class InertiaPDCUtils {
         return item.getItemMeta().getPersistentDataContainer().has(new NamespacedKey(plugin, key), PersistentDataType.STRING);
     }
 
-    /**
-     * Applies standard Inertia physics tags to a visual entity.
-     */
-    public static void applyInertiaTags(com.ladakx.inertia.rendering.VisualEntity visual,
-                                        String bodyId,
-                                        java.util.UUID bodyUuid,
-                                        String renderModelId,
-                                        String renderEntityKey) {
-        if (visual == null || !visual.isValid()) return;
-
-        var pdc = visual.getPersistentDataContainer();
-
-        // Body ID
-        pdc.set(InertiaPDCKeys.INERTIA_PHYSICS_BODY_ID,
-                PersistentDataType.STRING, bodyId);
-
-        // Body UUID
-        pdc.set(InertiaPDCKeys.INERTIA_PHYSICS_BODY_UUID,
-                PersistentDataType.STRING, bodyUuid.toString());
-
-        // Render Model ID (e.g. "chains.heavy_iron_chain")
-        if (renderModelId != null) {
-            pdc.set(InertiaPDCKeys.INERTIA_RENDER_MODEL_ID,
-                    PersistentDataType.STRING, renderModelId);
-        }
-
-        // Entity Key inside the model (e.g. "display_1")
-        if (renderEntityKey != null) {
-            pdc.set(InertiaPDCKeys.INERTIA_RENDER_MODEL_ENTITY_ID,
-                    PersistentDataType.STRING, renderEntityKey);
-        }
-    }
+    // Packet-based рендеринг не використовує Bukkit PersistentDataContainer для entity.
 }
