@@ -63,7 +63,7 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
             entity.setPersistent(false);
             applyContent(entity, def);
         });
-        return new ArmorStandEntity(stand);
+        return new ArmorStandEntity(stand, def.kind(), def.displayMode());
     }
 
     private boolean isDisplayEntity(RenderEntityDefinition def) {

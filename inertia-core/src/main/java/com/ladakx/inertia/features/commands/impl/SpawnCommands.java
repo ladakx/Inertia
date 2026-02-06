@@ -79,15 +79,18 @@ public class SpawnCommands extends CloudModule {
         manager.command(spawnRoot
                 .literal("ragdoll")
                 .required("id", BodyIdParser.bodyIdParser(config))
+                .optional("nickname", StringParser.stringParser(),
+                        Description.of("Skin nickname (Minecraft username)"))
                 .handler(ctx -> {
                     if (!validatePlayer(ctx.sender())) return;
                     Player player = (Player) ctx.sender();
                     if (!validateWorld(player)) return;
 
                     String id = ctx.get("id");
+                    String nickname = ctx.getOrDefault("nickname", null);
 
                     try {
-                        bodyFactory.spawnRagdoll(player, id);
+                        bodyFactory.spawnRagdoll(player, id, nickname, false);
                         send(player, MessageKey.RAGDOLL_SPAWN_SUCCESS, "{id}", id);
                     } catch (Exception e) {
                         send(player, MessageKey.ERROR_OCCURRED, "{error}", e.getMessage());

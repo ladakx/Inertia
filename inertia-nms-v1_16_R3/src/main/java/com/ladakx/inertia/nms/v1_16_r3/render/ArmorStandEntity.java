@@ -1,10 +1,13 @@
 package com.ladakx.inertia.nms.v1_16_r3.render;
 
 import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
+import com.ladakx.inertia.rendering.config.enums.InertiaDisplayMode;
 import net.minecraft.server.v1_16_R3.EntityArmorStand;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftArmorStand;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.util.EulerAngle;
 import org.joml.Quaternionf;
@@ -14,9 +17,13 @@ import static com.ladakx.inertia.common.utils.RotationUtils.toEulerAngle;
 
 public class ArmorStandEntity implements VisualEntity {
     private final ArmorStand stand;
+    private final RenderEntityDefinition.EntityKind kind;
+    private final InertiaDisplayMode displayMode;
 
-    public ArmorStandEntity(ArmorStand stand) {
+    public ArmorStandEntity(ArmorStand stand, RenderEntityDefinition.EntityKind kind, InertiaDisplayMode displayMode) {
         this.stand = stand;
+        this.kind = kind;
+        this.displayMode = displayMode;
     }
 
     @Override
@@ -72,6 +79,39 @@ public class ArmorStandEntity implements VisualEntity {
     @Override
     public void setGlowing(boolean glowing) {
         stand.setGlowing(glowing);
+    }
+
+    @Override
+    public boolean setItemStack(ItemStack stack) {
+        if (!stand.isValid()) return false;
+        if (stand.getEquipment() == null) return false;
+
+        if (kind == RenderEntityDefinition.EntityKind.ITEM_DISPLAY) {
+            equipItem(stack, displayMode);
+            return true;
+        }
+        if (kind == RenderEntityDefinition.EntityKind.ARMOR_STAND) {
+            stand.getEquipment().setHelmet(stack);
+            return true;
+        }
+        return false;
+    }
+
+    private void equipItem(ItemStack item, InertiaDisplayMode mode) {
+        InertiaDisplayMode finalMode = (mode == null) ? InertiaDisplayMode.HEAD : mode;
+        switch (finalMode) {
+            case THIRDPERSON_RIGHTHAND:
+            case FIRSTPERSON_RIGHTHAND:
+                stand.getEquipment().setItemInMainHand(item);
+                break;
+            case THIRDPERSON_LEFTHAND:
+            case FIRSTPERSON_LEFTHAND:
+                stand.getEquipment().setItemInOffHand(item);
+                break;
+            default:
+                stand.getEquipment().setHelmet(item);
+                break;
+        }
     }
 
     @Override

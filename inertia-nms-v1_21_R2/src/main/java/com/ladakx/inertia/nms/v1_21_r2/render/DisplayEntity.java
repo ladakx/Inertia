@@ -3,6 +3,8 @@ package com.ladakx.inertia.nms.v1_21_r2.render;
 import com.ladakx.inertia.rendering.VisualEntity;
 import org.bukkit.Location;
 import org.bukkit.entity.Display;
+import org.bukkit.entity.ItemDisplay;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
@@ -50,6 +52,14 @@ public class DisplayEntity implements VisualEntity {
     @Override
     public void setGlowing(boolean glowing) {
         display.setGlowing(glowing);
+    }
+
+    @Override
+    public boolean setItemStack(ItemStack stack) {
+        if (!display.isValid()) return false;
+        if (!(display instanceof ItemDisplay itemDisplay)) return false;
+        itemDisplay.setItemStack(stack);
+        return true;
     }
 
     @Override

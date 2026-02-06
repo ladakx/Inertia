@@ -119,9 +119,11 @@ public class RagdollSpawner implements BodySpawner {
             partIndices.put(key, indexCounter++);
         }
 
+        String skinNickname = context.getParam("skinNickname", String.class, null);
+
         RagdollPrecalc rootCalc = precalculatedParts.get(rootPart);
-        createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos, rootCalc.rot, spawnedParts, groupFilter, partIndices.get(rootPart));
-        spawnRagdollChildren(space, context.bodyId(), rootPart, def, spawnedParts, groupFilter, partIndices, precalculatedParts);
+        createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos, rootCalc.rot, spawnedParts, groupFilter, partIndices.get(rootPart), skinNickname);
+        spawnRagdollChildren(space, context.bodyId(), rootPart, def, spawnedParts, groupFilter, partIndices, precalculatedParts, skinNickname);
 
         boolean applyImpulse = context.getParam("impulse", Boolean.class, false);
         if (applyImpulse && spawnedParts.containsKey(rootPart)) {
@@ -169,27 +171,30 @@ public class RagdollSpawner implements BodySpawner {
     private void spawnRagdollChildren(PhysicsWorld space, String bodyId, String parentName,
                                       RagdollDefinition def, Map<String, Body> spawnedBodies,
                                       GroupFilterTable groupFilter, Map<String, Integer> partIndices,
-                                      Map<String, RagdollPrecalc> precalc) {
+                                      Map<String, RagdollPrecalc> precalc,
+                                      String skinNickname) {
         def.parts().forEach((partName, partDef) -> {
             if (parentName.equals(partDef.parentName())) {
                 RagdollPrecalc calc = precalc.get(partName);
                 if (calc != null) {
                     createRagdollPart(space, bodyId, partName, calc.pos, calc.rot, spawnedBodies,
-                            groupFilter, partIndices.get(partName));
-                    spawnRagdollChildren(space, bodyId, partName, def, spawnedBodies, groupFilter, partIndices, precalc);
+                            groupFilter, partIndices.get(partName), skinNickname);
+                    spawnRagdollChildren(space, bodyId, partName, def, spawnedBodies, groupFilter, partIndices, precalc, skinNickname);
                 }
             }
         });
     }
 
     private void createRagdollPart(PhysicsWorld space, String bodyId, String partName, RVec3 pos, Quat rot,
-                                   Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex) {
+                                   Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex,
+                                   String skinNickname) {
         RagdollPhysicsBody obj = new RagdollPhysicsBody(
                 space, bodyId, partName, configService.getPhysicsBodyRegistry(),
                 renderFactory,
                 shapeFactory,
                 pos, rot, spawnedBodies,
-                groupFilter, partIndex
+                groupFilter, partIndex,
+                skinNickname
         );
         spawnedBodies.put(partName, obj.getBody());
         Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
