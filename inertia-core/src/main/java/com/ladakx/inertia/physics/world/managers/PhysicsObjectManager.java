@@ -18,6 +18,7 @@ public class PhysicsObjectManager {
     private final Map<Long, AbstractPhysicsBody> objectMap = new ConcurrentHashMap<>();
     // Дополнительная карта для быстрого поиска по ID тела (int), так как Listener дает ID, а не указатель (long)
     private final Map<Integer, AbstractPhysicsBody> bodyIdMap = new ConcurrentHashMap<>();
+    private final Map<Integer, AbstractPhysicsBody> networkEntityIdMap = new ConcurrentHashMap<>();
 
     private final Map<UUID, AbstractPhysicsBody> uuidMap = new ConcurrentHashMap<>();
 
@@ -38,6 +39,7 @@ public class PhysicsObjectManager {
         uuidMap.remove(object.getUuid());
         objectMap.values().removeIf(o -> o == object);
         bodyIdMap.values().removeIf(o -> o == object);
+        networkEntityIdMap.values().removeIf(o -> o == object);
     }
 
     public void registerBody(@NotNull AbstractPhysicsBody object, @Nullable Body body) {
@@ -69,6 +71,18 @@ public class PhysicsObjectManager {
         return uuidMap.get(uuid);
     }
 
+    public void registerNetworkEntityId(@NotNull AbstractPhysicsBody object, int entityId) {
+        networkEntityIdMap.put(entityId, object);
+    }
+
+    public void unregisterNetworkEntityId(int entityId) {
+        networkEntityIdMap.remove(entityId);
+    }
+
+    public @Nullable AbstractPhysicsBody getByNetworkEntityId(int entityId) {
+        return networkEntityIdMap.get(entityId);
+    }
+
     public @NotNull List<AbstractPhysicsBody> getAll() {
         return objects;
     }
@@ -92,6 +106,7 @@ public class PhysicsObjectManager {
         activeObjects.clear();
         objectMap.clear();
         bodyIdMap.clear();
+        networkEntityIdMap.clear();
         uuidMap.clear();
         InertiaLogger.info("ObjectManager cleared " + count + " objects.");
     }
