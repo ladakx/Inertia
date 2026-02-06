@@ -26,23 +26,6 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
         return spawnEmulatedEntity(world, origin, def);
     }
 
-    @Override
-    public VisualEntity createDebugLine(World world, Vector start, Vector end, float thickness, Color color) {
-        // В 1.16.5 нет BlockDisplay, поэтому возвращаем пустую реализацию.
-        // Статическая отладка просто не будет работать на старых версиях,
-        // что нормально и безопасно.
-        return new VisualEntity() {
-            @Override public void update(Location l, org.joml.Quaternionf r, org.joml.Vector3f c, boolean b) {}
-            @Override public void setVisible(boolean v) {}
-            @Override public void remove() {}
-            @Override public void setGlowing(boolean g) {}
-            @Override public org.bukkit.persistence.PersistentDataContainer getPersistentDataContainer() { return null; }
-            @Override public boolean isValid() { return false; }
-            @Override public boolean getPersistent() { return false; }
-            @Override public void setPersistent(boolean p) {}
-        };
-    }
-
     // ... остальной код (ensureChunkLoaded, spawnEmulatedEntity и т.д.) без изменений ...
     private void ensureChunkLoaded(World world, Location loc) {
         int x = loc.getBlockX() >> 4;
