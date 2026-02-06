@@ -37,7 +37,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
             return;
         }
 
-        Optional<GreedyMeshData> cached = cache.get(worldName, chunkX, chunkZ);
+        Optional<GreedyMeshData> cached = cache.get(chunkX, chunkZ);
         if (cached.isPresent()) {
             queuedChunks.remove(key);
             onReady.accept(cached.get());
@@ -66,7 +66,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
                 InertiaLogger.warn("Failed to generate physics chunk at " + chunkX + ", " + chunkZ, throwable);
                 return;
             }
-            cache.put(worldName, chunkX, chunkZ, data);
+            cache.put(chunkX, chunkZ, data);
             onReady.accept(data);
         });
     }
@@ -80,9 +80,9 @@ public class ChunkPhysicsManager implements AutoCloseable {
         }
     }
 
-    public void invalidate(String worldName, int chunkX, int chunkZ) {
+    public void invalidate(int chunkX, int chunkZ) {
         if (cache != null) {
-            cache.invalidate(worldName, chunkX, chunkZ);
+            cache.invalidate(chunkX, chunkZ);
         }
     }
 
