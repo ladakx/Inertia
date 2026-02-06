@@ -35,51 +35,6 @@ public class RenderFactory implements com.ladakx.inertia.rendering.RenderFactory
         };
     }
 
-    @Override
-    public VisualEntity createDebugLine(World world, Vector start, Vector end, float thickness, Color color) {
-        if (start.equals(end)) return new EmptyVisual();
-        Location midpoint = start.clone().add(end).multiply(0.5).toLocation(world);
-        Vector direction = end.clone().subtract(start);
-        float length = (float) direction.length();
-        if (length < 0.001f) return new EmptyVisual();
-        ensureChunkLoaded(world, midpoint);
-
-        BlockDisplay display = (BlockDisplay) world.spawnEntity(midpoint, EntityType.BLOCK_DISPLAY);
-
-        // Используем Redstone Block для линий хитбоксов статичных объектов
-        display.setBlock(Material.REDSTONE_BLOCK.createBlockData());
-
-        // Настройки отображения
-        display.setGlowing(false); // Обычно линии хитбоксов не светятся, но можно включить при необходимости
-        display.setPersistent(false);
-        display.setShadowRadius(0);
-        display.setShadowStrength(0);
-        display.setVisibleByDefault(false);
-
-        // Вычисление трансформации для создания "линии" из блока
-        Vector3f dir = new Vector3f((float)direction.getX(), (float)direction.getY(), (float)direction.getZ()).normalize();
-        Quaternionf rotation = new Quaternionf().rotationTo(new Vector3f(0, 0, 1), dir); // Поворачиваем блок по направлению линии (Z-axis)
-
-        // Масштабируем: X/Y = толщина, Z = длина
-        Vector3f scale = new Vector3f(thickness, thickness, length);
-
-        // Смещаем центр, так как BlockDisplay вращается вокруг своего угла/центра,
-        // нам нужно чтобы середина растянутого блока была в midpoint
-        Vector3f translation = new Vector3f(-thickness/2f, -thickness/2f, -length/2f);
-
-        Transformation transform = new Transformation(
-                translation,
-                rotation,
-                scale,
-                new Quaternionf()
-        );
-        display.setTransformation(transform);
-        display.setInterpolationDuration(0);
-        display.setTeleportDuration(0);
-
-        return new DisplayEntity(display);
-    }
-
     private Material getColorMaterial(Color color) {
         if (color.equals(Color.RED)) return Material.RED_CONCRETE;
         if (color.equals(Color.BLUE)) return Material.BLUE_CONCRETE;
