@@ -72,6 +72,8 @@ public class ToolRegistry implements Listener {
         Tool tool = getToolFromItem(event.getItem());
         if (tool == null) return;
 
+        event.setCancelled(true);
+
         Action action = event.getAction();
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
             tool.onRightClick(event);
