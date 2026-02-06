@@ -26,6 +26,7 @@ import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -52,7 +53,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
 
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
-        ChunkPhysicsCache cache = new ChunkPhysicsCache(InertiaPlugin.getInstance().getDataFolder());
+        File worldFolder = world.getWorldBukkit().getWorldFolder();
+        File cacheDir = new File(worldFolder, "physics");
+        ChunkPhysicsCache cache = new ChunkPhysicsCache(cacheDir);
 
         GreedyMeshGenerator generator = new GreedyMeshGenerator(
                 blocksConfig,
@@ -131,7 +134,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         if (!loadedChunks.contains(key)) return;
 
-        chunkPhysicsManager.invalidate(world.getWorldBukkit().getName(), chunkX, chunkZ);
+        chunkPhysicsManager.invalidate(chunkX, chunkZ);
 
         BukkitTask existing = pendingUpdates.get(key);
         if (existing != null) {
@@ -156,7 +159,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         }
         long key = ChunkUtils.getChunkKey(x, z);
         if (!loadedChunks.contains(key)) return;
-        chunkPhysicsManager.invalidate(world.getWorldBukkit().getName(), x, z);
+        chunkPhysicsManager.invalidate(x, z);
         BukkitTask pending = pendingUpdates.remove(key);
         if (pending != null) pending.cancel();
         requestChunkGeneration(x, z);

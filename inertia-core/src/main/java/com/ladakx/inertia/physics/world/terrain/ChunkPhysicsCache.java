@@ -19,18 +19,18 @@ public class ChunkPhysicsCache {
     private final File baseDir;
     private final Map<CacheKey, GreedyMeshData> memoryCache = new ConcurrentHashMap<>();
 
-    public ChunkPhysicsCache(File dataFolder) {
-        this.baseDir = new File(dataFolder, ".cache");
+    public ChunkPhysicsCache(File baseDir) {
+        this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
     }
 
-    public Optional<GreedyMeshData> get(String worldName, int x, int z) {
-        CacheKey key = new CacheKey(worldName, x, z);
+    public Optional<GreedyMeshData> get(int x, int z) {
+        CacheKey key = new CacheKey(x, z);
         GreedyMeshData cached = memoryCache.get(key);
         if (cached != null) {
             return Optional.of(cached);
         }
 
-        File file = getChunkFile(worldName, x, z);
+        File file = getChunkFile(x, z);
         if (!file.exists()) {
             return Optional.empty();
         }
@@ -40,17 +40,17 @@ public class ChunkPhysicsCache {
             memoryCache.put(key, data);
             return Optional.of(data);
         } catch (IOException | ClassNotFoundException ex) {
-            InertiaLogger.warn("Failed to read terrain cache for " + worldName + " at " + x + ", " + z, ex);
+            InertiaLogger.warn("Failed to read terrain cache at " + x + ", " + z, ex);
             return Optional.empty();
         }
     }
 
-    public void put(String worldName, int x, int z, GreedyMeshData data) {
+    public void put(int x, int z, GreedyMeshData data) {
         Objects.requireNonNull(data, "data");
-        CacheKey key = new CacheKey(worldName, x, z);
+        CacheKey key = new CacheKey(x, z);
         memoryCache.put(key, data);
 
-        File file = getChunkFile(worldName, x, z);
+        File file = getChunkFile(x, z);
         File parent = file.getParentFile();
         if (!parent.exists() && !parent.mkdirs()) {
             InertiaLogger.warn("Failed to create terrain cache directory " + parent.getAbsolutePath());
@@ -60,26 +60,25 @@ public class ChunkPhysicsCache {
         try (ObjectOutputStream output = new ObjectOutputStream(new FileOutputStream(file))) {
             output.writeObject(data);
         } catch (IOException ex) {
-            InertiaLogger.warn("Failed to write terrain cache for " + worldName + " at " + x + ", " + z, ex);
+            InertiaLogger.warn("Failed to write terrain cache at " + x + ", " + z, ex);
         }
     }
 
-    public void invalidate(String worldName, int x, int z) {
-        CacheKey key = new CacheKey(worldName, x, z);
+    public void invalidate(int x, int z) {
+        CacheKey key = new CacheKey(x, z);
         memoryCache.remove(key);
-        File file = getChunkFile(worldName, x, z);
+        File file = getChunkFile(x, z);
         if (file.exists() && !file.delete()) {
             InertiaLogger.warn("Failed to delete terrain cache file " + file.getAbsolutePath());
         }
     }
 
-    public void invalidateWorld(String worldName) {
-        memoryCache.keySet().removeIf(key -> key.worldName.equals(worldName));
-        File worldDir = new File(baseDir, worldName);
-        if (!worldDir.exists()) {
+    public void invalidateAll() {
+        memoryCache.clear();
+        if (!baseDir.exists()) {
             return;
         }
-        File[] files = worldDir.listFiles();
+        File[] files = baseDir.listFiles();
         if (files == null) {
             return;
         }
@@ -90,13 +89,10 @@ public class ChunkPhysicsCache {
         }
     }
 
-    private File getChunkFile(String worldName, int x, int z) {
-        return new File(new File(baseDir, worldName), x + "_" + z + ".bin");
+    private File getChunkFile(int x, int z) {
+        return new File(baseDir, x + "_" + z + ".bin");
     }
 
-    private record CacheKey(String worldName, int x, int z) {
-        private CacheKey {
-            Objects.requireNonNull(worldName, "worldName");
-        }
+    private record CacheKey(int x, int z) {
     }
 }
