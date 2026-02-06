@@ -7,5 +7,4 @@ import org.bukkit.World;
 import org.bukkit.util.Vector;
 
 public interface RenderFactory {
-    VisualEntity create(World world, Location origin, RenderEntityDefinition definition);
-}
+    NetworkVisual create(World world, Location origin, RenderEntityDefinition definition);

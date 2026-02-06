@@ -6,25 +6,20 @@ import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.api.body.type.IRagdoll;
-import com.ladakx.inertia.common.serializers.ItemSerializer;
-import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
-import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,7 +27,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll {
 
@@ -93,41 +87,14 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         World world = getSpace().getWorldBukkit();
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
-        UUID bodyUuid = getUuid();
-
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
         for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
             String entityKey = entry.getKey();
             RenderEntityDefinition entityDef = entry.getValue();
-            VisualEntity visual = renderFactory.create(world, spawnLoc, entityDef);
-
-            if (visual.isValid()) {
-                applySkinIfNeeded(visual, entityDef);
-                InertiaPDCUtils.applyInertiaTags(
-                        visual,
-                        bodyId,
-                        bodyUuid,
-                        renderModelId,
-                        entityKey
-                );
-                parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
-            }
+            NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
+            parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
-    }
-
-    private void applySkinIfNeeded(@NotNull VisualEntity visual, @NotNull RenderEntityDefinition entityDef) {
-        if (skinNickname == null) return;
-        if (entityDef.itemModelKey() == null || entityDef.itemModelKey().isBlank()) return;
-
-        ItemStack stack = InertiaPlugin.getInstance().getItemRegistry().getItem(entityDef.itemModelKey());
-        if (stack == null || stack.getType() != Material.PLAYER_HEAD) return;
-        if (!(stack.getItemMeta() instanceof SkullMeta meta)) return;
-
-        ItemSerializer.applySkullTexture(meta, skinNickname);
-        stack.setItemMeta(meta);
-
-        visual.setItemStack(stack);
     }
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
