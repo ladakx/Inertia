@@ -133,7 +133,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
         int viewDistanceBlocks = worldBukkit.getViewDistance() * 16;
         double viewDistanceSquared = (double) viewDistanceBlocks * viewDistanceBlocks;
-        networkEntityTracker.tick(Bukkit.getOnlinePlayers(), viewDistanceSquared);
+        networkEntityTracker.tick(worldBukkit.getPlayers(), viewDistanceSquared);
 
         taskManager.runAll();
     }
