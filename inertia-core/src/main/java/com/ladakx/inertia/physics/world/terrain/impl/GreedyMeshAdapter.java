@@ -7,6 +7,7 @@ import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.InertiaConfig;
+import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
@@ -19,9 +20,12 @@ import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshGenerator;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshShape;
 import com.ladakx.inertia.physics.world.terrain.greedy.SerializedBoundingBox;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GreedyMeshAdapter implements TerrainAdapter {
 
@@ -29,6 +33,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private ChunkPhysicsManager chunkPhysicsManager;
     private JoltTools joltTools;
     private final Map<Long, List<Integer>> chunkBodies = new HashMap<>();
+    private final Set<Long> loadedChunks = ConcurrentHashMap.newKeySet();
+    private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
+    private WorldsConfig.ChunkManagementSettings chunkSettings;
 
     @Override
     public void onEnable(PhysicsWorld world) {
@@ -37,22 +44,35 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         int workerThreads = config.PHYSICS.workerThreads;
         this.joltTools = InertiaPlugin.getInstance().getJoltTools();
 
+        // Load settings from World Profile
+        this.chunkSettings = world.getSettings().chunkManagement();
+        WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
+
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         ChunkPhysicsCache cache = new ChunkPhysicsCache(InertiaPlugin.getInstance().getDataFolder());
+
+        // Pass specific settings to generator
         GreedyMeshGenerator generator = new GreedyMeshGenerator(
                 InertiaPlugin.getInstance().getConfigManager().getBlocksConfig(),
-                joltTools
+                joltTools,
+                meshingSettings
         );
 
         this.chunkPhysicsManager = new ChunkPhysicsManager(generationQueue, cache, generator);
 
-        for (Chunk chunk : world.getWorldBukkit().getLoadedChunks()) {
-            requestChunkGeneration(chunk.getX(), chunk.getZ());
+        if (chunkSettings.generateOnLoad()) {
+            for (Chunk chunk : world.getWorldBukkit().getLoadedChunks()) {
+                onChunkLoad(chunk.getX(), chunk.getZ());
+            }
         }
     }
 
     @Override
     public void onDisable() {
+        // Cancel all pending debounce tasks
+        pendingUpdates.values().forEach(BukkitTask::cancel);
+        pendingUpdates.clear();
+
         if (world != null) {
             for (long key : new ArrayList<>(chunkBodies.keySet())) {
                 removeChunkBodies(key);
@@ -61,6 +81,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (chunkPhysicsManager != null) {
             chunkPhysicsManager.close();
         }
+        loadedChunks.clear();
         chunkPhysicsManager = null;
         joltTools = null;
         world = null;
@@ -68,32 +89,62 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onChunkLoad(int x, int z) {
-        requestChunkGeneration(x, z);
+        long key = ChunkUtils.getChunkKey(x, z);
+        loadedChunks.add(key);
+
+        if (chunkSettings.generateOnLoad()) {
+            requestChunkGeneration(x, z);
+        }
     }
 
     @Override
     public void onChunkUnload(int x, int z) {
+        long key = ChunkUtils.getChunkKey(x, z);
+        loadedChunks.remove(key);
+
+        // Cancel any pending update for this chunk
+        BukkitTask task = pendingUpdates.remove(key);
+        if (task != null) task.cancel();
+
         if (chunkPhysicsManager != null) {
             chunkPhysicsManager.cancelChunk(x, z);
         }
-        if (world != null) {
-            long key = ChunkUtils.getChunkKey(x, z);
+
+        if (world != null && chunkSettings.removeOnUnload()) {
             world.schedulePhysicsTask(() -> removeChunkBodies(key));
         }
     }
 
     @Override
     public void onBlockChange(int x, int y, int z) {
-        if (world == null || chunkPhysicsManager == null) {
+        if (world == null || chunkPhysicsManager == null || !chunkSettings.updateOnBlockChange()) {
             return;
         }
+
         int chunkX = x >> 4;
         int chunkZ = z >> 4;
+        long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
+
+        if (!loadedChunks.contains(key)) return;
+
+        // Invalidate cache immediately so new request will force regen
         chunkPhysicsManager.invalidate(world.getWorldBukkit().getName(), chunkX, chunkZ);
-        // Re-request immediately
-        if (world.getWorldBukkit().isChunkLoaded(chunkX, chunkZ)) {
-            requestChunkGeneration(chunkX, chunkZ);
+
+        // Debounce logic
+        BukkitTask existing = pendingUpdates.get(key);
+        if (existing != null) {
+            existing.cancel();
         }
+
+        int delay = Math.max(1, chunkSettings.updateDebounceTicks());
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(InertiaPlugin.getInstance(), () -> {
+            pendingUpdates.remove(key);
+            if (loadedChunks.contains(key)) {
+                requestChunkGeneration(chunkX, chunkZ);
+            }
+        }, delay);
+
+        pendingUpdates.put(key, task);
     }
 
     private void requestChunkGeneration(int x, int z) {
@@ -101,7 +152,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             return;
         }
 
-        // --- Boundary Check Start ---
+        // --- Boundary Check ---
         com.ladakx.inertia.configuration.dto.WorldsConfig.WorldSizeSettings sizeSettings = world.getSettings().size();
         double minWorldX = sizeSettings.worldMin().xx();
         double minWorldZ = sizeSettings.worldMin().zz();
@@ -119,13 +170,12 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (isOutside) {
             return;
         }
-        // --- Boundary Check End ---
 
-        String worldName = world.getWorldBukkit().getName();
         if (!world.getWorldBukkit().isChunkLoaded(x, z)) {
             return;
         }
 
+        String worldName = world.getWorldBukkit().getName();
         chunkPhysicsManager.requestChunkGeneration(
                 worldName,
                 x,
@@ -139,32 +189,30 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         );
     }
 
-    // Helper record for grouping shapes by physics properties
     private record PhysicsProperties(float friction, float restitution) {}
 
     private void applyMeshData(int x, int z, GreedyMeshData data) {
         long key = ChunkUtils.getChunkKey(x, z);
-        removeChunkBodies(key); // Cleanup previous version
+
+        if (!loadedChunks.contains(key)) {
+            return;
+        }
+
+        removeChunkBodies(key);
 
         if (world == null || data.shapes().isEmpty()) {
             return;
         }
 
-        // InertiaLogger.info("Applying greedy-mesh physics chunk at " + x + ", " + z + " with " + data.shapes().size() + " shapes.");
-
         BodyInterface bi = world.getBodyInterface();
         RVec3 worldOrigin = world.getOrigin();
 
-        // Group shapes to reduce body count.
-        // We create one body per unique set of (Friction, Restitution).
         Map<PhysicsProperties, StaticCompoundShapeSettings> groups = new HashMap<>();
 
-        // Determine Chunk Origin in World Space (relative to Jolt Origin)
-        // Body Position = (ChunkX*16, 0, ChunkZ*16) - WorldOrigin
         double chunkWorldX = x * 16.0;
         double chunkWorldZ = z * 16.0;
         double bodyPosX = chunkWorldX - worldOrigin.xx();
-        double bodyPosY = -worldOrigin.yy(); // Assuming Y=0 base
+        double bodyPosY = -worldOrigin.yy();
         double bodyPosZ = chunkWorldZ - worldOrigin.zz();
 
         RVec3 bodyPosition = new RVec3(bodyPosX, bodyPosY, bodyPosZ);
@@ -178,19 +226,15 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             ConstShape subShape = buildShape(shapeData, chunkOffsetX, chunkOffsetZ);
             if (subShape == null) continue;
 
-            // Grouping key
             PhysicsProperties props = new PhysicsProperties(shapeData.friction(), shapeData.restitution());
             StaticCompoundShapeSettings compoundSettings = groups.computeIfAbsent(props, k -> new StaticCompoundShapeSettings());
 
-            // Calculate center of the sub-shape in absolute world coordinates
             double shapeCenterX = ((double) shapeData.minX() + shapeData.maxX()) * 0.5 + chunkOffsetX;
             double shapeCenterY = ((double) shapeData.minY() + shapeData.maxY()) * 0.5;
             double shapeCenterZ = ((double) shapeData.minZ() + shapeData.maxZ()) * 0.5 + chunkOffsetZ;
 
-            // Calculate position relative to the Body Position (Chunk Corner)
-            // LocalPos = AbsolutePos - ChunkCornerPos
             float localX = (float) (shapeCenterX - chunkWorldX);
-            float localY = (float) (shapeCenterY); // - 0
+            float localY = (float) (shapeCenterY);
             float localZ = (float) (shapeCenterZ - chunkWorldZ);
 
             compoundSettings.addShape(new Vec3(localX, localY, localZ), Quat.sIdentity(), subShape);
@@ -202,7 +246,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             PhysicsProperties props = entry.getKey();
             StaticCompoundShapeSettings settings = entry.getValue();
 
-            // Create the compound shape
             ShapeResult result = settings.create();
             if (result.hasError()) {
                 InertiaLogger.warn("Failed to create chunk compound shape at " + x + ", " + z + ": " + result.getError());
@@ -225,7 +268,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 world.registerSystemStaticBody(body.getId());
                 newBodyIds.add(body.getId());
             } catch (Exception e) {
-                InertiaLogger.error("Failed to create chunk body at " + x + ", " + z + " (Out of bodies?)");
+                InertiaLogger.error("Failed to create chunk body at " + x + ", " + z, e);
             }
         }
 
@@ -238,13 +281,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         List<SerializedBoundingBox> boxes = shapeData.boundingBoxes();
         if (boxes.isEmpty()) return null;
 
-        // If it's a single box, just return the BoxShape directly
         if (boxes.size() == 1) {
             return createBoxShape(boxes.get(0), chunkOffsetX, chunkOffsetZ);
         }
 
-        // If multiple boxes (complex shape for single block type), assume Compound
-        // Center of this specific shape cluster
         double shapeCenterX = ((double) shapeData.minX() + shapeData.maxX()) * 0.5 + chunkOffsetX;
         double shapeCenterY = ((double) shapeData.minY() + shapeData.maxY()) * 0.5;
         double shapeCenterZ = ((double) shapeData.minZ() + shapeData.maxZ()) * 0.5 + chunkOffsetZ;

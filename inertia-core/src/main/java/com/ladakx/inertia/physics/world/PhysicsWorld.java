@@ -133,43 +133,55 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     private PhysicsSnapshot collectSnapshot() {
-        Collection<AbstractPhysicsBody> activeBodies = objectManager.getActive();
+        // Получаем ВСЕ объекты, чтобы удерживать чанки даже для спящих тел
+        List<AbstractPhysicsBody> allBodies = objectManager.getAll();
         List<VisualState> updates = snapshotPool.borrowList();
-        java.util.Set<Long> activeChunks = new java.util.HashSet<>();
+        java.util.Set<Long> bodiesChunkKeys = new java.util.HashSet<>();
         List<AbstractPhysicsBody> toDestroy = new ArrayList<>();
 
         BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
         WorldsConfig.WorldSizeSettings sizeSettings = settings.size();
 
-        for (AbstractPhysicsBody obj : activeBodies) {
+        for (AbstractPhysicsBody obj : allBodies) {
             if (!obj.isValid()) continue;
 
-            if (obj.getBody().isActive()) {
-                RVec3 joltPos = bodyInterface.getCenterOfMassPosition(obj.getBody().getId());
-
-                if (sizeSettings.killBelowMinY() && boundaryManager.isBelowBottom(joltPos)) {
-                    toDestroy.add(obj);
-                    continue;
-                }
-
-                if (sizeSettings.preventExit() && !boundaryManager.isInside(joltPos)) {
-                    toDestroy.add(obj);
-                    continue;
-                }
-
-                double worldX = joltPos.xx() + origin.xx();
-                double worldZ = joltPos.zz() + origin.zz();
-                int chunkX = (int) Math.floor(worldX) >> 4;
-                int chunkZ = (int) Math.floor(worldZ) >> 4;
-                activeChunks.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
+            // Если объект статический (террейн, пол), он не должен держать чанк
+            if (obj.getMotionType() == MotionType.STATIC) {
+                continue;
             }
 
+            int bodyId = obj.getBody().getId();
+
+            // Если тело активно или просто существует (спящее), проверяем его позицию
+            RVec3 joltPos = bodyInterface.getCenterOfMassPosition(bodyId);
+
+            // Проверки границ (Kill Z / Walls)
+            if (sizeSettings.killBelowMinY() && boundaryManager.isBelowBottom(joltPos)) {
+                toDestroy.add(obj);
+                continue;
+            }
+            if (sizeSettings.preventExit() && !boundaryManager.isInside(joltPos)) {
+                toDestroy.add(obj);
+                continue;
+            }
+
+            // Вычисляем чанк для удержания
+            double worldX = joltPos.xx() + origin.xx();
+            double worldZ = joltPos.zz() + origin.zz();
+            int chunkX = (int) Math.floor(worldX) >> 4;
+            int chunkZ = (int) Math.floor(worldZ) >> 4;
+
+            // Добавляем этот чанк в список "удерживаемых"
+            bodiesChunkKeys.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
+
+            // Собираем визуальные данные только если тело активно или только что заснуло
+            // (Логика captureSnapshot внутри сама разберется с isActive)
             if (obj instanceof DisplayedPhysicsBody displayed) {
                 displayed.captureSnapshot(updates, snapshotPool, origin);
             }
         }
 
-        return new PhysicsSnapshot(updates, activeChunks, toDestroy);
+        return new PhysicsSnapshot(updates, bodiesChunkKeys, toDestroy);
     }
 
     private void applySnapshot(PhysicsSnapshot snapshot) {

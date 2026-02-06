@@ -3,6 +3,7 @@ package com.ladakx.inertia.physics.world.terrain.greedy;
 import com.github.stephengold.joltjni.AaBox;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.configuration.dto.BlocksConfig;
+import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.physics.world.terrain.PhysicsGenerator;
 import com.ladakx.inertia.physics.world.terrain.profile.PhysicalProfile;
@@ -18,10 +19,12 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
     private final BlocksConfig blocksConfig;
     private final JoltTools joltTools;
+    private final WorldsConfig.GreedyMeshingSettings settings;
 
-    public GreedyMeshGenerator(BlocksConfig blocksConfig, JoltTools joltTools) {
+    public GreedyMeshGenerator(BlocksConfig blocksConfig, JoltTools joltTools, WorldsConfig.GreedyMeshingSettings settings) {
         this.blocksConfig = Objects.requireNonNull(blocksConfig, "blocksConfig");
         this.joltTools = Objects.requireNonNull(joltTools, "joltTools");
+        this.settings = Objects.requireNonNull(settings, "settings");
     }
 
     @Override
@@ -36,12 +39,7 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         boolean[][][] visited = new boolean[16][height][16];
         List<GreedyMeshShape> shapes = new ArrayList<>();
 
-        // Кэш для ускорения
         java.util.Map<Material, java.util.Optional<PhysicalProfile>> materialCache = new java.util.HashMap<>();
-
-        // Debug counters
-        int debugBlocksFound = 0;
-        boolean debugPrinted = false;
 
         for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
             int sectionY = minSectionY + sectionIndex;
@@ -60,45 +58,21 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                             continue;
                         }
 
-                        // Debug: Print info about the first few solid blocks found in this chunk
-                        if (debugBlocksFound < 3) {
-//                            com.ladakx.inertia.common.logging.InertiaLogger.info(String.format(
-//                                    "[Debug Gen] Chunk [%d, %d] Found material: %s at local [%d, %d, %d]",
-//                                    chunk.getX(), chunk.getZ(), material.name(), x, worldIndexY, z
-//                            ));
-//                            debugBlocksFound++;
-//                            debugPrinted = true;
-                        }
-
                         Optional<PhysicalProfile> profileOpt = blocksConfig.find(material);
 
                         if (profileOpt.isEmpty()) {
                             profileOpt = materialCache.computeIfAbsent(material, mat -> {
                                 try {
-                                    // Fallback: пробуем получить коллизию из ванильного BlockState
                                     org.bukkit.block.BlockState state = joltTools.createBlockState(mat);
                                     List<AaBox> boxes = joltTools.boundingBoxes(state);
 
                                     if (boxes != null && !boxes.isEmpty()) {
-                                        // Debug fallback success
-                                        if (true) {
-//                                            com.ladakx.inertia.common.logging.InertiaLogger.info("[Debug Gen] Fallback SUCCESS for " + mat.name() + ". Boxes: " + boxes.size());
-                                        }
                                         return Optional.of(new PhysicalProfile(mat.name(), 0.5f, 0.6f, 0.2f, boxes));
-                                    } else {
-                                        // Debug fallback fail
-                                        if (true) {
-//                                            com.ladakx.inertia.common.logging.InertiaLogger.info("[Debug Gen] Fallback EMPTY for " + mat.name() + " (No collision boxes)");
-                                        }
                                     }
-                                } catch (Exception e) {
-//                                    com.ladakx.inertia.common.logging.InertiaLogger.warn("[Debug Gen] Error creating fallback for " + mat.name() + ": " + e.getMessage());
+                                } catch (Exception ignored) {
                                 }
                                 return Optional.empty();
                             });
-                        } else if (debugBlocksFound <= 3) {
-                            // Debug config match
-//                            com.ladakx.inertia.common.logging.InertiaLogger.info("[Debug Gen] Config MATCH for " + material.name());
                         }
 
                         if (profileOpt.isPresent() && !profileOpt.get().boundingBoxes().isEmpty()) {
@@ -199,9 +173,16 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
     private int expandY(PhysicalProfile[][][] profiles, boolean[][][] visited, PhysicalProfile target,
                         int x, int y, int z, int width, int depth) {
+
+        if (!settings.verticalMerging()) {
+            return 1;
+        }
+
         int heightLimit = profiles[0].length;
+        int maxTall = settings.maxVerticalSize();
         int tall = 1;
-        while (y + tall < heightLimit) {
+
+        while (y + tall < heightLimit && tall < maxTall) {
             boolean matches = true;
             for (int dx = x; dx < x + width; dx++) {
                 for (int dz = z; dz < z + depth; dz++) {
@@ -227,22 +208,22 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
             return false;
         }
         return profile == target || (profile.id().equals(target.id())
-                && profile.boundingBoxes().equals(target.boundingBoxes())
                 && Float.compare(profile.density(), target.density()) == 0
                 && Float.compare(profile.friction(), target.friction()) == 0
                 && Float.compare(profile.restitution(), target.restitution()) == 0);
     }
 
     private List<SerializedBoundingBox> toAbsoluteBoxes(List<AaBox> localBoxes,
-                                                       int minX,
-                                                       int minY,
-                                                       int minZ,
-                                                       int maxX,
-                                                       int maxY,
-                                                       int maxZ) {
+                                                        int minX,
+                                                        int minY,
+                                                        int minZ,
+                                                        int maxX,
+                                                        int maxY,
+                                                        int maxZ) {
         int maxBlockX = maxX - 1;
         int maxBlockY = maxY - 1;
         int maxBlockZ = maxZ - 1;
+
         List<SerializedBoundingBox> boxes = new ArrayList<>(localBoxes.size());
         for (AaBox box : localBoxes) {
             Vec3 localMin = box.getMin();
