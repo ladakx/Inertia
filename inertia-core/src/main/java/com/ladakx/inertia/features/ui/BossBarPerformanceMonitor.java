@@ -14,6 +14,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.OperatingSystemMXBean;
+import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -26,6 +29,53 @@ public class BossBarPerformanceMonitor implements Listener {
     private final Set<UUID> viewers = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<UUID, BossBar> bars = new ConcurrentHashMap<>();
     private BukkitTask updateTask;
+
+    private static final class CpuLoad {
+        private static final OperatingSystemMXBean OS_BEAN = ManagementFactory.getOperatingSystemMXBean();
+        private static volatile Method processCpuLoadMethod;
+        private static volatile Method systemCpuLoadMethod;
+
+        private CpuLoad() {}
+
+        static double readProcessOrSystemCpuLoad() {
+            try {
+                Method m = processCpuLoadMethod;
+                if (m == null) {
+                    m = findMethod("getProcessCpuLoad");
+                    processCpuLoadMethod = m;
+                }
+                if (m != null) {
+                    double v = (double) m.invoke(OS_BEAN);
+                    if (v >= 0.0) return v;
+                }
+            } catch (Throwable ignored) {
+            }
+
+            try {
+                Method m = systemCpuLoadMethod;
+                if (m == null) {
+                    m = findMethod("getSystemCpuLoad");
+                    systemCpuLoadMethod = m;
+                }
+                if (m != null) {
+                    return (double) m.invoke(OS_BEAN);
+                }
+            } catch (Throwable ignored) {
+            }
+
+            return -1.0;
+        }
+
+        private static Method findMethod(String name) {
+            try {
+                Method m = OS_BEAN.getClass().getMethod(name);
+                m.setAccessible(true);
+                return m;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+    }
 
     public BossBarPerformanceMonitor(InertiaPlugin plugin,
                                      PhysicsMetricsService metricsService,
@@ -75,6 +125,7 @@ public class BossBarPerformanceMonitor implements Listener {
 
         double physMs = metricsService.getPhysicsMspt();
         double srvMs = metricsService.getServerMspt();
+        double cpuLoad = CpuLoad.readProcessOrSystemCpuLoad();
 
         // Расчет процента нагрузки (Physics / Server Time)
         double loadPerc = (srvMs > 0) ? (physMs / srvMs) * 100.0 : 0.0;
@@ -89,6 +140,9 @@ public class BossBarPerformanceMonitor implements Listener {
         String srvStr = String.format(Locale.ROOT, "%.2f", srvMs);
         String physStr = String.format(Locale.ROOT, "%.2f", physMs);
         String percStr = String.format(Locale.ROOT, "%.1f", loadPerc);
+        String cpuStr = (cpuLoad >= 0.0)
+                ? String.format(Locale.ROOT, "%.1f", cpuLoad * 100.0)
+                : "?";
 
         // Текст шаблона: "Server MSPT: {srv}ms | Physics: {phys}ms ({perc}%) | Bodies: {act}/{sleep}/{max} | Static: {stat}"
         // Мы используем MessageKey для шаблона
@@ -99,6 +153,7 @@ public class BossBarPerformanceMonitor implements Listener {
                 "{srv}", srvStr,
                 "{phys}", physStr,
                 "{perc}", percStr,
+                "{cpu}", cpuStr,
                 "{act}", String.valueOf(active),
                 "{sleep}", String.valueOf(sleeping),
                 "{max}", String.valueOf(max),
