@@ -211,7 +211,7 @@ debug-inspect-miss:
   - "{prefix} &cNo physics object found."
 debug-perf-toggle:
   - "{prefix} &7Performance Monitor: {state}"
-debug-perf-format: "Server: &b{srv}ms &8| &7Phys: &b{phys}ms &8(&e{perc}%&8) &8| &7Bodies: &a{act}&7/&8{sleep}&7/&c{max} &8| &7Static: &e{stat}"
+debug-perf-format: "Server: &b{srv}ms &8| &7Phys: &b{phys}ms &8(&e{perc}%&8) &8| &7CPU: &b{cpu}% &8| &7Bodies: &a{act}&7/&8{sleep}&7/&c{max} &8| &7Static: &e{stat}"
 debug-hitbox-toggle:
   - "{prefix} &7Hitbox Debugging: {state}"
 

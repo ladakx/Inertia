@@ -36,6 +36,11 @@ ragdoll-spawn-success:
 shape-spawn-success:
   - "{prefix} &7Заспавнено &f{count} &7объектов в форме &f{shape}&7!"
 
+# --- Debug ---
+debug-perf-toggle:
+  - "{prefix} &7Монитор производительности: {state}"
+debug-perf-format: "Server: &b{srv}ms &8| &7Phys: &b{phys}ms &8(&e{perc}%&8) &8| &7CPU: &b{cpu}% &8| &7Bodies: &a{act}&7/&8{sleep}&7/&c{max} &8| &7Static: &e{stat}"
+
 # --- Shape Errors ---
 shape-not-found:
   - "{prefix} &cНеизвестная форма: {shape}"
