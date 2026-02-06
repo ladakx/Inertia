@@ -1,6 +1,7 @@
 package com.ladakx.inertia.rendering;
 
 import org.bukkit.Location;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -18,6 +19,15 @@ public interface VisualEntity {
     void remove();
 
     void setGlowing(boolean glowing);
+
+    /**
+     * Optional capability: update the displayed item for ITEM_DISPLAY / emulated item displays.
+     *
+     * @return true if this visual entity supports updating the item stack.
+     */
+    default boolean setItemStack(ItemStack stack) {
+        return false;
+    }
 
     PersistentDataContainer getPersistentDataContainer();
 

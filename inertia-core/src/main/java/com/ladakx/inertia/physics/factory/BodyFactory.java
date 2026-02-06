@@ -111,6 +111,10 @@ public class BodyFactory {
     }
 
     public void spawnRagdoll(Player player, String bodyId, boolean applyImpulse) {
+        spawnRagdoll(player, bodyId, null, applyImpulse);
+    }
+
+    public void spawnRagdoll(Player player, String bodyId, @Nullable String skinNickname, boolean applyImpulse) {
         if (locationIsInvalid(player.getLocation(), player)) return;
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         Location spawnLoc = getSpawnLocation(player, 3.0);
@@ -118,7 +122,12 @@ public class BodyFactory {
         BodySpawner spawner = spawners.get(PhysicsBodyType.RAGDOLL);
         if (spawner == null) return;
 
-        spawner.spawn(new BodySpawnContext(space, spawnLoc, bodyId, player, Map.of("impulse", applyImpulse)));
+        Map<String, Object> params = new HashMap<>();
+        params.put("impulse", applyImpulse);
+        if (skinNickname != null && !skinNickname.isBlank()) {
+            params.put("skinNickname", skinNickname);
+        }
+        spawner.spawn(new BodySpawnContext(space, spawnLoc, bodyId, player, params));
     }
 
     public void spawnRagdoll(Player player, String bodyId) {

@@ -168,6 +168,7 @@ public final class InertiaPlugin extends JavaPlugin {
     public PlayerTools getPlayerTools() { return playerTools; }
     public JoltTools getJoltTools() { return joltTools; }
     public RenderFactory getRenderFactory() { return renderFactory; }
+    public ItemRegistry getItemRegistry() { return itemRegistry; }
     public JShapeFactory getShapeFactory() { return shapeFactory; }
     public BodyFactory getBodyFactory() { return bodyFactory; }
     public BlockBenchMeshProvider getMeshProvider() { return meshProvider; }

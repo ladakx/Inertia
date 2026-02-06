@@ -6,6 +6,7 @@ import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.api.body.type.IRagdoll;
+import com.ladakx.inertia.common.serializers.ItemSerializer;
 import com.ladakx.inertia.common.pdc.InertiaPDCUtils;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
@@ -20,7 +21,10 @@ import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,6 +38,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
 
     private final String bodyId;
     private final String partName;
+    private final @Nullable String skinNickname;
     private boolean removed = false;
     private final CollisionGroup collisionGroup;
 
@@ -52,10 +57,12 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
                               @NotNull Quat initialRotation,
                               @NotNull Map<String, Body> spawnedParts,
                               @NotNull GroupFilterTable groupFilter,
-                              int partIndex) {
+                              int partIndex,
+                              @Nullable String skinNickname) {
         super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, partIndex), renderFactory, modelRegistry);
         this.bodyId = bodyId;
         this.partName = partName;
+        this.skinNickname = (skinNickname == null || skinNickname.isBlank()) ? null : skinNickname;
         this.collisionGroup = getBody().getCollisionGroup();
 
         RagdollDefinition def = (RagdollDefinition) modelRegistry.require(bodyId).bodyDefinition();
@@ -95,6 +102,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
             VisualEntity visual = renderFactory.create(world, spawnLoc, entityDef);
 
             if (visual.isValid()) {
+                applySkinIfNeeded(visual, entityDef);
                 InertiaPDCUtils.applyInertiaTags(
                         visual,
                         bodyId,
@@ -106,6 +114,20 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
             }
         }
         return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
+    }
+
+    private void applySkinIfNeeded(@NotNull VisualEntity visual, @NotNull RenderEntityDefinition entityDef) {
+        if (skinNickname == null) return;
+        if (entityDef.itemModelKey() == null || entityDef.itemModelKey().isBlank()) return;
+
+        ItemStack stack = InertiaPlugin.getInstance().getItemRegistry().getItem(entityDef.itemModelKey());
+        if (stack == null || stack.getType() != Material.PLAYER_HEAD) return;
+        if (!(stack.getItemMeta() instanceof SkullMeta meta)) return;
+
+        ItemSerializer.applySkullTexture(meta, skinNickname);
+        stack.setItemMeta(meta);
+
+        visual.setItemStack(stack);
     }
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
