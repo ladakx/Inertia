@@ -1,73 +1,51 @@
 world:
-  # Гравитация (X Y Z).
   gravity: "0.0 -17.18 0.0"
-
-  # Частота обновления физики (раз в секунду).
   tick-rate: 20
-
-  # Количество подшагов коллизии за один тик.
   collision-steps: 4
 
-  # --- Настройки размеров мира и границ ---
+  # Управление жизненным циклом физических чанков
+  chunk-management:
+    # Генерировать физику автоматически при загрузке чанка
+    generate-on-load: true
+    # Удалять физические тела при выгрузке чанка (рекомендуется true)
+    remove-on-unload: true
+    # Обновлять физику при изменении блоков
+    update-on-block-change: true
+    # Задержка (в тиках) перед обновлением чанка после изменения блока
+    # Помогает при массовом строительстве (WorldEdit)
+    update-debounce-ticks: 5
+
   size:
-    # [Origin]
-    # Центр физического мира (X Z). Y всегда равен 0.
-    # Используется для повышения точности (Jolt Local Space).
-    # Пример: "0 0" = X=0, Z=0.
     origin: "0 0"
-
-    # Высота мира (мин/макс Y), формат: "minY maxY".
     height-size: "-128 1024"
-
-    # [Способ 1: Явные границы]
-    # Границы мира по X Z. Y игнорируется (используется height-size).
-    min: "-5120 -5120"
-    max: "5120 5120"
-
-    # [Способ 2: Радиус] (альтернатива min/max)
-    # radius: 1000.0
-
-    # [Способ 3: Ширина/длина] (альтернатива min/max)
-    # width: 2000.0
-    # length: 2000.0
-
-    # [Поведение границ]
-    # Создавать ли невидимые стены по периметру (4 стены).
+    min: "-500 -500"
+    max: "500 500"
     create-walls: true
-
-    # Удалять объекты, если они упали ниже minY (из height-size).
     kill-below-min-y: true
-
-    # Удалять объекты, вышедшие за пределы X/Z.
     prevent-exit: true
 
-  # --- Симуляция окружения (Terrain/Floors) ---
   simulation:
-    # Включить/выключить симуляцию окружения.
     enable: true
-
-    # Тип симуляции:
-    # NONE | FLOOR_PLANE | GREEDY_MESH | HEIGHTFIELD | HYBRID
     type: GREEDY_MESH
 
-    # Настройки пола (используются при FLOOR_PLANE).
+    # Настройки алгоритма Greedy Meshing
+    greedy-meshing:
+      # Объединять блоки по вертикали (Y). True = меньше тел, выше скорость.
+      vertical-merging: true
+      # Максимальная высота одного объединенного тела (в блоках)
+      max-vertical-size: 64
+
+    # Настройки для режима FLOOR_PLANE (игнорируются в GREEDY_MESH)
     floor-plane:
-      # Уровень пола (Y).
       y-level: 300
-      # Толщина пола (в блоках).
       y-size: 1
-      # Коэффициент трения.
       friction: 1.0
-      # Коэффициент упругости.
       restitution: 0.025
       size:
-        # Центр пола (X Z).
         origin: "0 0"
-        # Границы пола по X Z.
         min: "-100 -100"
         max: "100 100"
 
-  # --- Настройки солвера ---
   solver:
     velocity-iterations: 10
     position-iterations: 2
@@ -84,7 +62,6 @@ world:
     allow-sleeping: true
     deterministic-simulation: true
 
-  # --- Производительность ---
   performance:
     max-bodies: 65536
     num-body-mutexes: 0
@@ -92,7 +69,6 @@ world:
     max-contact-constraints: 10240
     temp-allocator-size: 10485760
 
-  # --- Настройки сна ---
   sleeping:
     point-velocity-threshold: 0.03
     time-before-sleep: 0.5

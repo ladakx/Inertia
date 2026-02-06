@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class WorldsConfig {
-
     private final Map<String, WorldProfile> worlds = new HashMap<>();
 
     public WorldsConfig(FileConfiguration cfg) {
@@ -23,7 +22,6 @@ public class WorldsConfig {
             InertiaLogger.warn("worlds.yml (or config section) is empty! No physics worlds loaded.");
             return;
         }
-
         for (String key : keys) {
             ConfigurationSection section = cfg.getConfigurationSection(key);
             if (section != null) {
@@ -43,7 +41,20 @@ public class WorldsConfig {
         int tickRate = section.getInt("tick-rate", 20);
         int collisionSteps = section.getInt("collision-steps", 4);
 
-        // --- Performance ---
+        // Chunk Management
+        ConfigurationSection chunkSec = section.getConfigurationSection("chunk-management");
+        ChunkManagementSettings chunkSettings;
+        if (chunkSec != null) {
+            chunkSettings = new ChunkManagementSettings(
+                    chunkSec.getBoolean("generate-on-load", true),
+                    chunkSec.getBoolean("remove-on-unload", true),
+                    chunkSec.getBoolean("update-on-block-change", true),
+                    chunkSec.getInt("update-debounce-ticks", 5)
+            );
+        } else {
+            chunkSettings = new ChunkManagementSettings(true, true, true, 5);
+        }
+
         ConfigurationSection perfSec = section.getConfigurationSection("performance");
         int maxBodiesDefault = section.getInt("max-bodies", 65536);
         int maxBodies = perfSec != null ? perfSec.getInt("max-bodies", maxBodiesDefault) : maxBodiesDefault;
@@ -53,7 +64,6 @@ public class WorldsConfig {
         int tempAllocSize = perfSec != null ? perfSec.getInt("temp-allocator-size", 10 * 1024 * 1024) : 10 * 1024 * 1024;
         PerformanceSettings perfSettings = new PerformanceSettings(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints, tempAllocSize);
 
-        // --- Solver ---
         ConfigurationSection solvSec = section.getConfigurationSection("solver");
         int velSteps = solvSec != null ? solvSec.getInt("velocity-iterations", 10) : 10;
         int posSteps = solvSec != null ? solvSec.getInt("position-iterations", 2) : 2;
@@ -77,17 +87,16 @@ public class WorldsConfig {
                 warmStart, useCache, splitIslands, allowSleep, deterministic
         );
 
-        // --- Sleeping ---
         ConfigurationSection sleepSec = section.getConfigurationSection("sleeping");
         float sleepThreshold = sleepSec != null ? (float) sleepSec.getDouble("point-velocity-threshold", 0.03) : 0.03f;
         float timeBeforeSleep = sleepSec != null ? (float) sleepSec.getDouble("time-before-sleep", 0.5) : 0.5f;
         SleepSettings sleepSettings = new SleepSettings(sleepThreshold, timeBeforeSleep);
 
-        // --- Simulation (Terrain/Floors) ---
         ConfigurationSection simSec = section.getConfigurationSection("simulation");
         boolean simEnable = false;
         SimulationType simType = SimulationType.NONE;
         FloorPlaneSettings floorSettings = null;
+        GreedyMeshingSettings greedySettings = null;
 
         if (simSec != null) {
             simEnable = simSec.getBoolean("enable", false);
@@ -133,18 +142,31 @@ public class WorldsConfig {
                             new FloorBounds(fOrigin, minX, minZ, maxX, maxZ));
                 }
             }
+
+            if (simSec.contains("greedy-meshing")) {
+                ConfigurationSection gmSec = simSec.getConfigurationSection("greedy-meshing");
+                if (gmSec != null) {
+                    greedySettings = new GreedyMeshingSettings(
+                            gmSec.getBoolean("vertical-merging", true),
+                            gmSec.getInt("max-vertical-size", 64)
+                    );
+                }
+            }
         }
 
         if (floorSettings == null) {
             floorSettings = new FloorPlaneSettings(0, 1, 1, 0, new FloorBounds(new Vec3(0,0,0), -100, -100, 100, 100));
         }
-        SimulationSettings simulation = new SimulationSettings(simEnable, simType, floorSettings);
+        if (greedySettings == null) {
+            greedySettings = new GreedyMeshingSettings(true, 64);
+        }
 
-        // --- World Size & Boundaries ---
+        SimulationSettings simulation = new SimulationSettings(simEnable, simType, floorSettings, greedySettings);
+
         ConfigurationSection sizeSec = section.getConfigurationSection("size");
         WorldSizeSettings sizeSettings = parseWorldSize(sizeSec);
 
-        return new WorldProfile(gravity, tickRate, collisionSteps, solverSettings, perfSettings, sleepSettings, simulation, sizeSettings);
+        return new WorldProfile(gravity, tickRate, collisionSteps, solverSettings, perfSettings, sleepSettings, simulation, sizeSettings, chunkSettings);
     }
 
     private WorldSizeSettings parseWorldSize(ConfigurationSection sizeSec) {
@@ -189,7 +211,6 @@ public class WorldsConfig {
             if (configMin != null && configMax != null) {
                 finalMin = configMin;
                 finalMax = configMax;
-
                 if (configOrigin != null) {
                     finalOrigin = configOrigin;
                 } else {
@@ -203,7 +224,6 @@ public class WorldsConfig {
                 RVec3 center = (configOrigin != null) ? configOrigin : new RVec3(0, 0, 0);
                 double dx = 500.0;
                 double dz = 500.0;
-
                 if (sizeSec.contains("radius")) {
                     double radius = sizeSec.getDouble("radius");
                     dx = radius;
@@ -213,11 +233,6 @@ public class WorldsConfig {
                     if (sizeSec.contains("length")) dz = sizeSec.getDouble("length") / 2.0;
                 }
 
-                heightSize = new Vec3(-128, 0, 1024);
-                if (sizeSec.contains("height-size")) {
-                    heightSize = Vec3Serializer.serializeXZ(sizeSec.getString("height-size"));
-                }
-
                 finalMin = new RVec3(center.xx() - dx, configMin != null ? configMin.y() : 0, center.zz() - dz);
                 finalMax = new RVec3(center.xx() + dx, configMax != null ? configMax.y() : 0, center.zz() + dz);
                 finalOrigin = center;
@@ -225,12 +240,9 @@ public class WorldsConfig {
         }
 
         float lMinX = (float) (finalMin.xx() - finalOrigin.xx());
-        // Fix: Use heightSize.X (min Y) for local min Y
         float lMinY = heightSize.getX();
         float lMinZ = (float) (finalMin.zz() - finalOrigin.zz());
-
         float lMaxX = (float) (finalMax.xx() - finalOrigin.xx());
-        // Fix: Use heightSize.Z (max Y) for local max Y
         float lMaxY = heightSize.getZ();
         float lMaxZ = (float) (finalMax.zz() - finalOrigin.zz());
 
@@ -243,7 +255,6 @@ public class WorldsConfig {
         );
     }
 
-    // Helper to parse "x z" string into RVec3(x, fixedY, z)
     private RVec3 parseVectorXZ(String str, double fixedY) {
         if (str == null) return null;
         String[] parts = str.trim().split("\\s+");
@@ -253,7 +264,6 @@ public class WorldsConfig {
                 double z = Double.parseDouble(parts[1]);
                 return new RVec3(x, fixedY, z);
             } catch (NumberFormatException e) {
-                // ignore
             }
         }
         return null;
@@ -275,7 +285,8 @@ public class WorldsConfig {
             PerformanceSettings performance,
             SleepSettings sleeping,
             SimulationSettings simulation,
-            WorldSizeSettings size
+            WorldSizeSettings size,
+            ChunkManagementSettings chunkManagement
     ) {}
 
     public record SolverSettings(
@@ -299,9 +310,11 @@ public class WorldsConfig {
 
     public record SleepSettings(float pointVelocityThreshold, float timeBeforeSleep) {}
 
-    public record SimulationSettings(boolean enabled, SimulationType type, FloorPlaneSettings floorPlane) {}
+    public record SimulationSettings(boolean enabled, SimulationType type, FloorPlaneSettings floorPlane, GreedyMeshingSettings greedyMeshing) {}
 
     public record FloorPlaneSettings(float yLevel, float ySize, float friction, float restitution, FloorBounds bounds) {}
+
+    public record GreedyMeshingSettings(boolean verticalMerging, int maxVerticalSize) {}
 
     public record FloorBounds(Vec3 origin, float minX, float minZ, float maxX, float maxZ) {}
 
@@ -315,5 +328,12 @@ public class WorldsConfig {
             boolean createWalls,
             boolean killBelowMinY,
             boolean preventExit
+    ) {}
+
+    public record ChunkManagementSettings(
+            boolean generateOnLoad,
+            boolean removeOnUnload,
+            boolean updateOnBlockChange,
+            int updateDebounceTicks
     ) {}
 }
