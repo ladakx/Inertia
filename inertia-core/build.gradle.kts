@@ -13,6 +13,7 @@ dependencies {
     compileOnly("com.mojang:authlib:3.13.56")
     implementation("org.incendo:cloud-paper:2.0.0-beta.10")
     implementation("org.incendo:cloud-minecraft-extras:2.0.0-beta.10")
+    implementation("it.unimi.dsi:fastutil:8.5.13")
 
     // Bukkit API (если нужен BukkitAdapter)
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.2.9")
