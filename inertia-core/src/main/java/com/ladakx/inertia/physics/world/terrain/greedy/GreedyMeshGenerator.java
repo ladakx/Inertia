@@ -7,11 +7,18 @@ import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.physics.world.terrain.PhysicsGenerator;
 import com.ladakx.inertia.physics.world.terrain.profile.PhysicalProfile;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
 
 public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     private final BlocksConfig blocksConfig;
@@ -192,15 +199,17 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         // 3.2 Вертикальный мержинг (Vertical merging) и генерация меша
         if (settings.verticalMerging()) {
             int maxTall = settings.maxVerticalSize();
-            Map<RectKey, ActiveRect> active = new HashMap<>();
+            Long2ObjectMap<ActiveRect> active = buffers.activeRects;
+            LongSet touchedKeys = buffers.touchedKeys;
+            active.clear();
 
             for (int y = 0; y < height; y++) {
                 List<LayerRect> rects = layerRects[y];
-                Set<RectKey> touchedKeys = new HashSet<>();
+                touchedKeys.clear();
 
                 if (rects != null) {
                     for (LayerRect rect : rects) {
-                        RectKey key = new RectKey(rect);
+                        long key = packRectKey(rect);
                         ActiveRect current = active.get(key);
 
                         // Пробуем расширить вверх
@@ -219,10 +228,10 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                 }
 
                 // Сбрасываем те, что прервались (встретили воздух или другой блок)
-                Iterator<Map.Entry<RectKey, ActiveRect>> iterator = active.entrySet().iterator();
+                Iterator<Long2ObjectMap.Entry<ActiveRect>> iterator = active.long2ObjectEntrySet().iterator();
                 while (iterator.hasNext()) {
-                    Map.Entry<RectKey, ActiveRect> entry = iterator.next();
-                    if (!touchedKeys.contains(entry.getKey())) {
+                    Long2ObjectMap.Entry<ActiveRect> entry = iterator.next();
+                    if (!touchedKeys.contains(entry.getLongKey())) {
                         addMeshShape(shapes, entry.getValue(), minHeight);
                         iterator.remove();
                     }
@@ -396,6 +405,15 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         return (z << 4) | x;
     }
 
+    private long packRectKey(LayerRect rect) {
+        long key = rect.x & 0xFL;
+        key |= (rect.z & 0xFL) << 4;
+        key |= (rect.width & 0x1FL) << 8;
+        key |= (rect.depth & 0x1FL) << 13;
+        key |= (rect.profileIndex & 0xFFFFL) << 18;
+        return key;
+    }
+
     // --- Inner Classes ---
 
     private static final class LayerRect {
@@ -404,26 +422,6 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         LayerRect(int x, int z, int width, int depth, int y, short profileIndex) {
             this.x = x; this.z = z; this.width = width; this.depth = depth; this.y = y;
             this.profileIndex = profileIndex;
-        }
-    }
-
-    private static final class RectKey {
-        final int x, z, width, depth;
-        final short profileIndex;
-        RectKey(LayerRect rect) {
-            this.x = rect.x; this.z = rect.z;
-            this.width = rect.width; this.depth = rect.depth;
-            this.profileIndex = rect.profileIndex;
-        }
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof RectKey other)) return false;
-            return x == other.x && z == other.z && width == other.width && depth == other.depth && profileIndex == other.profileIndex;
-        }
-        @Override
-        public int hashCode() {
-            return Objects.hash(x, z, width, depth, profileIndex);
         }
     }
 
@@ -448,6 +446,8 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         int[] complexIndices = new int[0];
         short[] layerProfiles = new short[256];
         boolean[] layerVisited = new boolean[256];
+        Long2ObjectMap<ActiveRect> activeRects = new Long2ObjectOpenHashMap<>();
+        LongSet touchedKeys = new LongOpenHashSet();
 
         void ensureCapacity(int height) {
             int total = 16 * height * 16;
