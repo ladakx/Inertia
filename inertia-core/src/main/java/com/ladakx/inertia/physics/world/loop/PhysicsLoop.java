@@ -8,33 +8,36 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.concurrent.locks.LockSupport;
 
 public class PhysicsLoop {
     private final String name;
-    private final ScheduledExecutorService tickExecutor;
+    // Оптимизация: Используем обычный Thread вместо ScheduledExecutor для более точного контроля цикла и sleep
+    private final Thread tickThread;
     private final AtomicBoolean isActive = new AtomicBoolean(false);
+
+    // Оптимизация: ArrayBlockingQueue имеет фиксированный размер, что полезно для backpressure,
+    // но ConcurrentLinkedQueue быстрее. Мы реализуем "мягкое" ограничение сами.
     private final Queue<PhysicsSnapshot> snapshotQueue = new ConcurrentLinkedQueue<>();
+    private static final int MAX_QUEUE_SIZE = 3; // Максимум 3 кадра буферизации (снижает input lag)
+
     private BukkitTask syncTask;
     private final Runnable physicsStep;
     private final Supplier<PhysicsSnapshot> snapshotProducer;
     private final Consumer<PhysicsSnapshot> snapshotConsumer;
-
-    // Metrics Suppliers
     private final List<LoopTickListener> listeners = new CopyOnWriteArrayList<>();
+
     private final AtomicLong tickCounter = new AtomicLong(0);
     private final Supplier<Integer> activeBodyCounter;
     private final Supplier<Integer> totalBodyCounter;
     private final Supplier<Integer> staticBodyCounter;
     private final int maxBodyLimit;
+    private final int targetTps;
 
     public PhysicsLoop(String name,
                        int tps,
@@ -46,6 +49,7 @@ public class PhysicsLoop {
                        Supplier<Integer> totalBodyCounter,
                        Supplier<Integer> staticBodyCounter) {
         this.name = name;
+        this.targetTps = tps;
         this.maxBodyLimit = maxBodyLimit;
         this.physicsStep = physicsStep;
         this.snapshotProducer = snapshotProducer;
@@ -54,69 +58,98 @@ public class PhysicsLoop {
         this.totalBodyCounter = totalBodyCounter;
         this.staticBodyCounter = staticBodyCounter;
 
-        this.tickExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "inertia-loop-" + name);
-            t.setDaemon(true);
-            return t;
-        });
-        start(tps);
+        this.tickThread = new Thread(this::runLoop, "inertia-loop-" + name);
+        this.tickThread.setDaemon(true);
+        // Приоритет выше нормального, чтобы физика была плавной даже при нагрузке на CPU
+        this.tickThread.setPriority(Thread.NORM_PRIORITY + 1);
+
+        start();
     }
 
     public void addListener(LoopTickListener listener) {
         if (listener != null) listeners.add(listener);
     }
 
-    private void start(int tps) {
-        long periodMicros = 1_000_000 / tps;
+    private void start() {
         isActive.set(true);
-        tickExecutor.scheduleAtFixedRate(() -> {
-            if (!isActive.get()) return;
-            try {
-                long tick = tickCounter.incrementAndGet();
-                long start = System.nanoTime();
-
-                for (LoopTickListener listener : listeners) listener.onTickStart(tick);
-
-                physicsStep.run();
-                PhysicsSnapshot snapshot = snapshotProducer.get();
-
-                long duration = System.nanoTime() - start;
-
-                // Сбор метрик
-                int active = activeBodyCounter.get();
-                int total = totalBodyCounter.get();
-                // Для простоты считаем статику как (Total - Dynamic), но Jolt хранит их вместе.
-                // В Jolt total = dynamic + static (если они добавлены в мир).
-                // Мы передадим total как есть.
-                // Если нужно точное число статики, его нужно пробрасывать из PhysicsWorld.
-                // Пока передадим 0 или заглушку, так как Jolt PhysicsSystem.getNumBodies() возвращает всех.
-
-                int staticBodies = staticBodyCounter.get();
-
-                for (LoopTickListener listener : listeners) {
-                    listener.onTickEnd(tick, duration, active, total, staticBodies, maxBodyLimit);
-                }
-
-                if (snapshot != null) snapshotQueue.offer(snapshot);
-
-            } catch (Exception e) {
-                InertiaLogger.error("Error in physics loop: " + name, e);
-            }
-        }, 0, periodMicros, TimeUnit.MICROSECONDS);
+        tickThread.start();
 
         this.syncTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), () -> {
             if (!isActive.get()) return;
+
+            // Обрабатываем ВСЕ доступные снапшоты в этом тике, чтобы догнать физику
+            // Но ограничиваемся, чтобы не повесить сервер
+            int processed = 0;
             PhysicsSnapshot snapshot;
-            while ((snapshot = snapshotQueue.poll()) != null) {
+            while (processed < 5 && (snapshot = snapshotQueue.poll()) != null) {
                 snapshotConsumer.accept(snapshot);
+                processed++;
             }
         }, 1L, 1L);
+    }
+
+    private void runLoop() {
+        long lastTime = System.nanoTime();
+        long nsPerTick = 1_000_000_000 / targetTps;
+
+        while (isActive.get()) {
+            // 1. Backpressure (Тормозим физику, если сервер не успевает)
+            if (snapshotQueue.size() >= MAX_QUEUE_SIZE) {
+                LockSupport.parkNanos(1_000_000); // Спим 1мс
+                continue;
+            }
+
+            long now = System.nanoTime();
+            long deltaTime = now - lastTime;
+
+            if (deltaTime >= nsPerTick) {
+                lastTime = now;
+
+                try {
+                    long tick = tickCounter.incrementAndGet();
+                    long startTick = System.nanoTime();
+
+                    for (LoopTickListener listener : listeners) listener.onTickStart(tick);
+
+                    // Шаг физики
+                    physicsStep.run();
+
+                    // Создание снапшота для рендера
+                    PhysicsSnapshot snapshot = snapshotProducer.get();
+                    if (snapshot != null) {
+                        snapshotQueue.offer(snapshot);
+                    }
+
+                    long duration = System.nanoTime() - startTick;
+
+                    // Метрики
+                    if (!listeners.isEmpty()) {
+                        int active = activeBodyCounter.get();
+                        int total = totalBodyCounter.get();
+                        int stat = staticBodyCounter.get();
+                        for (LoopTickListener listener : listeners) {
+                            listener.onTickEnd(tick, duration, active, total, stat, maxBodyLimit);
+                        }
+                    }
+
+                } catch (Exception e) {
+                    InertiaLogger.error("Error in physics loop: " + name, e);
+                }
+            } else {
+                // Умный сон до следующего тика
+                long waitNs = nsPerTick - deltaTime;
+                if (waitNs > 1_000_000) { // Если ждать больше 1мс
+                    LockSupport.parkNanos(waitNs - 500_000); // Спим чуть меньше, чтобы не пропустить
+                } else {
+                    Thread.onSpinWait(); // Активное ожидание для точности
+                }
+            }
+        }
     }
 
     public void stop() {
         if (isActive.compareAndSet(true, false)) {
             if (syncTask != null) syncTask.cancel();
-            tickExecutor.shutdownNow();
             snapshotQueue.clear();
         }
     }

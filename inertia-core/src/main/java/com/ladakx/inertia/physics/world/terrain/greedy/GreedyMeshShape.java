@@ -2,14 +2,14 @@ package com.ladakx.inertia.physics.world.terrain.greedy;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.List;
 
 public record GreedyMeshShape(
         String materialId,
         float density,
         float friction,
         float restitution,
-        List<SerializedBoundingBox> boundingBoxes,
+        // Сырой массив координат треугольников. Каждые 9 флоатов = 1 треугольник (3 вершины * 3 координаты)
+        float[] vertices,
         int minX,
         int minY,
         int minZ,
@@ -18,5 +18,5 @@ public record GreedyMeshShape(
         int maxZ
 ) implements Serializable {
     @Serial
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L; // Обновили версию
 }

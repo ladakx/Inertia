@@ -1,10 +1,12 @@
 package com.ladakx.inertia.rendering;
 
+import com.ladakx.inertia.common.chunk.ChunkUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,12 +14,21 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NetworkEntityTracker {
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
     private final Map<UUID, Set<Integer>> visibleByPlayer = new ConcurrentHashMap<>();
+    // Spatial Partitioning: Карта ChunkKey -> Набор ID визуалов в этом чанке
+    private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
+
+    // Пороги для дельта-компрессии (чтобы не спамить пакетами при микродвижениях)
+    private static final float POS_THRESHOLD_SQ = 0.0001f; // 0.01 блока
+    private static final float ROT_THRESHOLD_DOT = 0.9999f; // Очень малый угол
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
         Objects.requireNonNull(visual, "visual");
         Objects.requireNonNull(location, "location");
         Objects.requireNonNull(rotation, "rotation");
-        visualsById.put(visual.getId(), new TrackedVisual(visual, location.clone(), new Quaternionf(rotation)));
+
+        TrackedVisual tracked = new TrackedVisual(visual, location.clone(), new Quaternionf(rotation));
+        visualsById.put(visual.getId(), tracked);
+        addToGrid(visual.getId(), location);
     }
 
     public void unregister(@NotNull NetworkVisual visual) {
@@ -27,15 +38,19 @@ public class NetworkEntityTracker {
 
     public void unregisterById(int id) {
         TrackedVisual tracked = visualsById.remove(id);
-        // Исправление: получаем visual, чтобы отправить пакет destroy
-        NetworkVisual visual = tracked != null ? tracked.visual() : null;
+        if (tracked != null) {
+            removeFromGrid(id, tracked.location());
+            NetworkVisual visual = tracked.visual();
 
-        for (Map.Entry<UUID, Set<Integer>> entry : visibleByPlayer.entrySet()) {
-            if (entry.getValue().remove(id)) {
-                Player player = Bukkit.getPlayer(entry.getKey());
-                if (player != null && visual != null) {
-                    // Исправление: отправляем пакет уничтожения
-                    visual.destroyFor(player);
+            // Удаляем у всех игроков, кто видел этот объект
+            Iterator<Map.Entry<UUID, Set<Integer>>> it = visibleByPlayer.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<UUID, Set<Integer>> entry = it.next();
+                if (entry.getValue().remove(id)) {
+                    Player player = Bukkit.getPlayer(entry.getKey());
+                    if (player != null) {
+                        visual.destroyFor(player);
+                    }
                 }
             }
         }
@@ -43,52 +58,100 @@ public class NetworkEntityTracker {
 
     public void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
         Objects.requireNonNull(visual, "visual");
-        Objects.requireNonNull(location, "location");
-        Objects.requireNonNull(rotation, "rotation");
-        // Обновляем состояние, но используем put, чтобы перезаписать старое
-        visualsById.put(visual.getId(), new TrackedVisual(visual, location.clone(), new Quaternionf(rotation)));
+        TrackedVisual tracked = visualsById.get(visual.getId());
+
+        if (tracked != null) {
+            // Обновляем грид, если объект сменил чанк
+            long oldChunkKey = ChunkUtils.getChunkKey(tracked.location().getBlockX() >> 4, tracked.location().getBlockZ() >> 4);
+            long newChunkKey = ChunkUtils.getChunkKey(location.getBlockX() >> 4, location.getBlockZ() >> 4);
+
+            tracked.update(location, rotation);
+
+            if (oldChunkKey != newChunkKey) {
+                removeFromGrid(visual.getId(), oldChunkKey);
+                addToGrid(visual.getId(), newChunkKey);
+            }
+        } else {
+            // Если объекта не было (редкий кейс рассинхрона), регистрируем
+            register(visual, location, rotation);
+        }
     }
 
     public void tick(@NotNull Collection<? extends Player> players, double viewDistanceSquared) {
+        // Оптимизация: вместо O(Players * Entities) делаем O(Players * VisibleChunks * EntitiesInChunk)
+        int viewDistanceChunks = (int) Math.ceil(Math.sqrt(viewDistanceSquared) / 16.0);
+
         for (Player player : players) {
             if (player == null || !player.isOnline()) continue;
 
             UUID playerId = player.getUniqueId();
-            Set<Integer> visible = visibleByPlayer.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet()); // Thread-safe set
+            Set<Integer> visible = visibleByPlayer.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet());
+
             Location playerLoc = player.getLocation();
+            int pChunkX = playerLoc.getBlockX() >> 4;
+            int pChunkZ = playerLoc.getBlockZ() >> 4;
             String playerWorldName = playerLoc.getWorld().getName();
 
-            for (TrackedVisual tracked : visualsById.values()) {
-                NetworkVisual visual = tracked.visual();
-                int visualId = visual.getId();
+            // 1. Проход по чанкам вокруг игрока для поиска новых или обновляемых объектов
+            for (int x = -viewDistanceChunks; x <= viewDistanceChunks; x++) {
+                for (int z = -viewDistanceChunks; z <= viewDistanceChunks; z++) {
+                    long chunkKey = ChunkUtils.getChunkKey(pChunkX + x, pChunkZ + z);
+                    Set<Integer> entityIdsInChunk = chunkGrid.get(chunkKey);
 
-                boolean isInSameWorld = tracked.location().getWorld().getName().equals(playerWorldName);
-                double distSq = isInSameWorld ? tracked.location().distanceSquared(playerLoc) : Double.MAX_VALUE;
-                boolean inRange = isInSameWorld && distSq <= viewDistanceSquared;
-                boolean wasVisible = visible.contains(visualId);
+                    if (entityIdsInChunk != null && !entityIdsInChunk.isEmpty()) {
+                        for (Integer id : entityIdsInChunk) {
+                            TrackedVisual tracked = visualsById.get(id);
+                            if (tracked == null) continue; // Рассинхрон грида и мапы (безопасно пропускаем)
 
-                if (inRange) {
-                    if (!wasVisible) {
-                        visual.spawnFor(player);
-                        visible.add(visualId);
-                    } else {
-                        visual.updatePositionFor(player, tracked.location(), tracked.rotation());
-                    }
-                } else {
-                    if (wasVisible) {
-                        visual.destroyFor(player);
-                        visible.remove(visualId);
+                            // Проверка мира обязательна, так как ключи чанков одинаковы для разных миров
+                            if (!tracked.location().getWorld().getName().equals(playerWorldName)) continue;
+
+                            double distSq = tracked.location().distanceSquared(playerLoc);
+                            boolean inRange = distSq <= viewDistanceSquared;
+
+                            if (inRange) {
+                                if (visible.add(id)) {
+                                    // Новый объект в зоне видимости -> спавним
+                                    tracked.visual().spawnFor(player);
+                                    // Форсируем отправку позиции, чтобы не было "дергания" при спавне
+                                    tracked.markSent(player);
+                                } else {
+                                    // Объект уже виден -> проверяем, нужно ли обновить позицию (Дельта-компрессия)
+                                    if (tracked.isDirtyFor(player)) {
+                                        tracked.visual().updatePositionFor(player, tracked.location(), tracked.rotation());
+                                        tracked.markSent(player);
+                                    }
+                                }
+                            } else {
+                                // Вышел из радиуса
+                                if (visible.remove(id)) {
+                                    tracked.visual().destroyFor(player);
+                                }
+                            }
+                        }
                     }
                 }
             }
+
+            // 2. Очистка объектов, которые игрок видит, но они переместились слишком далеко или в другой мир
+            // (Это нужно, если объект быстро улетел из зоны видимых чанков)
+            visible.removeIf(id -> {
+                TrackedVisual tracked = visualsById.get(id);
+                if (tracked == null) return true; // Объект удален глобально
+
+                boolean sameWorld = tracked.location().getWorld().getName().equals(playerWorldName);
+                if (!sameWorld || tracked.location().distanceSquared(playerLoc) > viewDistanceSquared) {
+                    tracked.visual().destroyFor(player);
+                    return true;
+                }
+                return false;
+            });
         }
+
         // Очистка оффлайн игроков
         visibleByPlayer.keySet().removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
     }
 
-    /**
-     * Полностью очищает видимость для конкретного игрока (например, при смене мира)
-     */
     public void removePlayer(Player player) {
         UUID uuid = player.getUniqueId();
         Set<Integer> visible = visibleByPlayer.remove(uuid);
@@ -105,13 +168,108 @@ public class NetworkEntityTracker {
     public void clear() {
         visualsById.clear();
         visibleByPlayer.clear();
+        chunkGrid.clear();
     }
 
-    private record TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
-        private TrackedVisual {
-            Objects.requireNonNull(visual);
-            Objects.requireNonNull(location);
-            Objects.requireNonNull(rotation);
+    // --- Grid Helpers ---
+
+    private void addToGrid(int id, Location loc) {
+        long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
+        addToGrid(id, key);
+    }
+
+    private void addToGrid(int id, long chunkKey) {
+        chunkGrid.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(id);
+    }
+
+    private void removeFromGrid(int id, Location loc) {
+        long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
+        removeFromGrid(id, key);
+    }
+
+    private void removeFromGrid(int id, long chunkKey) {
+        Set<Integer> set = chunkGrid.get(chunkKey);
+        if (set != null) {
+            set.remove(id);
+            if (set.isEmpty()) {
+                chunkGrid.remove(chunkKey);
+            }
+        }
+    }
+
+    // --- Inner Class ---
+
+    private static class TrackedVisual {
+        private final NetworkVisual visual;
+        private final Location location;
+        private final Quaternionf rotation;
+
+        // Кэширование для дельта-компрессии (последняя отправленная позиция для КАЖДОГО игрока может быть дорогой,
+        // поэтому мы упростим: храним просто "последнее состояние" и сравниваем с ним.
+        // В идеале нужно хранить per-player state, но для физики достаточно сравнить "изменился ли объект с прошлого тика".
+        // НО: так как tick() итеративный, мы будем хранить "previous tick state" здесь.
+        private final Vector3f lastPos = new Vector3f();
+        private final Quaternionf lastRot = new Quaternionf();
+
+        // Храним состояние, которое было успешно отправлено (или зафиксировано как стабильное)
+        // Для оптимизации памяти в высоконагруженных системах мы не будем хранить мапу Player -> LastPos,
+        // а будем полагаться на то, что physics loop обновляет TrackedVisual только если есть реальные изменения.
+        // Однако метод updateState вызывается каждый тик из PhysicsWorld.
+
+        // Решение: TrackedVisual хранит ТЕКУЩЕЕ состояние. А также состояние, которое было в ПРОШЛЫЙ раз, когда мы считали его "грязным".
+        // Но так как у нас много игроков, "грязный для одного" = "грязный для всех".
+        private final Vector3f syncedPos = new Vector3f();
+        private final Quaternionf syncedRot = new Quaternionf();
+        private boolean isDirtyGlobal = true;
+
+        private TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
+            this.visual = visual;
+            this.location = location;
+            this.rotation = rotation;
+            this.syncedPos.set((float)location.getX(), (float)location.getY(), (float)location.getZ());
+            this.syncedRot.set(rotation);
+        }
+
+        public NetworkVisual visual() { return visual; }
+        public Location location() { return location; }
+        public Quaternionf rotation() { return rotation; }
+
+        public void update(Location newLoc, Quaternionf newRot) {
+            this.location.setWorld(newLoc.getWorld());
+            this.location.setX(newLoc.getX());
+            this.location.setY(newLoc.getY());
+            this.location.setZ(newLoc.getZ());
+            this.location.setYaw(newLoc.getYaw());
+            this.location.setPitch(newLoc.getPitch());
+            this.rotation.set(newRot);
+        }
+
+        /**
+         * Проверяет, изменился ли объект достаточно сильно по сравнению с ПОСЛЕДНИМ ОТПРАВЛЕННЫМ состоянием.
+         */
+        public boolean isDirtyFor(Player player) {
+            // Рассчитываем дельты
+            float dx = (float)location.getX() - syncedPos.x;
+            float dy = (float)location.getY() - syncedPos.y;
+            float dz = (float)location.getZ() - syncedPos.z;
+
+            float distSq = dx*dx + dy*dy + dz*dz;
+            if (distSq > POS_THRESHOLD_SQ) return true;
+
+            // Dot product кватернионов: 1.0 = одинаковые, -1.0 = одинаковые (противоположные), 0 = 90 градусов
+            float dot = Math.abs(rotation.dot(syncedRot));
+            return dot < ROT_THRESHOLD_DOT;
+        }
+
+        /**
+         * Обновляет "синхронизированное" состояние. Вызывается после отправки пакетов.
+         * Важно: в данной архитектуре мы обновляем synced state глобально.
+         * Это компромисс: если объект дернулся, все игроки получат пакет.
+         */
+        public void markSent(Player player) {
+            // Обновляем synced значения к текущим
+            this.syncedPos.set((float)location.getX(), (float)location.getY(), (float)location.getZ());
+            this.syncedRot.set(rotation);
         }
     }
 }

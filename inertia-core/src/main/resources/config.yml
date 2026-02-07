@@ -4,8 +4,6 @@ general:
   debug:
     # Выводить ли отладку в консоль.
     console: true
-    # Формат boss-bar строки. Доступные плейсхолдеры: %-4s (Bodies/Vehicles/MSPT).
-    boss-bar: "%-4s | Bodies: %-4s | Vehicles: %-4s | Physics MSPT: %-4s | Simulation MSPT: %-4s"
     hitboxes:
       # Дефолтная дальность рендера хитбоксов.
       default-range: 20
@@ -15,16 +13,7 @@ general:
       render-interval-ticks: 2
 
 physics:
-  # Включить/выключить физику (глобально).
-  enable: true
   # Точность вычислений: DP (double precision) или SP (single precision).
   precision: DP
   # Количество потоков для генерации/обработки физики.
   worker-threads: 2
-  simulation:
-    # Потоки для симуляции (внутренние задачи Jolt).
-    worker-threads: 1
-    # Настройки Rayon (параллельные задачи обработки).
-    rayon:
-      # Дополнительный радиус (inflate) для оптимизаций коллизий.
-      inflate: 3.0

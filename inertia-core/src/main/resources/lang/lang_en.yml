@@ -1,19 +1,9 @@
 prefix: "&cInertia &l»&r"
-
-no-permissions:
-  - "{prefix} &7No permissions!"
 reload-plugin:
   - "{prefix} &7Plugin reloaded!"
-command-not-found:
-  - "{prefix} &7Command not found!"
-wrong-args-command:
-  - "{prefix} &сWrong command arguments!"
 
 not-for-console:
   - "{prefix} &7This command can only be executed by a player!"
-not-for-this-version:
-  - "{prefix} &7This command is not available in your server version!"
-  - "{prefix} &7Please update the server to version {version} or higher!"
 not-for-this-world:
   - "{prefix} &7Add this world to the list of physical worlds in the config.yml file"
   - "{prefix} &7To use this command!"
@@ -25,8 +15,6 @@ spawn-limit-reached:
 # --- Spawn Messages ---
 spawn-success:
   - "{prefix} &7Physics body &f{id} &7spawned successfully!"
-spawn-fail-invalid-id:
-  - "{prefix} &cPhysics body with ID '{id}' not found in bodies.yml!"
 chain-spawn-success:
   - "{prefix} &7Chain created! Size: &f{size}"
 ragdoll-spawn-success:
@@ -37,8 +25,6 @@ shape-spawn-success:
 # --- Shape Errors ---
 shape-not-found:
   - "{prefix} &cUnknown shape: {shape}"
-shape-list-available:
-  - "{prefix} &7Available shapes: &f{shapes}"
 shape-usage:
   - "{prefix} &cUsage: /inertia spawn-shape {type} {params} <bodyId>"
 shape-invalid-params:
@@ -51,8 +37,6 @@ tool-not-found:
   - "{prefix} &cTool not found or invalid configuration!"
 tool-broken-nbt:
   - "{prefix} &cBroken Tool: Missing NBT data!"
-tool-invalid-params:
-  - "{prefix} &cInvalid parameters in tool data."
 
 body-frozen:
   - "{prefix} &bBody frozen successfully."
@@ -61,8 +45,6 @@ cannot-freeze-body:
 
 static-success:
   - "{prefix} &bFrozen &f{count} &bentities."
-static-no-match:
-  - "{prefix} &cNo active physics entities found to freeze."
 
 spawn-fail-obstructed:
   - "{prefix} &cSpawn blocked! Target location is obstructed."
@@ -135,8 +117,6 @@ chain-building:
   - "{prefix} &7Position 2 set. Building chain..."
 selection-cleared:
   - "{prefix} &eSelection cleared."
-chain-created:
-  - "{prefix} &7Chain created with &f{count} &7links."
 invalid-chain-body:
   - "{prefix} &cInvalid chain body definition: {id}"
 
@@ -145,8 +125,6 @@ invalid-ragdoll-body:
 
 weld-mode-change:
   - "{prefix} &eWeld Mode: &f{mode}"
-weld-removed:
-  - "{prefix} &cWeld removed."
 weld-first-selected:
   - "{prefix} &7First object selected."
 weld-deselected:
@@ -164,10 +142,6 @@ clear-success:
   - "{prefix} &7Removed &c{count} &7physics objects from this world."
 clear-success-radius:
   - "{prefix} &7Removed &c{count} &7objects within &e{radius} &7blocks."
-clear-success-filter:
-  - "{prefix} &7Removed &c{count} &7objects matching '&e{filter}&7'."
-clear-success-combo:
-  - "{prefix} &7Removed &c{count} &7objects matching '&e{filter}&7' within &e{radius} &7blocks."
 clear-no-match:
   - "{prefix} &cNo physics objects found matching your criteria."
 
@@ -175,10 +149,6 @@ tnt-spawned:
   - "{prefix} &7TNT spawned with force &c{force}&7!"
 tnt-tool-received:
   - "{prefix} &7Received TNT Spawner (Body: &f{body}&7, Force: &c{force}&7)."
-tnt-invalid-force:
-  - "{prefix} &cInvalid explosion force specified."
-tnt-tool-usage:
-  - "{prefix} &cUsage: /inertia tool tntspawner <bodyId> <force>"
 
 admin-simulation-paused:
   - "{prefix} &7Physics simulation state: &f{state} &7(Worlds affected: {count})"
@@ -218,7 +188,5 @@ debug-hitbox-toggle:
 
 # --- Dynamic Help Menu ---
 help-page-header: "&c&lInertia Help &8(&7{page}/{max_pages}&8)"
-help-page-footer: "&8&m------------------------------"
-help-command-desc: "&7{description}"
 help-next-page: "&cNext &l»"
 help-prev-page: "&l« &cPrev"

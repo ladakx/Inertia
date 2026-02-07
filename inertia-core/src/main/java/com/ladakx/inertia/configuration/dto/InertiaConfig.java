@@ -38,14 +38,12 @@ public class InertiaConfig {
         public static class DebugSettings {
 
             public boolean consoleDebug = true;
-            public final String debugPlaceholderBar;
             public final int hitboxDefaultRange;
             public final int hitboxMaxRange;
             public final int hitboxRenderIntervalTicks;
 
             public DebugSettings(ConfigurationSection section, FileConfiguration root) {
                 if (section == null) {
-                    this.debugPlaceholderBar = "Debug info...";
                     this.hitboxDefaultRange = 20;
                     this.hitboxMaxRange = 100;
                     this.hitboxRenderIntervalTicks = 2;
@@ -53,7 +51,6 @@ public class InertiaConfig {
                 }
 
                 this.consoleDebug = section.getBoolean("console", true);
-                this.debugPlaceholderBar = section.getString("boss-bar", "%-4s | Bodies: %-4s | Vehicles: %-4s");
                 ConfigurationSection hitboxes = section.getConfigurationSection("hitboxes");
                 this.hitboxDefaultRange = hitboxes != null ? hitboxes.getInt("default-range", 20) : 20;
                 this.hitboxMaxRange = hitboxes != null ? hitboxes.getInt("max-range", 100) : 100;
@@ -66,37 +63,21 @@ public class InertiaConfig {
     // Physics Settings
     // ==========================================
     public static class PhysicsSettings {
-        public final boolean enable;
         public final Precision precision;
         public final int workerThreads;
-        public final SimulationSettings SIMULATION;
 
         public PhysicsSettings(ConfigurationSection section, FileConfiguration root) {
-            this.SIMULATION = new SimulationSettings(section.getConfigurationSection("simulation"), root);
-
-            this.enable = section.getBoolean("enable", false);
+            if (section == null) {
+                this.precision = Precision.SP;
+                this.workerThreads = 2;
+                return;
+            }
 
             // Parse Precision from String "DP" or "SP"
             String precStr = section.getString("precision", "SP");
             this.precision = "DP".equalsIgnoreCase(precStr) ? Precision.DP : Precision.SP;
 
             this.workerThreads = section.getInt("worker-threads", 2);
-        }
-
-        public static class SimulationSettings {
-            public final int workerThreads;
-            public final float rayonInflate;
-
-            public SimulationSettings(ConfigurationSection section, FileConfiguration root) {
-                if (section == null) {
-                    this.workerThreads = 1;
-                    this.rayonInflate = 3.0f;
-                    return;
-                }
-
-                this.workerThreads = section.getInt("worker-threads", 1);
-                this.rayonInflate = (float) section.getDouble("rayon.inflate", 3.0D);
-            }
         }
     }
 }

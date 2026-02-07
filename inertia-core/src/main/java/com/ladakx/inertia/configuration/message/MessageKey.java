@@ -3,43 +3,33 @@ package com.ladakx.inertia.configuration.message;
 public enum MessageKey {
     PREFIX("prefix"),
     RELOAD_PLUGIN("reload-plugin"),
-    NO_PERMISSIONS("no-permissions"),
     NOT_FOR_CONSOLE("not-for-console"),
-    NOT_FOR_THIS_VERSION("not-for-this-version"),
     NOT_FOR_THIS_WORLD("not-for-this-world"),
-    COMMAND_NOT_FOUND("command-not-found"),
-    WRONG_ARGS_COMMAND("wrong-args-command"),
     ERROR_OCCURRED("error-occurred"),
 
     SPAWN_LIMIT_REACHED("spawn-limit-reached"),
     SPAWN_FAIL_OBSTRUCTED("spawn-fail-obstructed"),
     SPAWN_FAIL_OUT_OF_BOUNDS("spawn-fail-out-of-bounds"),
     SPAWN_SUCCESS("spawn-success"),
-    SPAWN_FAIL_INVALID_ID("spawn-fail-invalid-id"),
     CHAIN_SPAWN_SUCCESS("chain-spawn-success"),
     RAGDOLL_SPAWN_SUCCESS("ragdoll-spawn-success"),
     SHAPE_SPAWN_SUCCESS("shape-spawn-success"),
 
     CLEAR_SUCCESS("clear-success"),
     CLEAR_SUCCESS_RADIUS("clear-success-radius"),
-    CLEAR_SUCCESS_FILTER("clear-success-filter"),
-    CLEAR_SUCCESS_COMBO("clear-success-combo"),
     CLEAR_NO_MATCH("clear-no-match"),
 
     SHAPE_NOT_FOUND("shape-not-found"),
-    SHAPE_LIST_AVAILABLE("shape-list-available"),
     SHAPE_USAGE("shape-usage"),
     SHAPE_INVALID_PARAMS("shape-invalid-params"),
 
     TOOL_RECEIVED("tool-received"),
     TOOL_NOT_FOUND("tool-not-found"),
     TOOL_BROKEN_NBT("tool-broken-nbt"),
-    TOOL_INVALID_PARAMS("tool-invalid-params"),
 
     BODY_FROZEN("body-frozen"),
     CANNOT_FREEZE_BODY("cannot-freeze-body"),
     STATIC_SUCCESS("static-success"),
-    STATIC_NO_MATCH("static-no-match"),
 
     TOOL_CHAIN_NAME("tool-chain-name"),
     TOOL_CHAIN_LORE("tool-chain-lore"),
@@ -67,11 +57,9 @@ public enum MessageKey {
     CHAIN_MISSING_ID("chain-missing-id"),
     CHAIN_BUILDING("chain-building"),
     SELECTION_CLEARED("selection-cleared"),
-    CHAIN_CREATED("chain-created"),
     INVALID_CHAIN_BODY("invalid-chain-body"),
     INVALID_RAGDOLL_BODY("invalid-ragdoll-body"),
     WELD_MODE_CHANGE("weld-mode-change"),
-    WELD_REMOVED("weld-removed"),
     WELD_FIRST_SELECTED("weld-first-selected"),
     WELD_DESELECTED("weld-deselected"),
     WELD_CONNECTED("weld-connected"),
@@ -79,8 +67,6 @@ public enum MessageKey {
 
     TNT_SPAWNED("tnt-spawned"),
     TNT_TOOL_RECEIVED("tnt-tool-received"),
-    TNT_INVALID_FORCE("tnt-invalid-force"),
-    TNT_TOOL_USAGE("tnt-tool-usage"),
 
     ADMIN_SIMULATION_PAUSED("admin-simulation-paused"),
     ADMIN_STATS_HEADER("admin-stats-header"),
@@ -101,8 +87,6 @@ public enum MessageKey {
     DEBUG_HITBOX_TOGGLE("debug-hitbox-toggle"),
 
     HELP_PAGE_HEADER("help-page-header"),
-    HELP_PAGE_FOOTER("help-page-footer"),
-    HELP_COMMAND_DESC("help-command-desc"),
     HELP_NEXT_PAGE("help-next-page"),
     HELP_PREV_PAGE("help-prev-page");
 
