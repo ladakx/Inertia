@@ -5,6 +5,7 @@ import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.configuration.message.MessageManager;
+import com.ladakx.inertia.features.tools.NetworkInteractTool;
 import com.ladakx.inertia.features.tools.Tool;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
@@ -22,7 +23,7 @@ import org.bukkit.util.RayTraceResult;
 
 import java.util.List;
 
-public class DeleteTool extends Tool {
+public class DeleteTool extends Tool implements NetworkInteractTool {
 
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final PhysicsManipulationService manipulationService;
@@ -53,6 +54,17 @@ public class DeleteTool extends Tool {
 
     @Override
     public void onSwapHands(Player player) {
+    }
+
+    @Override
+    public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
+        if (!validateWorld(player)) return;
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) return;
+        int removed = manipulationService.removeCluster(space, body);
+        if (removed > 0) {
+            playSuccessEffect(player);
+        }
     }
 
     private boolean tryRemoveActiveBody(Player player, PhysicsWorld space) {

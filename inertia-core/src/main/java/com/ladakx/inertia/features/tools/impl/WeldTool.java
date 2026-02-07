@@ -4,6 +4,7 @@ import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.configuration.message.MessageManager;
+import com.ladakx.inertia.features.tools.NetworkInteractTool;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -20,7 +21,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class WeldTool extends Tool {
+public class WeldTool extends Tool implements NetworkInteractTool {
 
     private @Nullable AbstractPhysicsBody firstObject = null;
     private boolean keepDistance = false;
@@ -78,6 +79,35 @@ public class WeldTool extends Tool {
         }
 
         firstObject = hitBody;
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 1.5f);
+        send(player, MessageKey.WELD_FIRST_SELECTED);
+    }
+
+    @Override
+    public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
+        if (attack) {
+            if (firstObject != null) {
+                firstObject = null;
+                send(player, MessageKey.WELD_DESELECTED);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 0.5f);
+            }
+            return;
+        }
+
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) return;
+
+        if (firstObject != null) {
+            if (firstObject == body) return;
+
+            manipulationService.weldBodies(space, firstObject, body, keepDistance);
+            firstObject = null;
+            send(player, MessageKey.WELD_CONNECTED);
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 2.0f);
+            return;
+        }
+
+        firstObject = body;
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 1.5f);
         send(player, MessageKey.WELD_FIRST_SELECTED);
     }

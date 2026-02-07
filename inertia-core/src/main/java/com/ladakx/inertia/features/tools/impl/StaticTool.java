@@ -4,6 +4,7 @@ import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.configuration.message.MessageManager;
+import com.ladakx.inertia.features.tools.NetworkInteractTool;
 import com.ladakx.inertia.features.tools.Tool;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
@@ -17,7 +18,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-public class StaticTool extends Tool {
+public class StaticTool extends Tool implements NetworkInteractTool {
 
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final PhysicsManipulationService manipulationService;
@@ -43,6 +44,20 @@ public class StaticTool extends Tool {
 
     @Override
     public void onSwapHands(Player player) {
+    }
+
+    @Override
+    public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
+        if (!validateWorld(player)) return;
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) return;
+        int frozenCount = manipulationService.freezeCluster(space, body);
+        if (frozenCount > 0) {
+            send(player, MessageKey.BODY_FROZEN);
+            player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, SoundCategory.MASTER, 1.0f, 2.0f);
+        } else {
+            send(player, MessageKey.CANNOT_FREEZE_BODY);
+        }
     }
 
     private void applyFreeze(Player player) {
