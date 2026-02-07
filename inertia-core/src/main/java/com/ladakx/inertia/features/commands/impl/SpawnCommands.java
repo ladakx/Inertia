@@ -4,6 +4,8 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.features.commands.CloudModule;
 import com.ladakx.inertia.features.commands.parsers.BodyIdParser;
+import com.ladakx.inertia.features.commands.parsers.BodyIdByTypeParser;
+import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.physics.factory.BodyFactory;
@@ -35,7 +37,7 @@ public class SpawnCommands extends CloudModule {
 
         manager.command(spawnRoot
                 .literal("body")
-                .required("id", BodyIdParser.bodyIdParser(config))
+                .required("id", BodyIdByTypeParser.bodyIdByTypeParser(config, PhysicsBodyType.BLOCK))
                 .handler(ctx -> {
                     if (!validatePlayer(ctx.sender())) return;
                     Player player = (Player) ctx.sender();
@@ -56,7 +58,7 @@ public class SpawnCommands extends CloudModule {
 
         manager.command(spawnRoot
                 .literal("chain")
-                .required("id", BodyIdParser.bodyIdParser(config))
+                .required("id", BodyIdByTypeParser.bodyIdByTypeParser(config, PhysicsBodyType.CHAIN))
                 .optional("size", IntegerParser.integerParser(1, 100),
                         Description.of("Links count (1-100)"))
                 .handler(ctx -> {
@@ -78,7 +80,7 @@ public class SpawnCommands extends CloudModule {
 
         manager.command(spawnRoot
                 .literal("ragdoll")
-                .required("id", BodyIdParser.bodyIdParser(config))
+                .required("id", BodyIdByTypeParser.bodyIdByTypeParser(config, PhysicsBodyType.RAGDOLL))
                 .optional("nickname", StringParser.stringParser(),
                         Description.of("Skin nickname (Minecraft username)"))
                 .handler(ctx -> {
@@ -100,7 +102,7 @@ public class SpawnCommands extends CloudModule {
 
         manager.command(spawnRoot
                 .literal("tnt")
-                .required("id", BodyIdParser.bodyIdParser(config))
+                .required("id", BodyIdByTypeParser.bodyIdByTypeParser(config, PhysicsBodyType.TNT))
                 .optional("force", DoubleParser.doubleParser(0.1, 100.0),
                         Description.of("Explosion force"))
                 .handler(ctx -> {
