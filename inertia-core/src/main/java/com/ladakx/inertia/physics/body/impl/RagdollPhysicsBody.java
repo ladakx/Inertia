@@ -17,6 +17,7 @@ import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
+import com.ladakx.inertia.rendering.staticent.BukkitStaticEntityPersister;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -94,7 +95,15 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
             NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
             parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
-        return new PhysicsDisplayComposite(this, renderDef, world, parts);
+        var plugin = InertiaPlugin.getInstance();
+        return new PhysicsDisplayComposite(
+                this,
+                renderDef,
+                world,
+                parts,
+                plugin != null ? plugin.getNetworkEntityTracker() : null,
+                new BukkitStaticEntityPersister(plugin != null ? plugin.getItemRegistry() : null)
+        );
     }
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,
