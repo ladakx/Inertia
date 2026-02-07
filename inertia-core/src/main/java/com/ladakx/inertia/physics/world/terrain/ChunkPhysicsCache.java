@@ -9,25 +9,44 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.time.Duration;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class ChunkPhysicsCache {
 
     private final File baseDir;
-    private final Map<CacheKey, GreedyMeshData> memoryCache = new ConcurrentHashMap<>();
+    private final Map<CacheKey, CacheEntry> memoryCache;
+    private final Object lock = new Object();
+    private final int maxEntries;
+    private final long ttlMillis;
 
-    public ChunkPhysicsCache(File baseDir) {
+    public ChunkPhysicsCache(File baseDir, int maxEntries, Duration ttl) {
         this.baseDir = Objects.requireNonNull(baseDir, "baseDir");
+        this.maxEntries = Math.max(0, maxEntries);
+        this.ttlMillis = ttl == null ? 0L : Math.max(0L, ttl.toMillis());
+        this.memoryCache = new LinkedHashMap<>(16, 0.75f, true);
     }
 
     public Optional<GreedyMeshData> get(int x, int z) {
         CacheKey key = new CacheKey(x, z);
-        GreedyMeshData cached = memoryCache.get(key);
-        if (cached != null) {
-            return Optional.of(cached);
+        CacheEntry entry;
+        long now = System.currentTimeMillis();
+        synchronized (lock) {
+            entry = memoryCache.get(key);
+            if (entry != null && isExpired(entry, now)) {
+                memoryCache.remove(key);
+                entry = null;
+            }
+            if (entry != null) {
+                entry.touch(now);
+            }
+        }
+        if (entry != null) {
+            return Optional.of(entry.data());
         }
 
         File file = getChunkFile(x, z);
@@ -37,7 +56,7 @@ public class ChunkPhysicsCache {
 
         try (ObjectInputStream input = new ObjectInputStream(new FileInputStream(file))) {
             GreedyMeshData data = (GreedyMeshData) input.readObject();
-            memoryCache.put(key, data);
+            putInMemory(key, data);
             return Optional.of(data);
         } catch (IOException | ClassNotFoundException ex) {
             InertiaLogger.warn("Failed to read terrain cache at " + x + ", " + z, ex);
@@ -48,7 +67,7 @@ public class ChunkPhysicsCache {
     public void put(int x, int z, GreedyMeshData data) {
         Objects.requireNonNull(data, "data");
         CacheKey key = new CacheKey(x, z);
-        memoryCache.put(key, data);
+        putInMemory(key, data);
 
         File file = getChunkFile(x, z);
         File parent = file.getParentFile();
@@ -66,7 +85,9 @@ public class ChunkPhysicsCache {
 
     public void invalidate(int x, int z) {
         CacheKey key = new CacheKey(x, z);
-        memoryCache.remove(key);
+        synchronized (lock) {
+            memoryCache.remove(key);
+        }
         File file = getChunkFile(x, z);
         if (file.exists() && !file.delete()) {
             InertiaLogger.warn("Failed to delete terrain cache file " + file.getAbsolutePath());
@@ -74,7 +95,9 @@ public class ChunkPhysicsCache {
     }
 
     public void invalidateAll() {
-        memoryCache.clear();
+        synchronized (lock) {
+            memoryCache.clear();
+        }
         if (!baseDir.exists()) {
             return;
         }
@@ -93,6 +116,65 @@ public class ChunkPhysicsCache {
         return new File(baseDir, x + "_" + z + ".bin");
     }
 
+    private void putInMemory(CacheKey key, GreedyMeshData data) {
+        long now = System.currentTimeMillis();
+        synchronized (lock) {
+            evictExpired(now);
+            memoryCache.put(key, new CacheEntry(data, now));
+            evictOversize();
+        }
+    }
+
+    private void evictExpired(long now) {
+        if (ttlMillis <= 0L || memoryCache.isEmpty()) {
+            return;
+        }
+        Iterator<Map.Entry<CacheKey, CacheEntry>> iterator = memoryCache.entrySet().iterator();
+        while (iterator.hasNext()) {
+            CacheEntry entry = iterator.next().getValue();
+            if (isExpired(entry, now)) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private boolean isExpired(CacheEntry entry, long now) {
+        return ttlMillis > 0L && now - entry.lastAccessMillis() > ttlMillis;
+    }
+
+    private void evictOversize() {
+        if (maxEntries <= 0) {
+            return;
+        }
+        Iterator<Map.Entry<CacheKey, CacheEntry>> iterator = memoryCache.entrySet().iterator();
+        while (memoryCache.size() > maxEntries && iterator.hasNext()) {
+            iterator.next();
+            iterator.remove();
+        }
+    }
+
     private record CacheKey(int x, int z) {
+    }
+
+    private static final class CacheEntry {
+        private final GreedyMeshData data;
+        private long lastAccessMillis;
+
+        private CacheEntry(GreedyMeshData data, long lastAccessMillis) {
+            this.data = data;
+            this.lastAccessMillis = lastAccessMillis;
+        }
+
+        public GreedyMeshData data() {
+            return data;
+        }
+
+        public long lastAccessMillis() {
+            return lastAccessMillis;
+        }
+
+        public void touch(long now) {
+            this.lastAccessMillis = now;
+        }
     }
 }
