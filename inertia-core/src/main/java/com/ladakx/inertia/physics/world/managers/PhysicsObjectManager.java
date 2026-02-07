@@ -8,10 +8,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class PhysicsObjectManager {
-    private final List<AbstractPhysicsBody> objects = new CopyOnWriteArrayList<>();
+    private final Set<AbstractPhysicsBody> objects = ConcurrentHashMap.newKeySet();
     // Используем Set для быстрого добавления/удаления без дубликатов
     private final Set<AbstractPhysicsBody> activeObjects = ConcurrentHashMap.newKeySet();
 
@@ -37,9 +36,12 @@ public class PhysicsObjectManager {
         objects.remove(object);
         activeObjects.remove(object);
         uuidMap.remove(object.getUuid());
-        objectMap.values().removeIf(o -> o == object);
-        bodyIdMap.values().removeIf(o -> o == object);
-        networkEntityIdMap.values().removeIf(o -> o == object);
+
+        Body body = object.getBody();
+        if (body != null) {
+            objectMap.remove(body.va(), object);
+            bodyIdMap.remove(body.getId(), object);
+        }
     }
 
     public void registerBody(@NotNull AbstractPhysicsBody object, @Nullable Body body) {
@@ -83,7 +85,7 @@ public class PhysicsObjectManager {
         return networkEntityIdMap.get(entityId);
     }
 
-    public @NotNull List<AbstractPhysicsBody> getAll() {
+    public @NotNull Collection<AbstractPhysicsBody> getAll() {
         return objects;
     }
 

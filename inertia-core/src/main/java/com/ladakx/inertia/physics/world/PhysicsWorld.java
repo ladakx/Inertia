@@ -136,7 +136,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     private PhysicsSnapshot collectSnapshot() {
-        List<AbstractPhysicsBody> allBodies = objectManager.getAll();
+        Collection<AbstractPhysicsBody> allBodies = objectManager.getAll();
         List<VisualState> updates = snapshotPool.borrowList();
         java.util.Set<Long> bodiesChunkKeys = new java.util.HashSet<>();
         List<AbstractPhysicsBody> toDestroy = new ArrayList<>();
@@ -300,7 +300,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     public @Nullable AbstractPhysicsBody getObjectByVa(long va) { return objectManager.getByVa(va); }
     public @Nullable AbstractPhysicsBody getObjectByNetworkEntityId(int entityId) { return objectManager.getByNetworkEntityId(entityId); }
     public @Nullable AbstractPhysicsBody getObjectByUuid(UUID uuid) { return objectManager.getByUuid(uuid); }
-    public @NotNull List<AbstractPhysicsBody> getObjects() { return objectManager.getAll(); }
+    public @NotNull Collection<AbstractPhysicsBody> getObjects() { return objectManager.getAll(); }
     public UUID addTickTask(Runnable runnable) { return taskManager.addTickTask(runnable); }
     public void removeTickTask(UUID uuid) { taskManager.removeTickTask(uuid); }
     public void schedulePhysicsTask(Runnable task) { taskManager.schedule(task); }
