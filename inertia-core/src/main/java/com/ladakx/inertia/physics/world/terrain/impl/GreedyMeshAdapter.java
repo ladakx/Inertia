@@ -14,6 +14,7 @@ import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsCache;
 import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsManager;
+import com.ladakx.inertia.physics.world.terrain.ChunkSnapshotData;
 import com.ladakx.inertia.physics.world.terrain.GenerationQueue;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
@@ -68,7 +69,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 meshingSettings
         );
 
-        this.chunkPhysicsManager = new ChunkPhysicsManager(generationQueue, cache, generator);
+        this.chunkPhysicsManager = new ChunkPhysicsManager(generationQueue, cache, generator, this::executeOnMainThread);
         this.meshApplyTaskId = world.addTickTask(this::processPendingMeshes);
 
         if (chunkSettings.generateOnLoad()) {
@@ -185,7 +186,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         String worldName = world.getWorldBukkit().getName();
         chunkPhysicsManager.requestChunkGeneration(
                 worldName, x, z,
-                () -> world.getWorldBukkit().getChunkAt(x, z),
+                () -> ChunkSnapshotData.capture(world.getWorldBukkit().getChunkAt(x, z), joltTools),
                 data -> {
                     if (world != null) {
                         enqueueMeshData(x, z, data);
@@ -204,16 +205,14 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             return;
         }
         int limit = Math.max(1, chunkSettings.maxMeshAppliesPerTick());
-        List<PendingMesh> pending = new ArrayList<>(pendingMeshData.values());
-        if (pending.isEmpty()) {
+        Collection<PendingMesh> pendingValues = pendingMeshData.values();
+        if (pendingValues.isEmpty()) {
             return;
         }
         List<Location> playerLocations = world.getWorldBukkit().getPlayers().stream()
                 .map(player -> player.getEyeLocation())
                 .toList();
-        pending.sort(Comparator
-                .comparingDouble((PendingMesh entry) -> distanceSqToNearestPlayer(entry, playerLocations))
-                .thenComparingLong(PendingMesh::sequence));
+        List<PendingMesh> pending = selectPendingMeshes(pendingValues, limit, playerLocations);
 
         int applied = 0;
         for (PendingMesh entry : pending) {
@@ -250,6 +249,52 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         return minDistance;
     }
 
+    private List<PendingMesh> selectPendingMeshes(Collection<PendingMesh> pendingValues,
+                                                  int limit,
+                                                  List<Location> playerLocations) {
+        if (playerLocations.isEmpty()) {
+            return selectBySequence(pendingValues, limit);
+        }
+        return selectByDistance(pendingValues, limit, playerLocations);
+    }
+
+    private List<PendingMesh> selectBySequence(Collection<PendingMesh> pendingValues, int limit) {
+        Comparator<PendingMesh> comparator = Comparator.comparingLong(PendingMesh::sequence);
+        PriorityQueue<PendingMesh> heap = new PriorityQueue<>(comparator.reversed());
+        for (PendingMesh entry : pendingValues) {
+            heap.offer(entry);
+            if (heap.size() > limit) {
+                heap.poll();
+            }
+        }
+        List<PendingMesh> selected = new ArrayList<>(heap);
+        selected.sort(comparator);
+        return selected;
+    }
+
+    private List<PendingMesh> selectByDistance(Collection<PendingMesh> pendingValues,
+                                               int limit,
+                                               List<Location> playerLocations) {
+        Comparator<ScoredPendingMesh> comparator = Comparator
+                .comparingDouble(ScoredPendingMesh::distance)
+                .thenComparingLong(entry -> entry.pending().sequence());
+        PriorityQueue<ScoredPendingMesh> heap = new PriorityQueue<>(comparator.reversed());
+        for (PendingMesh entry : pendingValues) {
+            double distance = distanceSqToNearestPlayer(entry, playerLocations);
+            heap.offer(new ScoredPendingMesh(entry, distance));
+            if (heap.size() > limit) {
+                heap.poll();
+            }
+        }
+        List<ScoredPendingMesh> scored = new ArrayList<>(heap);
+        scored.sort(comparator);
+        List<PendingMesh> selected = new ArrayList<>(scored.size());
+        for (ScoredPendingMesh entry : scored) {
+            selected.add(entry.pending());
+        }
+        return selected;
+    }
+
     private boolean hasPhysicalProfile(Material material) {
         if (material == null || blocksConfig == null) return false;
         return blocksConfig.find(material).isPresent();
@@ -280,19 +325,22 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         RVec3 bodyPosition = new RVec3(chunkWorldX, chunkWorldY, chunkWorldZ);
 
         // Группировка по свойствам
-        Map<PhysicsProperties, List<float[]>> groupedVertices = new HashMap<>();
+        Map<String, MeshGroup> groupedVertices = new HashMap<>();
 
         for (GreedyMeshShape shapeData : data.shapes()) {
             if (shapeData.vertices().length == 0) continue;
-            PhysicsProperties props = new PhysicsProperties(shapeData.friction(), shapeData.restitution());
-            groupedVertices.computeIfAbsent(props, k -> new ArrayList<>()).add(shapeData.vertices());
+            MeshGroup group = groupedVertices.computeIfAbsent(
+                    shapeData.materialId(),
+                    key -> new MeshGroup(shapeData.friction(), shapeData.restitution())
+            );
+            group.vertices().add(shapeData.vertices());
         }
 
         List<Integer> newBodyIds = new ArrayList<>();
 
-        for (Map.Entry<PhysicsProperties, List<float[]>> entry : groupedVertices.entrySet()) {
-            PhysicsProperties props = entry.getKey();
-            List<float[]> allVertices = entry.getValue();
+        for (Map.Entry<String, MeshGroup> entry : groupedVertices.entrySet()) {
+            MeshGroup group = entry.getValue();
+            List<float[]> allVertices = group.vertices();
 
             // 1. Подсчет общего количества треугольников
             int totalTriangles = 0;
@@ -341,8 +389,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                         bcs.setMotionType(EMotionType.Static);
                         bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
                         bcs.setShape(meshShape);
-                        bcs.setFriction(props.friction());
-                        bcs.setRestitution(props.restitution());
+                        bcs.setFriction(group.friction());
+                        bcs.setRestitution(group.restitution());
 
                         try (Body body = bi.createBody(bcs)) {
                             bi.addBody(body, EActivation.DontActivate);
@@ -376,7 +424,21 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         }
     }
 
-    private record PhysicsProperties(float friction, float restitution) {}
+    private void executeOnMainThread(Runnable task) {
+        if (Bukkit.isPrimaryThread()) {
+            task.run();
+            return;
+        }
+        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), task);
+    }
 
     private record PendingMesh(int x, int z, GreedyMeshData data, long sequence) {}
+
+    private record MeshGroup(float friction, float restitution, List<float[]> vertices) {
+        MeshGroup(float friction, float restitution) {
+            this(friction, restitution, new ArrayList<>());
+        }
+    }
+
+    private record ScoredPendingMesh(PendingMesh pending, double distance) {}
 }
