@@ -10,6 +10,7 @@ import com.ladakx.inertia.features.tools.ToolRegistry;
 import com.ladakx.inertia.features.ui.BossBarPerformanceMonitor;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
@@ -57,7 +58,7 @@ public class InertiaCommandManager {
     }
 
     private void setupExceptionHandling() {
-        MinecraftExceptionHandler.<CommandSender>create(sender -> (net.kyori.adventure.audience.Audience) sender)
+        MinecraftExceptionHandler.<CommandSender>create(sender -> sender)
                 .defaultHandlers()
                 .decorator(
                         component -> Component.text()

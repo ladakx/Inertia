@@ -49,7 +49,12 @@ public class PhysicsLoop {
                        Supplier<Integer> totalBodyCounter,
                        Supplier<Integer> staticBodyCounter) {
         this.name = name;
-        this.targetTps = tps;
+        if (tps <= 0) {
+            InertiaLogger.warn("Invalid tick-rate (" + tps + ") for world '" + name + "'. Falling back to 20.");
+            this.targetTps = 20;
+        } else {
+            this.targetTps = tps;
+        }
         this.maxBodyLimit = maxBodyLimit;
         this.physicsStep = physicsStep;
         this.snapshotProducer = snapshotProducer;
@@ -62,6 +67,10 @@ public class PhysicsLoop {
         this.tickThread.setDaemon(true);
         // Приоритет выше нормального, чтобы физика была плавной даже при нагрузке на CPU
         this.tickThread.setPriority(Thread.NORM_PRIORITY + 1);
+        this.tickThread.setUncaughtExceptionHandler((t, e) -> {
+            InertiaLogger.error("Uncaught error in physics loop thread '" + t.getName() + "'", e);
+            isActive.set(false);
+        });
 
         start();
     }
@@ -74,18 +83,22 @@ public class PhysicsLoop {
         isActive.set(true);
         tickThread.start();
 
-        this.syncTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), () -> {
-            if (!isActive.get()) return;
+        try {
+            this.syncTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), () -> {
+                if (!isActive.get()) return;
 
-            // Обрабатываем ВСЕ доступные снапшоты в этом тике, чтобы догнать физику
-            // Но ограничиваемся, чтобы не повесить сервер
-            int processed = 0;
-            PhysicsSnapshot snapshot;
-            while (processed < 5 && (snapshot = snapshotQueue.poll()) != null) {
-                snapshotConsumer.accept(snapshot);
-                processed++;
-            }
-        }, 1L, 1L);
+                // Обрабатываем ВСЕ доступные снапшоты в этом тике, чтобы догнать физику
+                // Но ограничиваемся, чтобы не повесить сервер
+                int processed = 0;
+                PhysicsSnapshot snapshot;
+                while (processed < 5 && (snapshot = snapshotQueue.poll()) != null) {
+                    snapshotConsumer.accept(snapshot);
+                    processed++;
+                }
+            }, 1L, 1L);
+        } catch (Throwable t) {
+            InertiaLogger.error("Failed to start sync snapshot consumer for world '" + name + "'", t);
+        }
     }
 
     private void runLoop() {
@@ -132,8 +145,10 @@ public class PhysicsLoop {
                         }
                     }
 
-                } catch (Exception e) {
+                } catch (Throwable e) {
                     InertiaLogger.error("Error in physics loop: " + name, e);
+                    // If a fatal error happens (e.g. OOM), stop the loop to avoid spamming and undefined state.
+                    isActive.set(false);
                 }
             } else {
                 // Умный сон до следующего тика

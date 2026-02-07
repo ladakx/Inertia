@@ -5,6 +5,8 @@ import com.ladakx.inertia.common.utils.MessageUtils;
 import com.ladakx.inertia.common.utils.StringUtils;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.ArrayList;
@@ -81,7 +83,26 @@ public class MessageManager {
     }
 
     // --- Sending Methods ---
+    public void send(CommandSender sender, MessageKey key, String... replacements) {
+        if (sender == null) return;
+
+        if (sender instanceof Audience) {
+            Audience audience = (Audience) sender;
+            send(audience, key, replacements);
+            return;
+        }
+
+        List<Component> lines = messageCache.get(key);
+        if (lines == null || lines.isEmpty()) return;
+
+        for (Component line : lines) {
+            Component component = (replacements.length > 0) ? StringUtils.replace(line, replacements) : line;
+            sender.sendMessage(LegacyComponentSerializer.legacySection().serialize(component));
+        }
+    }
+
     public void send(Audience audience, MessageKey key, String... replacements) {
+        if (audience == null) return;
         List<Component> lines = messageCache.get(key);
 
         // Якщо повідомлення немає в кеші (немає в конфізі або пусте) - нічого не робимо

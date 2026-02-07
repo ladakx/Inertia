@@ -13,6 +13,8 @@ public class PhysicsTaskManager {
 
     private final Map<UUID, Runnable> tickTasks = new ConcurrentHashMap<>();
     private final Queue<Runnable> oneTimeTasks = new ConcurrentLinkedQueue<>();
+    private static final int MAX_ONE_TIME_TASKS_PER_TICK = 50;
+    private static final long ONE_TIME_TASK_BUDGET_NANOS = 4_000_000L; // ~4ms
 
     public UUID addTickTask(@NotNull Runnable task) {
         UUID id = UUID.randomUUID();
@@ -30,12 +32,18 @@ public class PhysicsTaskManager {
 
     public void runAll() {
         // 1. One-time tasks
+        long start = System.nanoTime();
         Runnable task;
-        while ((task = oneTimeTasks.poll()) != null) {
+        int processed = 0;
+        while (processed < MAX_ONE_TIME_TASKS_PER_TICK && (task = oneTimeTasks.poll()) != null) {
             try {
                 task.run();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 InertiaLogger.error("Error executing one-time physics task", e);
+            }
+            processed++;
+            if (System.nanoTime() - start >= ONE_TIME_TASK_BUDGET_NANOS) {
+                break;
             }
         }
 
@@ -43,7 +51,7 @@ public class PhysicsTaskManager {
         for (Runnable tickTask : tickTasks.values()) {
             try {
                 tickTask.run();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 InertiaLogger.error("Error executing recurring physics task", e);
             }
         }

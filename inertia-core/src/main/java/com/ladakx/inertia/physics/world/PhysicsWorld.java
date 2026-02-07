@@ -28,6 +28,7 @@ import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -69,6 +70,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
     // --- CHANGED: Use Singleton NetworkEntityTracker ---
     private final NetworkEntityTracker networkEntityTracker;
+    private @Nullable BukkitTask networkTickTask;
 
     public PhysicsWorld(World world,
                         WorldsConfig.WorldProfile settings,
@@ -121,6 +123,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (metricsService != null) {
             this.physicsLoop.addListener(metricsService);
         }
+
+        // Tick network visibility independently of snapshot processing so renders don't vanish
+        // if the physics thread lags or stops producing snapshots.
+        this.networkTickTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), this::tickNetworkTracker, 1L, 1L);
     }
 
     private void runPhysicsStep() {
@@ -208,15 +214,14 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             }
         }
 
-        // 3. Tick Tracker (Calculate visibility and Send Packets)
-        // Calculate view distance
+        // 3. Cleanup
+        snapshot.release(snapshotPool);
+    }
+
+    private void tickNetworkTracker() {
         int viewDistanceBlocks = worldBukkit.getViewDistance() * 16;
         double viewDistanceSquared = (double) viewDistanceBlocks * viewDistanceBlocks;
-
         networkEntityTracker.tick(worldBukkit.getPlayers(), viewDistanceSquared);
-
-        // 4. Cleanup
-        snapshot.release(snapshotPool);
     }
     public boolean checkOverlap(@NotNull com.github.stephengold.joltjni.readonly.ConstShape shape,
                                 @NotNull RVec3 position,
@@ -359,6 +364,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     @Override
     public void close() {
         InertiaLogger.info("Closing world: " + worldName);
+        if (networkTickTask != null) {
+            networkTickTask.cancel();
+            networkTickTask = null;
+        }
         physicsLoop.stop();
         objectManager.clearAll();
         if (terrainAdapter != null) terrainAdapter.onDisable();
