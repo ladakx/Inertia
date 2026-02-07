@@ -4,7 +4,6 @@ import com.ladakx.inertia.api.service.DebugRenderService;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.ConfigurationService;
-import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.features.commands.impl.*;
 import com.ladakx.inertia.features.tools.ToolRegistry;
@@ -17,17 +16,13 @@ import org.bukkit.command.CommandSender;
 import org.incendo.cloud.bukkit.CloudBukkitCapabilities;
 import org.incendo.cloud.execution.ExecutionCoordinator;
 import org.incendo.cloud.minecraft.extras.MinecraftExceptionHandler;
-import org.incendo.cloud.minecraft.extras.MinecraftHelp;
 import org.incendo.cloud.paper.LegacyPaperCommandManager;
-
-import java.util.Map;
 
 public class InertiaCommandManager {
 
     private final InertiaPlugin plugin;
     private final ConfigurationService configService;
     private LegacyPaperCommandManager<CommandSender> commandManager;
-    private MinecraftHelp<CommandSender> minecraftHelp;
 
     public InertiaCommandManager(InertiaPlugin plugin, ConfigurationService configService) {
         this.plugin = plugin;
@@ -55,7 +50,6 @@ public class InertiaCommandManager {
             }
 
             setupExceptionHandling();
-            setupHelp();
 
         } catch (Exception e) {
             InertiaLogger.error("Failed to initialize Cloud Command Manager", e);
@@ -74,41 +68,6 @@ public class InertiaCommandManager {
                 .registerTo(commandManager);
     }
 
-    private void setupHelp() {
-        var colors = MinecraftHelp.helpColors(
-                NamedTextColor.RED,
-                NamedTextColor.WHITE,
-                NamedTextColor.GOLD,
-                NamedTextColor.GRAY,
-                NamedTextColor.DARK_GRAY
-        );
-
-        this.minecraftHelp = MinecraftHelp.<CommandSender>builder()
-                .commandManager(commandManager)
-                .audienceProvider(sender -> (net.kyori.adventure.audience.Audience) sender)
-                .commandPrefix("/inertia help")
-                .colors(colors)
-                .messageProvider((sender, key, args) -> {
-                    MessageKey targetKey = null;
-                    if (key.contains("help_title")) targetKey = MessageKey.HELP_PAGE_HEADER;
-                    else if (key.contains("click_for_next_page")) targetKey = MessageKey.HELP_NEXT_PAGE;
-                    else if (key.contains("click_for_previous_page")) targetKey = MessageKey.HELP_PREV_PAGE;
-                    else if (key.contains("page_out_of_range")) targetKey = MessageKey.HELP_PAGE_HEADER;
-
-                    if (targetKey != null) {
-                        Component comp = configService.getMessageManager().getSingle(targetKey);
-                        for (Map.Entry<String, String> entry : args.entrySet()) {
-                            String placeholder = "{" + entry.getKey() + "}";
-                            String value = entry.getValue();
-                            comp = comp.replaceText(config -> config.matchLiteral(placeholder).replacement(value));
-                        }
-                        return comp;
-                    }
-                    return Component.text(key, colors.text());
-                })
-                .build();
-    }
-
     public void registerCommands(ConfigurationService config,
                                  BodyFactory bodyFactory,
                                  ToolRegistry toolRegistry,
@@ -116,7 +75,7 @@ public class InertiaCommandManager {
                                  PhysicsMetricsService metricsService,
                                  DebugRenderService debugService,
                                  BossBarPerformanceMonitor perfMonitor) {
-        new SystemCommands(commandManager, config, minecraftHelp).register();
+        new SystemCommands(commandManager, config).register();
         new SpawnCommands(commandManager, config, bodyFactory).register();
         new ToolCommands(commandManager, config, toolRegistry).register();
         new ManageCommands(commandManager, config, worldRegistry).register();
