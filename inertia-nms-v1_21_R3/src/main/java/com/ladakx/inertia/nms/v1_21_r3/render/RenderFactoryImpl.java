@@ -1,6 +1,6 @@
 package com.ladakx.inertia.nms.v1_21_r3.render;
 
-import com.ladakx.inertia.nms.PacketFactory;
+import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
 import com.ladakx.inertia.nms.v1_21_r3.packet.PacketFactoryImpl;
 import com.ladakx.inertia.rendering.ItemModelResolver;
 import com.ladakx.inertia.rendering.NetworkVisual;

@@ -1,4 +1,4 @@
-package com.ladakx.inertia.nms;
+package com.ladakx.inertia.infrastructure.nms.packet;
 
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 

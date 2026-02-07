@@ -1,6 +1,6 @@
 package com.ladakx.inertia.nms.v1_16_r3.packet;
 
-import com.ladakx.inertia.nms.PacketFactory;
+import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 
 import java.util.List;
