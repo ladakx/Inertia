@@ -25,6 +25,7 @@ import org.bukkit.Material;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -43,6 +44,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         this.world = world;
         InertiaConfig config = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig();
         int workerThreads = config.PHYSICS.workerThreads;
+        InertiaConfig.PhysicsSettings.ChunkCacheSettings cacheSettings = config.PHYSICS.CHUNK_CACHE;
 
         this.joltTools = InertiaPlugin.getInstance().getJoltTools();
         this.blocksConfig = InertiaPlugin.getInstance().getConfigManager().getBlocksConfig();
@@ -52,7 +54,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         File worldFolder = world.getWorldBukkit().getWorldFolder();
         File cacheDir = new File(worldFolder, "physics");
-        ChunkPhysicsCache cache = new ChunkPhysicsCache(cacheDir);
+        Duration cacheTtl = Duration.ofSeconds(Math.max(0, cacheSettings.ttlSeconds));
+        ChunkPhysicsCache cache = new ChunkPhysicsCache(cacheDir, cacheSettings.maxEntries, cacheTtl);
 
         GreedyMeshGenerator generator = new GreedyMeshGenerator(
                 blocksConfig,
