@@ -22,12 +22,14 @@ import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshShape;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
+import org.bukkit.Location;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class GreedyMeshAdapter implements TerrainAdapter {
     private PhysicsWorld world;
@@ -37,7 +39,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private final Map<Long, List<Integer>> chunkBodies = new HashMap<>();
     private final Set<Long> loadedChunks = ConcurrentHashMap.newKeySet();
     private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
+    private final Map<Long, PendingMesh> pendingMeshData = new ConcurrentHashMap<>();
     private WorldsConfig.ChunkManagementSettings chunkSettings;
+    private final AtomicLong meshSequence = new AtomicLong();
+    private UUID meshApplyTaskId;
 
     @Override
     public void onEnable(PhysicsWorld world) {
@@ -64,6 +69,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         );
 
         this.chunkPhysicsManager = new ChunkPhysicsManager(generationQueue, cache, generator);
+        this.meshApplyTaskId = world.addTickTask(this::processPendingMeshes);
 
         if (chunkSettings.generateOnLoad()) {
             for (Chunk chunk : world.getWorldBukkit().getLoadedChunks()) {
@@ -81,10 +87,15 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 removeChunkBodies(key);
             }
         }
+        if (meshApplyTaskId != null) {
+            world.removeTickTask(meshApplyTaskId);
+            meshApplyTaskId = null;
+        }
         if (chunkPhysicsManager != null) {
             chunkPhysicsManager.close();
         }
         loadedChunks.clear();
+        pendingMeshData.clear();
         chunkPhysicsManager = null;
         joltTools = null;
         world = null;
@@ -103,6 +114,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     public void onChunkUnload(int x, int z) {
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.remove(key);
+        pendingMeshData.remove(key);
 
         BukkitTask task = pendingUpdates.remove(key);
         if (task != null) task.cancel();
@@ -176,10 +188,66 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 () -> world.getWorldBukkit().getChunkAt(x, z),
                 data -> {
                     if (world != null) {
-                        world.schedulePhysicsTask(() -> applyMeshData(x, z, data));
+                        enqueueMeshData(x, z, data);
                     }
                 }
         );
+    }
+
+    private void enqueueMeshData(int x, int z, GreedyMeshData data) {
+        long key = ChunkUtils.getChunkKey(x, z);
+        pendingMeshData.put(key, new PendingMesh(x, z, data, meshSequence.incrementAndGet()));
+    }
+
+    private void processPendingMeshes() {
+        if (world == null || pendingMeshData.isEmpty()) {
+            return;
+        }
+        int limit = Math.max(1, chunkSettings.maxMeshAppliesPerTick());
+        List<PendingMesh> pending = new ArrayList<>(pendingMeshData.values());
+        if (pending.isEmpty()) {
+            return;
+        }
+        List<Location> playerLocations = world.getWorldBukkit().getPlayers().stream()
+                .map(player -> player.getEyeLocation())
+                .toList();
+        pending.sort(Comparator
+                .comparingDouble((PendingMesh entry) -> distanceSqToNearestPlayer(entry, playerLocations))
+                .thenComparingLong(PendingMesh::sequence));
+
+        int applied = 0;
+        for (PendingMesh entry : pending) {
+            if (applied >= limit) {
+                break;
+            }
+            long key = ChunkUtils.getChunkKey(entry.x(), entry.z());
+            if (!loadedChunks.contains(key)) {
+                pendingMeshData.remove(key);
+                continue;
+            }
+            if (pendingMeshData.remove(key, entry)) {
+                applyMeshData(entry.x(), entry.z(), entry.data());
+                applied++;
+            }
+        }
+    }
+
+    private double distanceSqToNearestPlayer(PendingMesh entry, List<Location> playerLocations) {
+        if (playerLocations.isEmpty()) {
+            return Double.MAX_VALUE;
+        }
+        double chunkCenterX = entry.x() * 16.0 + 8.0;
+        double chunkCenterZ = entry.z() * 16.0 + 8.0;
+        double minDistance = Double.MAX_VALUE;
+        for (Location location : playerLocations) {
+            double dx = chunkCenterX - location.getX();
+            double dz = chunkCenterZ - location.getZ();
+            double distance = dx * dx + dz * dz;
+            if (distance < minDistance) {
+                minDistance = distance;
+            }
+        }
+        return minDistance;
     }
 
     private boolean hasPhysicalProfile(Material material) {
@@ -309,4 +377,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     }
 
     private record PhysicsProperties(float friction, float restitution) {}
+
+    private record PendingMesh(int x, int z, GreedyMeshData data, long sequence) {}
 }

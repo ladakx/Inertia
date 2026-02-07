@@ -49,10 +49,11 @@ public class WorldsConfig {
                     chunkSec.getBoolean("generate-on-load", true),
                     chunkSec.getBoolean("remove-on-unload", true),
                     chunkSec.getBoolean("update-on-block-change", true),
-                    chunkSec.getInt("update-debounce-ticks", 5)
+                    chunkSec.getInt("update-debounce-ticks", 5),
+                    chunkSec.getInt("mesh-apply-per-tick", 4)
             );
         } else {
-            chunkSettings = new ChunkManagementSettings(true, true, true, 5);
+            chunkSettings = new ChunkManagementSettings(true, true, true, 5, 4);
         }
 
         ConfigurationSection perfSec = section.getConfigurationSection("performance");
@@ -334,6 +335,7 @@ public class WorldsConfig {
             boolean generateOnLoad,
             boolean removeOnUnload,
             boolean updateOnBlockChange,
-            int updateDebounceTicks
+            int updateDebounceTicks,
+            int maxMeshAppliesPerTick
     ) {}
 }
