@@ -185,8 +185,99 @@ debug-perf-format: "Server: &b{srv}ms &8| &7Phys: &b{phys}ms &8(&e{perc}%&8) &8|
 debug-hitbox-toggle:
   - "{prefix} &7Hitbox Debugging: {state}"
 
+help-index-1:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia spawn</gold> <dark_gray>-</dark_gray> <gray>spawn physics bodies.</gray>"
+  - "<gray><gold>/inertia clear</gold> <dark_gray>-</dark_gray> <gray>remove physics bodies from the current world.</gray>"
+  - "<gray><gold>/inertia debug</gold> <dark_gray>-</dark_gray> <gray>hitboxes/perf/inspect tools.</gray>"
+  - "<gray><gold>/inertia tool</gold> <dark_gray>-</dark_gray> <gray>give in-game tools.</gray>"
+  - "<gray><gold>/inertia admin</gold> <dark_gray>-</dark_gray> <gray>pause/stats (admins).</gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray>Open detailed help:</gray> <gold>/inertia help spawn</gold><gray>,</gray> <gold>/inertia help clear</gold><gray>,</gray> <gold>/inertia help debug</gold>"
+  - "<gray>More:</gray> <gold>/inertia help tool</gold><gray>,</gray> <gold>/inertia help admin</gold><gray>,</gray> <gold>/inertia help entity</gold>"
 
-# --- Dynamic Help Menu ---
-help-page-header: "&c&lInertia Help &8(&7{page}/{max_pages}&8)"
-help-next-page: "&cNext &l»"
-help-prev-page: "&l« &cPrev"
+help-index-2:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray>World requirement:</gray> <dark_gray>Most commands work only in simulated worlds (see</dark_gray> <gold>worlds.yml</gold><dark_gray>).</dark_gray>"
+  - "<gray>Quick examples:</gray>"
+  - "<gold>/inertia spawn body stone</gold>"
+  - "<gold>/inertia spawn chain iron_chain 20</gold>"
+  - "<gold>/inertia spawn ragdoll ragdoll_head Notch</gold>"
+  - "<gold>/inertia clear 32</gold> <dark_gray># remove within radius</dark_gray>"
+  - "<gold>/inertia debug hitboxes 40</gold>"
+  - "<gold>/inertia tool welder</gold>"
+
+help-tip-topics:
+  - "<dark_gray>Tip:</dark_gray> <gray>Use</gray> <gold>/inertia help spawn</gold><gray>,</gray> <gold>/inertia help clear</gold><gray>,</gray> <gold>/inertia help debug</gold><gray>…</gray>"
+
+help-spawn-1:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>»</dark_gray> <gold>spawn</gold> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia spawn body &lt;id&gt;</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn a simple body from</gray> <gold>bodies.yml</gold><gray>.</gray>"
+  - "<gray><gold>/inertia spawn chain &lt;id&gt; [size]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn a chain with 1-100 links (default 10).</gray>"
+  - "<gray><gold>/inertia spawn ragdoll &lt;id&gt; [nickname]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn a ragdoll; optional Minecraft username for skin.</gray>"
+  - "<gray><gold>/inertia spawn tnt &lt;id&gt; [force]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn TNT physics body; force 0.1-100 (default 20).</gray>"
+
+help-spawn-2:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>»</dark_gray> <gold>spawn</gold> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia spawn spawn-shape &lt;type&gt; &lt;id&gt; &lt;params...&gt;</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn bodies in a debug shape (see available shapes via tab-complete).</gray>"
+  - "<dark_gray>-</dark_gray> <gray>The command prints required params format as a hint.</gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray>Notes:</gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn can fail if location is obstructed.</gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn can fail if outside world boundaries.</gray>"
+  - "<dark_gray>-</dark_gray> <gray>Spawn can fail if world body limit is reached.</gray>"
+
+help-clear-1:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>»</dark_gray> <gold>clear</gold> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia clear [radius] [filter]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Remove physics bodies from the current world.</gray>"
+  - "<dark_gray>-</dark_gray> <gray><radius></gray> <dark_gray>limits distance from you.</dark_gray>"
+  - "<dark_gray>-</dark_gray> <gray><filter></gray> <dark_gray>can be a body ID (from bodies.yml) or a type (BLOCK/TNT/CHAIN/RAGDOLL).</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray>Performance:</gray> <dark_gray>large clears run in batches to avoid freezing.</dark_gray>"
+
+help-entity-1:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>»</dark_gray> <gold>entity</gold> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia entity clear &lt;radius&gt; &lt;active&gt; &lt;static&gt; [filter]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Removes Bukkit entities related to Inertia (active/static).</gray>"
+  - "<gray><gold>/inertia entity static &lt;radius&gt; [filter]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Converts active physics bodies to static decorations.</gray>"
+
+help-debug-1:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>»</dark_gray> <gold>debug</gold> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia debug hitboxes [range]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Toggles hitbox rendering around you.</gray>"
+  - "<gray><gold>/inertia debug perf</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Toggles performance boss-bar monitor.</gray>"
+  - "<gray><gold>/inertia debug inspect</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Gives an inspector tool for detailed body info.</gray>"
+
+help-tool-1:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>»</dark_gray> <gold>tool</gold> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia tool chain &lt;id&gt;</gold></gray>"
+  - "<gray><gold>/inertia tool ragdoll &lt;id&gt;</gold></gray>"
+  - "<gray><gold>/inertia tool shape &lt;type&gt; &lt;id&gt; &lt;params...&gt;</gold></gray>"
+  - "<gray><gold>/inertia tool tntspawner &lt;id&gt; [force]</gold></gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray>Other tools:</gray> <dark_gray>grabber / welder / remover / inspector (see tool menu).</dark_gray>"
+
+help-admin-1:
+  - "<red><bold>Inertia</bold></red> <gray>Help</gray> <dark_gray>»</dark_gray> <gold>admin</gold> <dark_gray>(Page {page}/{max})</dark_gray>"
+  - "<dark_gray> </dark_gray>"
+  - "<gray><gold>/inertia admin pause [true/false]</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Pause/resume simulation in all physics worlds.</gray>"
+  - "<gray><gold>/inertia admin stats</gold></gray>"
+  - "<dark_gray>-</dark_gray> <gray>Show performance and bodies counts.</gray>"

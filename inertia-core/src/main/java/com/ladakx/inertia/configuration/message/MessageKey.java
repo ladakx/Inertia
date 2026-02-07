@@ -86,9 +86,16 @@ public enum MessageKey {
     DEBUG_PERF_FORMAT("debug-perf-format"),
     DEBUG_HITBOX_TOGGLE("debug-hitbox-toggle"),
 
-    HELP_PAGE_HEADER("help-page-header"),
-    HELP_NEXT_PAGE("help-next-page"),
-    HELP_PREV_PAGE("help-prev-page");
+    HELP_INDEX_1("help-index-1"),
+    HELP_INDEX_2("help-index-2"),
+    HELP_TIP_TOPICS("help-tip-topics"),
+    HELP_SPAWN_1("help-spawn-1"),
+    HELP_SPAWN_2("help-spawn-2"),
+    HELP_CLEAR_1("help-clear-1"),
+    HELP_ENTITY_1("help-entity-1"),
+    HELP_DEBUG_1("help-debug-1"),
+    HELP_TOOL_1("help-tool-1"),
+    HELP_ADMIN_1("help-admin-1");
 
     private final String path;
 
