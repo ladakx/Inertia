@@ -3,13 +3,11 @@ package com.ladakx.inertia.physics.world.terrain;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
-import org.bukkit.Chunk;
-
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -25,24 +23,30 @@ public class ChunkPhysicsManager implements AutoCloseable {
     private final GenerationQueue generationQueue;
     private final ChunkPhysicsCache cache;
     private final PhysicsGenerator<GreedyMeshData> generator;
+    private final Executor mainThreadExecutor;
     private final ExecutorService cacheIoExecutor;
 
-    public ChunkPhysicsManager(GenerationQueue generationQueue, ChunkPhysicsCache cache, PhysicsGenerator<GreedyMeshData> generator) {
+    public ChunkPhysicsManager(GenerationQueue generationQueue,
+                               ChunkPhysicsCache cache,
+                               PhysicsGenerator<GreedyMeshData> generator,
+                               Executor mainThreadExecutor) {
         this.generationQueue = generationQueue;
         this.cache = cache;
         this.generator = generator;
+        this.mainThreadExecutor = mainThreadExecutor;
         this.cacheIoExecutor = Executors.newSingleThreadExecutor(new CacheIoThreadFactory());
     }
 
     public void requestChunkGeneration(String worldName,
                                        int chunkX,
                                        int chunkZ,
-                                       Supplier<Chunk> chunkSupplier,
+                                       Supplier<ChunkSnapshotData> snapshotSupplier,
                                        Consumer<GreedyMeshData> onReady) {
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
         if (!queuedChunks.add(key) || cache == null || generator == null || generationQueue == null) {
             return;
         }
+        int cacheRevision = generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get();
 
         CompletableFuture
             .supplyAsync(() -> cache.get(chunkX, chunkZ), cacheIoExecutor)
@@ -52,12 +56,14 @@ public class ChunkPhysicsManager implements AutoCloseable {
                 }
                 if (throwable != null) {
                     InertiaLogger.warn("Failed to read terrain cache at " + chunkX + ", " + chunkZ, throwable);
-                } else if (cached != null && cached.isPresent()) {
+                } else if (cached != null
+                        && cached.isPresent()
+                        && generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get() == cacheRevision) {
                     queuedChunks.remove(key);
                     onReady.accept(cached.get());
                     return;
                 }
-                startGeneration(worldName, chunkX, chunkZ, chunkSupplier, onReady, key);
+                startGeneration(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key);
             });
     }
 
@@ -91,37 +97,44 @@ public class ChunkPhysicsManager implements AutoCloseable {
     private void startGeneration(String worldName,
                                  int chunkX,
                                  int chunkZ,
-                                 Supplier<Chunk> chunkSupplier,
+                                 Supplier<ChunkSnapshotData> snapshotSupplier,
                                  Consumer<GreedyMeshData> onReady,
                                  long key) {
-        Chunk chunk;
-        try {
-            chunk = chunkSupplier.get();
-        } catch (Exception ex) {
-            queuedChunks.remove(key);
-            InertiaLogger.warn("Failed to capture chunk for " + worldName + " at " + chunkX + ", " + chunkZ, ex);
-            return;
-        }
-        if (chunk == null) {
-            queuedChunks.remove(key);
-            return;
-        }
+        mainThreadExecutor.execute(() -> {
+            if (!queuedChunks.contains(key)) {
+                return;
+            }
+            ChunkSnapshotData snapshot;
+            try {
+                snapshot = snapshotSupplier.get();
+            } catch (Exception ex) {
+                queuedChunks.remove(key);
+                InertiaLogger.warn("Failed to capture chunk for " + worldName + " at " + chunkX + ", " + chunkZ, ex);
+                return;
+            }
+            if (snapshot == null) {
+                queuedChunks.remove(key);
+                return;
+            }
 
-        int generationId = generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get();
-        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(chunk));
-        inFlight.put(key, future);
-        future.whenComplete((data, throwable) -> {
-            inFlight.remove(key);
-            queuedChunks.remove(key);
-            if (throwable != null) {
-                InertiaLogger.warn("Failed to generate physics chunk at " + chunkX + ", " + chunkZ, throwable);
-                return;
-            }
-            if (generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get() != generationId) {
-                return;
-            }
-            cache.put(chunkX, chunkZ, data);
-            onReady.accept(data);
+            int generationId = generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get();
+            CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot));
+            inFlight.put(key, future);
+            future.whenComplete((data, throwable) -> {
+                inFlight.remove(key);
+                queuedChunks.remove(key);
+                if (throwable != null) {
+                    InertiaLogger.warn("Failed to generate physics chunk at " + chunkX + ", " + chunkZ, throwable);
+                    return;
+                }
+                if (generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get() != generationId) {
+                    return;
+                }
+                if (cache != null) {
+                    cacheIoExecutor.execute(() -> cache.put(chunkX, chunkZ, data));
+                }
+                onReady.accept(data);
+            });
         });
     }
 
