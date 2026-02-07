@@ -94,7 +94,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
             NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
             parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
-        return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
+        return new PhysicsDisplayComposite(this, renderDef, world, parts);
     }
 
     private static BodyCreationSettings createBodySettings(String bodyId, String partName,

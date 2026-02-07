@@ -41,8 +41,9 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
 
     @Override
     protected PhysicsDisplayComposite recreateDisplay() {
-        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
+        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(getBodyId());
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
+
         if (renderOpt.isPresent()) {
             RenderModelDefinition renderDef = renderOpt.get();
             World world = getSpace().getWorldBukkit();
@@ -51,12 +52,13 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
 
             List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
             for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
-                String entityKey = entry.getKey();
                 RenderEntityDefinition entityDef = entry.getValue();
                 NetworkVisual visual = renderFactory.create(world, spawnLocation, entityDef);
                 parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
             }
-            return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
+
+            // Передаем 'this' вместо getBody()
+            return new PhysicsDisplayComposite(this, renderDef, world, parts);
         }
         return null;
     }

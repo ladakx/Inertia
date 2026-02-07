@@ -62,22 +62,25 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
 
     @Override
     protected PhysicsDisplayComposite recreateDisplay() {
-        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
+        PhysicsBodyRegistry.BodyModel model = modelRegistry.require(getBodyId());
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
+
         if (renderOpt.isEmpty()) return null;
 
         RenderModelDefinition renderDef = renderOpt.get();
         World world = getSpace().getWorldBukkit();
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
+
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
         for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
-            String entityKey = entry.getKey();
             RenderEntityDefinition entityDef = entry.getValue();
             NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
             parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
-        return new PhysicsDisplayComposite(getBody(), renderDef, world, parts);
+
+        // Передаем 'this'
+        return new PhysicsDisplayComposite(this, renderDef, world, parts);
     }
 
     private static float calculateGravity(PhysicsBodyRegistry.BodyModel model, int length) {
