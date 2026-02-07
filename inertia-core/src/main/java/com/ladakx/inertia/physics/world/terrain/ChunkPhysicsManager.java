@@ -21,6 +21,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
 
     private final Set<Long> queuedChunks = ConcurrentHashMap.newKeySet();
     private final Map<Long, CompletableFuture<GreedyMeshData>> inFlight = new ConcurrentHashMap<>();
+    private final Map<Long, AtomicInteger> generationRevisions = new ConcurrentHashMap<>();
     private final GenerationQueue generationQueue;
     private final ChunkPhysicsCache cache;
     private final PhysicsGenerator<GreedyMeshData> generator;
@@ -70,6 +71,12 @@ public class ChunkPhysicsManager implements AutoCloseable {
     }
 
     public void invalidate(int chunkX, int chunkZ) {
+        long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
+        generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).incrementAndGet();
+        CompletableFuture<GreedyMeshData> future = inFlight.remove(key);
+        if (future != null) {
+            future.cancel(true);
+        }
         if (cache != null) {
             cacheIoExecutor.execute(() -> cache.invalidate(chunkX, chunkZ));
         }
@@ -100,6 +107,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
             return;
         }
 
+        int generationId = generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get();
         CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(chunk));
         inFlight.put(key, future);
         future.whenComplete((data, throwable) -> {
@@ -107,6 +115,9 @@ public class ChunkPhysicsManager implements AutoCloseable {
             queuedChunks.remove(key);
             if (throwable != null) {
                 InertiaLogger.warn("Failed to generate physics chunk at " + chunkX + ", " + chunkZ, throwable);
+                return;
+            }
+            if (generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get() != generationId) {
                 return;
             }
             cache.put(chunkX, chunkZ, data);
