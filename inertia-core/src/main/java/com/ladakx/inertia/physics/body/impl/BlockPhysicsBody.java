@@ -16,6 +16,7 @@ import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
+import com.ladakx.inertia.rendering.staticent.BukkitStaticEntityPersister;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
@@ -58,7 +59,15 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
             }
 
             // Передаем 'this' вместо getBody()
-            return new PhysicsDisplayComposite(this, renderDef, world, parts);
+            var plugin = com.ladakx.inertia.core.InertiaPlugin.getInstance();
+            return new PhysicsDisplayComposite(
+                    this,
+                    renderDef,
+                    world,
+                    parts,
+                    plugin != null ? plugin.getNetworkEntityTracker() : null,
+                    new BukkitStaticEntityPersister(plugin != null ? plugin.getItemRegistry() : null)
+            );
         }
         return null;
     }

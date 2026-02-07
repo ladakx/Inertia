@@ -16,6 +16,7 @@ import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
+import com.ladakx.inertia.rendering.staticent.BukkitStaticEntityPersister;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import com.ladakx.inertia.common.utils.MiscUtils;
 import org.bukkit.Location;
@@ -80,7 +81,15 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         }
 
         // Передаем 'this'
-        return new PhysicsDisplayComposite(this, renderDef, world, parts);
+        var plugin = com.ladakx.inertia.core.InertiaPlugin.getInstance();
+        return new PhysicsDisplayComposite(
+                this,
+                renderDef,
+                world,
+                parts,
+                plugin != null ? plugin.getNetworkEntityTracker() : null,
+                new BukkitStaticEntityPersister(plugin != null ? plugin.getItemRegistry() : null)
+        );
     }
 
     private static float calculateGravity(PhysicsBodyRegistry.BodyModel model, int length) {
