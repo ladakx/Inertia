@@ -65,11 +65,13 @@ public class InertiaConfig {
     public static class PhysicsSettings {
         public final Precision precision;
         public final int workerThreads;
+        public final ChunkCacheSettings CHUNK_CACHE;
 
         public PhysicsSettings(ConfigurationSection section, FileConfiguration root) {
             if (section == null) {
                 this.precision = Precision.SP;
                 this.workerThreads = 2;
+                this.CHUNK_CACHE = new ChunkCacheSettings(null, root);
                 return;
             }
 
@@ -78,6 +80,23 @@ public class InertiaConfig {
             this.precision = "DP".equalsIgnoreCase(precStr) ? Precision.DP : Precision.SP;
 
             this.workerThreads = section.getInt("worker-threads", 2);
+            this.CHUNK_CACHE = new ChunkCacheSettings(section.getConfigurationSection("chunk-cache"), root);
+        }
+
+        public static class ChunkCacheSettings {
+            public final int maxEntries;
+            public final int ttlSeconds;
+
+            public ChunkCacheSettings(ConfigurationSection section, FileConfiguration root) {
+                if (section == null) {
+                    this.maxEntries = 4096;
+                    this.ttlSeconds = 900;
+                    return;
+                }
+
+                this.maxEntries = section.getInt("max-entries", 4096);
+                this.ttlSeconds = section.getInt("ttl-seconds", 900);
+            }
         }
     }
 }
