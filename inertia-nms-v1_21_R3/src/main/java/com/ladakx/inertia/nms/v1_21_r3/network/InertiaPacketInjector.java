@@ -50,6 +50,7 @@ public class InertiaPacketInjector {
         if (space == null) return;
 
         AbstractPhysicsBody body = space.getObjectByNetworkEntityId(entityId);
+
         if (body == null) return;
 
         boolean attack = packet.getAction() instanceof ServerboundInteractPacket.AttackAction;

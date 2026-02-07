@@ -3,18 +3,21 @@ package com.ladakx.inertia.rendering.runtime;
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
+import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
+import com.ladakx.inertia.rendering.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.common.utils.ConvertUtils;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -31,12 +34,13 @@ public final class PhysicsDisplayComposite {
         }
     }
 
+    private final AbstractPhysicsBody owner; // Ссылка на владельца для регистрации ID
     private final Body body;
     private final RenderModelDefinition model;
     private final List<DisplayPart> parts;
     private final World world;
 
-    // Cache fields to avoid allocations during capture
+    // Cache objects to reduce GC
     private final Vector3f cacheBodyPos = new Vector3f();
     private final Quaternionf cacheBodyRot = new Quaternionf();
     private final Vector3f cacheCenterOffset = new Vector3f();
@@ -44,11 +48,37 @@ public final class PhysicsDisplayComposite {
     private final Vector3f cacheLocalOffset = new Vector3f();
     private final Quaternionf cacheFinalRot = new Quaternionf();
 
-    public PhysicsDisplayComposite(Body body, RenderModelDefinition model, World world, List<DisplayPart> parts) {
-        this.body = Objects.requireNonNull(body);
+    public PhysicsDisplayComposite(AbstractPhysicsBody owner, RenderModelDefinition model, World world, List<DisplayPart> parts) {
+        this.owner = Objects.requireNonNull(owner);
+        this.body = owner.getBody();
         this.model = Objects.requireNonNull(model);
         this.world = Objects.requireNonNull(world);
         this.parts = Collections.unmodifiableList(parts);
+
+        // Initial Registration
+        registerAll();
+    }
+
+    private void registerAll() {
+        NetworkEntityTracker tracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
+        if (tracker == null) return;
+
+        RVec3 pos = body.getPosition();
+        Quat rot = body.getRotation();
+
+        Location baseLoc = new Location(world, pos.getX(), pos.getY(), pos.getZ());
+        Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
+
+        for (DisplayPart part : parts) {
+            int visualId = part.visual().getId();
+
+            // 1. Регистрируем в Трекере (для видимости)
+            tracker.register(part.visual(), baseLoc, baseRot);
+
+            // 2. Регистрируем в Физическом Мире (для кликов/взаимодействия)
+            // Это позволит InertiaPacketInjector найти PhysicsBody по ID пакета
+            owner.getSpace().registerNetworkEntityId(owner, visualId);
+        }
     }
 
     public void capture(boolean sleeping, RVec3 origin, List<VisualState> accumulator, SnapshotPool pool) {
@@ -57,7 +87,6 @@ public final class PhysicsDisplayComposite {
         RVec3 bodyPosJolt = body.getPosition();
         Quat bodyRotJolt = body.getRotation();
 
-        // Update cached JOML objects from Jolt data
         cacheBodyPos.set(
                 (float) (bodyPosJolt.xx() + origin.xx()),
                 (float) (bodyPosJolt.yy() + origin.yy()),
@@ -65,17 +94,17 @@ public final class PhysicsDisplayComposite {
         );
         cacheBodyRot.set(bodyRotJolt.getX(), bodyRotJolt.getY(), bodyRotJolt.getZ(), bodyRotJolt.getW());
 
-        // Calculate center offset (reusing static helper would be even better, but this is okay for now)
-        Vector3f extent = ConvertUtils.toJOML(body.getShape().getLocalBounds().getExtent());
-        cacheCenterOffset.set(extent).mul(-1f);
+        cacheCenterOffset.set(0, 0, 0);
 
         for (DisplayPart part : parts) {
             RenderEntityDefinition def = part.definition();
             NetworkVisual visual = part.visual();
-            boolean visible = sleeping ? def.showWhenSleeping() : def.showWhenActive();
 
-            // Calculate Position
+            boolean visible = sleeping ? def.showWhenSleeping() : def.showWhenActive();
+            if (!visible) continue;
+
             cacheFinalPos.set(cacheBodyPos);
+
             if (model.syncPosition()) {
                 Vector offset = def.localOffset();
                 cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
@@ -83,14 +112,12 @@ public final class PhysicsDisplayComposite {
                 cacheFinalPos.add(cacheLocalOffset);
             }
 
-            // Calculate Rotation
             if (model.syncRotation()) {
                 cacheFinalRot.set(cacheBodyRot).mul(def.localRotation());
             } else {
                 cacheFinalRot.set(def.localRotation());
             }
 
-            // Borrow state object from pool and populate it
             VisualState state = pool.borrowState();
             state.set(
                     visual,
@@ -105,18 +132,36 @@ public final class PhysicsDisplayComposite {
     }
 
     public void setGlowing(boolean glowing) {
-        // Packet-based visuals handle metadata per-player in a different layer.
+        // Future impl
     }
 
     public void markAsStatic(@org.jetbrains.annotations.Nullable java.util.UUID clusterId) {
-        // Packet-based visuals do not rely on Bukkit PersistentDataContainer.
+        // Future impl
     }
 
     public boolean isValid() {
-        return true;
+        return body != null && !parts.isEmpty();
     }
 
     public void destroy() {
-        // Destroying packet-based visuals is handled by the network layer.
+        NetworkEntityTracker tracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
+        if (tracker != null) {
+            for (DisplayPart part : parts) {
+                int visualId = part.visual().getId();
+
+                // 1. Убираем из трекера
+                tracker.unregister(part.visual());
+
+                // 2. Убираем маппинг ID -> Body
+                if (owner.isValid()) { // Проверка на всякий случай, хотя при destroy owner еще жив
+                    owner.getSpace().unregisterNetworkEntityId(visualId);
+                }
+
+                // Force destroy packet
+                for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+                    part.visual().destroyFor(p);
+                }
+            }
+        }
     }
 }

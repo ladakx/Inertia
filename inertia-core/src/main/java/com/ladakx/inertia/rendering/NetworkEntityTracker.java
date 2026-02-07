@@ -6,20 +6,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Реєстр активних packet-based entity. Лише базове зберігання без логіки видимості.
- */
 public class NetworkEntityTracker {
 
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
+    // Храним ID видимых сущностей для каждого игрока
     private final Map<UUID, Set<Integer>> visibleByPlayer = new ConcurrentHashMap<>();
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
@@ -36,61 +29,75 @@ public class NetworkEntityTracker {
 
     public void unregisterById(int id) {
         visualsById.remove(id);
-        for (Set<Integer> visible : visibleByPlayer.values()) {
-            visible.remove(id);
+        // Если визуальный объект удален глобально, он должен исчезнуть у всех игроков
+        for (Map.Entry<UUID, Set<Integer>> entry : visibleByPlayer.entrySet()) {
+            if (entry.getValue().remove(id)) {
+                Player player = org.bukkit.Bukkit.getPlayer(entry.getKey());
+                if (player != null) {
+                    // Мы не можем вызвать destroyFor здесь, так как объекта visual уже может не быть
+                    // Но клиенту все равно нужно отправить пакет destroy.
+                    // В текущей архитектуре NetworkVisual отвечает за отправку, поэтому лучше вызывать unregister ДО удаления объекта
+                }
+            }
         }
-    }
-
-    public @Nullable NetworkVisual getById(int id) {
-        TrackedVisual tracked = visualsById.get(id);
-        return tracked == null ? null : tracked.visual();
-    }
-
-    public @NotNull Collection<NetworkVisual> getAll() {
-        return Collections.unmodifiableCollection(visualsById.values().stream().map(TrackedVisual::visual).toList());
     }
 
     public void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
         Objects.requireNonNull(visual, "visual");
         Objects.requireNonNull(location, "location");
         Objects.requireNonNull(rotation, "rotation");
-        visualsById.computeIfPresent(
-                visual.getId(),
-                (id, tracked) -> tracked.withState(location, rotation)
-        );
+        visualsById.put(visual.getId(), new TrackedVisual(visual, location.clone(), new Quaternionf(rotation)));
     }
 
+    /**
+     * Основной цикл обновления видимости.
+     * Должен вызываться ТОЛЬКО в основном потоке сервера (Sync).
+     */
     public void tick(@NotNull Collection<? extends Player> players, double viewDistanceSquared) {
         for (Player player : players) {
-            if (player == null) continue;
-            UUID playerId = player.getUniqueId();
-            Set<Integer> visible = visibleByPlayer.computeIfAbsent(playerId, ignored -> ConcurrentHashMap.newKeySet());
-            Location playerLocation = player.getLocation();
+            if (player == null || !player.isOnline()) continue;
 
+            UUID playerId = player.getUniqueId();
+            Set<Integer> visible = visibleByPlayer.computeIfAbsent(playerId, k -> new HashSet<>());
+            Location playerLoc = player.getLocation();
+            String playerWorldName = playerLoc.getWorld().getName();
+
+            // Итерируемся по всем зарегистрированным визуалам
+            // NOTE: Для 1000+ объектов здесь потребуется оптимизация (Spatial Hash / Chunk Map),
+            // но согласно ТЗ реализуем простой перебор O(N*M).
             for (TrackedVisual tracked : visualsById.values()) {
-                if (tracked.location().getWorld() != playerLocation.getWorld()) {
-                    int visualId = tracked.visual().getId();
-                    if (visible.remove(visualId)) {
-                        tracked.visual().destroyFor(player);
-                    }
-                    continue;
-                }
-                double distanceSquared = tracked.location().distanceSquared(playerLocation);
-                int visualId = tracked.visual().getId();
+                NetworkVisual visual = tracked.visual();
+                int visualId = visual.getId();
+                
+                boolean isInSameWorld = tracked.location().getWorld().getName().equals(playerWorldName);
+                double distSq = isInSameWorld ? tracked.location().distanceSquared(playerLoc) : Double.MAX_VALUE;
+                boolean inRange = isInSameWorld && distSq <= viewDistanceSquared;
+
                 boolean wasVisible = visible.contains(visualId);
 
-                if (distanceSquared <= viewDistanceSquared) {
+                // State Machine
+                if (inRange) {
                     if (!wasVisible) {
-                        tracked.visual().spawnFor(player);
+                        // Case 1: Enter Radius -> Spawn
+                        visual.spawnFor(player);
                         visible.add(visualId);
+                    } else {
+                        // Case 2: Stay in Radius -> Update
+                        // Здесь мы отправляем пакет телепортации/перемещения
+                        visual.updatePositionFor(player, tracked.location(), tracked.rotation());
                     }
-                    tracked.visual().updatePositionFor(player, tracked.location(), tracked.rotation());
-                } else if (wasVisible) {
-                    tracked.visual().destroyFor(player);
-                    visible.remove(visualId);
+                } else {
+                    if (wasVisible) {
+                        // Case 3: Exit Radius -> Destroy
+                        visual.destroyFor(player);
+                        visible.remove(visualId);
+                    }
                 }
             }
         }
+        
+        // Очистка оффлайн игроков из кеша
+        visibleByPlayer.keySet().removeIf(uuid -> org.bukkit.Bukkit.getPlayer(uuid) == null);
     }
 
     public void clear() {
@@ -100,13 +107,14 @@ public class NetworkEntityTracker {
 
     private record TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
         private TrackedVisual {
-            Objects.requireNonNull(visual, "visual");
-            Objects.requireNonNull(location, "location");
-            Objects.requireNonNull(rotation, "rotation");
+            Objects.requireNonNull(visual);
+            Objects.requireNonNull(location);
+            Objects.requireNonNull(rotation);
         }
-
+        
+        // Оптимизация: создаем новый рекорд вместо мутации
         private TrackedVisual withState(Location location, Quaternionf rotation) {
-            return new TrackedVisual(visual, location.clone(), new Quaternionf(rotation));
+             return new TrackedVisual(visual, location.clone(), new Quaternionf(rotation));
         }
     }
 }

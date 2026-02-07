@@ -12,6 +12,8 @@ import com.ladakx.inertia.features.commands.InertiaCommandManager;
 import com.ladakx.inertia.features.items.ItemRegistry;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.features.ui.BossBarPerformanceMonitor;
+import com.ladakx.inertia.infrastructure.nms.network.NetworkManager;
+import com.ladakx.inertia.infrastructure.nms.network.NetworkManagerInit;
 import com.ladakx.inertia.physics.engine.PhysicsEngine;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
@@ -24,6 +26,7 @@ import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.infrastructure.nms.jolt.JoltToolsInit;
 import com.ladakx.inertia.infrastructure.nms.player.PlayerTools;
 import com.ladakx.inertia.infrastructure.nms.player.PlayerToolsInit;
+import com.ladakx.inertia.rendering.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.infrastructure.nms.render.RenderFactoryInit;
 import com.ladakx.inertia.features.tools.ToolRegistry;
@@ -53,6 +56,9 @@ public final class InertiaPlugin extends JavaPlugin {
     private ToolDataManager toolDataManager;
     private InertiaCommandManager commandManager;
 
+    private NetworkEntityTracker networkEntityTracker;
+    private NetworkManager networkManager;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -77,6 +83,10 @@ public final class InertiaPlugin extends JavaPlugin {
 
         // 2. Инициализируем базовые сервисы
         setupNMSTools(); // Инициализация NMS инструментов (JoltTools, PlayerTools)
+
+        // Initialize Network Manager
+        this.networkManager = NetworkManagerInit.get();
+        this.networkEntityTracker = new NetworkEntityTracker();
 
         this.metricsService = new PhysicsMetricsService();
         this.physicsEngine = new PhysicsEngine(this, configurationService);
@@ -122,8 +132,17 @@ public final class InertiaPlugin extends JavaPlugin {
     public void onDisable() {
         if (perfMonitor != null) perfMonitor.stop();
         if (debugRenderService != null) debugRenderService.stop();
+
+        // Cleanup network injection
+        if (networkManager != null) {
+            for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
+                networkManager.uninject(p);
+            }
+        }
+
         if (physicsWorldRegistry != null) physicsWorldRegistry.shutdown();
         if (physicsEngine != null) physicsEngine.shutdown();
+
         InertiaLogger.info("Inertia has been disabled.");
     }
 
@@ -181,4 +200,6 @@ public final class InertiaPlugin extends JavaPlugin {
     public PhysicsMetricsService getMetricsService() { return metricsService; }
     public DebugRenderService getDebugRenderService() { return debugRenderService; }
     public BossBarPerformanceMonitor getPerfMonitor() { return perfMonitor; }
+    public NetworkManager getNetworkManager() { return networkManager; }
+    public NetworkEntityTracker getNetworkEntityTracker() { return networkEntityTracker; }
 }
