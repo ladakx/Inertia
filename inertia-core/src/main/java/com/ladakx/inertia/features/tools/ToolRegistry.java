@@ -65,6 +65,11 @@ public class ToolRegistry implements Listener {
         Tool tool = getToolFromItem(player.getInventory().getItemInMainHand());
         if (tool == null) return;
 
+        if (tool instanceof NetworkInteractTool networkTool) {
+            networkTool.onNetworkInteract(player, body, attack);
+            return;
+        }
+
         Action action = attack ? Action.LEFT_CLICK_AIR : Action.RIGHT_CLICK_AIR;
         PlayerInteractEvent event = new PlayerInteractEvent(
                 player,
