@@ -7,6 +7,7 @@ import com.ladakx.inertia.common.utils.ConvertUtils;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.configuration.message.MessageManager;
+import com.ladakx.inertia.features.tools.NetworkInteractTool;
 import com.ladakx.inertia.features.tools.Tool;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
@@ -24,7 +25,7 @@ import org.bukkit.util.Vector;
 import java.util.List;
 import java.util.Locale;
 
-public class InspectTool extends Tool {
+public class InspectTool extends Tool implements NetworkInteractTool {
 
     private final PhysicsWorldRegistry worldRegistry;
 
@@ -37,37 +38,45 @@ public class InspectTool extends Tool {
 
     @Override
     public void onRightClick(PlayerInteractEvent event) {
-        inspect(event.getPlayer());
+        inspect(event.getPlayer(), null);
     }
 
     @Override
     public void onLeftClick(PlayerInteractEvent event) {
-        inspect(event.getPlayer());
+        inspect(event.getPlayer(), null);
     }
 
     @Override
     public void onSwapHands(Player player) {
     }
 
-    private void inspect(Player player) {
+    @Override
+    public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
+        inspect(player, body);
+    }
+
+    private void inspect(Player player, AbstractPhysicsBody target) {
         if (!validateWorld(player)) return;
         PhysicsWorld space = worldRegistry.getSpace(player.getWorld());
         if (space == null) return;
 
-        var eye = player.getEyeLocation();
-        List<PhysicsWorld.RaycastResult> hits = space.raycastEntity(
-                eye,
-                eye.getDirection(),
-                32.0 // Long range for inspection
-        );
+        AbstractPhysicsBody object = target;
+        if (object == null) {
+            var eye = player.getEyeLocation();
+            List<PhysicsWorld.RaycastResult> hits = space.raycastEntity(
+                    eye,
+                    eye.getDirection(),
+                    32.0 // Long range for inspection
+            );
 
-        if (hits.isEmpty()) {
-            send(player, MessageKey.DEBUG_INSPECT_MISS);
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 0.5f);
-            return;
+            if (hits.isEmpty()) {
+                send(player, MessageKey.DEBUG_INSPECT_MISS);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 0.5f);
+                return;
+            }
+
+            object = space.getObjectByVa(hits.get(0).va());
         }
-
-        AbstractPhysicsBody object = space.getObjectByVa(hits.get(0).va());
         if (object == null || !object.isValid()) {
             send(player, MessageKey.DEBUG_INSPECT_MISS);
             return;

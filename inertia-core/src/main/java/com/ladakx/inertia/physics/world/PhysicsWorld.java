@@ -23,7 +23,7 @@ import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
-import com.ladakx.inertia.rendering.VisualEntity;
+import com.ladakx.inertia.rendering.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -63,6 +63,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     private final SnapshotPool snapshotPool;
     private final InertiaBodyActivationListener bodyActivationListener;
+    private final NetworkEntityTracker networkEntityTracker;
 
     public PhysicsWorld(World world,
                         WorldsConfig.WorldProfile settings,
@@ -85,6 +86,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.taskManager = new PhysicsTaskManager();
         this.snapshotPool = new SnapshotPool();
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
+        this.networkEntityTracker = new NetworkEntityTracker();
 
         this.contactListener = new PhysicsContactListener(objectManager);
         this.physicsSystem.setContactListener(contactListener);
@@ -128,6 +130,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (errors != EPhysicsUpdateError.None) {
             InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
         }
+
+        int viewDistanceBlocks = worldBukkit.getViewDistance() * 16;
+        double viewDistanceSquared = (double) viewDistanceBlocks * viewDistanceBlocks;
+        networkEntityTracker.tick(worldBukkit.getPlayers(), viewDistanceSquared);
 
         taskManager.runAll();
     }
@@ -191,14 +197,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             }
         }
 
-        for (VisualState state : snapshot.updates()) {
-            VisualEntity visual = state.getVisual();
-            if (visual.isValid()) {
-                Location loc = new Location(worldBukkit, state.getPosition().x, state.getPosition().y, state.getPosition().z);
-                visual.update(loc, state.getRotation(), state.getCenterOffset(), state.isRotateTranslation());
-                visual.setVisible(state.isVisible());
-            }
-        }
+        // Packet-based визуализация будет обрабатываться NetworkEntityTracker.
 
         chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
         snapshot.release(snapshotPool);
@@ -298,8 +297,20 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         objectManager.registerBody(object, body);
     }
 
+    public void registerNetworkEntityId(AbstractPhysicsBody object, int entityId) {
+        objectManager.registerNetworkEntityId(object, entityId);
+    }
+
+    public void unregisterNetworkEntityId(int entityId) {
+        objectManager.unregisterNetworkEntityId(entityId);
+    }
+
     public @Nullable AbstractPhysicsBody getObjectByVa(long va) {
         return objectManager.getByVa(va);
+    }
+
+    public @Nullable AbstractPhysicsBody getObjectByNetworkEntityId(int entityId) {
+        return objectManager.getByNetworkEntityId(entityId);
     }
 
     public @Nullable AbstractPhysicsBody getObjectByUuid(UUID uuid) {

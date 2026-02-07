@@ -4,6 +4,7 @@ import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.configuration.message.MessageManager;
+import com.ladakx.inertia.features.tools.NetworkInteractTool;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
@@ -22,7 +23,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
 
-public class GrabberTool extends Tool {
+public class GrabberTool extends Tool implements NetworkInteractTool {
 
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final PhysicsManipulationService manipulationService;
@@ -79,25 +80,7 @@ public class GrabberTool extends Tool {
         AbstractPhysicsBody hitBody = space.getObjectByVa(results.get(0).va());
         if (hitBody == null) return;
 
-        GrabSession newSession = new GrabSession();
-        newSession.body = hitBody;
-        newSession.distance = player.getLocation().distance(hitBody.getLocation());
-
-        newSession.taskId = manipulationService.startGrabbing(
-                space,
-                hitBody,
-                player,
-                10.0,
-                () -> sessions.get(player.getUniqueId()) != null ? sessions.get(player.getUniqueId()).distance : 5.0
-        );
-
-        sessions.put(player.getUniqueId(), newSession);
-
-        if (hitBody instanceof DisplayedPhysicsBody displayed) {
-            if (displayed.getDisplay() != null) displayed.getDisplay().setGlowing(true);
-        }
-
-        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, SoundCategory.MASTER, 0.5f, 1.8f);
+        startGrab(player, space, hitBody);
     }
 
     @Override
@@ -118,6 +101,53 @@ public class GrabberTool extends Tool {
         player.playSound(player.getLocation(), Sound.ENTITY_BEE_STING, SoundCategory.MASTER, 0.5F, 2.0F);
 
         release(player, session, space);
+    }
+
+    @Override
+    public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
+        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        if (space == null) return;
+
+        GrabSession session = sessions.get(player.getUniqueId());
+        if (attack) {
+            if (session != null) {
+                manipulationService.createStaticJoint(space, session.body, session.body.getLocation());
+                player.spawnParticle(Particle.REVERSE_PORTAL, session.body.getLocation(), 20);
+                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, SoundCategory.MASTER, 0.5F, 1.8F);
+                player.playSound(player.getLocation(), Sound.ENTITY_BEE_STING, SoundCategory.MASTER, 0.5F, 2.0F);
+                release(player, session, space);
+            }
+            return;
+        }
+
+        if (session != null) {
+            release(player, session, space);
+            return;
+        }
+
+        startGrab(player, space, body);
+    }
+
+    private void startGrab(Player player, PhysicsWorld space, AbstractPhysicsBody hitBody) {
+        GrabSession newSession = new GrabSession();
+        newSession.body = hitBody;
+        newSession.distance = player.getLocation().distance(hitBody.getLocation());
+
+        newSession.taskId = manipulationService.startGrabbing(
+                space,
+                hitBody,
+                player,
+                10.0,
+                () -> sessions.get(player.getUniqueId()) != null ? sessions.get(player.getUniqueId()).distance : 5.0
+        );
+
+        sessions.put(player.getUniqueId(), newSession);
+
+        if (hitBody instanceof DisplayedPhysicsBody displayed) {
+            if (displayed.getDisplay() != null) displayed.getDisplay().setGlowing(true);
+        }
+
+        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, SoundCategory.MASTER, 0.5f, 1.8f);
     }
 
     private void release(Player player, GrabSession session, PhysicsWorld space) {
