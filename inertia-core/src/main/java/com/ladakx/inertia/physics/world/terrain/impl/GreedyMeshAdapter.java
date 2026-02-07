@@ -253,10 +253,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                         vertexList.set(vertexIndex, verts[i], verts[i + 1], verts[i + 2]);
                         vertexList.set(vertexIndex + 1, verts[i + 3], verts[i + 4], verts[i + 5]);
                         vertexList.set(vertexIndex + 2, verts[i + 6], verts[i + 7], verts[i + 8]);
-
-                        try (IndexedTriangle tri = new IndexedTriangle(vertexIndex, vertexIndex + 1, vertexIndex + 2, 0)) {
-                            indexList.set(triangleIndex, tri);
-                        }
+                        indexList.set(triangleIndex, vertexIndex, vertexIndex + 1, vertexIndex + 2, 0);
 
                         vertexIndex += 3;
                         triangleIndex++;
