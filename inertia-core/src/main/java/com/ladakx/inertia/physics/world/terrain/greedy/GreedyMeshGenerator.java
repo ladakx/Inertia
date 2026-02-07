@@ -5,17 +5,18 @@ import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.configuration.dto.BlocksConfig;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
+import com.ladakx.inertia.physics.world.terrain.ChunkSnapshotData;
 import com.ladakx.inertia.physics.world.terrain.PhysicsGenerator;
 import com.ladakx.inertia.physics.world.terrain.profile.PhysicalProfile;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
-import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -61,10 +62,10 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     }
 
     @Override
-    public GreedyMeshData generate(Chunk chunk) {
-        Objects.requireNonNull(chunk, "chunk");
-        int minSectionY = joltTools.getMinSectionY(chunk);
-        int sectionsCount = joltTools.getSectionsCount(chunk);
+    public GreedyMeshData generate(ChunkSnapshotData snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        int minSectionY = snapshot.minSectionY();
+        int sectionsCount = snapshot.sectionsCount();
         int minHeight = minSectionY << 4;
         int height = sectionsCount << 4;
 
@@ -86,7 +87,7 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         // 1. Заполнение воксельной сетки
         for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
             int sectionY = minSectionY + sectionIndex;
-            if (joltTools.hasOnlyAir(chunk, sectionY)) {
+            if (!snapshot.sectionHasBlocks(sectionIndex)) {
                 continue;
             }
             int baseY = sectionIndex << 4;
@@ -95,7 +96,7 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                 int worldIndexY = baseY + y;
                 for (int z = 0; z < 16; z++) {
                     for (int x = 0; x < 16; x++) {
-                        Material material = joltTools.getMaterial(chunk, sectionY, x, y, z);
+                        Material material = snapshot.getMaterial(x, worldIndexY, z);
                         if (material == null || material == Material.AIR || material.isAir()) {
                             continue;
                         }
