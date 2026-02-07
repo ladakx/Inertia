@@ -25,6 +25,12 @@ public abstract class CustomConfiguration {
 
     private void saveDefault() {
         if (!file.exists()) {
+            File parent = file.getParentFile();
+            if (parent != null && !parent.exists()) {
+                // Ensure nested directories exist (e.g. "lang/lang_en.yml")
+                // so saveResource() can write the file.
+                parent.mkdirs();
+            }
             plugin.saveResource(fileName, false);
         }
     }

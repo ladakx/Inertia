@@ -38,7 +38,7 @@ public class WorldsConfig {
 
     private WorldProfile parseWorld(ConfigurationSection section) {
         Vec3 gravity = Vec3Serializer.serialize(section.getString("gravity", "0.0 -17.18 0.0"));
-        int tickRate = section.getInt("tick-rate", 20);
+        int tickRate = Math.max(1, section.getInt("tick-rate", 20));
         int collisionSteps = section.getInt("collision-steps", 4);
 
         // Chunk Management

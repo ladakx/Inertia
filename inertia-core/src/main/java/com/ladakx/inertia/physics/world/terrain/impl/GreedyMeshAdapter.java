@@ -3,7 +3,6 @@ package com.ladakx.inertia.physics.world.terrain.impl;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
-import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.BlocksConfig;
@@ -26,9 +25,6 @@ import org.bukkit.Material;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -236,76 +232,59 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             if (totalTriangles == 0) continue;
 
             // 2. Создание списков
-            // VertexList - это Java-обертка над FloatBuffer, управляется GC, но лучше очищать ресурсы, если есть возможность
-            // В предоставленном коде VertexList не AutoCloseable, но мы полагаемся на GC.
+            // ВАЖНО: VertexList внутри использует DirectBuffer. Если использовать pushBack(),
+            // он часто делает resize() -> аллоцирует новые DirectBuffer и может быстро привести к Direct OOM.
+            // Поэтому: заранее выделяем нужный размер и заполняем через set().
+            int totalVertices = totalTriangles * 3;
             VertexList vertexList = new VertexList();
+            vertexList.resize(totalVertices);
 
-            // IndexedTriangleList - Native Object, обязательно закрывать
-            IndexedTriangleList indexList = new IndexedTriangleList();
-            indexList.resize(totalTriangles);
+            try (IndexedTriangleList indexList = new IndexedTriangleList()) {
+                indexList.resize(totalTriangles);
 
-            int triangleIndex = 0;
-            int vertexCounter = 0;
+                int triangleIndex = 0;
+                int vertexIndex = 0;
 
-            for (float[] verts : allVertices) {
-                for (int i = 0; i < verts.length; i += 9) {
-                    // Добавляем вершины
-                    vertexList.pushBack(new Float3(verts[i],   verts[i+1], verts[i+2]));
-                    vertexList.pushBack(new Float3(verts[i+3], verts[i+4], verts[i+5]));
-                    vertexList.pushBack(new Float3(verts[i+6], verts[i+7], verts[i+8]));
+                for (float[] verts : allVertices) {
+                    for (int i = 0; i < verts.length; i += 9) {
+                        vertexList.set(vertexIndex, verts[i], verts[i + 1], verts[i + 2]);
+                        vertexList.set(vertexIndex + 1, verts[i + 3], verts[i + 4], verts[i + 5]);
+                        vertexList.set(vertexIndex + 2, verts[i + 6], verts[i + 7], verts[i + 8]);
 
-                    // Создаем временный треугольник для передачи в JNI
-                    // ВАЖНО: Мы должны закрыть его (free), так как он аллоцирует память в C++
-                    IndexedTriangle tri = new IndexedTriangle(vertexCounter, vertexCounter + 1, vertexCounter + 2, 0);
-                    try {
-                        indexList.set(triangleIndex, tri);
-                    } finally {
-                        tri.close(); // Освобождаем временную структуру
+                        try (IndexedTriangle tri = new IndexedTriangle(vertexIndex, vertexIndex + 1, vertexIndex + 2, 0)) {
+                            indexList.set(triangleIndex, tri);
+                        }
+
+                        vertexIndex += 3;
+                        triangleIndex++;
+                    }
+                }
+
+                try (MeshShapeSettings meshSettings = new MeshShapeSettings(vertexList, indexList);
+                     ShapeResult result = meshSettings.create()) {
+                    if (result.hasError()) {
+                        InertiaLogger.warn("Failed to create MeshShape for chunk " + x + "," + z + ": " + result.getError());
+                        continue;
                     }
 
-                    vertexCounter += 3;
-                    triangleIndex++;
+                    try (ShapeRefC meshShape = result.get();
+                         BodyCreationSettings bcs = new BodyCreationSettings()) {
+                        bcs.setPosition(bodyPosition);
+                        bcs.setMotionType(EMotionType.Static);
+                        bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
+                        bcs.setShape(meshShape);
+                        bcs.setFriction(props.friction());
+                        bcs.setRestitution(props.restitution());
+
+                        try (Body body = bi.createBody(bcs)) {
+                            bi.addBody(body, EActivation.DontActivate);
+                            world.registerSystemStaticBody(body.getId());
+                            newBodyIds.add(body.getId());
+                        }
+                    } catch (Exception e) {
+                        InertiaLogger.error("Failed to create chunk body at " + x + ", " + z, e);
+                    }
                 }
-            }
-
-            if (vertexList.empty()) {
-                indexList.close();
-                continue;
-            }
-
-            // 3. Создаем MeshShapeSettings
-            MeshShapeSettings meshSettings = new MeshShapeSettings(vertexList, indexList);
-
-            // Списки больше не нужны, MeshShapeSettings скопировал данные
-            indexList.close();
-
-            ShapeResult result = meshSettings.create();
-            meshSettings.close();
-
-            if (result.hasError()) {
-                InertiaLogger.warn("Failed to create MeshShape for chunk " + x + "," + z + ": " + result.getError());
-                continue;
-            }
-
-            ConstShape meshShape = result.get();
-
-            BodyCreationSettings bcs = new BodyCreationSettings();
-            bcs.setPosition(bodyPosition);
-            bcs.setMotionType(EMotionType.Static);
-            bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
-            bcs.setShape(meshShape);
-            bcs.setFriction(props.friction());
-            bcs.setRestitution(props.restitution());
-
-            try {
-                Body body = bi.createBody(bcs);
-                bi.addBody(body, EActivation.DontActivate);
-                world.registerSystemStaticBody(body.getId());
-                newBodyIds.add(body.getId());
-            } catch (Exception e) {
-                InertiaLogger.error("Failed to create chunk body at " + x + ", " + z, e);
-            } finally {
-                bcs.close();
             }
         }
 

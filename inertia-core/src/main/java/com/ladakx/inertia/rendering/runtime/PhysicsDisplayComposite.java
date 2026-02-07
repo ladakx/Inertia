@@ -76,7 +76,8 @@ public final class PhysicsDisplayComposite {
         RVec3 pos = body.getPosition();
         Quat rot = body.getRotation();
 
-        Location baseLoc = new Location(world, pos.xx(), pos.yy(), pos.zz());
+        RVec3 origin = owner.getSpace().getOrigin();
+        Location baseLoc = new Location(world, pos.xx() + origin.xx(), pos.yy() + origin.yy(), pos.zz() + origin.zz());
         Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
 
         for (DisplayPart part : parts) {
