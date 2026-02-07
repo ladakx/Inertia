@@ -19,4 +19,6 @@ public interface NetworkVisual {
     void updatePositionFor(Player player, Location location, Quaternionf rotation);
 
     void updateMetadataFor(Player player);
+
+    void setGlowing(boolean glowing);
 }

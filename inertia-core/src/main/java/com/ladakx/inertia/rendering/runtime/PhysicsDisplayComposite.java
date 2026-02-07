@@ -15,12 +15,14 @@ import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public final class PhysicsDisplayComposite {
 
@@ -66,7 +68,7 @@ public final class PhysicsDisplayComposite {
         RVec3 pos = body.getPosition();
         Quat rot = body.getRotation();
 
-        Location baseLoc = new Location(world, pos.getX(), pos.getY(), pos.getZ());
+        Location baseLoc = new Location(world, pos.xx(), pos.yy(), pos.zz());
         Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
 
         for (DisplayPart part : parts) {
@@ -132,10 +134,12 @@ public final class PhysicsDisplayComposite {
     }
 
     public void setGlowing(boolean glowing) {
-        // Future impl
+        for (DisplayPart part : parts) {
+            part.visual().setGlowing(glowing);
+        }
     }
 
-    public void markAsStatic(@org.jetbrains.annotations.Nullable java.util.UUID clusterId) {
+    public void markAsStatic(@Nullable UUID clusterId) {
         // Future impl
     }
 

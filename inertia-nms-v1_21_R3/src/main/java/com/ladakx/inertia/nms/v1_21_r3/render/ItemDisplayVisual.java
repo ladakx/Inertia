@@ -1,15 +1,17 @@
 package com.ladakx.inertia.nms.v1_21_r3.render;
 
-import com.ladakx.inertia.nms.PacketFactory;
+import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
+import com.ladakx.inertia.nms.v1_21_r3.utils.MetadataAccessors;
 import com.ladakx.inertia.rendering.ItemModelResolver;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.enums.InertiaDisplayMode;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.world.entity.Display;
 import net.minecraft.world.item.ItemDisplayContext;
 import org.bukkit.Material;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.inventory.ItemStack;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.List;
 
@@ -30,18 +32,25 @@ public class ItemDisplayVisual extends AbstractNetworkVisual {
         } else {
             itemStack = new ItemStack(Material.STONE);
         }
-        
         if (itemStack == null) itemStack = new ItemStack(Material.BARRIER);
 
         net.minecraft.world.item.ItemStack nmsItem = CraftItemStack.asNMSCopy(itemStack);
-        
-        data.add(SynchedEntityData.DataValue.create(Display.ItemDisplay.DATA_ITEM_STACK_ID, nmsItem));
-        
-        // Display Context (Transform Type)
+
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.ITEM_DISPLAY_ITEM, nmsItem));
+
         ItemDisplayContext context = convertDisplayMode(definition.displayMode());
-        data.add(SynchedEntityData.DataValue.create(Display.ItemDisplay.DATA_ITEM_DISPLAY_CONTEXT_ID, (byte) context.ordinal()));
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.ITEM_DISPLAY_CONTEXT, (byte) context.ordinal()));
     }
-    
+
+    @Override
+    protected Vector3f calculateTranslation(Vector3f scale, Quaternionf rotation) {
+        return new Vector3f(
+                (float) definition.translation().getX(),
+                (float) definition.translation().getY(),
+                (float) definition.translation().getZ()
+        );
+    }
+
     private ItemDisplayContext convertDisplayMode(InertiaDisplayMode mode) {
         if (mode == null) return ItemDisplayContext.NONE;
         return switch (mode) {

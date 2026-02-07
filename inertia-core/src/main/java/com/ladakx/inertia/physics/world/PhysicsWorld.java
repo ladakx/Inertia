@@ -218,9 +218,30 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         // 4. Cleanup
         snapshot.release(snapshotPool);
     }
+    public boolean checkOverlap(@NotNull com.github.stephengold.joltjni.readonly.ConstShape shape,
+                                @NotNull RVec3 position,
+                                @NotNull Quat rotation) {
+        CollideShapeSettings settings = new CollideShapeSettings();
+        settings.setActiveEdgeMode(EActiveEdgeMode.CollideOnlyWithActive);
 
-    // ... Rest of the methods (toJolt, toBukkit, getters/setters) ...
-    // Must remain exactly as they were in context, just ensuring no syntax errors.
+        try (AnyHitCollideShapeCollector collector = new AnyHitCollideShapeCollector();
+             SpecifiedBroadPhaseLayerFilter bpFilter = new SpecifiedBroadPhaseLayerFilter(0);
+             SpecifiedObjectLayerFilter objFilter = new SpecifiedObjectLayerFilter(PhysicsLayers.OBJ_STATIC)) {
+
+            physicsSystem.getNarrowPhaseQuery().collideShape(
+                    shape,
+                    Vec3.sReplicate(1.0f),
+                    RMat44.sRotationTranslation(rotation, position),
+                    settings,
+                    RVec3.sZero(),
+                    collector,
+                    bpFilter,
+                    objFilter
+            );
+
+            return collector.hadHit();
+        }
+    }
 
     public RVec3 toJolt(Location location) {
         return new RVec3(
