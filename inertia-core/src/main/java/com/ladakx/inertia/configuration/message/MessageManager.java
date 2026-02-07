@@ -27,7 +27,7 @@ public class MessageManager {
         messageCache.clear();
 
         // 1. Отримуємо префікс один раз
-        String prefix = cfg.getString("Prefix", "<gray>[<red>Inertia<gray>] ");
+        String prefix = cfg.getString(MessageKey.PREFIX.getPath(), "<gray>[<red>Inertia<gray>] ");
 
         // 2. Проходимо по всіх ключах і кешуємо повідомлення
         int loadedCount = 0;

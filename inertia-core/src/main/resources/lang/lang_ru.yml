@@ -1,34 +1,26 @@
 prefix: "&cInertia &l»&r"
 
-no-permissions:
-  - "{prefix} &7У вас нет прав!"
 reload-plugin:
   - "{prefix} &7Плагин перезагружен!"
-command-not-found:
-  - "{prefix} &7Команда не найдена!"
-wrong-args-command:
-  - "{prefix} &cНеверные аргументы команды!"
 
 not-for-console:
   - "{prefix} &7Эту команду может выполнять только игрок!"
-not-for-this-version:
-  - "{prefix} &7Эта команда недоступна в вашей версии сервера!"
-  - "{prefix} &7Пожалуйста, обновите сервер до версии {version} или выше!"
 not-for-this-world:
   - "{prefix} &7Добавьте этот мир в список физических миров в файле config.yml"
   - "{prefix} &7Чтобы использовать эту команду!"
 
-worldedit-not-enabled:
-  - "{prefix} &cПлагин WorldEdit не найден на сервере!"
-  - "{prefix} &cЭта команда требует установленного WorldEdit!"
-select-region:
-  - "{prefix} &cВыделите регион топором перед использованием этой команды!"
+spawn-limit-reached:
+  - "{prefix} &cНевозможно заспавнить объект: достигнут лимит тел в мире ({limit})!"
+  - "{prefix} &7Используйте &f/inertia clear &7чтобы освободить место."
+
+spawn-fail-obstructed:
+  - "{prefix} &cСпавн заблокирован! Точка спавна занята."
+spawn-fail-out-of-bounds:
+  - "{prefix} &cСпавн заблокирован! Объект окажется за пределами мира."
 
 # --- Spawn Messages ---
 spawn-success:
   - "{prefix} &7Физическое тело &f{id} &7успешно заспавнено!"
-spawn-fail-invalid-id:
-  - "{prefix} &cФизическое тело с ID '{id}' не найдено в bodies.yml!"
 chain-spawn-success:
   - "{prefix} &7Цепь создана! Размер: &f{size}"
 ragdoll-spawn-success:
@@ -40,12 +32,29 @@ shape-spawn-success:
 debug-perf-toggle:
   - "{prefix} &7Монитор производительности: {state}"
 debug-perf-format: "Server: &b{srv}ms &8| &7Phys: &b{phys}ms &8(&e{perc}%&8) &8| &7CPU: &b{cpu}% &8| &7Bodies: &a{act}&7/&8{sleep}&7/&c{max} &8| &7Static: &e{stat}"
+debug-hitbox-toggle:
+  - "{prefix} &7Отладка хитбоксов: {state}"
+
+debug-inspect-header: "&d&l===== Inertia Inspector ====="
+debug-inspect-info:
+  - "&7ID тела: &f{id}"
+  - "&7UUID: &f{uuid}"
+  - "&7Тип: &f{type} &7(Слой: {layer})"
+  - "&7Масса: &f{mass} kg"
+debug-inspect-velocity:
+  - "&7Лин. скорость: &f{lin_vel} &8(&f{speed} m/s&8)"
+  - "&7Угл. скорость: &f{ang_vel}"
+debug-inspect-props:
+  - "&7Трение: &f{friction} &7| Упругость: &f{restitution}"
+debug-inspect-state:
+  - "&7Состояние: {state}"
+debug-inspect-footer: "&d&l============================="
+debug-inspect-miss:
+  - "{prefix} &cФизический объект не найден."
 
 # --- Shape Errors ---
 shape-not-found:
   - "{prefix} &cНеизвестная форма: {shape}"
-shape-list-available:
-  - "{prefix} &7Доступные формы: &f{shapes}"
 shape-usage:
   - "{prefix} &cИспользование: /inertia spawn-shape {type} {params} <bodyId>"
 shape-invalid-params:
@@ -58,8 +67,14 @@ tool-not-found:
   - "{prefix} &cИнструмент не найден или неверная конфигурация!"
 tool-broken-nbt:
   - "{prefix} &cСломанный инструмент: отсутствуют NBT данные!"
-tool-invalid-params:
-  - "{prefix} &cНеверные параметры в данных инструмента."
+
+body-frozen:
+  - "{prefix} &bТело успешно заморожено."
+cannot-freeze-body:
+  - "{prefix} &cНевозможно заморозить этот объект (не поддерживается)."
+
+static-success:
+  - "{prefix} &bЗаморожено &f{count} &bсущностей."
 
 # --- Tool Items ---
 tool-chain-name: "&6Инструмент цепи: &e{body}"
@@ -88,6 +103,11 @@ tool-tnt-lore:
   - "&6ЛКМ: Бросить ТНТ"
   - "&6ПКМ: Поставить у ног"
 
+tool-static-name: "&bИнструмент заморозки"
+tool-static-lore:
+  - "&7ЛКМ/ПКМ: Превратить физический объект"
+  - "&7в статичную декорацию."
+
 tool-grabber-name: "&aИнструмент захвата"
 tool-grabber-lore:
   - "&7ПКМ: Поднять / Бросить объект"
@@ -106,6 +126,11 @@ tool-remover-lore:
   - "&7ПКМ: Удалить физический объект"
   - "&7(Удаляет всю связанную структуру)"
 
+tool-inspect-name: "&dИнструмент инспектора"
+tool-inspect-lore:
+  - "&7ПКМ: Информация о физическом объекте"
+  - "&7(Масса, скорость, трение, и т.д.)"
+
 # --- Tool Specifics ---
 shape-spawned:
   - "{prefix} &7Заспавнено &f{count} &7объектов (&e{shape}&7)"
@@ -122,8 +147,6 @@ chain-building:
   - "{prefix} &7Позиция 2 установлена. Создание цепи..."
 selection-cleared:
   - "{prefix} &eВыбор очищен."
-chain-created:
-  - "{prefix} &7Цепь создана с &f{count} &7звеньями."
 invalid-chain-body:
   - "{prefix} &cНеверное определение тела цепи: {id}"
 
@@ -132,8 +155,6 @@ invalid-ragdoll-body:
 
 weld-mode-change:
   - "{prefix} &eРежим сварки: &f{mode}"
-weld-removed:
-  - "{prefix} &cСварка удалена."
 weld-first-selected:
   - "{prefix} &7Первый объект выбран."
 weld-deselected:
@@ -152,10 +173,6 @@ clear-success:
   - "{prefix} &7Удалено &c{count} &7физических объектов из этого мира."
 clear-success-radius:
   - "{prefix} &7Удалено &c{count} &7объектов в радиусе &e{radius} &7блоков."
-clear-success-filter:
-  - "{prefix} &7Удалено &c{count} &7объектов типа '&e{filter}&7'."
-clear-success-combo:
-  - "{prefix} &7Удалено &c{count} &7объектов типа '&e{filter}&7' в радиусе &e{radius} &7блоков."
 clear-no-match:
   - "{prefix} &cФизические объекты по вашему запросу не найдены."
 
@@ -163,14 +180,18 @@ tnt-spawned:
   - "{prefix} &7ТНТ заспавнено с силой &c{force}&7!"
 tnt-tool-received:
   - "{prefix} &7Вы получили Спавнер ТНТ (Тело: &f{body}&7, Сила: &c{force}&7)."
-tnt-invalid-force:
-  - "{prefix} &cУказана недопустимая сила взрыва."
-tnt-tool-usage:
-  - "{prefix} &cИспользование: /inertia tool tntspawner <bodyId> <force>"
+
+admin-simulation-paused:
+  - "{prefix} &7Состояние симуляции: &f{state} &7(Миров: {count})"
+admin-stats-header: "&c&l===== Статистика Inertia ====="
+admin-stats-performance:
+  - "&7Средн. MSPT (1s/5s/1m): &f{avg} &7ms"
+  - "&7Пик MSPT (1s): &c{peak} &7ms"
+admin-stats-bodies:
+  - "&7Тела: &f{dynamic} &7Динамических | &f{static} &7Статичных"
+admin-stats-footer: "&c&l=============================="
 
 # --- Dynamic Help Menu ---
 help-page-header: "&c&lInertia Помощь &8(&7{page}/{max_pages}&8)"
-help-page-footer: "&8&m------------------------------"
-help-command-desc: "&7{description}"
 help-next-page: "&cСлед &l»"
 help-prev-page: "&l« &cПред"

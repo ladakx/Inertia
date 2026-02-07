@@ -20,18 +20,19 @@ import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshGenerator;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshShape;
-import com.ladakx.inertia.physics.world.terrain.greedy.SerializedBoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GreedyMeshAdapter implements TerrainAdapter {
-
     private PhysicsWorld world;
     private ChunkPhysicsManager chunkPhysicsManager;
     private JoltTools joltTools;
@@ -46,9 +47,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         this.world = world;
         InertiaConfig config = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig();
         int workerThreads = config.PHYSICS.workerThreads;
+
         this.joltTools = InertiaPlugin.getInstance().getJoltTools();
         this.blocksConfig = InertiaPlugin.getInstance().getConfigManager().getBlocksConfig();
-
         this.chunkSettings = world.getSettings().chunkManagement();
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
 
@@ -76,7 +77,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     public void onDisable() {
         pendingUpdates.values().forEach(BukkitTask::cancel);
         pendingUpdates.clear();
-
         if (world != null) {
             for (long key : new ArrayList<>(chunkBodies.keySet())) {
                 removeChunkBodies(key);
@@ -95,7 +95,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     public void onChunkLoad(int x, int z) {
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.add(key);
-
         if (chunkSettings.generateOnLoad()) {
             requestChunkGeneration(x, z);
         }
@@ -120,26 +119,18 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onBlockChange(int x, int y, int z, Material oldMaterial, Material newMaterial) {
-        if (world == null || chunkPhysicsManager == null || !chunkSettings.updateOnBlockChange()) {
-            return;
-        }
-
-        if (!hasPhysicalProfile(oldMaterial) && !hasPhysicalProfile(newMaterial)) {
-            return;
-        }
+        if (world == null || chunkPhysicsManager == null || !chunkSettings.updateOnBlockChange()) return;
+        if (!hasPhysicalProfile(oldMaterial) && !hasPhysicalProfile(newMaterial)) return;
 
         int chunkX = x >> 4;
         int chunkZ = z >> 4;
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
-
         if (!loadedChunks.contains(key)) return;
 
         chunkPhysicsManager.invalidate(chunkX, chunkZ);
 
         BukkitTask existing = pendingUpdates.get(key);
-        if (existing != null) {
-            existing.cancel();
-        }
+        if (existing != null) existing.cancel();
 
         int delay = Math.max(1, chunkSettings.updateDebounceTicks());
         BukkitTask task = Bukkit.getScheduler().runTaskLater(InertiaPlugin.getInstance(), () -> {
@@ -148,55 +139,41 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 requestChunkGeneration(chunkX, chunkZ);
             }
         }, delay);
-
         pendingUpdates.put(key, task);
     }
 
     @Override
     public void onChunkChange(int x, int z) {
-        if (world == null || chunkPhysicsManager == null) {
-            return;
-        }
+        if (world == null || chunkPhysicsManager == null) return;
         long key = ChunkUtils.getChunkKey(x, z);
         if (!loadedChunks.contains(key)) return;
+
         chunkPhysicsManager.invalidate(x, z);
         BukkitTask pending = pendingUpdates.remove(key);
         if (pending != null) pending.cancel();
+
         requestChunkGeneration(x, z);
     }
 
     private void requestChunkGeneration(int x, int z) {
-        if (world == null || chunkPhysicsManager == null) {
-            return;
-        }
+        if (world == null || chunkPhysicsManager == null) return;
 
+        // Проверка границ мира
         com.ladakx.inertia.configuration.dto.WorldsConfig.WorldSizeSettings sizeSettings = world.getSettings().size();
         double minWorldX = sizeSettings.worldMin().xx();
         double minWorldZ = sizeSettings.worldMin().zz();
         double maxWorldX = sizeSettings.worldMax().xx();
         double maxWorldZ = sizeSettings.worldMax().zz();
 
-        double chunkMinX = x * 16.0;
-        double chunkMaxX = chunkMinX + 16.0;
-        double chunkMinZ = z * 16.0;
-        double chunkMaxZ = chunkMinZ + 16.0;
-
-        boolean isOutside = chunkMaxX < minWorldX || chunkMinX > maxWorldX ||
-                chunkMaxZ < minWorldZ || chunkMinZ > maxWorldZ;
-
-        if (isOutside) {
+        if ((x + 1) * 16.0 < minWorldX || x * 16.0 > maxWorldX || (z + 1) * 16.0 < minWorldZ || z * 16.0 > maxWorldZ) {
             return;
         }
 
-        if (!world.getWorldBukkit().isChunkLoaded(x, z)) {
-            return;
-        }
+        if (!world.getWorldBukkit().isChunkLoaded(x, z)) return;
 
         String worldName = world.getWorldBukkit().getName();
         chunkPhysicsManager.requestChunkGeneration(
-                worldName,
-                x,
-                z,
+                worldName, x, z,
                 () -> world.getWorldBukkit().getChunkAt(x, z),
                 data -> {
                     if (world != null) {
@@ -206,106 +183,117 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         );
     }
 
-    private record PhysicsProperties(float friction, float restitution) {}
-
     private boolean hasPhysicalProfile(Material material) {
-        if (material == null || blocksConfig == null) {
-            return false;
-        }
+        if (material == null || blocksConfig == null) return false;
         return blocksConfig.find(material).isPresent();
     }
 
+    /**
+     * Основной метод оптимизации:
+     * Группирует все треугольники с одинаковыми физ. свойствами и создает MeshShape.
+     */
     private void applyMeshData(int x, int z, GreedyMeshData data) {
         long key = ChunkUtils.getChunkKey(x, z);
+        if (!loadedChunks.contains(key)) return;
 
-        if (!loadedChunks.contains(key)) {
-            return;
-        }
-
-        // 1. Remove old bodies
         removeChunkBodies(key);
 
         if (world == null || data.shapes().isEmpty()) {
-            // Even if empty, we might need to wake up bodies (e.g. platform removed entirely)
-            activateBodiesInChunk(x, z);
             return;
         }
 
         BodyInterface bi = world.getBodyInterface();
         RVec3 worldOrigin = world.getOrigin();
 
-        Map<PhysicsProperties, StaticCompoundShapeSettings> groups = new HashMap<>();
+        // Координаты чанка в мире Jolt (относительно origin)
+        double chunkWorldX = x * 16.0 - worldOrigin.xx();
+        double chunkWorldZ = z * 16.0 - worldOrigin.zz();
+        double chunkWorldY = -worldOrigin.yy();
 
-        double chunkWorldX = x * 16.0;
-        double chunkWorldZ = z * 16.0;
-        double bodyPosX = chunkWorldX - worldOrigin.xx();
-        double bodyPosY = -worldOrigin.yy();
-        double bodyPosZ = chunkWorldZ - worldOrigin.zz();
+        RVec3 bodyPosition = new RVec3(chunkWorldX, chunkWorldY, chunkWorldZ);
 
-        RVec3 bodyPosition = new RVec3(bodyPosX, bodyPosY, bodyPosZ);
-
-        int chunkOffsetX = x << 4;
-        int chunkOffsetZ = z << 4;
-
-        Map<HalfExtentsKey, ConstShape> boxShapeCache = new HashMap<>();
+        // Группировка по свойствам
+        Map<PhysicsProperties, List<float[]>> groupedVertices = new HashMap<>();
 
         for (GreedyMeshShape shapeData : data.shapes()) {
-            if (shapeData.boundingBoxes().isEmpty()) continue;
-
+            if (shapeData.vertices().length == 0) continue;
             PhysicsProperties props = new PhysicsProperties(shapeData.friction(), shapeData.restitution());
-            StaticCompoundShapeSettings compoundSettings = groups.computeIfAbsent(props, k -> new StaticCompoundShapeSettings());
-
-            if (shapeData.boundingBoxes().size() > 1) {
-                for (SerializedBoundingBox box : shapeData.boundingBoxes()) {
-                    ConstShape child = createBoxShape(box, chunkOffsetX, chunkOffsetZ, boxShapeCache);
-                    if (child == null) continue;
-
-                    double boxCenterX = (box.minX() + box.maxX()) * 0.5 + chunkOffsetX;
-                    double boxCenterY = (box.minY() + box.maxY()) * 0.5;
-                    double boxCenterZ = (box.minZ() + box.maxZ()) * 0.5 + chunkOffsetZ;
-
-                    float localX = (float) (boxCenterX - chunkWorldX);
-                    float localY = (float) (boxCenterY);
-                    float localZ = (float) (boxCenterZ - chunkWorldZ);
-
-                    compoundSettings.addShape(new Vec3(localX, localY, localZ), Quat.sIdentity(), child);
-                }
-                continue;
-            }
-
-            ConstShape subShape = buildShape(shapeData, chunkOffsetX, chunkOffsetZ, boxShapeCache);
-            if (subShape == null) continue;
-
-            double shapeCenterX = ((double) shapeData.minX() + shapeData.maxX()) * 0.5 + chunkOffsetX;
-            double shapeCenterY = ((double) shapeData.minY() + shapeData.maxY()) * 0.5;
-            double shapeCenterZ = ((double) shapeData.minZ() + shapeData.maxZ()) * 0.5 + chunkOffsetZ;
-
-            float localX = (float) (shapeCenterX - chunkWorldX);
-            float localY = (float) (shapeCenterY);
-            float localZ = (float) (shapeCenterZ - chunkWorldZ);
-
-            compoundSettings.addShape(new Vec3(localX, localY, localZ), Quat.sIdentity(), subShape);
+            groupedVertices.computeIfAbsent(props, k -> new ArrayList<>()).add(shapeData.vertices());
         }
 
         List<Integer> newBodyIds = new ArrayList<>();
 
-        for (Map.Entry<PhysicsProperties, StaticCompoundShapeSettings> entry : groups.entrySet()) {
+        for (Map.Entry<PhysicsProperties, List<float[]>> entry : groupedVertices.entrySet()) {
             PhysicsProperties props = entry.getKey();
-            StaticCompoundShapeSettings settings = entry.getValue();
+            List<float[]> allVertices = entry.getValue();
 
-            ShapeResult result = settings.create();
-            if (result.hasError()) {
-                InertiaLogger.warn("Failed to create chunk compound shape at " + x + ", " + z + ": " + result.getError());
+            // 1. Подсчет общего количества треугольников
+            int totalTriangles = 0;
+            for (float[] verts : allVertices) {
+                totalTriangles += verts.length / 9; // 9 float на треугольник
+            }
+
+            if (totalTriangles == 0) continue;
+
+            // 2. Создание списков
+            // VertexList - это Java-обертка над FloatBuffer, управляется GC, но лучше очищать ресурсы, если есть возможность
+            // В предоставленном коде VertexList не AutoCloseable, но мы полагаемся на GC.
+            VertexList vertexList = new VertexList();
+
+            // IndexedTriangleList - Native Object, обязательно закрывать
+            IndexedTriangleList indexList = new IndexedTriangleList();
+            indexList.resize(totalTriangles);
+
+            int triangleIndex = 0;
+            int vertexCounter = 0;
+
+            for (float[] verts : allVertices) {
+                for (int i = 0; i < verts.length; i += 9) {
+                    // Добавляем вершины
+                    vertexList.pushBack(new Float3(verts[i],   verts[i+1], verts[i+2]));
+                    vertexList.pushBack(new Float3(verts[i+3], verts[i+4], verts[i+5]));
+                    vertexList.pushBack(new Float3(verts[i+6], verts[i+7], verts[i+8]));
+
+                    // Создаем временный треугольник для передачи в JNI
+                    // ВАЖНО: Мы должны закрыть его (free), так как он аллоцирует память в C++
+                    IndexedTriangle tri = new IndexedTriangle(vertexCounter, vertexCounter + 1, vertexCounter + 2, 0);
+                    try {
+                        indexList.set(triangleIndex, tri);
+                    } finally {
+                        tri.close(); // Освобождаем временную структуру
+                    }
+
+                    vertexCounter += 3;
+                    triangleIndex++;
+                }
+            }
+
+            if (vertexList.empty()) {
+                indexList.close();
                 continue;
             }
 
-            ConstShape chunkShape = result.get();
+            // 3. Создаем MeshShapeSettings
+            MeshShapeSettings meshSettings = new MeshShapeSettings(vertexList, indexList);
+
+            // Списки больше не нужны, MeshShapeSettings скопировал данные
+            indexList.close();
+
+            ShapeResult result = meshSettings.create();
+            meshSettings.close();
+
+            if (result.hasError()) {
+                InertiaLogger.warn("Failed to create MeshShape for chunk " + x + "," + z + ": " + result.getError());
+                continue;
+            }
+
+            ConstShape meshShape = result.get();
 
             BodyCreationSettings bcs = new BodyCreationSettings();
             bcs.setPosition(bodyPosition);
             bcs.setMotionType(EMotionType.Static);
             bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
-            bcs.setShape(chunkShape);
+            bcs.setShape(meshShape);
             bcs.setFriction(props.friction());
             bcs.setRestitution(props.restitution());
 
@@ -316,100 +304,13 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 newBodyIds.add(body.getId());
             } catch (Exception e) {
                 InertiaLogger.error("Failed to create chunk body at " + x + ", " + z, e);
+            } finally {
+                bcs.close();
             }
         }
 
         if (!newBodyIds.isEmpty()) {
             chunkBodies.put(key, newBodyIds);
-        }
-
-        // 2. Wake up any dynamic bodies in this chunk area
-        // This ensures floating objects fall if support was removed/changed
-        activateBodiesInChunk(x, z);
-    }
-
-    private void activateBodiesInChunk(int chunkX, int chunkZ) {
-        if (world == null) return;
-
-        com.github.stephengold.joltjni.PhysicsSystem system = world.getPhysicsSystem();
-        BodyInterface bi = system.getBodyInterfaceNoLock();
-        RVec3 origin = world.getOrigin();
-        com.ladakx.inertia.configuration.dto.WorldsConfig.WorldSizeSettings sizeSettings = world.getSettings().size();
-
-        double minX = (chunkX * 16.0) - origin.xx();
-        double minZ = (chunkZ * 16.0) - origin.zz();
-
-        double minY = sizeSettings.localMin().getY();
-        double maxY = sizeSettings.localMax().getY();
-
-        // Expand slightly to catch bodies on boundary
-        double expand = 0.5;
-
-        Vec3 boxMin = new Vec3((float)(minX - expand), (float)(minY - expand), (float)(minZ - expand));
-        Vec3 boxMax = new Vec3((float)(minX + 16.0 + expand), (float)(maxY + expand), (float)(minZ + 16.0 + expand));
-
-        AaBox box = new AaBox(boxMin, boxMax);
-
-        try {
-            try (AllHitCollideShapeBodyCollector collector = new AllHitCollideShapeBodyCollector();
-                 SpecifiedBroadPhaseLayerFilter bpFilter = new SpecifiedBroadPhaseLayerFilter(0);
-                 SpecifiedObjectLayerFilter objFilter = new SpecifiedObjectLayerFilter(PhysicsLayers.OBJ_MOVING)) {
-
-                system.getBroadPhaseQuery().collideAaBox(box, collector, bpFilter, objFilter);
-                int[] bodyIds = collector.getHits();
-                if (bodyIds == null || bodyIds.length == 0) return;
-
-                for (int id : bodyIds) {
-                    if (id == 0) continue;
-                    try {
-                        if (bi.getMotionType(id) == EMotionType.Dynamic && !bi.isSensor(id)) {
-                            bi.activateBody(id);
-                        }
-                    } catch (Exception ignored) {
-                        // Body might have been removed between query and activation
-                    }
-                }
-            }
-        } catch (Exception e) {
-            InertiaLogger.warn("Failed to wake bodies in chunk " + chunkX + "," + chunkZ + ": " + e.getMessage());
-        } finally {
-            box.close();
-        }
-    }
-
-    private ConstShape buildShape(GreedyMeshShape shapeData, int chunkOffsetX, int chunkOffsetZ, Map<HalfExtentsKey, ConstShape> boxShapeCache) {
-        List<SerializedBoundingBox> boxes = shapeData.boundingBoxes();
-        if (boxes.isEmpty()) return null;
-
-        if (boxes.size() == 1) {
-            return createBoxShape(boxes.get(0), chunkOffsetX, chunkOffsetZ, boxShapeCache);
-        }
-
-        return null;
-    }
-
-    private ConstShape createBoxShape(SerializedBoundingBox box, int chunkOffsetX, int chunkOffsetZ, Map<HalfExtentsKey, ConstShape> boxShapeCache) {
-        float minX = box.minX() + chunkOffsetX;
-        float minY = box.minY();
-        float minZ = box.minZ() + chunkOffsetZ;
-        float maxX = box.maxX() + chunkOffsetX;
-        float maxY = box.maxY();
-        float maxZ = box.maxZ() + chunkOffsetZ;
-
-        float halfX = (maxX - minX) * 0.5f;
-        float halfY = (maxY - minY) * 0.5f;
-        float halfZ = (maxZ - minZ) * 0.5f;
-
-        if (halfX <= 0.001f || halfY <= 0.001f || halfZ <= 0.001f) {
-            return null;
-        }
-        HalfExtentsKey key = HalfExtentsKey.of(halfX, halfY, halfZ);
-        return boxShapeCache.computeIfAbsent(key, ignored -> new BoxShape(new Vec3(halfX, halfY, halfZ)));
-    }
-
-    private record HalfExtentsKey(int halfXBits, int halfYBits, int halfZBits) {
-        private static HalfExtentsKey of(float halfX, float halfY, float halfZ) {
-            return new HalfExtentsKey(Float.floatToIntBits(halfX), Float.floatToIntBits(halfY), Float.floatToIntBits(halfZ));
         }
     }
 
@@ -427,4 +328,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             } catch (Exception ignored) {}
         }
     }
+
+    private record PhysicsProperties(float friction, float restitution) {}
 }
