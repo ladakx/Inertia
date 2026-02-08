@@ -86,7 +86,7 @@ public final class InertiaPlugin extends JavaPlugin {
 
         // Initialize Network Manager
         this.networkManager = NetworkManagerInit.get();
-        this.networkEntityTracker = new NetworkEntityTracker();
+        this.networkEntityTracker = new NetworkEntityTracker(configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER);
 
         this.metricsService = new PhysicsMetricsService();
         this.physicsEngine = new PhysicsEngine(this, configurationService);
@@ -155,6 +155,9 @@ public final class InertiaPlugin extends JavaPlugin {
                     }
                     if (itemRegistry != null) {
                         itemRegistry.reload();
+                    }
+                    if (networkEntityTracker != null) {
+                        networkEntityTracker.applySettings(configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER);
                     }
                     InertiaLogger.info("Inertia systems reloaded.");
                 });

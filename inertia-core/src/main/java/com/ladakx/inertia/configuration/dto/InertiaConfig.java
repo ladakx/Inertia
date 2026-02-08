@@ -12,10 +12,12 @@ public class InertiaConfig {
 
     public final GeneralSettings GENERAL;
     public final PhysicsSettings PHYSICS;
+    public final RenderingSettings RENDERING;
 
     public InertiaConfig(FileConfiguration cfg) {
         this.GENERAL = new GeneralSettings(cfg.getConfigurationSection("general"), cfg);
         this.PHYSICS = new PhysicsSettings(cfg.getConfigurationSection("physics"), cfg);
+        this.RENDERING = new RenderingSettings(cfg.getConfigurationSection("rendering"), cfg);
     }
 
     // ==========================================
@@ -96,6 +98,41 @@ public class InertiaConfig {
 
                 this.maxEntries = section.getInt("max-entries", 4096);
                 this.ttlSeconds = section.getInt("ttl-seconds", 900);
+            }
+        }
+    }
+
+    // ==========================================
+    // Rendering Settings
+    // ==========================================
+    public static class RenderingSettings {
+        public final NetworkEntityTrackerSettings NETWORK_ENTITY_TRACKER;
+
+        public RenderingSettings(ConfigurationSection section, FileConfiguration root) {
+            if (section == null) {
+                this.NETWORK_ENTITY_TRACKER = new NetworkEntityTrackerSettings(null, root);
+                return;
+            }
+            this.NETWORK_ENTITY_TRACKER = new NetworkEntityTrackerSettings(section.getConfigurationSection("network-entity-tracker"), root);
+        }
+
+        public static class NetworkEntityTrackerSettings {
+            public final float posThresholdSq;
+            public final float rotThresholdDot;
+
+            public NetworkEntityTrackerSettings(ConfigurationSection section, FileConfiguration root) {
+                // Defaults are aligned with previous hardcoded values in NetworkEntityTracker
+                double defaultPosThreshold = 0.01; // blocks
+                double defaultRotThresholdDot = 0.3; // quaternion dot (abs)
+
+                double posThreshold = section != null ? section.getDouble("pos-threshold", defaultPosThreshold) : defaultPosThreshold;
+                if (posThreshold < 0) posThreshold = 0;
+                this.posThresholdSq = (float) (posThreshold * posThreshold);
+
+                double rotDot = section != null ? section.getDouble("rot-threshold-dot", defaultRotThresholdDot) : defaultRotThresholdDot;
+                if (rotDot < 0) rotDot = 0;
+                if (rotDot > 1) rotDot = 1;
+                this.rotThresholdDot = (float) rotDot;
             }
         }
     }
