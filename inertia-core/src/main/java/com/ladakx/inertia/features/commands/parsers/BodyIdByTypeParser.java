@@ -31,25 +31,31 @@ public class BodyIdByTypeParser implements ArgumentParser<CommandSender, String>
         return ParserDescriptor.of(new BodyIdByTypeParser(configService, type), String.class);
     }
 
+    private PhysicsBodyType effectiveDefinitionType() {
+        // TNTSpawner uses BlockBodyDefinition from bodies.yml ("blocks.*"), not a dedicated TNT body definition type.
+        return type == PhysicsBodyType.TNT ? PhysicsBodyType.BLOCK : type;
+    }
+
     @Override
     public @NonNull ArgumentParseResult<String> parse(@NonNull CommandContext<CommandSender> commandContext, @NonNull CommandInput commandInput) {
         String input = commandInput.readString();
+        PhysicsBodyType effectiveType = effectiveDefinitionType();
 
         return configService.getPhysicsBodyRegistry().find(input)
-                .filter(model -> model.bodyDefinition().type() == type)
+                .filter(model -> model.bodyDefinition().type() == effectiveType)
                 .map(model -> ArgumentParseResult.success(model.bodyDefinition().id()))
                 .orElseGet(() -> ArgumentParseResult.failure(new IllegalArgumentException("Body not found for type " + type + ": " + input)));
     }
 
     @Override
     public @NonNull Iterable<@NonNull String> stringSuggestions(@NonNull CommandContext<CommandSender> commandContext, @NonNull CommandInput commandInput) {
+        PhysicsBodyType effectiveType = effectiveDefinitionType();
         List<String> ids = configService.getPhysicsBodyRegistry().all().stream()
                 .map(PhysicsBodyRegistry.BodyModel::bodyDefinition)
-                .filter(def -> def.type() == type)
+                .filter(def -> def.type() == effectiveType)
                 .map(BodyDefinition::id)
                 .sorted(Comparator.naturalOrder())
                 .toList();
         return ids;
     }
 }
-
