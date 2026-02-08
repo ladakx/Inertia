@@ -6,11 +6,41 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.features.commands.CloudModule;
 import org.bukkit.command.CommandSender;
 import org.incendo.cloud.CommandManager;
+import org.incendo.cloud.context.CommandContext;
+import org.incendo.cloud.context.CommandInput;
+import org.incendo.cloud.parser.standard.IntegerParser;
 import org.incendo.cloud.parser.standard.StringParser;
+import org.incendo.cloud.suggestion.SuggestionProvider;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class SystemCommands extends CloudModule {
+
+    private static final List<String> HELP_TOPICS = List.of(
+            "spawn",
+            "clear",
+            "debug",
+            "tool",
+            "admin",
+            "entity",
+            "topics"
+    );
+
+    private static final Map<String, Integer> HELP_TOPIC_PAGE_COUNT = Map.ofEntries(
+            Map.entry("spawn", 2),
+            Map.entry("clear", 1),
+            Map.entry("debug", 1),
+            Map.entry("tool", 1),
+            Map.entry("admin", 1),
+            Map.entry("entity", 1),
+            Map.entry("topics", 2)
+    );
+
+    private static final int HELP_INDEX_MAX_PAGE = 2;
 
     public SystemCommands(CommandManager<CommandSender> manager,
                           ConfigurationService config) {
@@ -29,40 +59,38 @@ public class SystemCommands extends CloudModule {
                 })
         );
 
-        // Command: /inertia help [page|topic] [page]
+        // Command: /inertia help
         manager.command(rootBuilder()
                 .literal("help")
                 .permission("inertia.commands.help")
-                .optional("query", StringParser.greedyStringParser())
+                .optional("query", StringParser.stringParser(),
+                        SuggestionProvider.blockingStrings((ctx, input) -> suggestHelpQueries()))
+                .optional("page", IntegerParser.integerParser(1),
+                        SuggestionProvider.blockingStrings((ctx, input) -> suggestHelpPageNumbers(ctx, input)))
                 .handler(ctx -> {
-                    String query = ctx.getOrDefault("query", "").trim();
-                    sendHelp(ctx.sender(), query);
+                    String query = ctx.getOrDefault("query", null);
+                    Integer page = ctx.getOrDefault("page", null);
+                    handleHelp(ctx.sender(), query, page);
                 })
         );
     }
 
-    private void sendHelp(CommandSender sender, String query) {
-        if (sender == null) {
+    private void handleHelp(CommandSender sender, String queryRaw, Integer explicitPage) {
+        if (sender == null) return;
+        if (queryRaw == null || queryRaw.isBlank()) {
+            sendHelpIndex(sender, explicitPage == null ? 1 : explicitPage);
             return;
         }
 
-        String[] args = query.isEmpty() ? new String[0] : query.split("\\s+");
-
-        if (args.length == 0) {
-            sendHelpIndex(sender, 1);
+        String normalized = queryRaw.toLowerCase(Locale.ROOT);
+        if (isNumeric(normalized)) {
+            sendHelpIndex(sender, Integer.parseInt(normalized));
             return;
         }
 
-        if (isPositiveInt(args[0])) {
-            sendHelpIndex(sender, Integer.parseInt(args[0]));
-            return;
-        }
-
-        String topic = args[0].toLowerCase(Locale.ROOT);
-        int page = (args.length >= 2 && isPositiveInt(args[1])) ? Integer.parseInt(args[1]) : 1;
-
-        switch (topic) {
-            case "topics", "topic", "list" -> sendHelpIndex(sender, 1);
+        int page = explicitPage == null ? 1 : explicitPage;
+        switch (normalized) {
+            case "topics", "topic", "list" -> sendHelpIndex(sender, page);
             case "spawn" -> sendHelpTopic(sender, "spawn", page);
             case "clear" -> sendHelpTopic(sender, "clear", page);
             case "debug" -> sendHelpTopic(sender, "debug", page);
@@ -77,7 +105,7 @@ public class SystemCommands extends CloudModule {
     }
 
     private void sendHelpIndex(CommandSender sender, int page) {
-        int max = 2;
+        int max = HELP_INDEX_MAX_PAGE;
         int safePage = Math.max(1, Math.min(page, max));
         MessageKey key = safePage == 1 ? MessageKey.HELP_INDEX_1 : MessageKey.HELP_INDEX_2;
         send(sender, key, "{page}", String.valueOf(safePage), "{max}", String.valueOf(max));
@@ -103,16 +131,39 @@ public class SystemCommands extends CloudModule {
         send(sender, key, "{page}", "1", "{max}", "1");
     }
 
-    private boolean isPositiveInt(String s) {
-        if (s == null || s.isEmpty()) return false;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c < '0' || c > '9') return false;
+    private static List<String> suggestHelpQueries() {
+        List<String> pageHints = IntStream.rangeClosed(1, HELP_INDEX_MAX_PAGE)
+                .mapToObj(Integer::toString)
+                .toList();
+        return Stream.concat(HELP_TOPICS.stream(), pageHints.stream())
+                .toList();
+    }
+
+    private static List<String> suggestHelpPageNumbers(CommandContext<CommandSender> ctx, CommandInput input) {
+        String query = ctx.getOrDefault("query", "topics");
+        if (query == null) {
+            query = "topics";
         }
+        String normalized = query.toLowerCase(Locale.ROOT);
+        int max = switch (normalized) {
+            case "topics", "topic", "list" -> HELP_INDEX_MAX_PAGE;
+            default -> HELP_TOPIC_PAGE_COUNT.getOrDefault(normalized, 1);
+        };
+        if (max < 1) {
+            max = 1;
+        }
+        return IntStream.rangeClosed(1, max)
+                .mapToObj(Integer::toString)
+                .toList();
+    }
+
+    private static boolean isNumeric(String value) {
         try {
-            return Integer.parseInt(s) > 0;
-        } catch (NumberFormatException e) {
+            Integer.parseInt(value);
+            return true;
+        } catch (NumberFormatException ex) {
             return false;
         }
     }
+
 }
