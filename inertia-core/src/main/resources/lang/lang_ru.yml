@@ -1,288 +1,293 @@
-prefix: "&cInertia &l»&r"
+prefix: "<red>Inertia <bold>»<reset>"
 
 reload-plugin:
-  - "{prefix} &7Плагин перезагружен!"
+  - "{prefix} <gray>Плагин перезагружен!"
 
 not-for-console:
-  - "{prefix} &7Эту команду может выполнять только игрок!"
+  - "{prefix} <gray>Эту команду может выполнять только игрок!"
 not-for-this-world:
-  - "{prefix} &7Добавьте этот мир в список физических миров в файле config.yml"
-  - "{prefix} &7Чтобы использовать эту команду!"
+  - "{prefix} <gray>Добавьте этот мир в список физических миров в файле config.yml"
+  - "{prefix} <gray>Чтобы использовать эту команду!"
 
 spawn-limit-reached:
-  - "{prefix} &cНевозможно заспавнить объект: достигнут лимит тел в мире ({limit})!"
-  - "{prefix} &7Используйте &f/inertia clear &7чтобы освободить место."
+  - "{prefix} <red>Невозможно заспавнить объект: достигнут лимит тел в мире ({limit})!"
+  - "{prefix} <gray>Используйте <white>/inertia clear <gray>чтобы освободить место."
 
 spawn-fail-obstructed:
-  - "{prefix} &cСпавн заблокирован! Точка спавна занята."
+  - "{prefix} <red>Спавн заблокирован! Точка спавна занята."
 spawn-fail-out-of-bounds:
-  - "{prefix} &cСпавн заблокирован! Объект окажется за пределами мира."
+  - "{prefix} <red>Спавн заблокирован! Объект окажется за пределами мира."
 
 # --- Spawn Messages ---
 spawn-success:
-  - "{prefix} &7Физическое тело &f{id} &7успешно заспавнено!"
+  - "{prefix} <gray>Физическое тело <white>{id} <gray>успешно заспавнено!"
 chain-spawn-success:
-  - "{prefix} &7Цепь создана! Размер: &f{size}"
+  - "{prefix} <gray>Цепь создана! Размер: <white>{size}"
 ragdoll-spawn-success:
-  - "{prefix} &7Рэгдолл &f{id} &7успешно заспавнен!"
+  - "{prefix} <gray>Рэгдолл <white>{id} <gray>успешно заспавнен!"
 shape-spawn-success:
-  - "{prefix} &7Заспавнено &f{count} &7объектов в форме &f{shape}&7!"
+  - "{prefix} <gray>Заспавнено <white>{count} <gray>объектов в форме <white>{shape}<gray>!"
 
 # --- Debug ---
 debug-perf-toggle:
-  - "{prefix} &7Монитор производительности: {state}"
-debug-perf-format: "Server: &b{srv}ms &8| &7Phys: &b{phys}ms &8(&e{perc}%&8) &8| &7CPU: &b{cpu}% &8| &7Bodies: &a{act}&7/&8{sleep}&7/&c{max} &8| &7Static: &e{stat}"
+  - "{prefix} <gray>Монитор производительности: {state}"
+debug-perf-format: "Server: <aqua>{srv}ms <dark_gray>| <gray>Phys: <aqua>{phys}ms <dark_gray>(<yellow>{perc}%<dark_gray>) <dark_gray>| <gray>CPU: <aqua>{cpu}% <dark_gray>| <gray>Bodies: <green>{act}<gray>/<dark_gray>{sleep}<gray>/<red>{max} <dark_gray>| <gray>Static: <yellow>{stat}"
 debug-hitbox-toggle:
-  - "{prefix} &7Отладка хитбоксов: {state}"
+  - "{prefix} <gray>Отладка хитбоксов: {state}"
 
-debug-inspect-header: "&d&l===== Inertia Inspector ====="
+debug-inspect-header: "<light_purple><bold>===== Inertia Inspector ====="
 debug-inspect-info:
-  - "&7ID тела: &f{id}"
-  - "&7UUID: &f{uuid}"
-  - "&7Тип: &f{type} &7(Слой: {layer})"
-  - "&7Масса: &f{mass} kg"
+  - "<gray>ID тела: <white>{id}"
+  - "<gray>UUID: <white>{uuid}"
+  - "<gray>Тип: <white>{type} <gray>(Слой: {layer})"
+  - "<gray>Масса: <white>{mass} kg"
 debug-inspect-velocity:
-  - "&7Лин. скорость: &f{lin_vel} &8(&f{speed} m/s&8)"
-  - "&7Угл. скорость: &f{ang_vel}"
+  - "<gray>Лин. скорость: <white>{lin_vel} <dark_gray>(<white>{speed} m/s<dark_gray>)"
+  - "<gray>Угл. скорость: <white>{ang_vel}"
 debug-inspect-props:
-  - "&7Трение: &f{friction} &7| Упругость: &f{restitution}"
+  - "<gray>Трение: <white>{friction} <gray>| Упругость: <white>{restitution}"
 debug-inspect-state:
-  - "&7Состояние: {state}"
-debug-inspect-footer: "&d&l============================="
+  - "<gray>Состояние: {state}"
+debug-inspect-footer: "<light_purple><bold>============================="
 debug-inspect-miss:
-  - "{prefix} &cФизический объект не найден."
+  - "{prefix} <red>Физический объект не найден."
 
 help-index-1:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>•</dark_gray> <gray>Справка</gray> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<gray>Разделы:</gray> <dark_gray>(клик — открыть)</dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Спавн тел, цепей, рэгдоллов и TNT</gray>'><click:suggest_command:'/inertia help spawn'><underlined>spawn</underlined></click></hover></gold> <dark_gray>-</dark_gray> <gray>спавн объектов</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Удаление физ тел в текущем мире</gray>'><click:suggest_command:'/inertia help clear'><underlined>clear</underlined></click></hover></gold> <dark_gray>-</dark_gray> <gray>очистка мира</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Хитбоксы, perf и инспект</gray>'><click:suggest_command:'/inertia help debug'><underlined>debug</underlined></click></hover></gold> <dark_gray>-</dark_gray> <gray>отладочные инструменты</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Выдача инструментов игрокам</gray>'><click:suggest_command:'/inertia help tool'><underlined>tool</underlined></click></hover></gold> <dark_gray>-</dark_gray> <gray>инструменты</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Админ-команды, пауза и статистика</gray>'><click:suggest_command:'/inertia help admin'><underlined>admin</underlined></click></hover></gold> <dark_gray>-</dark_gray> <gray>админ-команды</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Entity clear / static</gray>'><click:suggest_command:'/inertia help entity'><underlined>entity</underlined></click></hover></gold> <dark_gray>-</dark_gray> <gray>сущности</gray>"
   - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia spawn</gold> <dark_gray>-</dark_gray> <gray>спавн физических объектов.</gray>"
-  - "<gray><gold>/inertia clear</gold> <dark_gray>-</dark_gray> <gray>удаление физических объектов из текущего мира.</gray>"
-  - "<gray><gold>/inertia debug</gold> <dark_gray>-</dark_gray> <gray>хитбоксы/perf/inspect.</gray>"
-  - "<gray><gold>/inertia tool</gold> <dark_gray>-</dark_gray> <gray>выдача инструментов.</gray>"
-  - "<gray><gold>/inertia admin</gold> <dark_gray>-</dark_gray> <gray>пауза/статистика (админы).</gray>"
-  - "<dark_gray> </dark_gray>"
-  - "<gray>Подробно:</gray> <gold>/inertia help spawn</gold><gray>,</gray> <gold>/inertia help clear</gold><gray>,</gray> <gold>/inertia help debug</gold>"
-  - "<gray>Ещё:</gray> <gold>/inertia help tool</gold><gray>,</gray> <gold>/inertia help admin</gold><gray>,</gray> <gold>/inertia help entity</gold>"
+  - "<gray>Страницы:</gray> <click:suggest_command:'/inertia help 1'><hover:show_text:'<gray>Оглавление</gray>'><green>[1]</green></hover></click> <click:suggest_command:'/inertia help 2'><hover:show_text:'<gray>Примеры</gray>'><green>[2]</green></hover></click>"
+  - "<dark_gray>Подсказка:</dark_gray> <gray><click:copy_to_clipboard:'/inertia help spawn'><hover:show_text:'<gray>Скопировать команду</gray>'>/inertia help spawn</hover></click></gray>"
 
 help-index-2:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>•</dark_gray> <gray>Примеры</gray> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<gray>Требования:</gray> <dark_gray>команды работают только в симулируемых мирах (см.</dark_gray> <gold>worlds.yml</gold><dark_gray>).</dark_gray>"
   - "<dark_gray> </dark_gray>"
-  - "<gray>Требования:</gray> <dark_gray>большинство команд работают только в симулируемых мирах (см.</dark_gray> <gold>worlds.yml</gold><dark_gray>).</dark_gray>"
-  - "<gray>Примеры:</gray>"
-  - "<gold>/inertia spawn body stone</gold>"
-  - "<gold>/inertia spawn chain iron_chain 20</gold>"
-  - "<gold>/inertia spawn ragdoll ragdoll_head Notch</gold>"
-  - "<gold>/inertia clear 32</gold> <dark_gray># удалить в радиусе</dark_gray>"
-  - "<gold>/inertia debug hitboxes 40</gold>"
-  - "<gold>/inertia tool welder</gold>"
+  - "<gray>Клик + hover — вставить в чат:</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Поп-спавн</gray>'><click:suggest_command:'/inertia spawn body blocks.stone'>/inertia spawn body blocks.stone</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Цепь</gray>'><click:suggest_command:'/inertia spawn chain chains.vhv_chain 20'>/inertia spawn chain chains.vhv_chain 20</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Рэгдолл</gray>'><click:suggest_command:'/inertia spawn ragdoll ragdolls.steve Notch'>/inertia spawn ragdoll ragdolls.steve Notch</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>TNT</gray>'><click:suggest_command:'/inertia spawn tnt blocks.tnt_physics 20'>/inertia spawn tnt blocks.tnt_physics 20</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Очистка по радиусу</gray>'><click:suggest_command:'/inertia clear 32'>/inertia clear 32</click></hover></gold> <dark_gray># удалить в радиусе</dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Хитбоксы</gray>'><click:suggest_command:'/inertia debug hitboxes 40'>/inertia debug hitboxes 40</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Инструмент</gray>'><click:suggest_command:'/inertia tool welder'>/inertia tool welder</click></hover></gold>"
 
 help-tip-topics:
-  - "<dark_gray>Подсказка:</dark_gray> <gray>используйте</gray> <gold>/inertia help spawn</gold><gray>,</gray> <gold>/inertia help clear</gold><gray>,</gray> <gold>/inertia help debug</gold><gray>…</gray>"
+  - "<dark_gray>Подсказка:</dark_gray> <gray>используйте</gray> <gold><click:suggest_command:'/inertia help spawn'><hover:show_text:'<gray>Открыть</gray>'>/inertia help spawn</hover></click></gold><gray>,</gray> <gold><click:suggest_command:'/inertia help clear'><hover:show_text:'<gray>Открыть</gray>'>/inertia help clear</hover></click></gold><gray>,</gray> <gold><click:suggest_command:'/inertia help debug'><hover:show_text:'<gray>Открыть</gray>'>/inertia help debug</hover></click></gold><gray>…</gray>"
 
 help-spawn-1:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>»</dark_gray> <gold>spawn</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>»</dark_gray> <gold>spawn</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<gray>ID берутся из</gray> <gold>bodies.yml</gold><gray>:</gray> <dark_gray>blocks.* / chains.* / ragdolls.*</dark_gray>"
   - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia spawn body &lt;id&gt;</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн простого тела из</gray> <gold>bodies.yml</gold><gray>.</gray>"
-  - "<gray><gold>/inertia spawn chain &lt;id&gt; [size]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн цепи на 1-100 звеньев (по умолчанию 10).</gray>"
-  - "<gray><gold>/inertia spawn ragdoll &lt;id&gt; [nickname]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн рэгдолла; никнейм — скин игрока.</gray>"
-  - "<gray><gold>/inertia spawn tnt &lt;id&gt; [force]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн TNT тела; сила 0.1-100 (по умолчанию 20).</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Спавн простого тела</gray>'><click:suggest_command:'/inertia spawn body blocks.stone'>/inertia spawn body &lt;id&gt;</click></hover></gold> <dark_gray>-</dark_gray> <gray>одно тело</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Спавн цепи (1-100)</gray>'><click:suggest_command:'/inertia spawn chain chains.vhv_chain 20'>/inertia spawn chain &lt;id&gt; [size]</click></hover></gold> <dark_gray>-</dark_gray> <gray>цепь</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Спавн рэгдолла с optional скином</gray>'><click:suggest_command:'/inertia spawn ragdoll ragdolls.steve Notch'>/inertia spawn ragdoll &lt;id&gt; [nickname]</click></hover></gold> <dark_gray>-</dark_gray> <gray>рэгдолл</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Спавн TNT с указанной силой</gray>'><click:suggest_command:'/inertia spawn tnt blocks.tnt_physics 20'>/inertia spawn tnt &lt;id&gt; [force]</click></hover></gold> <dark_gray>-</dark_gray> <gray>TNT (сила 0.1-100)</gray>"
 
 help-spawn-2:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>»</dark_gray> <gold>spawn</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
-  - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia spawn spawn-shape &lt;type&gt; &lt;id&gt; &lt;params...&gt;</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн тел по отладочной форме (тип и параметры подскажутся табом).</gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>»</dark_gray> <gold>spawn</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Спавн debug-формы (тип + параметры)</gray>'><click:suggest_command:'/inertia spawn spawn-shape line blocks.stone 10'>/inertia spawn spawn-shape &lt;type&gt; &lt;id&gt; &lt;params...&gt;</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Доступные формы можно увидеть через</gray> <yellow><underlined>tab-complete</underlined></yellow><gray>.</gray>"
   - "<dark_gray> </dark_gray>"
   - "<gray>Примечания:</gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн может быть заблокирован, если место занято.</gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн может быть заблокирован, если объект выйдет за границы мира.</gray>"
-  - "<dark_gray>-</dark_gray> <gray>Спавн может быть заблокирован при достижении лимита тел.</gray>"
+  - "<dark_gray>•</dark_gray> <gray>Спавн может быть заблокирован, если место занято.</gray>"
+  - "<dark_gray>•</dark_gray> <gray>Спавн может быть заблокирован, если объект выйдет за границы мира.</gray>"
+  - "<dark_gray>•</dark_gray> <gray>Спавн может быть заблокирован при достижении лимита тел.</gray>"
 
 help-clear-1:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>»</dark_gray> <gold>clear</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>»</dark_gray> <gold>clear</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Удаляет тела по радиусу и фильтру</gray>'><click:suggest_command:'/inertia clear 32'>/inertia clear [radius] [filter]</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Удаляет физические тела в текущем мире.</gray>"
   - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia clear [radius] [filter]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Удаляет физические тела в текущем мире.</gray>"
-  - "<dark_gray>-</dark_gray> <gray><radius></gray> <dark_gray>— ограничение по расстоянию от вас.</dark_gray>"
-  - "<dark_gray>-</dark_gray> <gray><filter></gray> <dark_gray>— ID тела (из bodies.yml) или тип (BLOCK/TNT/CHAIN/RAGDOLL).</dark_gray>"
+  - "<gray>Аргументы:</gray>"
+  - "<dark_gray>•</dark_gray> <gray>&lt;radius&gt;</gray> <dark_gray>- ограничение по расстоянию от вас.</dark_gray>"
+  - "<dark_gray>•</dark_gray> <gray>&lt;filter&gt;</gray> <dark_gray>- ID тела (bodies.yml) или тип (BLOCK/TNT/CHAIN/RAGDOLL).</dark_gray>"
   - "<dark_gray> </dark_gray>"
   - "<gray>Производительность:</gray> <dark_gray>массовая очистка выполняется батчами, чтобы не фризить.</dark_gray>"
 
 help-entity-1:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>»</dark_gray> <gold>entity</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
-  - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia entity clear &lt;radius&gt; &lt;active&gt; &lt;static&gt; [filter]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Удаляет Bukkit-сущности, связанные с Inertia (active/static).</gray>"
-  - "<gray><gold>/inertia entity static &lt;radius&gt; [filter]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Переводит активные тела в статичную декорацию.</gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>»</dark_gray> <gold>entity</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Удаляет Bukkit-сущности (active/static)</gray>'><click:suggest_command:'/inertia entity clear 32 true true'>/inertia entity clear &lt;radius&gt; &lt;active&gt; &lt;static&gt; [filter]</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Удаляет Bukkit-сущности, связанные с Inertia.</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Переводит активные тела в статик</gray>'><click:suggest_command:'/inertia entity static 32'>/inertia entity static &lt;radius&gt; [filter]</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Преобразует активные физические тела в статичную декорацию.</gray>"
 
 help-debug-1:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>»</dark_gray> <gold>debug</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
-  - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia debug hitboxes [range]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Переключает отрисовку хитбоксов вокруг вас.</gray>"
-  - "<gray><gold>/inertia debug perf</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Переключает bossbar монитор производительности.</gray>"
-  - "<gray><gold>/inertia debug inspect</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Выдаёт инструмент инспектора для просмотра параметров тела.</gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>»</dark_gray> <gold>debug</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Показывает/скрывает хитбоксы</gray>'><click:suggest_command:'/inertia debug hitboxes 40'>/inertia debug hitboxes [range]</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Вкл/выкл отрисовку хитбоксов вокруг вас.</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Показывает или скрывает монитор производительности</gray>'><click:suggest_command:'/inertia debug perf'>/inertia debug perf</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Вкл/выкл bossbar монитор производительности.</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Выдаёт инструмент инспектора</gray>'><click:suggest_command:'/inertia debug inspect'>/inertia debug inspect</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Выдаёт инструмент инспектора для просмотра параметров тела.</gray>"
 
 help-tool-1:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>»</dark_gray> <gold>tool</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
-  - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia tool chain &lt;id&gt;</gold></gray>"
-  - "<gray><gold>/inertia tool ragdoll &lt;id&gt;</gold></gray>"
-  - "<gray><gold>/inertia tool shape &lt;type&gt; &lt;id&gt; &lt;params...&gt;</gold></gray>"
-  - "<gray><gold>/inertia tool tntspawner &lt;id&gt; [force]</gold></gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>»</dark_gray> <gold>tool</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<gray>Инструменты:</gray> <dark_gray>(клик — вставить)</dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Выдать Chain Tool</gray>'><click:suggest_command:'/inertia tool chain chains.vhv_chain'>/inertia tool chain &lt;id&gt;</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Выдать Ragdoll Tool</gray>'><click:suggest_command:'/inertia tool ragdoll ragdolls.steve'>/inertia tool ragdoll &lt;id&gt;</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Выдать Shape Tool (тип + параметры)</gray>'><click:suggest_command:'/inertia tool shape line blocks.stone 10'>/inertia tool shape &lt;type&gt; &lt;id&gt; &lt;params...&gt;</click></hover></gold>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Выдать TNT Spawner</gray>'><click:suggest_command:'/inertia tool tntspawner blocks.tnt_physics 20'>/inertia tool tntspawner &lt;id&gt; [force]</click></hover></gold>"
   - "<dark_gray> </dark_gray>"
   - "<gray>Другие инструменты:</gray> <dark_gray>grabber / welder / remover / inspector.</dark_gray>"
 
 help-admin-1:
-  - "<red><bold>Inertia</bold></red> <gray>Справка</gray> <dark_gray>»</dark_gray> <gold>admin</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
-  - "<dark_gray> </dark_gray>"
-  - "<gray><gold>/inertia admin pause [true/false]</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Пауза/продолжение симуляции во всех физических мирах.</gray>"
-  - "<gray><gold>/inertia admin stats</gold></gray>"
-  - "<dark_gray>-</dark_gray> <gray>Показывает производительность и количество тел.</gray>"
+  - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>»</dark_gray> <gold>admin</gold> <dark_gray>(Стр. {page}/{max})</dark_gray>"
+  - "<dark_gray><st>────────────────────────────</st></dark_gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Пауза/продолжение симуляции</gray>'><click:suggest_command:'/inertia admin pause true'>/inertia admin pause [true/false]</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Пауза/продолжение симуляции во всех физических мирах.</gray>"
+  - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Показать статистику</gray>'><click:suggest_command:'/inertia admin stats'>/inertia admin stats</click></hover></gold>"
+  - "<dark_gray>  </dark_gray><gray>Показывает производительность и количество тел.</gray>"
 
 # --- Shape Errors ---
 shape-not-found:
-  - "{prefix} &cНеизвестная форма: {shape}"
+  - "{prefix} <red>Неизвестная форма: {shape}"
 shape-usage:
-  - "{prefix} &cИспользование: /inertia spawn-shape {type} {params} <bodyId>"
+  - "{prefix} <red>Использование: /inertia spawn-shape {type} {params} <bodyId>"
 shape-invalid-params:
-  - "{prefix} &cПараметры формы должны быть числами!"
+  - "{prefix} <red>Параметры формы должны быть числами!"
 
 # --- Tools ---
 tool-received:
-  - "{prefix} &7Вы получили инструмент: &f{tool}"
+  - "{prefix} <gray>Вы получили инструмент: <white>{tool}"
 tool-not-found:
-  - "{prefix} &cИнструмент не найден или неверная конфигурация!"
+  - "{prefix} <red>Инструмент не найден или неверная конфигурация!"
 tool-broken-nbt:
-  - "{prefix} &cСломанный инструмент: отсутствуют NBT данные!"
+  - "{prefix} <red>Сломанный инструмент: отсутствуют NBT данные!"
 
 body-frozen:
-  - "{prefix} &bТело успешно заморожено."
+  - "{prefix} <aqua>Тело успешно заморожено."
 cannot-freeze-body:
-  - "{prefix} &cНевозможно заморозить этот объект (не поддерживается)."
+  - "{prefix} <red>Невозможно заморозить этот объект (не поддерживается)."
 
 static-success:
-  - "{prefix} &bЗаморожено &f{count} &bсущностей."
+  - "{prefix} <aqua>Заморожено <white>{count} <aqua>сущностей."
 
 # --- Tool Items ---
-tool-chain-name: "&6Инструмент цепи: &e{body}"
+tool-chain-name: "<gold>Инструмент цепи: <yellow>{body}"
 tool-chain-lore:
-  - "&7ЛКМ: Установить точку 1"
-  - "&7ПКМ: Установить точку 2 & Построить"
-  - "&8Переключение (F): Очистить выбор"
+  - "<gray>ЛКМ: Установить точку 1"
+  - "<gray>ПКМ: Установить точку 2 & Построить"
+  - "<dark_gray>Переключение (F): Очистить выбор"
 
-tool-ragdoll-name: "&6Инструмент рэгдолла: &e{body}"
+tool-ragdoll-name: "<gold>Инструмент рэгдолла: <yellow>{body}"
 tool-ragdoll-lore:
-  - "&7ЛКМ: Заспавнить с импульсом"
-  - "&7ПКМ: Заспавнить в месте"
+  - "<gray>ЛКМ: Заспавнить с импульсом"
+  - "<gray>ПКМ: Заспавнить в месте"
 
-tool-shape-name: "&6Инструмент формы: &e{shape}"
+tool-shape-name: "<gold>Инструмент формы: <yellow>{shape}"
 tool-shape-lore:
-  - "&7Тело: &f{body}"
-  - "&7Параметры: &f{params}"
+  - "<gray>Тело: <white>{body}"
+  - "<gray>Параметры: <white>{params}"
   - " "
-  - "&aПКМ: Заспавнить форму"
+  - "<green>ПКМ: Заспавнить форму"
 
-tool-tnt-name: "&cСпавнер ТНТ"
+tool-tnt-name: "<red>Спавнер ТНТ"
 tool-tnt-lore:
-  - "&7Тело: &f{body}"
-  - "&7Сила: &e{force}"
+  - "<gray>Тело: <white>{body}"
+  - "<gray>Сила: <yellow>{force}"
   - " "
-  - "&6ЛКМ: Бросить ТНТ"
-  - "&6ПКМ: Поставить у ног"
+  - "<gold>ЛКМ: Бросить ТНТ"
+  - "<gold>ПКМ: Поставить у ног"
 
-tool-static-name: "&bИнструмент заморозки"
+tool-static-name: "<aqua>Инструмент заморозки"
 tool-static-lore:
-  - "&7ЛКМ/ПКМ: Превратить физический объект"
-  - "&7в статичную декорацию."
+  - "<gray>ЛКМ/ПКМ: Превратить физический объект"
+  - "<gray>в статичную декорацию."
 
-tool-grabber-name: "&aИнструмент захвата"
+tool-grabber-name: "<green>Инструмент захвата"
 tool-grabber-lore:
-  - "&7ПКМ: Поднять / Бросить объект"
-  - "&7Колесо мыши: Двигать объект ближе/дальше"
-  - "&7ЛКМ: Зафиксировать в пространстве (Статичный сустав)"
+  - "<gray>ПКМ: Поднять / Бросить объект"
+  - "<gray>Колесо мыши: Двигать объект ближе/дальше"
+  - "<gray>ЛКМ: Зафиксировать в пространстве (Статичный сустав)"
 
-tool-welder-name: "&6Сварочный инструмент"
+tool-welder-name: "<gold>Сварочный инструмент"
 tool-welder-lore:
-  - "&7ПКМ Объект 1: Выбрать"
-  - "&7ПКМ Объект 2: Приварить вместе"
-  - "&7ЛКМ: Разорвать сварку"
-  - "&8Переключение (F): Переключить режим ({mode})"
+  - "<gray>ПКМ Объект 1: Выбрать"
+  - "<gray>ПКМ Объект 2: Приварить вместе"
+  - "<gray>ЛКМ: Разорвать сварку"
+  - "<dark_gray>Переключение (F): Переключить режим ({mode})"
 
-tool-remover-name: "&cИнструмент удаления"
+tool-remover-name: "<red>Инструмент удаления"
 tool-remover-lore:
-  - "&7ПКМ: Удалить физический объект"
-  - "&7(Удаляет всю связанную структуру)"
+  - "<gray>ПКМ: Удалить физический объект"
+  - "<gray>(Удаляет всю связанную структуру)"
 
-tool-inspect-name: "&dИнструмент инспектора"
+tool-inspect-name: "<light_purple>Инструмент инспектора"
 tool-inspect-lore:
-  - "&7ПКМ: Информация о физическом объекте"
-  - "&7(Масса, скорость, трение, и т.д.)"
+  - "<gray>ПКМ: Информация о физическом объекте"
+  - "<gray>(Масса, скорость, трение, и т.д.)"
 
 # --- Tool Specifics ---
 shape-spawned:
-  - "{prefix} &7Заспавнено &f{count} &7объектов (&e{shape}&7)"
+  - "{prefix} <gray>Заспавнено <white>{count} <gray>объектов (<yellow>{shape}<gray>)"
 shape-spawn-error:
-  - "{prefix} &cОшибка при спавне формы: {error}"
+  - "{prefix} <red>Ошибка при спавне формы: {error}"
 
 chain-point-set:
-  - "{prefix} &7Позиция 1 установлена в: &e{location}"
+  - "{prefix} <gray>Позиция 1 установлена в: <yellow>{location}"
 chain-select-first:
-  - "{prefix} &cПожалуйста, сначала выберите Позицию 1 (ЛКМ)!"
+  - "{prefix} <red>Пожалуйста, сначала выберите Позицию 1 (ЛКМ)!"
 chain-missing-id:
-  - "{prefix} &cНеверный инструмент: отсутствует ID тела цепи."
+  - "{prefix} <red>Неверный инструмент: отсутствует ID тела цепи."
 chain-building:
-  - "{prefix} &7Позиция 2 установлена. Создание цепи..."
+  - "{prefix} <gray>Позиция 2 установлена. Создание цепи..."
 selection-cleared:
-  - "{prefix} &eВыбор очищен."
+  - "{prefix} <yellow>Выбор очищен."
 invalid-chain-body:
-  - "{prefix} &cНеверное определение тела цепи: {id}"
+  - "{prefix} <red>Неверное определение тела цепи: {id}"
 
 invalid-ragdoll-body:
-  - "{prefix} &cНеверное тело рэгдолла: {id}"
+  - "{prefix} <red>Неверное тело рэгдолла: {id}"
 
 weld-mode-change:
-  - "{prefix} &eРежим сварки: &f{mode}"
+  - "{prefix} <yellow>Режим сварки: <white>{mode}"
 weld-first-selected:
-  - "{prefix} &7Первый объект выбран."
+  - "{prefix} <gray>Первый объект выбран."
 weld-deselected:
-  - "{prefix} &eВыделение первого объекта снято."
+  - "{prefix} <yellow>Выделение первого объекта снято."
 weld-connected:
-  - "{prefix} &aОбъекты соединены!"
+  - "{prefix} <green>Объекты соединены!"
 
 remover-used:
-  - "{prefix} &cОбъект удалён."
+  - "{prefix} <red>Объект удалён."
 
 error-occurred:
-  - "{prefix} &cОшибка: {error}"
+  - "{prefix} <red>Ошибка: {error}"
 
 # --- Команда очистки ---
 clear-success:
-  - "{prefix} &7Удалено &c{count} &7физических объектов из этого мира."
+  - "{prefix} <gray>Удалено <red>{count} <gray>физических объектов из этого мира."
 clear-success-radius:
-  - "{prefix} &7Удалено &c{count} &7объектов в радиусе &e{radius} &7блоков."
+  - "{prefix} <gray>Удалено <red>{count} <gray>объектов в радиусе <yellow>{radius} <gray>блоков."
 clear-no-match:
-  - "{prefix} &cФизические объекты по вашему запросу не найдены."
+  - "{prefix} <red>Физические объекты по вашему запросу не найдены."
 
 tnt-spawned:
-  - "{prefix} &7ТНТ заспавнено с силой &c{force}&7!"
+  - "{prefix} <gray>ТНТ заспавнено с силой <red>{force}<gray>!"
 tnt-tool-received:
-  - "{prefix} &7Вы получили Спавнер ТНТ (Тело: &f{body}&7, Сила: &c{force}&7)."
+  - "{prefix} <gray>Вы получили Спавнер ТНТ (Тело: <white>{body}<gray>, Сила: <red>{force}<gray>)."
 
 admin-simulation-paused:
-  - "{prefix} &7Состояние симуляции: &f{state} &7(Миров: {count})"
-admin-stats-header: "&c&l===== Статистика Inertia ====="
+  - "{prefix} <gray>Состояние симуляции: <white>{state} <gray>(Миров: {count})"
+admin-stats-header: "<red><bold>===== Статистика Inertia ====="
 admin-stats-performance:
-  - "&7Средн. MSPT (1s/5s/1m): &f{avg} &7ms"
-  - "&7Пик MSPT (1s): &c{peak} &7ms"
+  - "<gray>Средн. MSPT (1s/5s/1m): <white>{avg} <gray>ms"
+  - "<gray>Пик MSPT (1s): <red>{peak} <gray>ms"
 admin-stats-bodies:
-  - "&7Тела: &f{dynamic} &7Динамических | &f{static} &7Статичных"
-admin-stats-footer: "&c&l=============================="
+  - "<gray>Тела: <white>{dynamic} <gray>Динамических | <white>{static} <gray>Статичных"
+admin-stats-footer: "<red><bold>=============================="
