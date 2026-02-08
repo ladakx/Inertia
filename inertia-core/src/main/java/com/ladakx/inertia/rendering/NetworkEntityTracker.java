@@ -1,6 +1,7 @@
 package com.ladakx.inertia.rendering;
 
 import com.ladakx.inertia.common.chunk.ChunkUtils;
+import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -18,8 +19,21 @@ public class NetworkEntityTracker {
     private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
 
     // Пороги для дельта-компрессии (чтобы не спамить пакетами при микродвижениях)
-    private static final float POS_THRESHOLD_SQ = 0.0001f; // 0.01 блока
-    private static final float ROT_THRESHOLD_DOT = 0.9999f; // Очень малый угол
+    private volatile float posThresholdSq = 0.0001f; // 0.01 блока (squared)
+    private volatile float rotThresholdDot = 0.3f; // quaternion dot
+
+    public NetworkEntityTracker() {
+    }
+
+    public NetworkEntityTracker(InertiaConfig.RenderingSettings.NetworkEntityTrackerSettings settings) {
+        applySettings(settings);
+    }
+
+    public void applySettings(InertiaConfig.RenderingSettings.NetworkEntityTrackerSettings settings) {
+        if (settings == null) return;
+        this.posThresholdSq = settings.posThresholdSq;
+        this.rotThresholdDot = settings.rotThresholdDot;
+    }
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
         Objects.requireNonNull(visual, "visual");
@@ -80,6 +94,8 @@ public class NetworkEntityTracker {
     public void tick(@NotNull Collection<? extends Player> players, double viewDistanceSquared) {
         // Оптимизация: вместо O(Players * Entities) делаем O(Players * VisibleChunks * EntitiesInChunk)
         int viewDistanceChunks = (int) Math.ceil(Math.sqrt(viewDistanceSquared) / 16.0);
+        float localPosThresholdSq = this.posThresholdSq;
+        float localRotThresholdDot = this.rotThresholdDot;
 
         for (Player player : players) {
             if (player == null || !player.isOnline()) continue;
@@ -117,7 +133,7 @@ public class NetworkEntityTracker {
                                     tracked.markSent(player);
                                 } else {
                                     // Объект уже виден -> проверяем, нужно ли обновить позицию (Дельта-компрессия)
-                                    if (tracked.isDirtyFor(player)) {
+                                    if (tracked.isDirtyFor(player, localPosThresholdSq, localRotThresholdDot)) {
                                         tracked.visual().updatePositionFor(player, tracked.location(), tracked.rotation());
                                         tracked.markSent(player);
                                     }
@@ -247,18 +263,18 @@ public class NetworkEntityTracker {
         /**
          * Проверяет, изменился ли объект достаточно сильно по сравнению с ПОСЛЕДНИМ ОТПРАВЛЕННЫМ состоянием.
          */
-        public boolean isDirtyFor(Player player) {
+        public boolean isDirtyFor(Player player, float posThresholdSq, float rotThresholdDot) {
             // Рассчитываем дельты
             float dx = (float)location.getX() - syncedPos.x;
             float dy = (float)location.getY() - syncedPos.y;
             float dz = (float)location.getZ() - syncedPos.z;
 
             float distSq = dx*dx + dy*dy + dz*dz;
-            if (distSq > POS_THRESHOLD_SQ) return true;
+            if (distSq > posThresholdSq) return true;
 
             // Dot product кватернионов: 1.0 = одинаковые, -1.0 = одинаковые (противоположные), 0 = 90 градусов
             float dot = Math.abs(rotation.dot(syncedRot));
-            return dot < ROT_THRESHOLD_DOT;
+            return dot < rotThresholdDot;
         }
 
         /**
