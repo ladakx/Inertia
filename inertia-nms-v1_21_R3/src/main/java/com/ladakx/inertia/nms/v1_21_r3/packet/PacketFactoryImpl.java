@@ -2,6 +2,7 @@ package com.ladakx.inertia.nms.v1_21_r3.packet;
 
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
+import net.minecraft.network.protocol.BundlePacket;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -70,12 +71,9 @@ public class PacketFactoryImpl implements PacketFactory {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Object createBundlePacket(List<Object> packets) {
-        // Instead of returning ClientboundBundlePacket which might be causing EncoderException
-        // due to missing mappings or conflicts, we return the List itself.
-        // The sendPacket/sendBundle methods will handle flattening this list.
-        return new ArrayList<>(packets);
+        List<Packet<?>> normalized = normalizePackets(packets);
+        return new ClientboundBundlePacket(normalized);
     }
 
     @Override
@@ -97,8 +95,76 @@ public class PacketFactoryImpl implements PacketFactory {
     public void sendBundle(Player player, List<Object> packets) {
         if (packets == null || packets.isEmpty()) return;
 
-        for (Object p : packets) {
-            sendPacket(player, p);
+        if (packets.size() == 1) {
+            sendPacket(player, packets.get(0));
+            return;
+        }
+
+        try {
+            Object bundle = createBundlePacket(packets);
+            sendPacket(player, bundle);
+        } catch (Throwable ignored) {
+            // Fallback for clients/proxies that cannot decode bundle packets.
+            for (Object p : packets) {
+                sendPacket(player, p);
+            }
+        }
+    }
+
+    @Override
+    public int estimatePacketSizeBytes(Object packet) {
+        if (packet instanceof ClientboundAddEntityPacket) return 96;
+        if (packet instanceof ClientboundRemoveEntitiesPacket) return 48;
+        if (packet instanceof ClientboundTeleportEntityPacket) return 72;
+        if (packet instanceof ClientboundSetEntityDataPacket) return 160;
+        if (packet instanceof ClientboundBundlePacket bundle) {
+            int total = 6;
+            for (Packet<?> subPacket : bundle.subPackets()) {
+                total += estimatePacketSizeBytes(subPacket);
+            }
+            return total;
+        }
+        if (packet instanceof List<?> list) {
+            int total = 0;
+            for (Object p : list) {
+                total += estimatePacketSizeBytes(p);
+            }
+            return Math.max(1, total);
+        }
+        return 128;
+    }
+
+    private List<Packet<?>> normalizePackets(List<Object> packets) {
+        List<Packet<?>> normalized = new ArrayList<>();
+        if (packets == null) {
+            return normalized;
+        }
+
+        for (Object packet : packets) {
+            flattenPacket(packet, normalized);
+        }
+        return normalized;
+    }
+
+    private void flattenPacket(Object packet, List<Packet<?>> sink) {
+        if (packet == null) return;
+
+        if (packet instanceof List<?> list) {
+            for (Object nested : list) {
+                flattenPacket(nested, sink);
+            }
+            return;
+        }
+
+        if (packet instanceof BundlePacket<?> bundlePacket) {
+            for (Packet<?> nested : bundlePacket.subPackets()) {
+                flattenPacket(nested, sink);
+            }
+            return;
+        }
+
+        if (packet instanceof Packet<?> nmsPacket) {
+            sink.add(nmsPacket);
         }
     }
 }
