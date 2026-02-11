@@ -307,24 +307,30 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             return;
         }
 
-        world.schedulePhysicsTask(() -> {
-            for (InertiaPhysicsBody body : world.getBodies()) {
-                if (!(body instanceof AbstractPhysicsBody physicsBody)) {
-                    continue;
-                }
-                if (!physicsBody.isValid() || physicsBody.getMotionType() != MotionType.DYNAMIC) {
-                    continue;
-                }
+        world.schedulePhysicsTask(() -> activateDynamicBodiesNearChunk(chunkX, chunkZ, 1));
+    }
 
-                RVec3 position = physicsBody.getBody().getPosition();
-                int bodyChunkX = ((int) Math.floor(position.xx() + world.getOrigin().xx())) >> 4;
-                int bodyChunkZ = ((int) Math.floor(position.zz() + world.getOrigin().zz())) >> 4;
+    private void activateDynamicBodiesNearChunk(int centerChunkX, int centerChunkZ, int rangeChunks) {
+        if (world == null) {
+            return;
+        }
 
-                if (bodyChunkX == chunkX && bodyChunkZ == chunkZ) {
-                    physicsBody.activate();
-                }
+        for (InertiaPhysicsBody body : world.getBodies()) {
+            if (!(body instanceof AbstractPhysicsBody physicsBody)) {
+                continue;
             }
-        });
+            if (!physicsBody.isValid() || physicsBody.getMotionType() != MotionType.DYNAMIC) {
+                continue;
+            }
+
+            RVec3 position = physicsBody.getBody().getPosition();
+            int bodyChunkX = ((int) Math.floor(position.xx() + world.getOrigin().xx())) >> 4;
+            int bodyChunkZ = ((int) Math.floor(position.zz() + world.getOrigin().zz())) >> 4;
+
+            if (Math.abs(bodyChunkX - centerChunkX) <= rangeChunks && Math.abs(bodyChunkZ - centerChunkZ) <= rangeChunks) {
+                physicsBody.activate();
+            }
+        }
     }
 
     private void enqueueMeshData(int x, int z, GreedyMeshData data) {
@@ -441,16 +447,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         long key = ChunkUtils.getChunkKey(x, z);
         if (!loadedChunks.contains(key) || world == null) return;
 
-        if (data.fullRebuild()) {
-            removeChunkBodies(key);
-        } else {
-            removeChunkBodies(key, data.touchedSections());
-        }
-
-        if (data.shapes().isEmpty()) {
-            return;
-        }
-
         BodyInterface bi = world.getBodyInterface();
         RVec3 worldOrigin = world.getOrigin();
 
@@ -474,8 +470,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             group.shapes().add(shapeData);
         }
 
-        Map<Integer, List<Integer>> sectionBodies = chunkBodies.computeIfAbsent(key, unused -> new HashMap<>());
-
+        // Build new section bodies first, then remove old ones and swap.
+        // This avoids a temporary "no collision" gap for the chunk while it is being replaced.
+        Map<Integer, List<Integer>> builtSectionBodies = new HashMap<>();
         for (MeshGroup group : groupedVertices.values()) {
             List<Integer> newBodyIds = new ArrayList<>();
             if (greedyMeshShapeType == WorldsConfig.GreedyMeshShapeType.COMPOUND_SHAPE) {
@@ -484,13 +481,34 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 createMeshBodyForGroup(x, z, bi, bodyPosition, group, newBodyIds);
             }
             if (!newBodyIds.isEmpty()) {
-                sectionBodies.computeIfAbsent(group.sectionY(), unused -> new ArrayList<>()).addAll(newBodyIds);
+                builtSectionBodies.computeIfAbsent(group.sectionY(), unused -> new ArrayList<>()).addAll(newBodyIds);
             }
+        }
+
+        // Wake up nearby dynamic bodies right before and after terrain-body swap,
+        // so contact pairs rebuild immediately.
+        activateDynamicBodiesNearChunk(x, z, 1);
+
+        if (data.fullRebuild()) {
+            removeChunkBodies(key);
+        } else {
+            removeChunkBodies(key, data.touchedSections());
+        }
+
+        Map<Integer, List<Integer>> sectionBodies = chunkBodies.computeIfAbsent(key, unused -> new HashMap<>());
+        if (data.fullRebuild()) {
+            sectionBodies.clear();
+        }
+
+        for (Map.Entry<Integer, List<Integer>> entry : builtSectionBodies.entrySet()) {
+            sectionBodies.computeIfAbsent(entry.getKey(), unused -> new ArrayList<>()).addAll(entry.getValue());
         }
 
         if (sectionBodies.isEmpty()) {
             chunkBodies.remove(key);
         }
+
+        activateDynamicBodiesNearChunk(x, z, 1);
     }
 
     private void createMeshBodyForGroup(int x, int z,
