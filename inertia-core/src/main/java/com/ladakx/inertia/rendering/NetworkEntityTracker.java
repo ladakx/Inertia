@@ -13,6 +13,7 @@ import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class NetworkEntityTracker {
 
@@ -20,14 +21,22 @@ public class NetworkEntityTracker {
     private final Map<UUID, PlayerTrackingState> playerTrackingStates = new ConcurrentHashMap<>();
     private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
 
-    private final Map<UUID, List<Object>> packetBuffer = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerPacketQueue> packetBuffer = new ConcurrentHashMap<>();
 
     // Default values matched with InertiaConfig defaults (0.01^2 and 0.3)
     private volatile float posThresholdSq = 0.0001f;
     private volatile float rotThresholdDot = 0.3f;
     private volatile int maxVisibilityUpdatesPerPlayerPerTick = 256;
     private volatile int fullRecalcIntervalTicks = 20;
+    private volatile int maxPacketsPerPlayerPerTick = 256;
+    private volatile int maxBytesPerPlayerPerTick = 98304;
     private long tickCounter = 0L;
+
+    private volatile double averagePacketsPerPlayer = 0.0;
+    private volatile int peakPacketsPerPlayer = 0;
+    private final AtomicLong averageSamples = new AtomicLong(0);
+    private final AtomicLong deferredPackets = new AtomicLong(0);
+    private final AtomicLong droppedPackets = new AtomicLong(0);
 
     private final PacketFactory packetFactory;
 
@@ -46,6 +55,8 @@ public class NetworkEntityTracker {
         this.rotThresholdDot = settings.rotThresholdDot;
         this.maxVisibilityUpdatesPerPlayerPerTick = settings.maxVisibilityUpdatesPerPlayerPerTick;
         this.fullRecalcIntervalTicks = settings.fullRecalcIntervalTicks;
+        this.maxPacketsPerPlayerPerTick = settings.maxPacketsPerPlayerPerTick;
+        this.maxBytesPerPlayerPerTick = settings.maxBytesPerPlayerPerTick;
     }
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
@@ -175,22 +186,22 @@ public class NetworkEntityTracker {
 
                 if (inRange) {
                     if (visible.add(id)) {
-                        bufferPacket(playerId, tracked.visual().createSpawnPacket(tracked.location(), tracked.rotation()));
+                        bufferPacket(playerId, tracked.visual().createSpawnPacket(tracked.location(), tracked.rotation()), PacketPriority.SPAWN_DESTROY);
                         tracked.markSent(player);
                     } else {
                         Object updatePacket = tracked.getPendingUpdatePacket();
                         if (updatePacket != null) {
-                            bufferPacket(playerId, updatePacket);
+                            bufferPacket(playerId, updatePacket, PacketPriority.TELEPORT);
                             tracked.markSent(player);
                         }
 
                         Object metaPacket = tracked.getPendingMetaPacket();
                         if (metaPacket != null) {
-                            bufferPacket(playerId, metaPacket);
+                            bufferPacket(playerId, metaPacket, PacketPriority.METADATA);
                         }
                     }
                 } else if (visible.remove(id)) {
-                    bufferPacket(playerId, tracked.visual().createDestroyPacket());
+                    bufferPacket(playerId, tracked.visual().createDestroyPacket(), PacketPriority.SPAWN_DESTROY);
                 }
 
                 processed++;
@@ -203,24 +214,94 @@ public class NetworkEntityTracker {
         flushPackets();
     }
 
-    private void bufferPacket(UUID playerId, Object packet) {
+    private void bufferPacket(UUID playerId, Object packet, PacketPriority priority) {
         if (packet == null) return;
-        packetBuffer.computeIfAbsent(playerId, k -> new ArrayList<>()).add(packet);
+        int estimatedBytes = Math.max(1, packetFactory.estimatePacketSizeBytes(packet));
+        packetBuffer.computeIfAbsent(playerId, k -> new PlayerPacketQueue())
+                .add(new QueuedPacket(packet, priority, estimatedBytes));
     }
 
     private void flushPackets() {
         if (packetFactory == null) return;
 
-        for (Map.Entry<UUID, List<Object>> entry : packetBuffer.entrySet()) {
-            List<Object> queue = entry.getValue();
+        long totalSent = 0;
+        int onlinePlayersWithPackets = 0;
+        int tickPeak = 0;
+
+        for (Map.Entry<UUID, PlayerPacketQueue> entry : packetBuffer.entrySet()) {
+            PlayerPacketQueue queue = entry.getValue();
             if (queue.isEmpty()) continue;
 
             Player player = Bukkit.getPlayer(entry.getKey());
-            if (player != null && player.isOnline()) {
-                packetFactory.sendBundle(player, new ArrayList<>(queue));
+            if (player == null || !player.isOnline()) {
+                droppedPackets.addAndGet(queue.size());
+                queue.clear();
+                continue;
             }
-            queue.clear();
+
+            int maxPackets = maxPacketsPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxPacketsPerPlayerPerTick;
+            int maxBytes = maxBytesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxBytesPerPlayerPerTick;
+
+            List<Object> packetsToSend = new ArrayList<>();
+            int sentPackets = 0;
+            int sentBytes = 0;
+
+            while (sentPackets < maxPackets) {
+                QueuedPacket next = queue.peek();
+                if (next == null) break;
+
+                boolean fitsByteBudget = sentBytes + next.estimatedBytes() <= maxBytes;
+                if (!fitsByteBudget && sentPackets > 0) break;
+
+                // Always allow at least one packet to avoid queue starvation by a large packet.
+                QueuedPacket polled = queue.poll();
+                if (polled == null) break;
+
+                packetsToSend.add(polled.packet());
+                sentPackets++;
+                sentBytes += polled.estimatedBytes();
+            }
+
+            if (!packetsToSend.isEmpty()) {
+                packetFactory.sendBundle(player, packetsToSend);
+                totalSent += sentPackets;
+                onlinePlayersWithPackets++;
+                if (sentPackets > tickPeak) {
+                    tickPeak = sentPackets;
+                }
+            }
+
+            int deferred = queue.size();
+            if (deferred > 0) {
+                deferredPackets.addAndGet(deferred);
+            }
         }
+
+        if (onlinePlayersWithPackets > 0) {
+            double tickAverage = totalSent / (double) onlinePlayersWithPackets;
+            long sampleIndex = averageSamples.getAndIncrement();
+            averagePacketsPerPlayer = ((averagePacketsPerPlayer * sampleIndex) + tickAverage) / (sampleIndex + 1);
+        }
+
+        if (tickPeak > peakPacketsPerPlayer) {
+            peakPacketsPerPlayer = tickPeak;
+        }
+    }
+
+    public double getAveragePacketsPerPlayer() {
+        return averagePacketsPerPlayer;
+    }
+
+    public int getPeakPacketsPerPlayer() {
+        return peakPacketsPerPlayer;
+    }
+
+    public long getDeferredPackets() {
+        return deferredPackets.get();
+    }
+
+    public long getDroppedPackets() {
+        return droppedPackets.get();
     }
 
     public void removePlayer(Player player) {
@@ -243,6 +324,60 @@ public class NetworkEntityTracker {
         playerTrackingStates.clear();
         chunkGrid.clear();
         packetBuffer.clear();
+    }
+
+    private enum PacketPriority {
+        SPAWN_DESTROY,
+        TELEPORT,
+        METADATA
+    }
+
+    private record QueuedPacket(Object packet, PacketPriority priority, int estimatedBytes) {}
+
+    private static class PlayerPacketQueue {
+        private final EnumMap<PacketPriority, ArrayDeque<QueuedPacket>> byPriority = new EnumMap<>(PacketPriority.class);
+
+        private PlayerPacketQueue() {
+            byPriority.put(PacketPriority.SPAWN_DESTROY, new ArrayDeque<>());
+            byPriority.put(PacketPriority.TELEPORT, new ArrayDeque<>());
+            byPriority.put(PacketPriority.METADATA, new ArrayDeque<>());
+        }
+
+        public void add(QueuedPacket packet) {
+            byPriority.get(packet.priority()).addLast(packet);
+        }
+
+        public QueuedPacket peek() {
+            QueuedPacket packet = byPriority.get(PacketPriority.SPAWN_DESTROY).peekFirst();
+            if (packet != null) return packet;
+            packet = byPriority.get(PacketPriority.TELEPORT).peekFirst();
+            if (packet != null) return packet;
+            return byPriority.get(PacketPriority.METADATA).peekFirst();
+        }
+
+        public QueuedPacket poll() {
+            QueuedPacket packet = byPriority.get(PacketPriority.SPAWN_DESTROY).pollFirst();
+            if (packet != null) return packet;
+            packet = byPriority.get(PacketPriority.TELEPORT).pollFirst();
+            if (packet != null) return packet;
+            return byPriority.get(PacketPriority.METADATA).pollFirst();
+        }
+
+        public int size() {
+            int total = 0;
+            for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
+                total += queue.size();
+            }
+            return total;
+        }
+
+        public boolean isEmpty() {
+            return size() == 0;
+        }
+
+        public void clear() {
+            byPriority.values().forEach(ArrayDeque::clear);
+        }
     }
 
     private static class PlayerTrackingState {
@@ -379,10 +514,10 @@ public class NetworkEntityTracker {
             this.cachedMetaPacket = null;
 
             // Movement Check
-            float dx = (float)location.getX() - syncedPos.x;
-            float dy = (float)location.getY() - syncedPos.y;
-            float dz = (float)location.getZ() - syncedPos.z;
-            float distSq = dx*dx + dy*dy + dz*dz;
+            float dx = (float) location.getX() - syncedPos.x;
+            float dy = (float) location.getY() - syncedPos.y;
+            float dz = (float) location.getZ() - syncedPos.z;
+            float distSq = dx * dx + dy * dy + dz * dz;
 
             boolean moved = distSq > posThresholdSq;
             boolean rotated = false;
@@ -416,7 +551,7 @@ public class NetworkEntityTracker {
         }
 
         private void sync() {
-            this.syncedPos.set((float)location.getX(), (float)location.getY(), (float)location.getZ());
+            this.syncedPos.set((float) location.getX(), (float) location.getY(), (float) location.getZ());
             this.syncedRot.set(rotation);
         }
     }
