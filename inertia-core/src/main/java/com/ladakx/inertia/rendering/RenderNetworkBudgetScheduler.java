@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Objects;
 
 /**
@@ -12,10 +13,10 @@ import java.util.Objects;
  */
 public final class RenderNetworkBudgetScheduler {
 
-    private final ArrayDeque<Runnable> spawnQueue = new ArrayDeque<>();
-    private final ArrayDeque<Runnable> visibilityQueue = new ArrayDeque<>();
-    private final ArrayDeque<Runnable> metadataQueue = new ArrayDeque<>();
-    private final ArrayDeque<Runnable> destroyQueue = new ArrayDeque<>();
+    private final ArrayDeque<ScheduledTask> spawnQueue = new ArrayDeque<>();
+    private final ArrayDeque<ScheduledTask> visibilityQueue = new ArrayDeque<>();
+    private final ArrayDeque<ScheduledTask> metadataQueue = new ArrayDeque<>();
+    private final ArrayDeque<ScheduledTask> destroyQueue = new ArrayDeque<>();
 
     private long maxWorkNanosPerTick = 2_000_000L;
     private double secondaryMinScale = 0.25D;
@@ -28,6 +29,7 @@ public final class RenderNetworkBudgetScheduler {
     private long totalDeferredTasks;
     private long lastTickDeferredTasks;
     private double lastSecondaryScale = 1.0D;
+    private long coalescedTaskCount;
 
     public void applySettings(com.ladakx.inertia.configuration.dto.InertiaConfig.RenderingSettings.NetworkEntityTrackerSettings settings) {
         if (settings == null) {
@@ -42,19 +44,35 @@ public final class RenderNetworkBudgetScheduler {
     }
 
     public void enqueueSpawn(Runnable task) {
-        spawnQueue.addLast(Objects.requireNonNull(task, "task"));
+        spawnQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
     }
 
     public void enqueueVisibility(Runnable task) {
-        visibilityQueue.addLast(Objects.requireNonNull(task, "task"));
+        visibilityQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
     }
 
     public void enqueueMetadata(Runnable task) {
-        metadataQueue.addLast(Objects.requireNonNull(task, "task"));
+        metadataQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
     }
 
     public void enqueueDestroy(Runnable task) {
-        destroyQueue.addLast(Objects.requireNonNull(task, "task"));
+        destroyQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
+    }
+
+    public void enqueueMetadataCoalesced(int visualId, Runnable task) {
+        Objects.requireNonNull(task, "task");
+
+        Iterator<ScheduledTask> iterator = metadataQueue.descendingIterator();
+        while (iterator.hasNext()) {
+            ScheduledTask queued = iterator.next();
+            if (queued.visualId != null && queued.visualId == visualId) {
+                iterator.remove();
+                coalescedTaskCount++;
+                break;
+            }
+        }
+
+        metadataQueue.addLast(new ScheduledTask(task, System.nanoTime(), visualId));
     }
 
     public void runTick(Collection<? extends Player> players) {
@@ -90,7 +108,7 @@ public final class RenderNetworkBudgetScheduler {
         this.totalDeferredTasks += lastTickDeferredTasks;
     }
 
-    private long runQueue(ArrayDeque<Runnable> queue, long queueBudget, long tickStart, long tickBudget) {
+    private long runQueue(ArrayDeque<ScheduledTask> queue, long queueBudget, long tickStart, long tickBudget) {
         if (queueBudget <= 0) {
             return 0L;
         }
@@ -102,13 +120,13 @@ public final class RenderNetworkBudgetScheduler {
                 break;
             }
 
-            Runnable task = queue.pollFirst();
+            ScheduledTask task = queue.pollFirst();
             if (task == null) {
                 break;
             }
 
             long started = System.nanoTime();
-            task.run();
+            task.runnable.run();
             used += Math.max(0L, System.nanoTime() - started);
         }
         return used;
@@ -199,6 +217,31 @@ public final class RenderNetworkBudgetScheduler {
         return spawnQueue.size() + visibilityQueue.size() + metadataQueue.size() + destroyQueue.size();
     }
 
+    public long getOldestQueueAgeMillis() {
+        long now = System.nanoTime();
+        long oldestNanos = oldestTaskNanos(now, spawnQueue);
+        oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, visibilityQueue));
+        oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, metadataQueue));
+        oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, destroyQueue));
+        return oldestNanos / 1_000_000L;
+    }
+
+    public long getDestroyQueueOldestAgeMillis() {
+        return oldestTaskNanos(System.nanoTime(), destroyQueue) / 1_000_000L;
+    }
+
+    public long getCoalescedTaskCount() {
+        return coalescedTaskCount;
+    }
+
+    private long oldestTaskNanos(long now, ArrayDeque<ScheduledTask> queue) {
+        ScheduledTask first = queue.peekFirst();
+        if (first == null) {
+            return 0L;
+        }
+        return Math.max(0L, now - first.enqueuedAtNanos);
+    }
+
     public double getLastSecondaryScale() {
         return lastSecondaryScale;
     }
@@ -209,5 +252,21 @@ public final class RenderNetworkBudgetScheduler {
         metadataQueue.clear();
         destroyQueue.clear();
         lastTickDeferredTasks = 0L;
+    }
+
+    private static final class ScheduledTask {
+        private final Runnable runnable;
+        private final long enqueuedAtNanos;
+        private final Integer visualId;
+
+        private ScheduledTask(Runnable runnable, long enqueuedAtNanos) {
+            this(runnable, enqueuedAtNanos, null);
+        }
+
+        private ScheduledTask(Runnable runnable, long enqueuedAtNanos, Integer visualId) {
+            this.runnable = runnable;
+            this.enqueuedAtNanos = enqueuedAtNanos;
+            this.visualId = visualId;
+        }
     }
 }
