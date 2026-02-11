@@ -495,19 +495,29 @@ public class NetworkEntityTracker {
                 }
 
                 Object positionPacket = updateDecision.positionSent() ? tracked.getPendingPositionPacket() : null;
-                Object transformMetaPacket = null;
+                Object transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
+                PendingMetadata meta = tracked.getPendingMetaPacket();
+                boolean metadataBundledWithPosition = false;
                 if (positionPacket != null) {
                     long tokenVersion = currentVisualToken(tracked.visual().getId());
+                    List<Object> bundledPackets = null;
                     if (transformMetaPacket != null) {
-                        positionPacket = List.of(positionPacket, transformMetaPacket);
+                        bundledPackets = new ArrayList<>(3);
+                        bundledPackets.add(positionPacket);
+                        bundledPackets.add(transformMetaPacket);
                         transformMetaPacket = null;
-                    } else {
-                        transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
                     }
-                    bufferPacket(playerId, positionPacket, PacketPriority.TELEPORT, tracked.visual().getId(), true, false, -1L, tokenVersion);
+                    if (meta != null) {
+                        if (bundledPackets == null) {
+                            bundledPackets = new ArrayList<>(2);
+                            bundledPackets.add(positionPacket);
+                        }
+                        bundledPackets.add(meta.packet());
+                        metadataBundledWithPosition = true;
+                    }
+                    Object packetToSend = bundledPackets != null ? bundledPackets : positionPacket;
+                    bufferPacket(playerId, packetToSend, PacketPriority.TELEPORT, tracked.visual().getId(), true, false, -1L, tokenVersion);
                     tracked.markSent(player);
-                } else {
-                    transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
                 }
 
                 if (transformMetaPacket != null) {
@@ -518,8 +528,7 @@ public class NetworkEntityTracker {
                                     updateDecision.transformMetadataForced(), -1L, tokenVersion));
                 }
 
-                PendingMetadata meta = tracked.getPendingMetaPacket();
-                if (meta != null) {
+                if (meta != null && !metadataBundledWithPosition) {
                     boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
                     if (allowMetaPacket) {
                         if (shouldDropMetadata(meta.critical(), lodLevel, tracked.visual().getId())) {
