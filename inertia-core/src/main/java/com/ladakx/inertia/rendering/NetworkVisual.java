@@ -26,6 +26,20 @@ public interface NetworkVisual {
     Object createTeleportPacket(Location location, Quaternionf rotation);
 
     /**
+     * Creates a lightweight position-only packet for high-frequency movement updates.
+     */
+    default Object createPositionPacket(Location location, Quaternionf rotation) {
+        return createTeleportPacket(location, rotation);
+    }
+
+    /**
+     * Creates metadata packet containing transformation state (rotation / translation / scale).
+     */
+    default Object createTransformMetadataPacket(Quaternionf rotation) {
+        return null;
+    }
+
+    /**
      * Creates the packet required to update metadata (flags, state, etc).
      */
     Object createMetadataPacket();

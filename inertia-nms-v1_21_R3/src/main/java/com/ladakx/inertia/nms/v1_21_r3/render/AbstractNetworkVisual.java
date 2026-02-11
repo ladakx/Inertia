@@ -67,7 +67,18 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
 
     @Override
     public Object createTeleportPacket(Location location, Quaternionf rotation) {
-        Object teleportPacket = packetFactory.createTeleportPacket(
+        Object positionPacket = createPositionPacket(location, rotation);
+        Object transformPacket = createTransformMetadataPacket(rotation);
+
+        if (transformPacket == null) {
+            return positionPacket;
+        }
+        return packetFactory.createBundlePacket(List.of(positionPacket, transformPacket));
+    }
+
+    @Override
+    public Object createPositionPacket(Location location, Quaternionf rotation) {
+        return packetFactory.createTeleportPacket(
                 entityId,
                 location.getX(),
                 location.getY(),
@@ -75,24 +86,24 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
                 0, 0,
                 false
         );
+    }
 
+    @Override
+    public Object createTransformMetadataPacket(Quaternionf rotation) {
         List<SynchedEntityData.DataValue<?>> metadata = new ArrayList<>();
         addTransformationMetadata(metadata, rotation);
-
-        if (!metadata.isEmpty()) {
-            Object metaPacket = packetFactory.createMetaPacket(entityId, metadata);
-            // Return bundle: Teleport + Transformation Update (Metadata)
-            return packetFactory.createBundlePacket(List.of(teleportPacket, metaPacket));
-        } else {
-            return teleportPacket;
+        if (metadata.isEmpty()) {
+            return null;
         }
+        return packetFactory.createMetaPacket(entityId, metadata);
     }
 
     @Override
     public Object createMetadataPacket() {
         List<SynchedEntityData.DataValue<?>> metadata = new ArrayList<>();
         addBaseMetadata(metadata);
-        // We include type specific metadata here as well to ensure consistency on updates (e.g. item changes)
+        // Keep generic metadata updates separate from transformation metadata to avoid duplicates
+        // when spawn/forced-resync already sent transform values.
         addTypeSpecificMetadata(metadata);
         return packetFactory.createMetaPacket(entityId, metadata);
     }
