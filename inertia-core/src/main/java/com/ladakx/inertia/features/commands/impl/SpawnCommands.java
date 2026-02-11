@@ -163,8 +163,14 @@ public class SpawnCommands extends CloudModule {
                             return;
                         }
 
-                        int count = bodyFactory.spawnShapeAt(player, generator, id, player.getEyeLocation(), params);
-                        send(player, MessageKey.SHAPE_SPAWN_SUCCESS, "{count}", String.valueOf(count), "{shape}", type);
+                        BodyFactory.SpawnShapeJobResult result = bodyFactory.spawnShapeAt(player, generator, id, player.getEyeLocation(), params);
+                        if (!result.accepted()) {
+                            send(player, MessageKey.ERROR_OCCURRED, "{error}", result.rejectReason() == null ? "Mass spawn rejected" : result.rejectReason());
+                            return;
+                        }
+
+                        send(player, MessageKey.SHAPE_SPAWN_SUCCESS, "{count}", String.valueOf(result.totalSpawns()), "{shape}", type);
+                        player.sendMessage("§7Mass spawn queued: §fjob-id=§b" + result.jobId() + " §7progress=§a" + Math.round(result.progress() * 100.0) + "%");
                     } catch (NumberFormatException e) {
                         send(player, MessageKey.SHAPE_INVALID_PARAMS);
                     } catch (Exception e) {

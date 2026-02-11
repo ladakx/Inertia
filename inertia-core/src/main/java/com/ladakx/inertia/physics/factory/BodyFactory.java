@@ -11,6 +11,7 @@ import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawnContext;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawner;
+import com.ladakx.inertia.physics.factory.spawner.MassSpawnScheduler;
 import com.ladakx.inertia.physics.factory.spawner.impl.BlockSpawner;
 import com.ladakx.inertia.physics.factory.spawner.impl.ChainSpawner;
 import com.ladakx.inertia.physics.factory.spawner.impl.RagdollSpawner;
@@ -27,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class BodyFactory {
 
@@ -35,6 +37,7 @@ public class BodyFactory {
     private final ConfigurationService configurationService;
     private final JShapeFactory shapeFactory;
     private final Map<PhysicsBodyType, BodySpawner> spawners = new HashMap<>();
+    private final MassSpawnScheduler massSpawnScheduler;
 
     public BodyFactory(InertiaPlugin plugin,
                        PhysicsWorldRegistry physicsWorldRegistry,
@@ -44,6 +47,11 @@ public class BodyFactory {
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.configurationService = configurationService;
         this.shapeFactory = shapeFactory;
+        this.massSpawnScheduler = new MassSpawnScheduler(
+                plugin,
+                createMassSpawnSettings(configurationService),
+                (location, job) -> spawnBody(location, job.bodyId(), job.player())
+        );
 
         registerSpawners();
     }
@@ -189,39 +197,82 @@ public class BodyFactory {
         spawner.spawn(new BodySpawnContext(space, location, bodyId, null, params));
     }
 
-    public int spawnShape(Player player, DebugShapeGenerator generator, String bodyId, double... params) {
+    public SpawnShapeJobResult spawnShape(Player player, DebugShapeGenerator generator, String bodyId, double... params) {
         Location center = getSpawnLocation(player, 5.0);
         return spawnShapeAt(player, generator, bodyId, center, params);
     }
 
-    public int spawnShapeAt(Player player, DebugShapeGenerator generator, String bodyId, Location center, double... params) {
+    public SpawnShapeJobResult spawnShapeAt(Player player, DebugShapeGenerator generator, String bodyId, Location center, double... params) {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
-        if (space == null) return 0;
-
-        // This is a complex multi-spawn, delegating single spawns to spawnBody
-        // Not creating a shape spawner yet as it depends on generator logic.
-        // We use the generic spawnBody method for each point.
+        if (space == null) return SpawnShapeJobResult.rejected("No physics world");
 
         if (!space.isInsideWorld(center)) {
             configurationService.getMessageManager().send(player, MessageKey.ERROR_OCCURRED, "{error}", "Outside of world bounds!");
-            return 0;
+            return SpawnShapeJobResult.rejected("Outside of world bounds");
         }
 
         List<Vector> offsets = generator.generatePoints(center, params);
-        if (!space.canSpawnBodies(offsets.size())) {
-            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
-                    "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
-            return 0;
+        if (offsets.isEmpty()) {
+            return SpawnShapeJobResult.rejected("Shape has no points");
         }
 
-        int count = 0;
-        for (Vector offset : offsets) {
-            Location loc = center.clone().add(offset);
-            if (spawnBody(loc, bodyId, player)) {
-                count++;
-            }
+        if (!space.canSpawnBodies(1)) {
+            configurationService.getMessageManager().send(player, MessageKey.SPAWN_LIMIT_REACHED,
+                    "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
+            return SpawnShapeJobResult.rejected("World body limit reached");
         }
-        return count;
+
+        MassSpawnScheduler.EnqueueResult enqueueResult = massSpawnScheduler.enqueue(player, space, center, bodyId, offsets);
+        if (!enqueueResult.accepted()) {
+            return SpawnShapeJobResult.rejected(enqueueResult.rejectReason() == null ? "Rejected" : enqueueResult.rejectReason());
+        }
+
+        MassSpawnScheduler.JobSnapshot snapshot = enqueueResult.snapshot();
+        if (snapshot == null) {
+            return SpawnShapeJobResult.rejected("Unable to create job snapshot");
+        }
+
+        return SpawnShapeJobResult.accepted(snapshot.jobId(), snapshot.total(), snapshot.progress());
+    }
+
+    public @Nullable MassSpawnScheduler.JobSnapshot getSpawnJob(UUID jobId) {
+        return massSpawnScheduler.snapshot(jobId);
+    }
+
+    public void shutdown() {
+        massSpawnScheduler.shutdown();
+    }
+
+    private MassSpawnScheduler.Settings createMassSpawnSettings(ConfigurationService configurationService) {
+        var settings = configurationService.getInertiaConfig().PHYSICS.MASS_SPAWN;
+        return new MassSpawnScheduler.Settings(
+                settings.minBudgetPerTick,
+                settings.baseBudgetPerTick,
+                settings.maxBudgetPerTick,
+                settings.warmupBudgetPerTick,
+                settings.warmupTicks,
+                settings.budgetIncreaseStep,
+                settings.budgetDecreaseStep,
+                settings.stableTpsThreshold,
+                settings.stableTicksToIncreaseBudget,
+                settings.maxConcurrentJobsPerWorld,
+                settings.maxConcurrentJobsPerPlayer,
+                settings.maxSpawnsPerJobPerTick
+        );
+    }
+
+    public record SpawnShapeJobResult(boolean accepted,
+                                      @Nullable UUID jobId,
+                                      int totalSpawns,
+                                      double progress,
+                                      @Nullable String rejectReason) {
+        public static SpawnShapeJobResult accepted(UUID jobId, int totalSpawns, double progress) {
+            return new SpawnShapeJobResult(true, jobId, totalSpawns, progress, null);
+        }
+
+        public static SpawnShapeJobResult rejected(String reason) {
+            return new SpawnShapeJobResult(false, null, 0, 0.0, reason);
+        }
     }
 
     private Location getSpawnLocation(Player player, double distance) {

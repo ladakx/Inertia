@@ -67,8 +67,14 @@ public class ShapeTool extends Tool {
         }
 
         try {
-            int count = bodyFactory.spawnShape(player, generator, bodyId, params);
-            send(player, MessageKey.SHAPE_SPAWNED, "{count}", String.valueOf(count), "{shape}", shapeName);
+            BodyFactory.SpawnShapeJobResult result = bodyFactory.spawnShape(player, generator, bodyId, params);
+            if (!result.accepted()) {
+                send(player, MessageKey.SHAPE_SPAWN_ERROR, "{error}", result.rejectReason() == null ? "Mass spawn rejected" : result.rejectReason());
+                return;
+            }
+
+            send(player, MessageKey.SHAPE_SPAWNED, "{count}", String.valueOf(result.totalSpawns()), "{shape}", shapeName);
+            player.sendMessage("§7Mass spawn queued: §fjob-id=§b" + result.jobId() + " §7progress=§a" + Math.round(result.progress() * 100.0) + "%");
             player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 1f);
         } catch (Exception e) {
             send(player, MessageKey.SHAPE_SPAWN_ERROR, "{error}", e.getMessage());

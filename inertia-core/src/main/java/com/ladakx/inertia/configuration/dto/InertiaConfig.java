@@ -68,12 +68,14 @@ public class InertiaConfig {
         public final Precision precision;
         public final int workerThreads;
         public final ChunkCacheSettings CHUNK_CACHE;
+        public final MassSpawnSettings MASS_SPAWN;
 
         public PhysicsSettings(ConfigurationSection section, FileConfiguration root) {
             if (section == null) {
                 this.precision = Precision.SP;
                 this.workerThreads = 2;
                 this.CHUNK_CACHE = new ChunkCacheSettings(null, root);
+                this.MASS_SPAWN = new MassSpawnSettings(null, root);
                 return;
             }
 
@@ -83,6 +85,7 @@ public class InertiaConfig {
 
             this.workerThreads = section.getInt("worker-threads", 2);
             this.CHUNK_CACHE = new ChunkCacheSettings(section.getConfigurationSection("chunk-cache"), root);
+            this.MASS_SPAWN = new MassSpawnSettings(section.getConfigurationSection("mass-spawn"), root);
         }
 
         public static class ChunkCacheSettings {
@@ -102,6 +105,36 @@ public class InertiaConfig {
                 int legacyTtl = section.getInt("ttl-seconds", 900);
                 this.memoryTtlSeconds = section.getInt("memory-ttl-seconds", legacyTtl);
                 this.diskTtlSeconds = section.getInt("disk-ttl-seconds", Math.max(legacyTtl, 7200));
+            }
+        }
+
+        public static class MassSpawnSettings {
+            public final int minBudgetPerTick;
+            public final int baseBudgetPerTick;
+            public final int maxBudgetPerTick;
+            public final int warmupBudgetPerTick;
+            public final int warmupTicks;
+            public final int budgetIncreaseStep;
+            public final int budgetDecreaseStep;
+            public final double stableTpsThreshold;
+            public final int stableTicksToIncreaseBudget;
+            public final int maxConcurrentJobsPerWorld;
+            public final int maxConcurrentJobsPerPlayer;
+            public final int maxSpawnsPerJobPerTick;
+
+            public MassSpawnSettings(ConfigurationSection section, FileConfiguration root) {
+                this.minBudgetPerTick = section != null ? section.getInt("min-budget-per-tick", 50) : 50;
+                this.baseBudgetPerTick = section != null ? section.getInt("base-budget-per-tick", 100) : 100;
+                this.maxBudgetPerTick = section != null ? section.getInt("max-budget-per-tick", 200) : 200;
+                this.warmupBudgetPerTick = section != null ? section.getInt("warmup-budget-per-tick", 50) : 50;
+                this.warmupTicks = section != null ? section.getInt("warmup-ticks", 40) : 40;
+                this.budgetIncreaseStep = section != null ? section.getInt("budget-increase-step", 10) : 10;
+                this.budgetDecreaseStep = section != null ? section.getInt("budget-decrease-step", 20) : 20;
+                this.stableTpsThreshold = section != null ? section.getDouble("stable-tps-threshold", 19.2D) : 19.2D;
+                this.stableTicksToIncreaseBudget = section != null ? section.getInt("stable-ticks-to-increase-budget", 40) : 40;
+                this.maxConcurrentJobsPerWorld = section != null ? section.getInt("max-concurrent-jobs-per-world", 2) : 2;
+                this.maxConcurrentJobsPerPlayer = section != null ? section.getInt("max-concurrent-jobs-per-player", 1) : 1;
+                this.maxSpawnsPerJobPerTick = section != null ? section.getInt("max-spawns-per-job-per-tick", 200) : 200;
             }
         }
     }
