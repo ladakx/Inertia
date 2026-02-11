@@ -42,6 +42,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
     private final Map<Long, PendingMesh> pendingMeshData = new ConcurrentHashMap<>();
     private WorldsConfig.ChunkManagementSettings chunkSettings;
+    private WorldsConfig.GreedyMeshShapeType greedyMeshShapeType = WorldsConfig.GreedyMeshShapeType.MESH_SHAPE;
     private final AtomicLong meshSequence = new AtomicLong();
     private UUID meshApplyTaskId;
 
@@ -56,6 +57,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         this.blocksConfig = InertiaPlugin.getInstance().getConfigManager().getBlocksConfig();
         this.chunkSettings = world.getSettings().chunkManagement();
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
+        this.greedyMeshShapeType = meshingSettings.shapeType();
 
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         File worldFolder = world.getWorldBukkit().getWorldFolder();
@@ -302,7 +304,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     /**
      * Основной метод оптимизации:
-     * Группирует все треугольники с одинаковыми физ. свойствами и создает MeshShape.
+     * Группирует примитивы по физическим свойствам и создает тело чанка
+     * через MeshShape или CompoundShape в зависимости от конфигурации.
      */
     private void applyMeshData(int x, int z, GreedyMeshData data) {
         long key = ChunkUtils.getChunkKey(x, z);
@@ -334,80 +337,139 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                     materialId -> new MeshGroup(shapeData.friction(), shapeData.restitution())
             );
             group.vertices().add(shapeData.vertices());
+            group.shapes().add(shapeData);
         }
 
         List<Integer> newBodyIds = new ArrayList<>();
 
         for (Map.Entry<String, MeshGroup> entry : groupedVertices.entrySet()) {
             MeshGroup group = entry.getValue();
-            List<float[]> allVertices = group.vertices();
-
-            // 1. Подсчет общего количества треугольников
-            int totalTriangles = 0;
-            for (float[] verts : allVertices) {
-                totalTriangles += verts.length / 9; // 9 float на треугольник
-            }
-
-            if (totalTriangles == 0) continue;
-
-            // 2. Создание списков
-            // ВАЖНО: VertexList внутри использует DirectBuffer. Если использовать pushBack(),
-            // он часто делает resize() -> аллоцирует новые DirectBuffer и может быстро привести к Direct OOM.
-            // Поэтому: заранее выделяем нужный размер и заполняем через set().
-            int totalVertices = totalTriangles * 3;
-            VertexList vertexList = new VertexList();
-            vertexList.resize(totalVertices);
-
-            try (IndexedTriangleList indexList = new IndexedTriangleList()) {
-                indexList.resize(totalTriangles);
-
-                int triangleIndex = 0;
-                int vertexIndex = 0;
-
-                for (float[] verts : allVertices) {
-                    for (int i = 0; i < verts.length; i += 9) {
-                        vertexList.set(vertexIndex, verts[i], verts[i + 1], verts[i + 2]);
-                        vertexList.set(vertexIndex + 1, verts[i + 3], verts[i + 4], verts[i + 5]);
-                        vertexList.set(vertexIndex + 2, verts[i + 6], verts[i + 7], verts[i + 8]);
-                        try (IndexedTriangle tri = new IndexedTriangle(vertexIndex, vertexIndex + 1, vertexIndex + 2, 0)) {
-                            indexList.set(triangleIndex, tri);
-                        }
-
-                        vertexIndex += 3;
-                        triangleIndex++;
-                    }
-                }
-
-                try (MeshShapeSettings meshSettings = new MeshShapeSettings(vertexList, indexList);
-                     ShapeResult result = meshSettings.create()) {
-                    if (result.hasError()) {
-                        InertiaLogger.warn("Failed to create MeshShape for chunk " + x + "," + z + ": " + result.getError());
-                        continue;
-                    }
-
-                    try (ShapeRefC meshShape = result.get();
-                         BodyCreationSettings bcs = new BodyCreationSettings()) {
-                        bcs.setPosition(bodyPosition);
-                        bcs.setMotionType(EMotionType.Static);
-                        bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
-                        bcs.setShape(meshShape);
-                        bcs.setFriction(group.friction());
-                        bcs.setRestitution(group.restitution());
-
-                        try (Body body = bi.createBody(bcs)) {
-                            bi.addBody(body, EActivation.DontActivate);
-                            world.registerSystemStaticBody(body.getId());
-                            newBodyIds.add(body.getId());
-                        }
-                    } catch (Exception e) {
-                        InertiaLogger.error("Failed to create chunk body at " + x + ", " + z, e);
-                    }
-                }
+            if (greedyMeshShapeType == WorldsConfig.GreedyMeshShapeType.COMPOUND_SHAPE) {
+                createCompoundBodyForGroup(x, z, bi, bodyPosition, group, newBodyIds);
+            } else {
+                createMeshBodyForGroup(x, z, bi, bodyPosition, group, newBodyIds);
             }
         }
 
         if (!newBodyIds.isEmpty()) {
             chunkBodies.put(key, newBodyIds);
+        }
+    }
+
+    private void createMeshBodyForGroup(int x, int z,
+                                        BodyInterface bi,
+                                        RVec3 bodyPosition,
+                                        MeshGroup group,
+                                        List<Integer> newBodyIds) {
+        List<float[]> allVertices = group.vertices();
+
+        int totalTriangles = 0;
+        for (float[] verts : allVertices) {
+            totalTriangles += verts.length / 9;
+        }
+
+        if (totalTriangles == 0) return;
+
+        int totalVertices = totalTriangles * 3;
+        VertexList vertexList = new VertexList();
+        vertexList.resize(totalVertices);
+
+        try (IndexedTriangleList indexList = new IndexedTriangleList()) {
+            indexList.resize(totalTriangles);
+
+            int triangleIndex = 0;
+            int vertexIndex = 0;
+
+            for (float[] verts : allVertices) {
+                for (int i = 0; i < verts.length; i += 9) {
+                    vertexList.set(vertexIndex, verts[i], verts[i + 1], verts[i + 2]);
+                    vertexList.set(vertexIndex + 1, verts[i + 3], verts[i + 4], verts[i + 5]);
+                    vertexList.set(vertexIndex + 2, verts[i + 6], verts[i + 7], verts[i + 8]);
+                    try (IndexedTriangle tri = new IndexedTriangle(vertexIndex, vertexIndex + 1, vertexIndex + 2, 0)) {
+                        indexList.set(triangleIndex, tri);
+                    }
+
+                    vertexIndex += 3;
+                    triangleIndex++;
+                }
+            }
+
+            try (MeshShapeSettings meshSettings = new MeshShapeSettings(vertexList, indexList);
+                 ShapeResult result = meshSettings.create()) {
+                if (result.hasError()) {
+                    InertiaLogger.warn("Failed to create MeshShape for chunk " + x + "," + z + ": " + result.getError());
+                    return;
+                }
+
+                try (ShapeRefC meshShape = result.get()) {
+                    createStaticBody(bi, bodyPosition, group, meshShape, x, z, newBodyIds);
+                }
+            }
+        }
+    }
+
+    private void createCompoundBodyForGroup(int x, int z,
+                                            BodyInterface bi,
+                                            RVec3 bodyPosition,
+                                            MeshGroup group,
+                                            List<Integer> newBodyIds) {
+        if (group.shapes().isEmpty()) return;
+
+        StaticCompoundShapeSettings compoundSettings = new StaticCompoundShapeSettings();
+        Quat identity = new Quat(0f, 0f, 0f, 1f);
+
+        for (GreedyMeshShape shapeData : group.shapes()) {
+            float sizeX = shapeData.maxX() - shapeData.minX();
+            float sizeY = shapeData.maxY() - shapeData.minY();
+            float sizeZ = shapeData.maxZ() - shapeData.minZ();
+            if (sizeX <= 0f || sizeY <= 0f || sizeZ <= 0f) {
+                continue;
+            }
+
+            Vec3 halfExtents = new Vec3(sizeX * 0.5f, sizeY * 0.5f, sizeZ * 0.5f);
+            Vec3 center = new Vec3(
+                    shapeData.minX() + halfExtents.getX(),
+                    shapeData.minY() + halfExtents.getY(),
+                    shapeData.minZ() + halfExtents.getZ()
+            );
+
+            compoundSettings.addShape(center, identity, new BoxShape(halfExtents));
+        }
+
+        try (ShapeResult result = compoundSettings.create()) {
+            if (result.hasError()) {
+                InertiaLogger.warn("Failed to create CompoundShape for chunk " + x + "," + z + ": " + result.getError());
+                return;
+            }
+
+            try (ShapeRefC compoundShape = result.get()) {
+                createStaticBody(bi, bodyPosition, group, compoundShape, x, z, newBodyIds);
+            }
+        }
+    }
+
+    private void createStaticBody(BodyInterface bi,
+                                  RVec3 bodyPosition,
+                                  MeshGroup group,
+                                  ShapeRefC shape,
+                                  int chunkX,
+                                  int chunkZ,
+                                  List<Integer> newBodyIds) {
+        try (BodyCreationSettings bcs = new BodyCreationSettings()) {
+            bcs.setPosition(bodyPosition);
+            bcs.setMotionType(EMotionType.Static);
+            bcs.setObjectLayer(PhysicsLayers.OBJ_STATIC);
+            bcs.setShape(shape);
+            bcs.setFriction(group.friction());
+            bcs.setRestitution(group.restitution());
+
+            try (Body body = bi.createBody(bcs)) {
+                bi.addBody(body, EActivation.DontActivate);
+                world.registerSystemStaticBody(body.getId());
+                newBodyIds.add(body.getId());
+            }
+        } catch (Exception e) {
+            InertiaLogger.error("Failed to create chunk body at " + chunkX + ", " + chunkZ, e);
         }
     }
 
@@ -436,9 +498,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     private record PendingMesh(int x, int z, GreedyMeshData data, long sequence) {}
 
-    private record MeshGroup(float friction, float restitution, List<float[]> vertices) {
+    private record MeshGroup(float friction, float restitution, List<float[]> vertices, List<GreedyMeshShape> shapes) {
         MeshGroup(float friction, float restitution) {
-            this(friction, restitution, new ArrayList<>());
+            this(friction, restitution, new ArrayList<>(), new ArrayList<>());
         }
     }
 
