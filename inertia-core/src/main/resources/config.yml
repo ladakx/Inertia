@@ -59,6 +59,22 @@ rendering:
     # Порог изменения поворота (abs(dot) кватернионов, диапазон 0..1).
     # 1.0 = одинаковые повороты; меньше = сильнее различие. Если dot ниже порога — отправляется обновление.
     rot-threshold-dot: 0.3
+    # Дистанция (в блоках) между near/mid LOD.
+    mid-distance: 24.0
+    # Дистанция (в блоках) между mid/far LOD.
+    far-distance: 56.0
+    # Для mid/far обновления телепорта отправляются не чаще, чем раз в N тиков
+    # (если объект не превысил пороги LOD).
+    mid-update-interval-ticks: 2
+    far-update-interval-ticks: 4
+    # Пороги позиционных изменений для LOD-уровней (в блоках).
+    mid-pos-threshold: 0.04
+    far-pos-threshold: 0.09
+    # Пороги поворота (abs(dot) кватернионов) для LOD-уровней.
+    mid-rot-threshold-dot: 0.2
+    far-rot-threshold-dot: 0.1
+    # Для far-range отключаем часть некритичных metadata-апдейтов.
+    far-allow-metadata-updates: false
     # Максимальное число проверок/обновлений видимости для одного игрока за тик.
     # При превышении остаток работы переносится на следующий тик.
     max-visibility-updates-per-player-per-tick: 256

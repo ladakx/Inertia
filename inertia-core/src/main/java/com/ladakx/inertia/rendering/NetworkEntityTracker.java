@@ -27,6 +27,15 @@ public class NetworkEntityTracker {
     // Default values matched with InertiaConfig defaults (0.01^2 and 0.3)
     private volatile float posThresholdSq = 0.0001f;
     private volatile float rotThresholdDot = 0.3f;
+    private volatile float midPosThresholdSq = 0.0016f;
+    private volatile float farPosThresholdSq = 0.0081f;
+    private volatile float midRotThresholdDot = 0.2f;
+    private volatile float farRotThresholdDot = 0.1f;
+    private volatile float midDistanceSq = 576.0f;
+    private volatile float farDistanceSq = 3136.0f;
+    private volatile int midUpdateIntervalTicks = 2;
+    private volatile int farUpdateIntervalTicks = 4;
+    private volatile boolean farAllowMetadataUpdates = false;
     private volatile int maxVisibilityUpdatesPerPlayerPerTick = 256;
     private volatile int fullRecalcIntervalTicks = 20;
     private volatile int maxPacketsPerPlayerPerTick = 256;
@@ -38,6 +47,8 @@ public class NetworkEntityTracker {
     private final AtomicLong averageSamples = new AtomicLong(0);
     private final AtomicLong deferredPackets = new AtomicLong(0);
     private final AtomicLong droppedPackets = new AtomicLong(0);
+    private final AtomicLong lodSkippedUpdates = new AtomicLong(0);
+    private final AtomicLong lodSkippedMetadataUpdates = new AtomicLong(0);
 
     private final PacketFactory packetFactory;
 
@@ -54,6 +65,15 @@ public class NetworkEntityTracker {
         if (settings == null) return;
         this.posThresholdSq = settings.posThresholdSq;
         this.rotThresholdDot = settings.rotThresholdDot;
+        this.midPosThresholdSq = settings.midPosThresholdSq;
+        this.farPosThresholdSq = settings.farPosThresholdSq;
+        this.midRotThresholdDot = settings.midRotThresholdDot;
+        this.farRotThresholdDot = settings.farRotThresholdDot;
+        this.midDistanceSq = settings.midDistanceSq;
+        this.farDistanceSq = settings.farDistanceSq;
+        this.midUpdateIntervalTicks = settings.midUpdateIntervalTicks;
+        this.farUpdateIntervalTicks = settings.farUpdateIntervalTicks;
+        this.farAllowMetadataUpdates = settings.farAllowMetadataUpdates;
         this.maxVisibilityUpdatesPerPlayerPerTick = settings.maxVisibilityUpdatesPerPlayerPerTick;
         this.fullRecalcIntervalTicks = settings.fullRecalcIntervalTicks;
         this.maxPacketsPerPlayerPerTick = settings.maxPacketsPerPlayerPerTick;
@@ -154,7 +174,7 @@ public class NetworkEntityTracker {
 
         // Phase 1: Pre-calculate shared packets for all dirty entities
         for (TrackedVisual tracked : visualsById.values()) {
-            tracked.tickGlobal(posThresholdSq, rotThresholdDot);
+            tracked.beginTick();
         }
 
         int viewDistanceChunks = (int) Math.ceil(Math.sqrt(viewDistanceSquared) / 16.0);
@@ -215,11 +235,28 @@ public class NetworkEntityTracker {
                 boolean inRange = sameWorld && distSq <= viewDistanceSquared;
 
                 if (inRange) {
+                    LodLevel lodLevel = resolveLodLevel(distSq);
                     if (visible.add(id)) {
                         bufferPacket(playerId, tracked.visual().createSpawnPacket(tracked.location(), tracked.rotation()), PacketPriority.SPAWN_DESTROY);
                         tracked.markSent(player);
                     } else {
-                        Object updatePacket = tracked.getPendingUpdatePacket();
+                        boolean shouldSendUpdate = tracked.shouldSendUpdate(
+                                lodLevel,
+                                tickCounter,
+                                posThresholdSq,
+                                rotThresholdDot,
+                                midPosThresholdSq,
+                                midRotThresholdDot,
+                                midUpdateIntervalTicks,
+                                farPosThresholdSq,
+                                farRotThresholdDot,
+                                farUpdateIntervalTicks
+                        );
+                        if (!shouldSendUpdate && lodLevel != LodLevel.NEAR && tracked.hasSignificantNearChange(posThresholdSq, rotThresholdDot)) {
+                            lodSkippedUpdates.incrementAndGet();
+                        }
+
+                        Object updatePacket = shouldSendUpdate ? tracked.getPendingUpdatePacket() : null;
                         if (updatePacket != null) {
                             bufferPacket(playerId, updatePacket, PacketPriority.TELEPORT);
                             tracked.markSent(player);
@@ -227,7 +264,12 @@ public class NetworkEntityTracker {
 
                         Object metaPacket = tracked.getPendingMetaPacket();
                         if (metaPacket != null) {
-                            bufferPacket(playerId, metaPacket, PacketPriority.METADATA);
+                            boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
+                            if (allowMetaPacket) {
+                                bufferPacket(playerId, metaPacket, PacketPriority.METADATA);
+                            } else {
+                                lodSkippedMetadataUpdates.incrementAndGet();
+                            }
                         }
                     }
                 } else if (visible.remove(id)) {
@@ -336,6 +378,14 @@ public class NetworkEntityTracker {
         return droppedPackets.get();
     }
 
+    public long getLodSkippedUpdates() {
+        return lodSkippedUpdates.get();
+    }
+
+    public long getLodSkippedMetadataUpdates() {
+        return lodSkippedMetadataUpdates.get();
+    }
+
     public void removePlayer(Player player) {
         UUID uuid = player.getUniqueId();
         pendingDestroyIds.remove(uuid);
@@ -400,6 +450,12 @@ public class NetworkEntityTracker {
         SPAWN_DESTROY,
         TELEPORT,
         METADATA
+    }
+
+    private enum LodLevel {
+        NEAR,
+        MID,
+        FAR
     }
 
     private record QueuedPacket(Object packet, PacketPriority priority, int estimatedBytes) {}
@@ -542,13 +598,27 @@ public class NetworkEntityTracker {
         }
     }
 
+    private LodLevel resolveLodLevel(double distanceSq) {
+        if (distanceSq <= midDistanceSq) {
+            return LodLevel.NEAR;
+        }
+        if (distanceSq <= farDistanceSq) {
+            return LodLevel.MID;
+        }
+        return LodLevel.FAR;
+    }
+
     private static class TrackedVisual {
         private final NetworkVisual visual;
         private final Location location;
         private final Quaternionf rotation;
 
-        private final Vector3f syncedPos = new Vector3f();
-        private final Quaternionf syncedRot = new Quaternionf();
+        private final SyncState nearSyncState = new SyncState();
+        private final SyncState midSyncState = new SyncState();
+        private final SyncState farSyncState = new SyncState();
+
+        private long lastMidUpdateTick = Long.MIN_VALUE;
+        private long lastFarUpdateTick = Long.MIN_VALUE;
 
         private Object cachedUpdatePacket = null;
         private Object cachedMetaPacket = null;
@@ -558,7 +628,7 @@ public class NetworkEntityTracker {
             this.visual = visual;
             this.location = location;
             this.rotation = rotation;
-            sync();
+            syncAll();
         }
 
         public NetworkVisual visual() { return visual; }
@@ -579,34 +649,93 @@ public class NetworkEntityTracker {
             this.metaDirty = true;
         }
 
-        public void tickGlobal(float posThresholdSq, float rotThresholdDot) {
+        public void beginTick() {
             this.cachedUpdatePacket = null;
             this.cachedMetaPacket = null;
 
-            // Movement Check
-            float dx = (float) location.getX() - syncedPos.x;
-            float dy = (float) location.getY() - syncedPos.y;
-            float dz = (float) location.getZ() - syncedPos.z;
-            float distSq = dx * dx + dy * dy + dz * dz;
-
-            boolean moved = distSq > posThresholdSq;
-            boolean rotated = false;
-
-            if (!moved) {
-                float dot = Math.abs(rotation.dot(syncedRot));
-                rotated = dot < rotThresholdDot;
-            }
-
-            if (moved || rotated) {
-                this.cachedUpdatePacket = visual.createTeleportPacket(location, rotation);
-                sync();
-            }
-
-            // Metadata Check
             if (this.metaDirty) {
                 this.cachedMetaPacket = visual.createMetadataPacket();
                 this.metaDirty = false;
             }
+        }
+
+        public boolean hasSignificantNearChange(float nearPosThresholdSq, float nearRotThresholdDot) {
+            return isTransformChanged(nearSyncState, nearPosThresholdSq, nearRotThresholdDot);
+        }
+
+        public boolean shouldSendUpdate(
+                LodLevel lodLevel,
+                long tick,
+                float nearPosThresholdSq,
+                float nearRotThresholdDot,
+                float midPosThresholdSq,
+                float midRotThresholdDot,
+                int midIntervalTicks,
+                float farPosThresholdSq,
+                float farRotThresholdDot,
+                int farIntervalTicks
+        ) {
+            return switch (lodLevel) {
+                case NEAR -> emitUpdateIfChanged(nearSyncState, nearPosThresholdSq, nearRotThresholdDot);
+                case MID -> {
+                    boolean changed = isTransformChanged(midSyncState, midPosThresholdSq, midRotThresholdDot);
+                    if (!changed || !isIntervalReached(lastMidUpdateTick, tick, midIntervalTicks)) {
+                        yield false;
+                    }
+                    boolean emitted = emitUpdate(midSyncState);
+                    if (emitted) {
+                        lastMidUpdateTick = tick;
+                    }
+                    yield emitted;
+                }
+                case FAR -> {
+                    boolean changed = isTransformChanged(farSyncState, farPosThresholdSq, farRotThresholdDot);
+                    if (!changed || !isIntervalReached(lastFarUpdateTick, tick, farIntervalTicks)) {
+                        yield false;
+                    }
+                    boolean emitted = emitUpdate(farSyncState);
+                    if (emitted) {
+                        lastFarUpdateTick = tick;
+                    }
+                    yield emitted;
+                }
+            };
+        }
+
+        private boolean emitUpdateIfChanged(SyncState state, float posThresholdSq, float rotThresholdDot) {
+            if (!isTransformChanged(state, posThresholdSq, rotThresholdDot)) {
+                return false;
+            }
+            return emitUpdate(state);
+        }
+
+        private boolean emitUpdate(SyncState state) {
+            if (this.cachedUpdatePacket == null) {
+                this.cachedUpdatePacket = visual.createTeleportPacket(location, rotation);
+            }
+            sync(state);
+            return true;
+        }
+
+        private boolean isTransformChanged(SyncState state, float posThresholdSq, float rotThresholdDot) {
+            float dx = (float) location.getX() - state.pos.x;
+            float dy = (float) location.getY() - state.pos.y;
+            float dz = (float) location.getZ() - state.pos.z;
+            float distSq = dx * dx + dy * dy + dz * dz;
+
+            if (distSq > posThresholdSq) {
+                return true;
+            }
+
+            float dot = Math.abs(rotation.dot(state.rot));
+            return dot < rotThresholdDot;
+        }
+
+        private boolean isIntervalReached(long lastTick, long currentTick, int intervalTicks) {
+            if (lastTick == Long.MIN_VALUE) {
+                return true;
+            }
+            return (currentTick - lastTick) >= intervalTicks;
         }
 
         public Object getPendingUpdatePacket() {
@@ -620,9 +749,20 @@ public class NetworkEntityTracker {
         public void markSent(Player player) {
         }
 
-        private void sync() {
-            this.syncedPos.set((float) location.getX(), (float) location.getY(), (float) location.getZ());
-            this.syncedRot.set(rotation);
+        private void syncAll() {
+            sync(nearSyncState);
+            sync(midSyncState);
+            sync(farSyncState);
+        }
+
+        private void sync(SyncState state) {
+            state.pos.set((float) location.getX(), (float) location.getY(), (float) location.getZ());
+            state.rot.set(rotation);
+        }
+
+        private static class SyncState {
+            private final Vector3f pos = new Vector3f();
+            private final Quaternionf rot = new Quaternionf();
         }
     }
 }
