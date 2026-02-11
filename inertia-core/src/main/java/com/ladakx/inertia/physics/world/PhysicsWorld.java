@@ -307,6 +307,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
     public boolean canSpawnBodies(int amount) { return physicsSystem.getNumBodies() + amount <= settings.performance().maxBodies(); }
 
+    public int getRemainingBodyCapacity() {
+        return Math.max(0, settings.performance().maxBodies() - physicsSystem.getNumBodies());
+    }
+
     public void addConstraint(Constraint constraint) {
         physicsSystem.addConstraint(constraint);
         if (constraint instanceof TwoBodyConstraint tbc) {
