@@ -19,7 +19,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.incendo.cloud.CommandManager;
 import org.incendo.cloud.parser.standard.BooleanParser;
 import org.incendo.cloud.parser.standard.EnumParser;
@@ -31,7 +30,8 @@ import java.util.*;
 public class ManageCommands extends CloudModule {
 
     private final PhysicsWorldRegistry physicsWorldRegistry;
-    private static final int CLEAR_BATCH_SIZE = 250;
+    private static final int CLEAR_BATCH_SIZE = 50;
+    private static final int CLEAR_PROGRESS_UPDATE_INTERVAL = 5;
 
     public ManageCommands(CommandManager<CommandSender> manager, ConfigurationService config, PhysicsWorldRegistry physicsWorldRegistry) {
         super(manager, config);
@@ -170,38 +170,23 @@ public class ManageCommands extends CloudModule {
             return;
         }
 
+        final int totalCandidates = toRemove.size();
+        final int totalPortions = (totalCandidates + CLEAR_BATCH_SIZE - 1) / CLEAR_BATCH_SIZE;
+
         java.util.concurrent.atomic.AtomicInteger removedCount = new java.util.concurrent.atomic.AtomicInteger(0);
-        Runnable onComplete = () -> {
-            int removed = removedCount.get();
-            if (radius != null) {
-                send(player, MessageKey.CLEAR_SUCCESS_RADIUS, "{count}", String.valueOf(removed), "{radius}", String.valueOf(radius));
-            } else {
-                send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(removed));
-            }
-        };
+        java.util.concurrent.atomic.AtomicInteger completedPortions = new java.util.concurrent.atomic.AtomicInteger(0);
 
-        if (toRemove.size() <= CLEAR_BATCH_SIZE) {
-            for (AbstractPhysicsBody obj : toRemove) {
-                try {
-                    obj.destroy();
-                    removedCount.incrementAndGet();
-                } catch (Exception e) {
-                    InertiaLogger.error("Failed to clear object", e);
-                }
-            }
-            onComplete.run();
-            return;
-        }
+        for (int startIndex = 0; startIndex < totalCandidates; startIndex += CLEAR_BATCH_SIZE) {
+            final int fromIndex = startIndex;
+            final int toIndex = Math.min(startIndex + CLEAR_BATCH_SIZE, totalCandidates);
+            final List<AbstractPhysicsBody> portion = new ArrayList<>(toRemove.subList(fromIndex, toIndex));
 
-        // Batch destroy to avoid freezing the main thread when thousands of bodies are removed
-        Iterator<AbstractPhysicsBody> iterator = toRemove.iterator();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                int processed = 0;
-                while (processed < CLEAR_BATCH_SIZE && iterator.hasNext()) {
-                    AbstractPhysicsBody obj = iterator.next();
-                    processed++;
+            space.schedulePhysicsTask(() -> {
+                for (AbstractPhysicsBody obj : portion) {
+                    if (obj == null || !obj.isValid()) {
+                        continue;
+                    }
+
                     try {
                         obj.destroy();
                         removedCount.incrementAndGet();
@@ -210,12 +195,35 @@ public class ManageCommands extends CloudModule {
                     }
                 }
 
-                if (!iterator.hasNext()) {
-                    cancel();
-                    onComplete.run();
+                int donePortions = completedPortions.incrementAndGet();
+                if (donePortions % CLEAR_PROGRESS_UPDATE_INTERVAL == 0 || donePortions == totalPortions) {
+                    int removedSnapshot = removedCount.get();
+                    Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+                        if (!player.isOnline()) {
+                            return;
+                        }
+
+                        player.sendMessage("§7[Inertia] §fClear progress: " + donePortions + "/" + totalPortions
+                                + " batches, removed " + removedSnapshot + "/" + totalCandidates + ".");
+                    });
                 }
-            }
-        }.runTaskTimer(InertiaPlugin.getInstance(), 1L, 1L);
+
+                if (donePortions == totalPortions) {
+                    int removed = removedCount.get();
+                    Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+                        if (!player.isOnline()) {
+                            return;
+                        }
+
+                        if (radius != null) {
+                            send(player, MessageKey.CLEAR_SUCCESS_RADIUS, "{count}", String.valueOf(removed), "{radius}", String.valueOf(radius));
+                        } else {
+                            send(player, MessageKey.CLEAR_SUCCESS, "{count}", String.valueOf(removed));
+                        }
+                    });
+                }
+            });
+        }
     }
 
     private void executeEntityClear(Player player, int radius, boolean active, boolean removeStatic, String filter) {
