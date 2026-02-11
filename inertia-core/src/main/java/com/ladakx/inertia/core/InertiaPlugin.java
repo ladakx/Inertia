@@ -32,6 +32,7 @@ import com.ladakx.inertia.infrastructure.nms.render.RenderFactoryInit;
 import com.ladakx.inertia.features.tools.ToolRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 public final class InertiaPlugin extends JavaPlugin {
 
@@ -43,21 +44,26 @@ public final class InertiaPlugin extends JavaPlugin {
     private ToolRegistry toolRegistry;
     private ItemRegistry itemRegistry;
     private LibraryLoader libraryLoader;
+
     private PlayerTools playerTools;
     private JoltTools joltTools;
     private RenderFactory renderFactory;
     private JShapeFactory shapeFactory;
     private BodyFactory bodyFactory;
     private BlockBenchMeshProvider meshProvider;
+
     private PhysicsManipulationService manipulationService;
     private PhysicsMetricsService metricsService;
     private DebugRenderService debugRenderService;
     private BossBarPerformanceMonitor perfMonitor;
+
     private ToolDataManager toolDataManager;
     private InertiaCommandManager commandManager;
 
     private NetworkEntityTracker networkEntityTracker;
     private NetworkManager networkManager;
+
+    private BukkitTask globalNetworkTask;
 
     @Override
     public void onEnable() {
@@ -65,28 +71,38 @@ public final class InertiaPlugin extends JavaPlugin {
         InertiaLogger.init(this);
         InertiaLogger.info("Starting Inertia initialization...");
 
-        // 1. Сначала загружаем нативные библиотеки, так как остальные сервисы (конфиг, фабрики) зависят от Jolt классов
         if (!setupNativeLibraries()) {
             InertiaLogger.error("Failed to initialize Jolt Physics Engine. Disabling plugin.");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
 
-        // 3. Загружаем конфигурацию (теперь безопасно создавать AaBox и другие Jolt объекты)
         this.configurationService = new ConfigurationService(this, meshProvider);
-
         this.itemRegistry = new ItemRegistry(configurationService);
         this.itemRegistry.reload();
 
         this.meshProvider = new BlockBenchMeshProvider(this);
         this.shapeFactory = new JShapeFactory(meshProvider);
 
-        // 2. Инициализируем базовые сервисы
-        setupNMSTools(); // Инициализация NMS инструментов (JoltTools, PlayerTools)
+        setupNMSTools();
 
-        // Initialize Network Manager
         this.networkManager = NetworkManagerInit.get();
-        this.networkEntityTracker = new NetworkEntityTracker(configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER);
+
+        // Инициализация сетевого слоя
+        com.ladakx.inertia.infrastructure.nms.packet.PacketFactory packetFactory =
+                com.ladakx.inertia.infrastructure.nms.packet.PacketFactoryInit.get();
+
+        if (packetFactory == null) {
+            InertiaLogger.error("Could not initialize PacketFactory. Rendering will be disabled.");
+        }
+
+        this.networkEntityTracker = new NetworkEntityTracker(
+                packetFactory,
+                configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER
+        );
+
+        // Global network tick task (Replaces local tasks in PhysicsWorld)
+        this.globalNetworkTask = Bukkit.getScheduler().runTaskTimer(this, this::runGlobalNetworkTick, 1L, 1L);
 
         this.metricsService = new PhysicsMetricsService();
         this.physicsEngine = new PhysicsEngine(this, configurationService);
@@ -94,20 +110,32 @@ public final class InertiaPlugin extends JavaPlugin {
         this.manipulationService = new PhysicsManipulationService();
         this.toolDataManager = new ToolDataManager(this);
         this.bodyFactory = new BodyFactory(this, physicsWorldRegistry, configurationService, shapeFactory);
+
         this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, manipulationService, toolDataManager);
+
         this.debugRenderService = new DebugRenderService(physicsWorldRegistry, configurationService);
         this.debugRenderService.start();
+
         this.perfMonitor = new BossBarPerformanceMonitor(this, metricsService, configurationService);
 
         InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory));
         InertiaLogger.info("Inertia API registered.");
 
         new com.ladakx.inertia.features.integrations.WorldEditIntegration().init();
-
         registerCommands();
         registerListeners();
 
         InertiaLogger.info("Inertia has been enabled successfully!");
+    }
+
+    private void runGlobalNetworkTick() {
+        if (networkEntityTracker != null) {
+            // View distance calculation is simplified here for global scope.
+            // In a real scenario, this might need per-world settings, but usually server view distance is uniform or handled by tracker per player.
+            int viewDistanceBlocks = Bukkit.getViewDistance() * 16;
+            double viewDistanceSquared = (double) viewDistanceBlocks * viewDistanceBlocks;
+            networkEntityTracker.tick(Bukkit.getOnlinePlayers(), viewDistanceSquared);
+        }
     }
 
     private void registerCommands() {
@@ -126,14 +154,20 @@ public final class InertiaPlugin extends JavaPlugin {
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new WorldLoadListener(physicsWorldRegistry), this);
         Bukkit.getPluginManager().registerEvents(new BlockChangeListener(physicsWorldRegistry), this);
+        // Added network listener if not already there
+        Bukkit.getPluginManager().registerEvents(new com.ladakx.inertia.features.listeners.NetworkListener(networkManager), this);
     }
 
     @Override
     public void onDisable() {
+        if (globalNetworkTask != null) {
+            globalNetworkTask.cancel();
+            globalNetworkTask = null;
+        }
+
         if (perfMonitor != null) perfMonitor.stop();
         if (debugRenderService != null) debugRenderService.stop();
 
-        // Cleanup network injection
         if (networkManager != null) {
             for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
                 networkManager.uninject(p);
@@ -142,6 +176,8 @@ public final class InertiaPlugin extends JavaPlugin {
 
         if (physicsWorldRegistry != null) physicsWorldRegistry.shutdown();
         if (physicsEngine != null) physicsEngine.shutdown();
+
+        if (networkEntityTracker != null) networkEntityTracker.clear();
 
         InertiaLogger.info("Inertia has been disabled.");
     }

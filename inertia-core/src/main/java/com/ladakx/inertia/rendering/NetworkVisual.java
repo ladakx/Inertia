@@ -1,24 +1,34 @@
 package com.ladakx.inertia.rendering;
 
 import org.bukkit.Location;
-import org.bukkit.entity.Player;
 import org.joml.Quaternionf;
 
-/**
- * Абстракція над packet-based entity. Об'єкт не має Bukkit-Entity та керує лише
- * ID, позицією, поворотом і метаданими, що відправляються гравцю напряму.
- */
 public interface NetworkVisual {
 
     int getId();
 
-    void spawnFor(Player player);
+    /**
+     * Creates the packet(s) required to spawn this visual.
+     * Returns a single Packet or a BundlePacket.
+     * * @param location The current location of the visual
+     * @param rotation The current rotation (left_rotation) of the visual
+     */
+    Object createSpawnPacket(Location location, Quaternionf rotation);
 
-    void destroyFor(Player player);
+    /**
+     * Creates the packet required to destroy this visual.
+     */
+    Object createDestroyPacket();
 
-    void updatePositionFor(Player player, Location location, Quaternionf rotation);
+    /**
+     * Creates the packet required to update the position and rotation.
+     */
+    Object createTeleportPacket(Location location, Quaternionf rotation);
 
-    void updateMetadataFor(Player player);
+    /**
+     * Creates the packet required to update metadata (flags, state, etc).
+     */
+    Object createMetadataPacket();
 
     void setGlowing(boolean glowing);
 }

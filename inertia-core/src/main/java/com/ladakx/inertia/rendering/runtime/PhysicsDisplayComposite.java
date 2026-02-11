@@ -36,7 +36,7 @@ public final class PhysicsDisplayComposite {
         }
     }
 
-    private final AbstractPhysicsBody owner; // Ссылка на владельца для регистрации ID
+    private final AbstractPhysicsBody owner;
     private final Body body;
     private final RenderModelDefinition model;
     private final List<DisplayPart> parts;
@@ -44,7 +44,6 @@ public final class PhysicsDisplayComposite {
     private final @Nullable NetworkEntityTracker tracker;
     private final StaticEntityPersister staticEntityPersister;
 
-    // Cache objects to reduce GC
     private final Vector3f cacheBodyPos = new Vector3f();
     private final Quaternionf cacheBodyRot = new Quaternionf();
     private final Vector3f cacheCenterOffset = new Vector3f();
@@ -65,8 +64,6 @@ public final class PhysicsDisplayComposite {
         this.parts = Collections.unmodifiableList(parts);
         this.tracker = tracker;
         this.staticEntityPersister = Objects.requireNonNull(staticEntityPersister, "staticEntityPersister");
-
-        // Initial Registration
         registerAll();
     }
 
@@ -75,18 +72,14 @@ public final class PhysicsDisplayComposite {
 
         RVec3 pos = body.getPosition();
         Quat rot = body.getRotation();
-
         RVec3 origin = owner.getSpace().getOrigin();
+
         Location baseLoc = new Location(world, pos.xx() + origin.xx(), pos.yy() + origin.yy(), pos.zz() + origin.zz());
         Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
 
         for (DisplayPart part : parts) {
             int visualId = part.visual().getId();
-
-            // 1. Регистрируем в Трекере (для видимости)
             tracker.register(part.visual(), baseLoc, baseRot);
-
-            // 2. Регистрируем в Физическом Мире (для кликов/взаимодействия)
             owner.getSpace().registerNetworkEntityId(owner, visualId);
         }
     }
@@ -103,7 +96,6 @@ public final class PhysicsDisplayComposite {
                 (float) (bodyPosJolt.zz() + origin.zz())
         );
         cacheBodyRot.set(bodyRotJolt.getX(), bodyRotJolt.getY(), bodyRotJolt.getZ(), bodyRotJolt.getW());
-
         cacheCenterOffset.set(0, 0, 0);
 
         for (DisplayPart part : parts) {
@@ -144,6 +136,9 @@ public final class PhysicsDisplayComposite {
     public void setGlowing(boolean glowing) {
         for (DisplayPart part : parts) {
             part.visual().setGlowing(glowing);
+            if (tracker != null) {
+                tracker.updateMetadata(part.visual());
+            }
         }
     }
 
@@ -152,7 +147,6 @@ public final class PhysicsDisplayComposite {
 
         boolean sleeping = !body.isActive();
         RVec3 origin = owner.getSpace().getOrigin();
-
         RVec3 bodyPosJolt = body.getPosition();
         Quat bodyRotJolt = body.getRotation();
 
@@ -217,18 +211,11 @@ public final class PhysicsDisplayComposite {
         if (tracker != null) {
             for (DisplayPart part : parts) {
                 int visualId = part.visual().getId();
-
-                // 1. Убираем из трекера
+                // Tracker handles packet buffering for removal
                 tracker.unregister(part.visual());
 
-                // 2. Убираем маппинг ID -> Body
-                if (owner.isValid()) { // Проверка на всякий случай, хотя при destroy owner еще жив
+                if (owner.isValid()) {
                     owner.getSpace().unregisterNetworkEntityId(visualId);
-                }
-
-                // Force destroy packet
-                for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-                    part.visual().destroyFor(p);
                 }
             }
         }
@@ -236,21 +223,12 @@ public final class PhysicsDisplayComposite {
 
     private void cleanupNetworkVisual(NetworkVisual visual) {
         if (tracker != null) {
+            // Tracker handles packet buffering for removal
             tracker.unregister(visual);
         }
-
         try {
             owner.getSpace().unregisterNetworkEntityId(visual.getId());
         } catch (Exception ignored) {
-            // Owner/space may already be shutting down
-        }
-
-        // Extra safety: force destroy packet to all online players (in case tracker visibility got out of sync)
-        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-            try {
-                visual.destroyFor(p);
-            } catch (Exception ignored) {
-            }
         }
     }
 }
