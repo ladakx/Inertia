@@ -14,19 +14,22 @@ public final class ChunkSnapshotData {
     private final int height;
     private final short[] profileIds;
     private final boolean[] sectionHasBlocks;
+    private final long[] sectionFingerprints;
 
     private ChunkSnapshotData(int minSectionY,
                               int sectionsCount,
                               int minHeight,
                               int height,
                               short[] profileIds,
-                              boolean[] sectionHasBlocks) {
+                              boolean[] sectionHasBlocks,
+                              long[] sectionFingerprints) {
         this.minSectionY = minSectionY;
         this.sectionsCount = sectionsCount;
         this.minHeight = minHeight;
         this.height = height;
         this.profileIds = profileIds;
         this.sectionHasBlocks = sectionHasBlocks;
+        this.sectionFingerprints = sectionFingerprints;
     }
 
     public static ChunkSnapshotData capture(Chunk chunk, JoltTools joltTools) {
@@ -42,6 +45,7 @@ public final class ChunkSnapshotData {
         int height = sectionsCount << 4;
         short[] profileIds = new short[height * 256];
         boolean[] sectionHasBlocks = new boolean[sectionsCount];
+        long[] sectionFingerprints = new long[sectionsCount];
         ChunkSnapshot snapshot = chunk.getChunkSnapshot();
 
         for (int localY = 0; localY < height; localY++) {
@@ -59,7 +63,14 @@ public final class ChunkSnapshotData {
             }
         }
 
-        return new ChunkSnapshotData(minSectionY, sectionsCount, minHeight, height, profileIds, sectionHasBlocks);
+
+        for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
+            int sectionY = minSectionY + sectionIndex;
+            int sectionStart = (sectionIndex << 12);
+            sectionFingerprints[sectionIndex] = computeSectionFingerprint(profileIds, sectionStart, sectionY);
+        }
+
+        return new ChunkSnapshotData(minSectionY, sectionsCount, minHeight, height, profileIds, sectionHasBlocks, sectionFingerprints);
     }
 
     public static ChunkSnapshotData captureFast(Chunk chunk, JoltTools joltTools) {
@@ -75,6 +86,7 @@ public final class ChunkSnapshotData {
         int height = sectionsCount << 4;
         short[] profileIds = new short[height * 256];
         boolean[] sectionHasBlocks = new boolean[sectionsCount];
+        long[] sectionFingerprints = new long[sectionsCount];
 
         for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
             int sectionY = minSectionY + sectionIndex;
@@ -98,7 +110,13 @@ public final class ChunkSnapshotData {
             }
         }
 
-        return new ChunkSnapshotData(minSectionY, sectionsCount, minHeight, height, profileIds, sectionHasBlocks);
+        for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
+            int sectionY = minSectionY + sectionIndex;
+            int sectionStart = (sectionIndex << 12);
+            sectionFingerprints[sectionIndex] = computeSectionFingerprint(profileIds, sectionStart, sectionY);
+        }
+
+        return new ChunkSnapshotData(minSectionY, sectionsCount, minHeight, height, profileIds, sectionHasBlocks, sectionFingerprints);
     }
 
     public int minSectionY() {
@@ -125,6 +143,14 @@ public final class ChunkSnapshotData {
         return sectionHasBlocks[sectionIndex];
     }
 
+    public long sectionFingerprint(int sectionIndex) {
+        return sectionFingerprints[sectionIndex];
+    }
+
+    public long[] sectionFingerprints() {
+        return sectionFingerprints.clone();
+    }
+
     private static int flattenIndex(int x, int y, int z) {
         return (y << 8) | (z << 4) | x;
     }
@@ -137,5 +163,20 @@ public final class ChunkSnapshotData {
             return (short) (material.ordinal() + 1);
         }
         return materialToProfileId[material.ordinal()];
+    }
+
+    private static long computeSectionFingerprint(short[] profileIds, int sectionStart, int sectionY) {
+        long hash = 0x9E3779B185EBCA87L ^ (((long) sectionY) * 0xC2B2AE3D27D4EB4FL);
+        for (int i = 0; i < 4096; i++) {
+            long value = profileIds[sectionStart + i] & 0xFFFFL;
+            hash ^= value + 0x9E3779B97F4A7C15L + (hash << 6) + (hash >>> 2);
+            hash = Long.rotateLeft(hash, 13) * 0x9E3779B185EBCA87L;
+        }
+        hash ^= (hash >>> 33);
+        hash *= 0xFF51AFD7ED558CCDL;
+        hash ^= (hash >>> 33);
+        hash *= 0xC4CEB9FE1A85EC53L;
+        hash ^= (hash >>> 33);
+        return hash;
     }
 }
