@@ -18,6 +18,7 @@ import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsCache;
 import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsManager;
 import com.ladakx.inertia.physics.world.terrain.ChunkSnapshotData;
+import com.ladakx.inertia.physics.world.terrain.DirtyChunkRegion;
 import com.ladakx.inertia.physics.world.terrain.GenerationQueue;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
@@ -41,9 +42,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private JoltTools joltTools;
     private BlocksConfig blocksConfig;
     private GreedyMeshGenerator generator;
-    private final Map<Long, List<Integer>> chunkBodies = new HashMap<>();
+    private final Map<Long, Map<Integer, List<Integer>>> chunkBodies = new HashMap<>();
     private final Set<Long> loadedChunks = ConcurrentHashMap.newKeySet();
     private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
+    private final Map<Long, DirtyChunkRegion> pendingDirtyRegions = new HashMap<>();
     private final Map<Long, PendingMesh> pendingMeshData = new ConcurrentHashMap<>();
     private WorldsConfig.ChunkManagementSettings chunkSettings;
     private WorldsConfig.GreedyMeshShapeType greedyMeshShapeType = WorldsConfig.GreedyMeshShapeType.MESH_SHAPE;
@@ -91,6 +93,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     public void onDisable() {
         pendingUpdates.values().forEach(BukkitTask::cancel);
         pendingUpdates.clear();
+        pendingDirtyRegions.clear();
         if (world != null) {
             for (long key : new ArrayList<>(chunkBodies.keySet())) {
                 removeChunkBodies(key);
@@ -125,6 +128,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.remove(key);
         pendingMeshData.remove(key);
+        pendingDirtyRegions.remove(key);
 
         BukkitTask task = pendingUpdates.remove(key);
         if (task != null) task.cancel();
@@ -150,7 +154,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         activateDynamicBodiesInChunk(chunkX, chunkZ);
 
-        chunkPhysicsManager.invalidate(chunkX, chunkZ);
+        DirtyChunkRegion dirtyRegion = DirtyChunkRegion.singleBlock(y >> 4, x & 15, y, z & 15);
+        pendingDirtyRegions.merge(key, dirtyRegion, DirtyChunkRegion::merge);
 
         BukkitTask existing = pendingUpdates.get(key);
         if (existing != null) existing.cancel();
@@ -158,8 +163,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         int delay = Math.max(1, chunkSettings.updateDebounceTicks());
         BukkitTask task = Bukkit.getScheduler().runTaskLater(InertiaPlugin.getInstance(), () -> {
             pendingUpdates.remove(key);
+            DirtyChunkRegion mergedRegion = pendingDirtyRegions.remove(key);
             if (loadedChunks.contains(key)) {
-                requestChunkGeneration(chunkX, chunkZ);
+                requestChunkGeneration(chunkX, chunkZ, mergedRegion);
             }
         }, delay);
         pendingUpdates.put(key, task);
@@ -173,6 +179,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         activateDynamicBodiesInChunk(x, z);
 
+        pendingDirtyRegions.remove(key);
         chunkPhysicsManager.invalidate(x, z);
         BukkitTask pending = pendingUpdates.remove(key);
         if (pending != null) pending.cancel();
@@ -181,6 +188,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     }
 
     private void requestChunkGeneration(int x, int z) {
+        requestChunkGeneration(x, z, null);
+    }
+
+    private void requestChunkGeneration(int x, int z, DirtyChunkRegion dirtyRegion) {
         if (world == null || chunkPhysicsManager == null) return;
 
         // Проверка границ мира
@@ -197,6 +208,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (!world.getWorldBukkit().isChunkLoaded(x, z)) return;
 
         String worldName = world.getWorldBukkit().getName();
+        if (dirtyRegion != null) {
+            chunkPhysicsManager.invalidate(x, z);
+        }
         chunkPhysicsManager.requestChunkGeneration(
                 worldName, x, z,
                 () -> captureChunkSnapshotData(x, z),
@@ -204,7 +218,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                     if (world != null) {
                         enqueueMeshData(x, z, data);
                     }
-                }
+                },
+                dirtyRegion
         );
     }
 
@@ -360,50 +375,57 @@ public class GreedyMeshAdapter implements TerrainAdapter {
      */
     private void applyMeshData(int x, int z, GreedyMeshData data) {
         long key = ChunkUtils.getChunkKey(x, z);
-        if (!loadedChunks.contains(key)) return;
+        if (!loadedChunks.contains(key) || world == null) return;
 
-        removeChunkBodies(key);
+        if (data.fullRebuild()) {
+            removeChunkBodies(key);
+        } else {
+            removeChunkBodies(key, data.touchedSections());
+        }
 
-        if (world == null || data.shapes().isEmpty()) {
+        if (data.shapes().isEmpty()) {
             return;
         }
 
         BodyInterface bi = world.getBodyInterface();
         RVec3 worldOrigin = world.getOrigin();
 
-        // Координаты чанка в мире Jolt (относительно origin)
         double chunkWorldX = x * 16.0 - worldOrigin.xx();
         double chunkWorldZ = z * 16.0 - worldOrigin.zz();
         double chunkWorldY = -worldOrigin.yy();
 
         RVec3 bodyPosition = new RVec3(chunkWorldX, chunkWorldY, chunkWorldZ);
 
-        // Группировка по свойствам
         Map<String, MeshGroup> groupedVertices = new HashMap<>();
 
         for (GreedyMeshShape shapeData : data.shapes()) {
             if (shapeData.vertices().length == 0) continue;
+            int sectionY = shapeData.minY() >> 4;
+            String groupKey = shapeData.materialId() + '#' + sectionY;
             MeshGroup group = groupedVertices.computeIfAbsent(
-                    shapeData.materialId(),
-                    materialId -> new MeshGroup(shapeData.friction(), shapeData.restitution())
+                    groupKey,
+                    materialId -> new MeshGroup(sectionY, shapeData.friction(), shapeData.restitution())
             );
             group.vertices().add(shapeData.vertices());
             group.shapes().add(shapeData);
         }
 
-        List<Integer> newBodyIds = new ArrayList<>();
+        Map<Integer, List<Integer>> sectionBodies = chunkBodies.computeIfAbsent(key, unused -> new HashMap<>());
 
-        for (Map.Entry<String, MeshGroup> entry : groupedVertices.entrySet()) {
-            MeshGroup group = entry.getValue();
+        for (MeshGroup group : groupedVertices.values()) {
+            List<Integer> newBodyIds = new ArrayList<>();
             if (greedyMeshShapeType == WorldsConfig.GreedyMeshShapeType.COMPOUND_SHAPE) {
                 createCompoundBodyForGroup(x, z, bi, bodyPosition, group, newBodyIds);
             } else {
                 createMeshBodyForGroup(x, z, bi, bodyPosition, group, newBodyIds);
             }
+            if (!newBodyIds.isEmpty()) {
+                sectionBodies.computeIfAbsent(group.sectionY(), unused -> new ArrayList<>()).addAll(newBodyIds);
+            }
         }
 
-        if (!newBodyIds.isEmpty()) {
-            chunkBodies.put(key, newBodyIds);
+        if (sectionBodies.isEmpty()) {
+            chunkBodies.remove(key);
         }
     }
 
@@ -526,10 +548,35 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     private void removeChunkBodies(long key) {
         if (world == null) return;
-        List<Integer> ids = chunkBodies.remove(key);
-        if (ids == null || ids.isEmpty()) return;
+        Map<Integer, List<Integer>> sectionBodies = chunkBodies.remove(key);
+        if (sectionBodies == null || sectionBodies.isEmpty()) return;
 
         BodyInterface bi = world.getBodyInterface();
+        for (List<Integer> ids : sectionBodies.values()) {
+            removeBodyIds(bi, ids);
+        }
+    }
+
+    private void removeChunkBodies(long key, Set<Integer> sections) {
+        if (world == null || sections == null || sections.isEmpty()) return;
+
+        Map<Integer, List<Integer>> sectionBodies = chunkBodies.get(key);
+        if (sectionBodies == null || sectionBodies.isEmpty()) return;
+
+        BodyInterface bi = world.getBodyInterface();
+        for (Integer section : sections) {
+            List<Integer> ids = sectionBodies.remove(section);
+            if (ids != null) {
+                removeBodyIds(bi, ids);
+            }
+        }
+
+        if (sectionBodies.isEmpty()) {
+            chunkBodies.remove(key);
+        }
+    }
+
+    private void removeBodyIds(BodyInterface bi, List<Integer> ids) {
         for (int id : ids) {
             world.unregisterSystemStaticBody(id);
             try {
@@ -549,9 +596,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     private record PendingMesh(int x, int z, GreedyMeshData data, long sequence) {}
 
-    private record MeshGroup(float friction, float restitution, List<float[]> vertices, List<GreedyMeshShape> shapes) {
-        MeshGroup(float friction, float restitution) {
-            this(friction, restitution, new ArrayList<>(), new ArrayList<>());
+    private record MeshGroup(int sectionY, float friction, float restitution, List<float[]> vertices, List<GreedyMeshShape> shapes) {
+        MeshGroup(int sectionY, float friction, float restitution) {
+            this(sectionY, friction, restitution, new ArrayList<>(), new ArrayList<>());
         }
     }
 

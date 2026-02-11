@@ -42,10 +42,24 @@ public class ChunkPhysicsManager implements AutoCloseable {
                                        int chunkZ,
                                        Supplier<ChunkSnapshotData> snapshotSupplier,
                                        Consumer<GreedyMeshData> onReady) {
+        requestChunkGeneration(worldName, chunkX, chunkZ, snapshotSupplier, onReady, null);
+    }
+
+    public void requestChunkGeneration(String worldName,
+                                       int chunkX,
+                                       int chunkZ,
+                                       Supplier<ChunkSnapshotData> snapshotSupplier,
+                                       Consumer<GreedyMeshData> onReady,
+                                       DirtyChunkRegion dirtyRegion) {
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
-        if (!queuedChunks.add(key) || cache == null || generator == null || generationQueue == null) {
+        if (!queuedChunks.add(key) || generator == null || generationQueue == null) {
             return;
         }
+        if (dirtyRegion != null || cache == null) {
+            startGeneration(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key, dirtyRegion);
+            return;
+        }
+
         int cacheRevision = generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get();
 
         CompletableFuture
@@ -63,7 +77,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
                     onReady.accept(cached.get());
                     return;
                 }
-                startGeneration(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key);
+                startGeneration(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key, null);
             });
     }
 
@@ -99,7 +113,8 @@ public class ChunkPhysicsManager implements AutoCloseable {
                                  int chunkZ,
                                  Supplier<ChunkSnapshotData> snapshotSupplier,
                                  Consumer<GreedyMeshData> onReady,
-                                 long key) {
+                                 long key,
+                                 DirtyChunkRegion dirtyRegion) {
         mainThreadExecutor.execute(() -> {
             if (!queuedChunks.contains(key)) {
                 return;
@@ -118,7 +133,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
             }
 
             int generationId = generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get();
-            CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot));
+            CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot, dirtyRegion));
             inFlight.put(key, future);
             future.whenComplete((data, throwable) -> {
                 inFlight.remove(key);
@@ -130,7 +145,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
                 if (generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get() != generationId) {
                     return;
                 }
-                if (cache != null) {
+                if (cache != null && dirtyRegion == null) {
                     cacheIoExecutor.execute(() -> cache.put(chunkX, chunkZ, data));
                 }
                 onReady.accept(data);
