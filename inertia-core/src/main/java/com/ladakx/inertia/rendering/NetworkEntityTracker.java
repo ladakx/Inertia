@@ -19,7 +19,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class NetworkEntityTracker {
 
+    private static final long DEFAULT_TOMBSTONE_TTL_TICKS = 3L;
+
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
+    private final Map<Integer, Long> visualTombstones = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerTrackingState> playerTrackingStates = new ConcurrentHashMap<>();
     private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
 
@@ -126,6 +129,8 @@ public class NetworkEntityTracker {
         Objects.requireNonNull(location, "location");
         Objects.requireNonNull(rotation, "rotation");
 
+        clearTombstone(visual.getId());
+
         TrackedVisual tracked = new TrackedVisual(visual, location.clone(), new Quaternionf(rotation));
         visualsById.put(visual.getId(), tracked);
         addToGrid(visual.getId(), location);
@@ -159,6 +164,7 @@ public class NetworkEntityTracker {
             }
 
             removeFromGrid(id, tracked.location());
+            addTombstone(id);
             removedIds.add(id);
         }
 
@@ -217,6 +223,10 @@ public class NetworkEntityTracker {
     }
 
     public void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
+        if (isVisualTombstoned(visual.getId())) {
+            return;
+        }
+
         TrackedVisual tracked = visualsById.get(visual.getId());
         if (tracked != null) {
             long oldChunkKey = ChunkUtils.getChunkKey(tracked.location().getBlockX() >> 4, tracked.location().getBlockZ() >> 4);
@@ -233,6 +243,10 @@ public class NetworkEntityTracker {
         }
     }
 
+    public boolean isVisualClosed(int visualId) {
+        return isVisualTombstoned(visualId);
+    }
+
     public void updateMetadata(@NotNull NetworkVisual visual) {
         updateMetadata(visual, false);
     }
@@ -246,6 +260,7 @@ public class NetworkEntityTracker {
 
     public void tick(@NotNull Collection<? extends Player> players, double viewDistanceSquared) {
         tickCounter++;
+        pruneExpiredTombstones();
 
         for (TrackedVisual tracked : visualsById.values()) {
             tracked.beginTick();
@@ -297,6 +312,30 @@ public class NetworkEntityTracker {
         refreshDestroyBacklogMetrics();
 
         flushPackets();
+    }
+
+    private void addTombstone(int visualId) {
+        visualTombstones.put(visualId, tickCounter + DEFAULT_TOMBSTONE_TTL_TICKS);
+    }
+
+    private void clearTombstone(int visualId) {
+        visualTombstones.remove(visualId);
+    }
+
+    private boolean isVisualTombstoned(int visualId) {
+        Long expiresAtTick = visualTombstones.get(visualId);
+        if (expiresAtTick == null) {
+            return false;
+        }
+        if (tickCounter > expiresAtTick) {
+            visualTombstones.remove(visualId, expiresAtTick);
+            return false;
+        }
+        return true;
+    }
+
+    private void pruneExpiredTombstones() {
+        visualTombstones.entrySet().removeIf(entry -> tickCounter > entry.getValue());
     }
 
     private void enqueueVisibilitySlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
