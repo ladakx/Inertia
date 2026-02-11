@@ -401,7 +401,7 @@ public class NetworkEntityTracker {
                 LodLevel lodLevel = resolveLodLevel(distSq);
                 int midInterval = midUpdateIntervalTicks * sheddingState.midTeleportIntervalMultiplier();
                 int farInterval = farUpdateIntervalTicks * sheddingState.farTeleportIntervalMultiplier();
-                boolean shouldSendUpdate = tracked.shouldSendUpdate(
+                UpdateDecision updateDecision = tracked.prepareUpdate(
                         lodLevel,
                         tickCounter,
                         posThresholdSq,
@@ -413,14 +413,20 @@ public class NetworkEntityTracker {
                         farRotThresholdDot,
                         farInterval
                 );
-                if (!shouldSendUpdate && lodLevel != LodLevel.NEAR && tracked.hasSignificantNearChange(posThresholdSq, rotThresholdDot)) {
+                if (!updateDecision.positionSent() && lodLevel != LodLevel.NEAR && tracked.hasSignificantNearChange(posThresholdSq, rotThresholdDot)) {
                     lodSkippedUpdates.incrementAndGet();
                 }
 
-                Object updatePacket = shouldSendUpdate ? tracked.getPendingUpdatePacket() : null;
-                if (updatePacket != null) {
-                    bufferPacket(playerId, updatePacket, PacketPriority.TELEPORT, tracked.visual().getId(), true, false);
+                Object positionPacket = updateDecision.positionSent() ? tracked.getPendingPositionPacket() : null;
+                if (positionPacket != null) {
+                    bufferPacket(playerId, positionPacket, PacketPriority.TELEPORT, tracked.visual().getId(), true, false);
                     tracked.markSent(player);
+                }
+
+                Object transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
+                if (transformMetaPacket != null) {
+                    networkScheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
+                            () -> bufferPacket(playerId, transformMetaPacket, PacketPriority.METADATA, tracked.visual().getId(), false, updateDecision.transformMetadataForced()));
                 }
 
                 PendingMetadata meta = tracked.getPendingMetaPacket();
@@ -851,6 +857,10 @@ public class NetworkEntityTracker {
 
     private record PendingMetadata(Object packet, boolean critical) {}
 
+    private record UpdateDecision(boolean positionSent, boolean transformMetadataSent, boolean transformMetadataForced) {
+        private static final UpdateDecision NONE = new UpdateDecision(false, false, false);
+    }
+
     private record SheddingState(int midTeleportIntervalMultiplier,
                                  int farTeleportIntervalMultiplier,
                                  int metadataDropModulo) {
@@ -1075,10 +1085,12 @@ public class NetworkEntityTracker {
         private long lastMidUpdateTick = Long.MIN_VALUE;
         private long lastFarUpdateTick = Long.MIN_VALUE;
 
-        private Object cachedUpdatePacket = null;
+        private Object cachedPositionPacket = null;
+        private Object cachedTransformMetaPacket = null;
         private PendingMetadata cachedMetaPacket = null;
-        private boolean metaDirty = false;
+        private boolean metadataDirty = false;
         private boolean criticalMetaDirty = false;
+        private boolean forceTransformResyncDirty = false;
 
         private TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
             this.visual = visual;
@@ -1102,26 +1114,30 @@ public class NetworkEntityTracker {
         }
 
         public void markMetaDirty(boolean critical) {
-            this.metaDirty = true;
+            this.metadataDirty = true;
             this.criticalMetaDirty = this.criticalMetaDirty || critical;
+            if (critical) {
+                this.forceTransformResyncDirty = true;
+            }
         }
 
         public void beginTick() {
-            this.cachedUpdatePacket = null;
+            this.cachedPositionPacket = null;
+            this.cachedTransformMetaPacket = null;
             this.cachedMetaPacket = null;
 
-            if (this.metaDirty) {
+            if (this.metadataDirty) {
                 this.cachedMetaPacket = new PendingMetadata(visual.createMetadataPacket(), criticalMetaDirty);
-                this.metaDirty = false;
+                this.metadataDirty = false;
                 this.criticalMetaDirty = false;
             }
         }
 
         public boolean hasSignificantNearChange(float nearPosThresholdSq, float nearRotThresholdDot) {
-            return isTransformChanged(nearSyncState, nearPosThresholdSq, nearRotThresholdDot);
+            return isPositionChanged(nearSyncState, nearPosThresholdSq) || isRotationChanged(nearSyncState, nearRotThresholdDot);
         }
 
-        public boolean shouldSendUpdate(
+        public UpdateDecision prepareUpdate(
                 LodLevel lodLevel,
                 long tick,
                 float nearPosThresholdSq,
@@ -1134,57 +1150,90 @@ public class NetworkEntityTracker {
                 int farIntervalTicks
         ) {
             return switch (lodLevel) {
-                case NEAR -> emitUpdateIfChanged(nearSyncState, nearPosThresholdSq, nearRotThresholdDot);
-                case MID -> {
-                    boolean changed = isTransformChanged(midSyncState, midPosThresholdSq, midRotThresholdDot);
-                    if (!changed || !isIntervalReached(lastMidUpdateTick, tick, midIntervalTicks)) {
-                        yield false;
-                    }
-                    boolean emitted = emitUpdate(midSyncState);
-                    if (emitted) {
-                        lastMidUpdateTick = tick;
-                    }
-                    yield emitted;
-                }
-                case FAR -> {
-                    boolean changed = isTransformChanged(farSyncState, farPosThresholdSq, farRotThresholdDot);
-                    if (!changed || !isIntervalReached(lastFarUpdateTick, tick, farIntervalTicks)) {
-                        yield false;
-                    }
-                    boolean emitted = emitUpdate(farSyncState);
-                    if (emitted) {
-                        lastFarUpdateTick = tick;
-                    }
-                    yield emitted;
-                }
+                case NEAR -> prepareNearUpdate(nearPosThresholdSq, nearRotThresholdDot);
+                case MID -> prepareLodUpdate(midSyncState, tick, midPosThresholdSq, midRotThresholdDot, midIntervalTicks, true);
+                case FAR -> prepareLodUpdate(farSyncState, tick, farPosThresholdSq, farRotThresholdDot, farIntervalTicks, false);
             };
         }
 
-        private boolean emitUpdateIfChanged(SyncState state, float posThresholdSq, float rotThresholdDot) {
-            if (!isTransformChanged(state, posThresholdSq, rotThresholdDot)) {
-                return false;
+        private UpdateDecision prepareNearUpdate(float posThresholdSq, float rotThresholdDot) {
+            boolean positionChanged = isPositionChanged(nearSyncState, posThresholdSq);
+            boolean transformChanged = isRotationChanged(nearSyncState, rotThresholdDot);
+            boolean forcedTransform = forceTransformResyncDirty;
+
+            if (!positionChanged && !transformChanged && !forcedTransform) {
+                return UpdateDecision.NONE;
             }
-            return emitUpdate(state);
+
+            if (positionChanged) {
+                emitPosition(nearSyncState);
+            }
+            if (transformChanged || forcedTransform) {
+                emitTransformMetadata(nearSyncState);
+                forceTransformResyncDirty = false;
+            }
+
+            return new UpdateDecision(positionChanged, transformChanged || forcedTransform, forcedTransform);
         }
 
-        private boolean emitUpdate(SyncState state) {
-            if (this.cachedUpdatePacket == null) {
-                this.cachedUpdatePacket = visual.createTeleportPacket(location, rotation);
+        private UpdateDecision prepareLodUpdate(SyncState state,
+                                                long tick,
+                                                float posThresholdSq,
+                                                float rotThresholdDot,
+                                                int intervalTicks,
+                                                boolean midLod) {
+            boolean positionChanged = isPositionChanged(state, posThresholdSq);
+            boolean transformChanged = isRotationChanged(state, rotThresholdDot);
+            boolean forcedTransform = forceTransformResyncDirty;
+            boolean intervalReached = isIntervalReached(midLod ? lastMidUpdateTick : lastFarUpdateTick, tick, intervalTicks);
+
+            boolean sendPosition = positionChanged && intervalReached;
+            boolean sendTransform = forcedTransform || transformChanged || intervalReached;
+
+            if (!sendPosition && !sendTransform) {
+                return UpdateDecision.NONE;
             }
-            sync(state);
-            return true;
+
+            if (sendPosition) {
+                emitPosition(state);
+            }
+            if (sendTransform) {
+                emitTransformMetadata(state);
+                forceTransformResyncDirty = false;
+            }
+
+            if (midLod) {
+                lastMidUpdateTick = tick;
+            } else {
+                lastFarUpdateTick = tick;
+            }
+
+            return new UpdateDecision(sendPosition, sendTransform, forcedTransform);
         }
 
-        private boolean isTransformChanged(SyncState state, float posThresholdSq, float rotThresholdDot) {
+        private void emitPosition(SyncState state) {
+            if (this.cachedPositionPacket == null) {
+                this.cachedPositionPacket = visual.createPositionPacket(location, rotation);
+            }
+            syncPosition(state);
+        }
+
+        private void emitTransformMetadata(SyncState state) {
+            if (this.cachedTransformMetaPacket == null) {
+                this.cachedTransformMetaPacket = visual.createTransformMetadataPacket(rotation);
+            }
+            syncRotation(state);
+        }
+
+        private boolean isPositionChanged(SyncState state, float posThresholdSq) {
             float dx = (float) location.getX() - state.pos.x;
             float dy = (float) location.getY() - state.pos.y;
             float dz = (float) location.getZ() - state.pos.z;
             float distSq = dx * dx + dy * dy + dz * dz;
+            return distSq > posThresholdSq;
+        }
 
-            if (distSq > posThresholdSq) {
-                return true;
-            }
-
+        private boolean isRotationChanged(SyncState state, float rotThresholdDot) {
             float dot = Math.abs(rotation.dot(state.rot));
             return dot < rotThresholdDot;
         }
@@ -1196,8 +1245,12 @@ public class NetworkEntityTracker {
             return (currentTick - lastTick) >= intervalTicks;
         }
 
-        public Object getPendingUpdatePacket() {
-            return cachedUpdatePacket;
+        public Object getPendingPositionPacket() {
+            return cachedPositionPacket;
+        }
+
+        public Object getPendingTransformMetaPacket() {
+            return cachedTransformMetaPacket;
         }
 
         public PendingMetadata getPendingMetaPacket() {
@@ -1208,13 +1261,19 @@ public class NetworkEntityTracker {
         }
 
         private void syncAll() {
-            sync(nearSyncState);
-            sync(midSyncState);
-            sync(farSyncState);
+            syncPosition(nearSyncState);
+            syncRotation(nearSyncState);
+            syncPosition(midSyncState);
+            syncRotation(midSyncState);
+            syncPosition(farSyncState);
+            syncRotation(farSyncState);
         }
 
-        private void sync(SyncState state) {
+        private void syncPosition(SyncState state) {
             state.pos.set((float) location.getX(), (float) location.getY(), (float) location.getZ());
+        }
+
+        private void syncRotation(SyncState state) {
             state.rot.set(rotation);
         }
 
