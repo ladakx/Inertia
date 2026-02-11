@@ -181,9 +181,8 @@ public class ChainSpawner implements BodySpawner {
                 dirNorm.normalize();
             }
 
-            double jointOffset = def.creation().jointOffset();
-            RVec3 startAnchor = context.world().toJolt(startLoc.clone().add(dirNorm.clone().multiply(-jointOffset)));
-            RVec3 endAnchor = context.world().toJolt(startLoc.clone().add(direction.clone().multiply((size - 1) * step)).add(dirNorm.clone().multiply(jointOffset)));
+            RVec3 startAnchor = context.world().toJolt(startLoc);
+            RVec3 endAnchor = context.world().toJolt(endLoc);
 
             anchorToWorld(context.world(), firstLink, startAnchor, def);
             anchorToWorld(context.world(), lastLink, endAnchor, def);
