@@ -307,24 +307,30 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             return;
         }
 
-        world.schedulePhysicsTask(() -> {
-            for (InertiaPhysicsBody body : world.getBodies()) {
-                if (!(body instanceof AbstractPhysicsBody physicsBody)) {
-                    continue;
-                }
-                if (!physicsBody.isValid() || physicsBody.getMotionType() != MotionType.DYNAMIC) {
-                    continue;
-                }
+        world.schedulePhysicsTask(() -> activateDynamicBodiesNearChunk(chunkX, chunkZ, 1));
+    }
 
-                RVec3 position = physicsBody.getBody().getPosition();
-                int bodyChunkX = ((int) Math.floor(position.xx() + world.getOrigin().xx())) >> 4;
-                int bodyChunkZ = ((int) Math.floor(position.zz() + world.getOrigin().zz())) >> 4;
+    private void activateDynamicBodiesNearChunk(int centerChunkX, int centerChunkZ, int rangeChunks) {
+        if (world == null) {
+            return;
+        }
 
-                if (bodyChunkX == chunkX && bodyChunkZ == chunkZ) {
-                    physicsBody.activate();
-                }
+        for (InertiaPhysicsBody body : world.getBodies()) {
+            if (!(body instanceof AbstractPhysicsBody physicsBody)) {
+                continue;
             }
-        });
+            if (!physicsBody.isValid() || physicsBody.getMotionType() != MotionType.DYNAMIC) {
+                continue;
+            }
+
+            RVec3 position = physicsBody.getBody().getPosition();
+            int bodyChunkX = ((int) Math.floor(position.xx() + world.getOrigin().xx())) >> 4;
+            int bodyChunkZ = ((int) Math.floor(position.zz() + world.getOrigin().zz())) >> 4;
+
+            if (Math.abs(bodyChunkX - centerChunkX) <= rangeChunks && Math.abs(bodyChunkZ - centerChunkZ) <= rangeChunks) {
+                physicsBody.activate();
+            }
+        }
     }
 
     private void enqueueMeshData(int x, int z, GreedyMeshData data) {
@@ -440,6 +446,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private void applyMeshData(int x, int z, GreedyMeshData data) {
         long key = ChunkUtils.getChunkKey(x, z);
         if (!loadedChunks.contains(key) || world == null) return;
+
+        // Wake up nearby dynamic bodies right before replacing terrain bodies,
+        // so contacts are rebuilt immediately for objects standing on chunk borders.
+        activateDynamicBodiesNearChunk(x, z, 1);
 
         if (data.fullRebuild()) {
             removeChunkBodies(key);
