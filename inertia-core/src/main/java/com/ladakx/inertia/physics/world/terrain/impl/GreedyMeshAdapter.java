@@ -175,6 +175,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (!loadedChunks.contains(key)) return;
 
         activateDynamicBodiesInChunk(chunkX, chunkZ);
+        chunkPhysicsManager.invalidate(chunkX, chunkZ);
 
         BukkitTask existing = pendingUpdates.get(key);
         if (existing != null) existing.cancel();

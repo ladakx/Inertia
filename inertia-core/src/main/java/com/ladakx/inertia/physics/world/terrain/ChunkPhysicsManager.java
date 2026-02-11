@@ -69,7 +69,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
         if (!queuedChunks.add(key) || generator == null || generationQueue == null) {
             return;
         }
-        if (dirtyRegion != null || cache == null) {
+        if (requestKind == GenerationRequestKind.DIRTY || dirtyRegion != null || cache == null) {
             enqueueCapture(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key, dirtyRegion, requestKind);
             return;
         }
