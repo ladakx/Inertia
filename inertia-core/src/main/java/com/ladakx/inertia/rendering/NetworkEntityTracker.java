@@ -5,6 +5,7 @@ import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Quaternionf;
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NetworkEntityTracker {
 
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
-    private final Map<UUID, Set<Integer>> visibleByPlayer = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerTrackingState> playerTrackingStates = new ConcurrentHashMap<>();
     private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
 
     private final Map<UUID, List<Object>> packetBuffer = new ConcurrentHashMap<>();
@@ -24,6 +25,9 @@ public class NetworkEntityTracker {
     // Default values matched with InertiaConfig defaults (0.01^2 and 0.3)
     private volatile float posThresholdSq = 0.0001f;
     private volatile float rotThresholdDot = 0.3f;
+    private volatile int maxVisibilityUpdatesPerPlayerPerTick = 256;
+    private volatile int fullRecalcIntervalTicks = 20;
+    private long tickCounter = 0L;
 
     private final PacketFactory packetFactory;
 
@@ -40,6 +44,8 @@ public class NetworkEntityTracker {
         if (settings == null) return;
         this.posThresholdSq = settings.posThresholdSq;
         this.rotThresholdDot = settings.rotThresholdDot;
+        this.maxVisibilityUpdatesPerPlayerPerTick = settings.maxVisibilityUpdatesPerPlayerPerTick;
+        this.fullRecalcIntervalTicks = settings.fullRecalcIntervalTicks;
     }
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
@@ -65,10 +71,10 @@ public class NetworkEntityTracker {
 
             Object destroyPacket = visual.createDestroyPacket();
 
-            Iterator<Map.Entry<UUID, Set<Integer>>> it = visibleByPlayer.entrySet().iterator();
+            Iterator<Map.Entry<UUID, PlayerTrackingState>> it = playerTrackingStates.entrySet().iterator();
             while (it.hasNext()) {
-                Map.Entry<UUID, Set<Integer>> entry = it.next();
-                if (entry.getValue().remove(id)) {
+                Map.Entry<UUID, PlayerTrackingState> entry = it.next();
+                if (entry.getValue().visibleIds().remove(id)) {
                     Player player = Bukkit.getPlayer(entry.getKey());
                     if (player != null) {
                         packetFactory.sendPacket(player, destroyPacket);
@@ -103,6 +109,8 @@ public class NetworkEntityTracker {
     }
 
     public void tick(@NotNull Collection<? extends Player> players, double viewDistanceSquared) {
+        tickCounter++;
+
         // Phase 1: Pre-calculate shared packets for all dirty entities
         for (TrackedVisual tracked : visualsById.values()) {
             tracked.tickGlobal(posThresholdSq, rotThresholdDot);
@@ -114,70 +122,82 @@ public class NetworkEntityTracker {
         for (Player player : players) {
             if (player == null || !player.isOnline()) continue;
             UUID playerId = player.getUniqueId();
-            Set<Integer> visible = visibleByPlayer.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet());
+            PlayerTrackingState trackingState = playerTrackingStates.computeIfAbsent(playerId, k -> new PlayerTrackingState());
+            Set<Integer> visible = trackingState.visibleIds();
 
             Location playerLoc = player.getLocation();
             int pChunkX = playerLoc.getBlockX() >> 4;
             int pChunkZ = playerLoc.getBlockZ() >> 4;
-            String playerWorldName = playerLoc.getWorld().getName();
+            World playerWorld = playerLoc.getWorld();
+            if (playerWorld == null) continue;
 
-            for (int x = -viewDistanceChunks; x <= viewDistanceChunks; x++) {
-                for (int z = -viewDistanceChunks; z <= viewDistanceChunks; z++) {
-                    long chunkKey = ChunkUtils.getChunkKey(pChunkX + x, pChunkZ + z);
-                    Set<Integer> entityIdsInChunk = chunkGrid.get(chunkKey);
+            UUID playerWorldId = playerWorld.getUID();
+            boolean chunkChanged = !trackingState.initialized() || pChunkX != trackingState.chunkX() || pChunkZ != trackingState.chunkZ();
+            boolean worldChanged = !trackingState.initialized() || !playerWorldId.equals(trackingState.worldId());
+            boolean periodicFullRecalc = !trackingState.initialized()
+                    || (tickCounter - trackingState.lastFullRecalcTick()) >= fullRecalcIntervalTicks;
+            boolean requiresFullRecalc = chunkChanged || worldChanged || periodicFullRecalc;
 
-                    if (entityIdsInChunk != null && !entityIdsInChunk.isEmpty()) {
-                        for (Integer id : entityIdsInChunk) {
-                            TrackedVisual tracked = visualsById.get(id);
-                            if (tracked == null) continue;
-                            if (!tracked.location().getWorld().getName().equals(playerWorldName)) continue;
+            trackingState.updatePosition(pChunkX, pChunkZ, playerWorldId);
 
-                            double distSq = tracked.location().distanceSquared(playerLoc);
-                            boolean inRange = distSq <= viewDistanceSquared;
-
-                            if (inRange) {
-                                if (visible.add(id)) {
-                                    // FIX: Передаем текущий поворот tracked.rotation()
-                                    bufferPacket(playerId, tracked.visual().createSpawnPacket(tracked.location(), tracked.rotation()));
-                                    tracked.markSent(player);
-                                } else {
-                                    // Already visible - check for updates
-                                    Object updatePacket = tracked.getPendingUpdatePacket();
-                                    if (updatePacket != null) {
-                                        bufferPacket(playerId, updatePacket);
-                                        tracked.markSent(player);
-                                    }
-
-                                    Object metaPacket = tracked.getPendingMetaPacket();
-                                    if (metaPacket != null) {
-                                        bufferPacket(playerId, metaPacket);
-                                    }
-                                }
-                            } else {
-                                if (visible.remove(id)) {
-                                    bufferPacket(playerId, tracked.visual().createDestroyPacket());
-                                }
-                            }
-                        }
-                    }
-                }
+            if (requiresFullRecalc) {
+                trackingState.rebuildCandidates(chunkGrid, pChunkX, pChunkZ, viewDistanceChunks);
+                trackingState.markFullRecalcDone(tickCounter);
             }
 
-            // Cleanup out of view distance
-            visible.removeIf(id -> {
-                TrackedVisual tracked = visualsById.get(id);
-                if (tracked == null) return true;
+            if (trackingState.needsWorkQueueRebuild()) {
+                trackingState.rebuildWorkQueue();
+            }
 
-                boolean sameWorld = tracked.location().getWorld().getName().equals(playerWorldName);
-                if (!sameWorld || tracked.location().distanceSquared(playerLoc) > viewDistanceSquared) {
-                    bufferPacket(playerId, tracked.visual().createDestroyPacket());
-                    return true;
+            int budget = maxVisibilityUpdatesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxVisibilityUpdatesPerPlayerPerTick;
+            int processed = 0;
+            while (processed < budget) {
+                Integer id = trackingState.nextWorkEntityId();
+                if (id == null) break;
+
+                TrackedVisual tracked = visualsById.get(id);
+                if (tracked == null) {
+                    visible.remove(id);
+                    processed++;
+                    continue;
                 }
-                return false;
-            });
+
+                Location trackedLoc = tracked.location();
+                World trackedWorld = trackedLoc.getWorld();
+                boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
+
+                double dx = trackedLoc.getX() - playerLoc.getX();
+                double dy = trackedLoc.getY() - playerLoc.getY();
+                double dz = trackedLoc.getZ() - playerLoc.getZ();
+                double distSq = dx * dx + dy * dy + dz * dz;
+
+                boolean inRange = sameWorld && distSq <= viewDistanceSquared;
+
+                if (inRange) {
+                    if (visible.add(id)) {
+                        bufferPacket(playerId, tracked.visual().createSpawnPacket(tracked.location(), tracked.rotation()));
+                        tracked.markSent(player);
+                    } else {
+                        Object updatePacket = tracked.getPendingUpdatePacket();
+                        if (updatePacket != null) {
+                            bufferPacket(playerId, updatePacket);
+                            tracked.markSent(player);
+                        }
+
+                        Object metaPacket = tracked.getPendingMetaPacket();
+                        if (metaPacket != null) {
+                            bufferPacket(playerId, metaPacket);
+                        }
+                    }
+                } else if (visible.remove(id)) {
+                    bufferPacket(playerId, tracked.visual().createDestroyPacket());
+                }
+
+                processed++;
+            }
         }
 
-        visibleByPlayer.keySet().removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
+        playerTrackingStates.keySet().removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
 
         // Phase 3: Flush
         flushPackets();
@@ -206,7 +226,8 @@ public class NetworkEntityTracker {
     public void removePlayer(Player player) {
         UUID uuid = player.getUniqueId();
         packetBuffer.remove(uuid);
-        Set<Integer> visible = visibleByPlayer.remove(uuid);
+        PlayerTrackingState trackingState = playerTrackingStates.remove(uuid);
+        Set<Integer> visible = trackingState != null ? trackingState.visibleIds() : null;
         if (visible != null) {
             for (Integer id : visible) {
                 TrackedVisual tracked = visualsById.get(id);
@@ -219,9 +240,77 @@ public class NetworkEntityTracker {
 
     public void clear() {
         visualsById.clear();
-        visibleByPlayer.clear();
+        playerTrackingStates.clear();
         chunkGrid.clear();
         packetBuffer.clear();
+    }
+
+    private static class PlayerTrackingState {
+        private int chunkX;
+        private int chunkZ;
+        private UUID worldId;
+        private long lastFullRecalcTick;
+        private boolean initialized;
+
+        private final Set<Integer> visibleIds = ConcurrentHashMap.newKeySet();
+        private final List<Integer> precomputedCandidateIds = new ArrayList<>();
+        private final List<Integer> workQueue = new ArrayList<>();
+        private int workCursor = 0;
+
+        public int chunkX() { return chunkX; }
+        public int chunkZ() { return chunkZ; }
+        public UUID worldId() { return worldId; }
+        public long lastFullRecalcTick() { return lastFullRecalcTick; }
+        public boolean initialized() { return initialized; }
+        public Set<Integer> visibleIds() { return visibleIds; }
+
+        public void updatePosition(int chunkX, int chunkZ, UUID worldId) {
+            this.chunkX = chunkX;
+            this.chunkZ = chunkZ;
+            this.worldId = worldId;
+            this.initialized = true;
+        }
+
+        public void rebuildCandidates(Map<Long, Set<Integer>> chunkGrid, int centerChunkX, int centerChunkZ, int viewDistanceChunks) {
+            LinkedHashSet<Integer> accumulator = new LinkedHashSet<>();
+            for (int x = -viewDistanceChunks; x <= viewDistanceChunks; x++) {
+                for (int z = -viewDistanceChunks; z <= viewDistanceChunks; z++) {
+                    long chunkKey = ChunkUtils.getChunkKey(centerChunkX + x, centerChunkZ + z);
+                    Set<Integer> ids = chunkGrid.get(chunkKey);
+                    if (ids != null && !ids.isEmpty()) {
+                        accumulator.addAll(ids);
+                    }
+                }
+            }
+
+            precomputedCandidateIds.clear();
+            precomputedCandidateIds.addAll(accumulator);
+            workCursor = 0;
+        }
+
+        public void markFullRecalcDone(long tick) {
+            this.lastFullRecalcTick = tick;
+        }
+
+        public boolean needsWorkQueueRebuild() {
+            return workCursor >= workQueue.size();
+        }
+
+        public void rebuildWorkQueue() {
+            LinkedHashSet<Integer> queueUnion = new LinkedHashSet<>(precomputedCandidateIds);
+            queueUnion.addAll(visibleIds);
+
+            workQueue.clear();
+            workQueue.addAll(queueUnion);
+            workCursor = 0;
+        }
+
+        public Integer nextWorkEntityId() {
+            if (workCursor >= workQueue.size()) {
+                return null;
+            }
+            return workQueue.get(workCursor++);
+        }
     }
 
     private void addToGrid(int id, Location loc) {

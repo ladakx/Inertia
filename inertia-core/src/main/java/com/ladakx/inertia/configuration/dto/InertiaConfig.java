@@ -123,6 +123,8 @@ public class InertiaConfig {
         public static class NetworkEntityTrackerSettings {
             public final float posThresholdSq;
             public final float rotThresholdDot;
+            public final int maxVisibilityUpdatesPerPlayerPerTick;
+            public final int fullRecalcIntervalTicks;
 
             public NetworkEntityTrackerSettings(ConfigurationSection section, FileConfiguration root) {
                 // Defaults are aligned with previous hardcoded values in NetworkEntityTracker
@@ -137,6 +139,18 @@ public class InertiaConfig {
                 if (rotDot < 0) rotDot = 0;
                 if (rotDot > 1) rotDot = 1;
                 this.rotThresholdDot = (float) rotDot;
+
+                int defaultMaxUpdatesPerTick = 256;
+                int configuredMaxUpdatesPerTick = section != null
+                        ? section.getInt("max-visibility-updates-per-player-per-tick", defaultMaxUpdatesPerTick)
+                        : defaultMaxUpdatesPerTick;
+                this.maxVisibilityUpdatesPerPlayerPerTick = Math.max(1, configuredMaxUpdatesPerTick);
+
+                int defaultFullRecalcIntervalTicks = 20;
+                int configuredFullRecalcIntervalTicks = section != null
+                        ? section.getInt("full-recalc-interval-ticks", defaultFullRecalcIntervalTicks)
+                        : defaultFullRecalcIntervalTicks;
+                this.fullRecalcIntervalTicks = Math.max(1, configuredFullRecalcIntervalTicks);
             }
         }
     }
