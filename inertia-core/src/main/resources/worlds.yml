@@ -43,6 +43,9 @@ world:
       # Fast-path читает блоки напрямую из секций без ChunkSnapshot.
       # Отключите для быстрого rollback на legacy путь.
       fast-chunk-capture: true
+      # Бюджет (в миллисекундах за тик) на capture снапшотов чанков в main-thread.
+      # 0 = без ограничения.
+      max-capture-millis-per-tick: 2
 
     # Настройки для режима FLOOR_PLANE
     floor-plane:
