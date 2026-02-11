@@ -5,6 +5,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
@@ -14,20 +15,24 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.Vector;
 
 import java.util.*;
 
 import static com.ladakx.inertia.common.utils.PlayerUtils.getTargetLocation;
 
 public class ChainTool extends Tool {
-    private final Map<UUID, Location> startPoints = new HashMap<>();
+    private final Map<UUID, SelectionPoint> startPoints = new HashMap<>();
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final JShapeFactory shapeFactory;
     private final BodyFactory bodyFactory;
+
+    private record SelectionPoint(Location location, Vector normal) {}
 
     public ChainTool(ConfigurationService configurationService,
                      PhysicsWorldRegistry physicsWorldRegistry,
@@ -46,7 +51,7 @@ public class ChainTool extends Tool {
         if (!validateWorld(player)) return;
 
         Location loc = getTargetLocation(player, event);
-        startPoints.put(player.getUniqueId(), loc);
+        startPoints.put(player.getUniqueId(), new SelectionPoint(loc, getClickNormal(event)));
         send(player, MessageKey.CHAIN_POINT_SET, "{location}", formatLoc(loc));
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.5f);
         event.setCancelled(true);
@@ -69,13 +74,14 @@ public class ChainTool extends Tool {
         }
 
         Location endLoc = getTargetLocation(player, event);
-        Location startLoc = startPoints.remove(player.getUniqueId());
+        SelectionPoint startSelection = startPoints.remove(player.getUniqueId());
+        SelectionPoint endSelection = new SelectionPoint(endLoc, getClickNormal(event));
 
         send(player, MessageKey.CHAIN_BUILDING);
         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1f, 1f);
         event.setCancelled(true);
 
-        buildChainBetweenPoints(player, startLoc, endLoc, bodyId);
+        buildChainBetweenPoints(player, startSelection, endSelection, bodyId);
     }
 
     @Override
@@ -110,11 +116,7 @@ public class ChainTool extends Tool {
         return new ItemStack(Material.LEAD);
     }
 
-    public void buildChainBetweenPoints(Player player, Location start, Location end, String bodyId) {
-        // Logic delegated to BodyFactory in Step 1, but we need to compute size here or in factory.
-        // Original logic computed size based on distance and spacing.
-        // For simplicity and cleaner refactoring, we calculate size here and call factory.
-
+    public void buildChainBetweenPoints(Player player, SelectionPoint start, SelectionPoint end, String bodyId) {
         PhysicsBodyRegistry registry = configurationService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(bodyId);
         if (modelOpt.isEmpty() || modelOpt.get().bodyDefinition().type() != PhysicsBodyType.CHAIN) {
@@ -122,30 +124,25 @@ public class ChainTool extends Tool {
             return;
         }
 
-        // This math is specific to the tool interaction (click two points), not the spawner itself.
-        // The spawner takes a start location and a size.
-        // We need to adapt the tool input (2 points) to the spawner input (1 point + size).
+        ChainBodyDefinition def = (ChainBodyDefinition) modelOpt.get().bodyDefinition();
+        double surfaceOffset = Math.max(def.creation().jointOffset(), def.creation().spacing() * 0.5) + 0.01;
 
-        // However, the Spawner implementation in Step 1 takes 'size' but assumes vertical growth.
-        // The original tool logic handled arbitrary rotation between two points.
-        // To strictly follow the "thin tool" principle, the factory/spawner should handle "spawn between two points".
-        // But BodySpawner interface is single-location based.
-        // For now, we will revert to using BodyFactory helper method or keep logic here?
-        // Given BodyFactory.spawnChain logic in Step 1 was simplified to vertical, we might have lost the "between points" feature.
-        // This is a trade-off. Let's stick to the current plan:
-        // We will calculate the size here and let the user spawn it vertically from start point for now,
-        // OR we need to enhance ChainSpawner to support start/end vectors.
-        // Since we are just standardizing NBT here, I won't change physics logic drastically.
+        Location startLoc = applySurfaceOffset(start.location(), start.normal(), surfaceOffset);
+        Location endLoc = applySurfaceOffset(end.location(), end.normal(), surfaceOffset);
 
-        // *Self-correction*: The previous implementation of ChainSpawner in Step 1 was indeed simplified to vertical.
-        // To restore full functionality, we would need to pass direction/rotation to spawner.
-        // But for this Step 4, we focus on NBT. I will use bodyFactory.spawnChain(player, bodyId, size)
-        // which currently spawns vertically. (As per Step 1 code).
+        bodyFactory.spawnChainBetween(player, bodyId, startLoc, endLoc);
+    }
 
-        double spacing = 1.0; // Simplification, ideally fetched from config via registry
-        double dist = start.distance(end);
-        int size = (int) Math.ceil(dist / spacing);
+    private static Vector getClickNormal(PlayerInteractEvent event) {
+        if (event.getClickedBlock() == null) return null;
+        BlockFace face = event.getBlockFace();
+        if (face == null) return null;
+        Vector dir = face.getDirection();
+        return dir.lengthSquared() > 0 ? dir.clone().normalize() : null;
+    }
 
-        bodyFactory.spawnChain(player, bodyId, size);
+    private static Location applySurfaceOffset(Location loc, Vector normal, double offset) {
+        if (normal == null) return loc;
+        return loc.clone().add(normal.clone().multiply(offset));
     }
 }

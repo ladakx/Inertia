@@ -279,16 +279,16 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     private ChunkSnapshotData captureChunkSnapshotData(int x, int z) {
         Chunk chunk = world.getWorldBukkit().getChunkAt(x, z);
-        long startedNanos = System.nanoTime();
+//        long startedNanos = System.nanoTime();
         short[] profileMap = generator != null ? generator.materialToProfileId() : null;
         ChunkSnapshotData snapshotData = useFastChunkCapture
                 ? ChunkSnapshotData.captureFast(chunk, joltTools, profileMap)
                 : ChunkSnapshotData.capture(chunk, joltTools, profileMap);
-        long elapsedNanos = System.nanoTime() - startedNanos;
-        double elapsedMillis = elapsedNanos / 1_000_000.0;
-        InertiaLogger.debug("Chunk capture [" + (useFastChunkCapture ? "fast" : "legacy") + "] "
-                + world.getWorldBukkit().getName() + " (" + x + "," + z + "): "
-                + elapsedNanos + "ns (" + String.format(java.util.Locale.ROOT, "%.3f", elapsedMillis) + "ms)");
+//        long elapsedNanos = System.nanoTime() - startedNanos;
+//        double elapsedMillis = elapsedNanos / 1_000_000.0;
+//        InertiaLogger.debug("Chunk capture [" + (useFastChunkCapture ? "fast" : "legacy") + "] "
+//                + world.getWorldBukkit().getName() + " (" + x + "," + z + "): "
+//                + elapsedNanos + "ns (" + String.format(java.util.Locale.ROOT, "%.3f", elapsedMillis) + "ms)");
         return snapshotData;
     }
 
