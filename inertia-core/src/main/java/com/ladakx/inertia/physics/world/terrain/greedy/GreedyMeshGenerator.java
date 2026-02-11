@@ -4,6 +4,7 @@ import com.github.stephengold.joltjni.AaBox;
 import com.github.stephengold.joltjni.Vec3;
 import com.ladakx.inertia.configuration.dto.BlocksConfig;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
+import com.ladakx.inertia.physics.world.terrain.DirtyChunkRegion;
 import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.physics.world.terrain.ChunkSnapshotData;
 import com.ladakx.inertia.physics.world.terrain.PhysicsGenerator;
@@ -20,6 +21,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.HashSet;
 
 public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     private final BlocksConfig blocksConfig;
@@ -31,6 +34,7 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     // Используем ThreadLocal для буферов, чтобы не аллоцировать память каждый раз
     private static final ThreadLocal<WorkingBuffers> BUFFERS = ThreadLocal.withInitial(WorkingBuffers::new);
     private static final short EMPTY_PROFILE = 0;
+    private static final double FULL_REBUILD_THRESHOLD = 0.40d;
 
     public GreedyMeshGenerator(BlocksConfig blocksConfig, JoltTools joltTools, WorldsConfig.GreedyMeshingSettings settings) {
         this.blocksConfig = Objects.requireNonNull(blocksConfig, "blocksConfig");
@@ -84,11 +88,17 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
     @Override
     public GreedyMeshData generate(ChunkSnapshotData snapshot) {
+        return generate(snapshot, null);
+    }
+
+    @Override
+    public GreedyMeshData generate(ChunkSnapshotData snapshot, DirtyChunkRegion dirtyRegion) {
         Objects.requireNonNull(snapshot, "snapshot");
         int minSectionY = snapshot.minSectionY();
         int sectionsCount = snapshot.sectionsCount();
         int minHeight = minSectionY << 4;
         int height = sectionsCount << 4;
+        GenerationRange range = resolveGenerationRange(snapshot, dirtyRegion);
 
         WorkingBuffers buffers = BUFFERS.get();
         buffers.ensureCapacity(height);
@@ -104,9 +114,10 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         int complexCount = 0;
 
         List<GreedyMeshShape> shapes = new ArrayList<>();
+        Set<Integer> touchedSections = range.fullRebuild() ? Set.of() : collectTouchedSections(range, minSectionY);
 
         // 1. Заполнение воксельной сетки
-        for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
+        for (int sectionIndex = range.startSectionIndex(); sectionIndex <= range.endSectionIndex(); sectionIndex++) {
             int sectionY = minSectionY + sectionIndex;
             if (!snapshot.sectionHasBlocks(sectionIndex)) {
                 continue;
@@ -115,8 +126,17 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
             for (int y = 0; y < 16; y++) {
                 int worldIndexY = baseY + y;
+                if (worldIndexY < range.startLocalY() || worldIndexY > range.endLocalY()) {
+                    continue;
+                }
                 for (int z = 0; z < 16; z++) {
+                    if (z < range.minLocalZ() || z > range.maxLocalZ()) {
+                        continue;
+                    }
                     for (int x = 0; x < 16; x++) {
+                        if (x < range.minLocalX() || x > range.maxLocalX()) {
+                            continue;
+                        }
                         short profileId = snapshot.getProfileId(x, worldIndexY, z);
                         if (profileId == EMPTY_PROFILE) {
                             continue;
@@ -167,7 +187,7 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         List<LayerRect>[] layerRects = new List[height];
 
         // 3.1 Послойный мержинг (Horizontal merging)
-        for (int y = 0; y < height; y++) {
+        for (int y = range.startLocalY(); y <= range.endLocalY(); y++) {
             // Очистка буферов слоя
             Arrays.fill(layerProfiles, EMPTY_PROFILE);
             Arrays.fill(layerVisited, false);
@@ -225,7 +245,7 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
             LongSet touchedKeys = buffers.touchedKeys;
             active.clear();
 
-            for (int y = 0; y < height; y++) {
+            for (int y = range.startLocalY(); y <= range.endLocalY(); y++) {
                 List<LayerRect> rects = layerRects[y];
                 touchedKeys.clear();
 
@@ -235,7 +255,10 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                         ActiveRect current = active.get(key);
 
                         // Пробуем расширить вверх
-                        if (current != null && current.startY + current.height == y && current.height < maxTall) {
+                        if (current != null
+                                && current.startY + current.height == y
+                                && current.height < maxTall
+                                && (current.startY >> 4) == (y >> 4)) {
                             current.height++;
                         } else {
                             // Не удалось расширить - сбрасываем старый
@@ -265,7 +288,7 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
             }
         } else {
             // Без вертикального мержинга
-            for (int y = 0; y < height; y++) {
+            for (int y = range.startLocalY(); y <= range.endLocalY(); y++) {
                 List<LayerRect> rects = layerRects[y];
                 if (rects == null) continue;
 
@@ -283,7 +306,77 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
             visited[index] = false;
         }
 
-        return new GreedyMeshData(shapes);
+        return new GreedyMeshData(shapes, range.fullRebuild(), touchedSections);
+    }
+
+    private GenerationRange resolveGenerationRange(ChunkSnapshotData snapshot, DirtyChunkRegion dirtyRegion) {
+        int sectionsCount = snapshot.sectionsCount();
+        int chunkMinSectionY = snapshot.minSectionY();
+        int startSectionIndex = 0;
+        int endSectionIndex = sectionsCount - 1;
+        int minLocalX = 0;
+        int maxLocalX = 15;
+        int minLocalZ = 0;
+        int maxLocalZ = 15;
+        boolean fullRebuild = true;
+
+        if (dirtyRegion != null) {
+            DirtyChunkRegion expanded = dirtyRegion.expanded(1);
+            int startSectionY = Math.max(chunkMinSectionY, expanded.minSectionY());
+            int endSectionY = Math.min(chunkMinSectionY + sectionsCount - 1, expanded.maxSectionY());
+            startSectionIndex = Math.max(0, startSectionY - chunkMinSectionY);
+            endSectionIndex = Math.min(sectionsCount - 1, endSectionY - chunkMinSectionY);
+            minLocalX = expanded.minX();
+            maxLocalX = expanded.maxX();
+            minLocalZ = expanded.minZ();
+            maxLocalZ = expanded.maxZ();
+            fullRebuild = shouldFallbackToFull(snapshot, dirtyRegion);
+            if (fullRebuild) {
+                startSectionIndex = 0;
+                endSectionIndex = sectionsCount - 1;
+                minLocalX = 0;
+                maxLocalX = 15;
+                minLocalZ = 0;
+                maxLocalZ = 15;
+            }
+        }
+
+        int startLocalY = startSectionIndex << 4;
+        int endLocalY = ((endSectionIndex + 1) << 4) - 1;
+        return new GenerationRange(startSectionIndex, endSectionIndex, startLocalY, endLocalY, minLocalX, maxLocalX, minLocalZ, maxLocalZ, fullRebuild);
+    }
+
+    private boolean shouldFallbackToFull(ChunkSnapshotData snapshot, DirtyChunkRegion dirtyRegion) {
+        int chunkMinSectionY = snapshot.minSectionY();
+        int chunkMaxSectionY = chunkMinSectionY + snapshot.sectionsCount() - 1;
+        int startSectionY = Math.max(chunkMinSectionY, dirtyRegion.minSectionY());
+        int endSectionY = Math.min(chunkMaxSectionY, dirtyRegion.maxSectionY());
+
+        for (int sectionY = startSectionY; sectionY <= endSectionY; sectionY++) {
+            int sectionMinY = sectionY << 4;
+            int sectionMaxY = sectionMinY + 15;
+            int minY = Math.max(sectionMinY, dirtyRegion.minY());
+            int maxY = Math.min(sectionMaxY, dirtyRegion.maxY());
+            if (minY > maxY) {
+                continue;
+            }
+            int width = dirtyRegion.maxX() - dirtyRegion.minX() + 1;
+            int depth = dirtyRegion.maxZ() - dirtyRegion.minZ() + 1;
+            int sectionHeight = maxY - minY + 1;
+            int dirtyBlocks = width * depth * sectionHeight;
+            if (dirtyBlocks > (int) Math.floor(4096 * FULL_REBUILD_THRESHOLD)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Set<Integer> collectTouchedSections(GenerationRange range, int minSectionY) {
+        Set<Integer> touched = new HashSet<>();
+        for (int sectionIndex = range.startSectionIndex(); sectionIndex <= range.endSectionIndex(); sectionIndex++) {
+            touched.add(minSectionY + sectionIndex);
+        }
+        return touched;
     }
 
     // --- Helpers ---
@@ -487,5 +580,16 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     }
 
     private record ProfileMappings(short[] materialToProfileId, PhysicalProfile[] profilesById) {
+    }
+
+    private record GenerationRange(int startSectionIndex,
+                                   int endSectionIndex,
+                                   int startLocalY,
+                                   int endLocalY,
+                                   int minLocalX,
+                                   int maxLocalX,
+                                   int minLocalZ,
+                                   int maxLocalZ,
+                                   boolean fullRebuild) {
     }
 }
