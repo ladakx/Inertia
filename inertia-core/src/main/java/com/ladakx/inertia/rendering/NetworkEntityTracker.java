@@ -1006,6 +1006,7 @@ public class NetworkEntityTracker {
     }
 
     private static class PlayerPacketQueue {
+        private final Object mutex = new Object();
         private final EnumMap<PacketPriority, ArrayDeque<QueuedPacket>> byPriority = new EnumMap<>(PacketPriority.class);
         private final Map<Integer, QueuedPacket> lastTeleportByVisualId = new HashMap<>();
 
@@ -1025,62 +1026,79 @@ public class NetworkEntityTracker {
                     && !tokenValidator.test(packet.visualId(), packet.tokenVersion())) {
                 return 0;
             }
-            if (packet.priority() == PacketPriority.TELEPORT && packet.coalescible() && packet.visualId() != null) {
-                QueuedPacket previous = lastTeleportByVisualId.put(packet.visualId(), packet);
-                if (previous != null && byPriority.get(PacketPriority.TELEPORT).remove(previous)) {
-                    coalesced = 1;
+            synchronized (mutex) {
+                if (packet.priority() == PacketPriority.TELEPORT && packet.coalescible() && packet.visualId() != null) {
+                    QueuedPacket previous = lastTeleportByVisualId.put(packet.visualId(), packet);
+                    if (previous != null && byPriority.get(PacketPriority.TELEPORT).remove(previous)) {
+                        coalesced = 1;
+                    }
                 }
+                byPriority.get(packet.priority()).addLast(packet);
             }
-            byPriority.get(packet.priority()).addLast(packet);
             return coalesced;
         }
 
         public QueuedPacket peek() {
-            QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).peekFirst();
-            if (packet != null) return packet;
-            packet = byPriority.get(PacketPriority.SPAWN).peekFirst();
-            if (packet != null) return packet;
-            packet = byPriority.get(PacketPriority.TELEPORT).peekFirst();
-            if (packet != null) return packet;
-            return byPriority.get(PacketPriority.METADATA).peekFirst();
+            synchronized (mutex) {
+                QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).peekFirst();
+                if (packet != null) return packet;
+                packet = byPriority.get(PacketPriority.SPAWN).peekFirst();
+                if (packet != null) return packet;
+                packet = byPriority.get(PacketPriority.TELEPORT).peekFirst();
+                if (packet != null) return packet;
+                return byPriority.get(PacketPriority.METADATA).peekFirst();
+            }
         }
 
         public QueuedPacket poll() {
-            QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).pollFirst();
-            if (packet != null) return packet;
-            packet = byPriority.get(PacketPriority.SPAWN).pollFirst();
-            if (packet != null) return packet;
-            packet = byPriority.get(PacketPriority.TELEPORT).pollFirst();
-            if (packet != null) {
-                if (packet.visualId() != null) {
-                    lastTeleportByVisualId.remove(packet.visualId(), packet);
+            synchronized (mutex) {
+                QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).pollFirst();
+                if (packet != null) return packet;
+                packet = byPriority.get(PacketPriority.SPAWN).pollFirst();
+                if (packet != null) return packet;
+                packet = byPriority.get(PacketPriority.TELEPORT).pollFirst();
+                if (packet != null) {
+                    if (packet.visualId() != null) {
+                        lastTeleportByVisualId.remove(packet.visualId(), packet);
+                    }
+                    return packet;
                 }
-                return packet;
+                return byPriority.get(PacketPriority.METADATA).pollFirst();
             }
-            return byPriority.get(PacketPriority.METADATA).pollFirst();
         }
 
         public int size() {
-            int total = 0;
-            for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
-                total += queue.size();
+            synchronized (mutex) {
+                int total = 0;
+                for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
+                    total += queue.size();
+                }
+                return total;
             }
-            return total;
         }
 
         public boolean isEmpty() {
-            return size() == 0;
+            synchronized (mutex) {
+                for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
+                    if (!queue.isEmpty()) return false;
+                }
+                return true;
+            }
         }
 
         public void clear() {
-            byPriority.values().forEach(ArrayDeque::clear);
-            lastTeleportByVisualId.clear();
+            synchronized (mutex) {
+                byPriority.values().forEach(ArrayDeque::clear);
+                lastTeleportByVisualId.clear();
+            }
         }
 
         public void invalidateVisual(int visualId, long activeTokenVersion) {
-            pruneQueue(PacketPriority.SPAWN, visualId, activeTokenVersion);
-            pruneQueue(PacketPriority.TELEPORT, visualId, activeTokenVersion);
-            pruneQueue(PacketPriority.METADATA, visualId, activeTokenVersion);
+            synchronized (mutex) {
+                pruneQueue(PacketPriority.SPAWN, visualId, activeTokenVersion);
+                pruneQueue(PacketPriority.TELEPORT, visualId, activeTokenVersion);
+                pruneQueue(PacketPriority.METADATA, visualId, activeTokenVersion);
+            }
         }
 
         public void pruneBeforeBulkDestroy(int[] visualIds) {
@@ -1091,9 +1109,11 @@ public class NetworkEntityTracker {
             for (int visualId : visualIds) {
                 set.add(visualId);
             }
-            pruneQueue(PacketPriority.SPAWN, set);
-            pruneQueue(PacketPriority.TELEPORT, set);
-            pruneQueue(PacketPriority.METADATA, set);
+            synchronized (mutex) {
+                pruneQueue(PacketPriority.SPAWN, set);
+                pruneQueue(PacketPriority.TELEPORT, set);
+                pruneQueue(PacketPriority.METADATA, set);
+            }
         }
 
         private void pruneQueue(PacketPriority priority, int visualId, long activeTokenVersion) {
