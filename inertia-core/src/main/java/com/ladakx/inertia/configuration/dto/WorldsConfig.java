@@ -147,9 +147,21 @@ public class WorldsConfig {
             if (simSec.contains("greedy-meshing")) {
                 ConfigurationSection gmSec = simSec.getConfigurationSection("greedy-meshing");
                 if (gmSec != null) {
+                    GreedyMeshShapeType shapeType = parseGreedyMeshShapeType(gmSec.getString("shape-type", "MeshShape"));
                     greedySettings = new GreedyMeshingSettings(
                             gmSec.getBoolean("vertical-merging", true),
-                            gmSec.getInt("max-vertical-size", 64)
+                            gmSec.getInt("max-vertical-size", 64),
+                            shapeType
+                    );
+                }
+            } else if (simSec.contains("greedy-mesh")) {
+                ConfigurationSection gmSec = simSec.getConfigurationSection("greedy-mesh");
+                if (gmSec != null) {
+                    GreedyMeshShapeType shapeType = parseGreedyMeshShapeType(gmSec.getString("shape-type", "MeshShape"));
+                    greedySettings = new GreedyMeshingSettings(
+                            gmSec.getBoolean("vertical-merging", true),
+                            gmSec.getInt("max-vertical-size", 64),
+                            shapeType
                     );
                 }
             }
@@ -159,7 +171,7 @@ public class WorldsConfig {
             floorSettings = new FloorPlaneSettings(0, 1, 1, 0, new FloorBounds(new Vec3(0,0,0), -100, -100, 100, 100));
         }
         if (greedySettings == null) {
-            greedySettings = new GreedyMeshingSettings(true, 64);
+            greedySettings = new GreedyMeshingSettings(true, 64, GreedyMeshShapeType.MESH_SHAPE);
         }
 
         SimulationSettings simulation = new SimulationSettings(simEnable, simType, floorSettings, greedySettings);
@@ -270,6 +282,22 @@ public class WorldsConfig {
         return null;
     }
 
+    private GreedyMeshShapeType parseGreedyMeshShapeType(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return GreedyMeshShapeType.MESH_SHAPE;
+        }
+
+        String normalized = rawValue.trim().replace("_", "").replace("-", "").toUpperCase();
+        return switch (normalized) {
+            case "MESHSHAPE" -> GreedyMeshShapeType.MESH_SHAPE;
+            case "COMPOUNDSHAPE" -> GreedyMeshShapeType.COMPOUND_SHAPE;
+            default -> {
+                InertiaLogger.warn("Unknown greedy-meshing shape-type: " + rawValue + ". Fallback to MeshShape.");
+                yield GreedyMeshShapeType.MESH_SHAPE;
+            }
+        };
+    }
+
     public WorldProfile getWorldSettings(String worldName) {
         return worlds.get(worldName);
     }
@@ -315,7 +343,12 @@ public class WorldsConfig {
 
     public record FloorPlaneSettings(float yLevel, float ySize, float friction, float restitution, FloorBounds bounds) {}
 
-    public record GreedyMeshingSettings(boolean verticalMerging, int maxVerticalSize) {}
+    public record GreedyMeshingSettings(boolean verticalMerging, int maxVerticalSize, GreedyMeshShapeType shapeType) {}
+
+    public enum GreedyMeshShapeType {
+        MESH_SHAPE,
+        COMPOUND_SHAPE
+    }
 
     public record FloorBounds(Vec3 origin, float minX, float minZ, float maxX, float maxZ) {}
 

@@ -31,11 +31,15 @@ world:
     type: GREEDY_MESH
 
     # Настройки алгоритма Greedy Meshing
-    greedy-meshing:
+    greedy-mesh:
       # Объединять блоки по вертикали (Y). True = меньше тел, выше скорость.
       vertical-merging: true
       # Максимальная высота одного объединенного тела (в блоках)
       max-vertical-size: 64
+      # Тип физической формы чанка:
+      # MeshShape - триангулированный меш (текущий режим)
+      # CompoundShape - составная форма из AABB-частей greedy mesh
+      shape-type: MeshShape
 
     # Настройки для режима FLOOR_PLANE (игнорируются в GREEDY_MESH)
     floor-plane:
