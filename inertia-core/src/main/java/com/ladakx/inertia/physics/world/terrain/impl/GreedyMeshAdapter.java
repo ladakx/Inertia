@@ -32,6 +32,7 @@ import org.bukkit.Location;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.lang.Character;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
