@@ -50,7 +50,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private final Map<Long, Map<Integer, List<Integer>>> chunkBodies = new HashMap<>();
     private final Set<Long> loadedChunks = ConcurrentHashMap.newKeySet();
     private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
-    private final Map<Long, DirtyChunkRegion> pendingDirtyRegions = new HashMap<>();
     private final Map<Long, PendingMesh> pendingMeshData = new ConcurrentHashMap<>();
     private WorldsConfig.ChunkManagementSettings chunkSettings;
     private WorldsConfig.GreedyMeshShapeType greedyMeshShapeType = WorldsConfig.GreedyMeshShapeType.MESH_SHAPE;
@@ -114,7 +113,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     public void onDisable() {
         pendingUpdates.values().forEach(BukkitTask::cancel);
         pendingUpdates.clear();
-        pendingDirtyRegions.clear();
         if (world != null) {
             for (long key : new ArrayList<>(chunkBodies.keySet())) {
                 removeChunkBodies(key);
@@ -153,7 +151,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.remove(key);
         pendingMeshData.remove(key);
-        pendingDirtyRegions.remove(key);
 
         BukkitTask task = pendingUpdates.remove(key);
         if (task != null) task.cancel();
@@ -178,9 +175,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (!loadedChunks.contains(key)) return;
 
         activateDynamicBodiesInChunk(chunkX, chunkZ);
-
-        DirtyChunkRegion dirtyRegion = DirtyChunkRegion.singleBlock(y >> 4, x & 15, y, z & 15);
-        pendingDirtyRegions.merge(key, dirtyRegion, DirtyChunkRegion::merge);
+        chunkPhysicsManager.invalidate(chunkX, chunkZ);
 
         BukkitTask existing = pendingUpdates.get(key);
         if (existing != null) existing.cancel();
@@ -188,9 +183,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         int delay = Math.max(1, chunkSettings.updateDebounceTicks());
         BukkitTask task = Bukkit.getScheduler().runTaskLater(InertiaPlugin.getInstance(), () -> {
             pendingUpdates.remove(key);
-            DirtyChunkRegion mergedRegion = pendingDirtyRegions.remove(key);
             if (loadedChunks.contains(key)) {
-                requestChunkGeneration(chunkX, chunkZ, mergedRegion, GenerationRequestKind.DIRTY);
+                requestChunkGeneration(chunkX, chunkZ, null, GenerationRequestKind.DIRTY);
             }
         }, delay);
         pendingUpdates.put(key, task);
@@ -204,7 +198,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         activateDynamicBodiesInChunk(x, z);
 
-        pendingDirtyRegions.remove(key);
         chunkPhysicsManager.invalidate(x, z);
         BukkitTask pending = pendingUpdates.remove(key);
         if (pending != null) pending.cancel();
