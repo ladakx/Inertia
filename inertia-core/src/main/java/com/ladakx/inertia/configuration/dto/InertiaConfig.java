@@ -168,6 +168,7 @@ public class InertiaConfig {
             public final int farUpdateIntervalTicks;
             public final boolean farAllowMetadataUpdates;
             public final int maxVisibilityUpdatesPerPlayerPerTick;
+            public final int maxTransformChecksPerPlayerPerTick;
             public final int fullRecalcIntervalTicks;
             public final int maxPacketsPerPlayerPerTick;
             public final int destroyBacklogThreshold;
@@ -247,6 +248,12 @@ public class InertiaConfig {
                         ? section.getInt("max-visibility-updates-per-player-per-tick", defaultMaxUpdatesPerTick)
                         : defaultMaxUpdatesPerTick;
                 this.maxVisibilityUpdatesPerPlayerPerTick = Math.max(1, configuredMaxUpdatesPerTick);
+
+                int defaultMaxTransformChecksPerTick = 256;
+                int configuredMaxTransformChecksPerTick = section != null
+                        ? section.getInt("max-transform-checks-per-player-per-tick", defaultMaxTransformChecksPerTick)
+                        : defaultMaxTransformChecksPerTick;
+                this.maxTransformChecksPerPlayerPerTick = Math.max(1, configuredMaxTransformChecksPerTick);
 
                 int defaultFullRecalcIntervalTicks = 20;
                 int configuredFullRecalcIntervalTicks = section != null
