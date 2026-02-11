@@ -57,6 +57,37 @@ public final class ChunkSnapshotData {
         return new ChunkSnapshotData(minSectionY, sectionsCount, minHeight, height, materials, sectionHasBlocks);
     }
 
+    public static ChunkSnapshotData captureFast(Chunk chunk, JoltTools joltTools) {
+        Objects.requireNonNull(chunk, "chunk");
+        Objects.requireNonNull(joltTools, "joltTools");
+        int minSectionY = joltTools.getMinSectionY(chunk);
+        int sectionsCount = joltTools.getSectionsCount(chunk);
+        int minHeight = minSectionY << 4;
+        int height = sectionsCount << 4;
+        Material[] materials = new Material[height * 256];
+        boolean[] sectionHasBlocks = new boolean[sectionsCount];
+
+        for (int sectionIndex = 0; sectionIndex < sectionsCount; sectionIndex++) {
+            int sectionY = minSectionY + sectionIndex;
+            if (joltTools.hasOnlyAir(chunk, sectionY) || joltTools.getSectionsNonEmptyBlocks(chunk, sectionY) == 0) {
+                continue;
+            }
+
+            sectionHasBlocks[sectionIndex] = true;
+            int localYBase = sectionIndex << 4;
+            for (int yInSection = 0; yInSection < 16; yInSection++) {
+                int localY = localYBase + yInSection;
+                for (int z = 0; z < 16; z++) {
+                    for (int x = 0; x < 16; x++) {
+                        materials[flattenIndex(x, localY, z)] = joltTools.getMaterial(chunk, sectionY, x, yInSection, z);
+                    }
+                }
+            }
+        }
+
+        return new ChunkSnapshotData(minSectionY, sectionsCount, minHeight, height, materials, sectionHasBlocks);
+    }
+
     public int minSectionY() {
         return minSectionY;
     }

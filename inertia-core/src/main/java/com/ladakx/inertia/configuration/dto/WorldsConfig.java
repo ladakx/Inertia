@@ -151,7 +151,8 @@ public class WorldsConfig {
                     greedySettings = new GreedyMeshingSettings(
                             gmSec.getBoolean("vertical-merging", true),
                             gmSec.getInt("max-vertical-size", 64),
-                            shapeType
+                            shapeType,
+                            gmSec.getBoolean("fast-chunk-capture", true)
                     );
                 }
             } else if (simSec.contains("greedy-mesh")) {
@@ -161,7 +162,8 @@ public class WorldsConfig {
                     greedySettings = new GreedyMeshingSettings(
                             gmSec.getBoolean("vertical-merging", true),
                             gmSec.getInt("max-vertical-size", 64),
-                            shapeType
+                            shapeType,
+                            gmSec.getBoolean("fast-chunk-capture", true)
                     );
                 }
             }
@@ -171,7 +173,7 @@ public class WorldsConfig {
             floorSettings = new FloorPlaneSettings(0, 1, 1, 0, new FloorBounds(new Vec3(0,0,0), -100, -100, 100, 100));
         }
         if (greedySettings == null) {
-            greedySettings = new GreedyMeshingSettings(true, 64, GreedyMeshShapeType.MESH_SHAPE);
+            greedySettings = new GreedyMeshingSettings(true, 64, GreedyMeshShapeType.MESH_SHAPE, true);
         }
 
         SimulationSettings simulation = new SimulationSettings(simEnable, simType, floorSettings, greedySettings);
@@ -343,7 +345,10 @@ public class WorldsConfig {
 
     public record FloorPlaneSettings(float yLevel, float ySize, float friction, float restitution, FloorBounds bounds) {}
 
-    public record GreedyMeshingSettings(boolean verticalMerging, int maxVerticalSize, GreedyMeshShapeType shapeType) {}
+    public record GreedyMeshingSettings(boolean verticalMerging,
+                                        int maxVerticalSize,
+                                        GreedyMeshShapeType shapeType,
+                                        boolean fastChunkCapture) {}
 
     public enum GreedyMeshShapeType {
         MESH_SHAPE,
