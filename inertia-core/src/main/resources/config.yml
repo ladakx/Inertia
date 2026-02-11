@@ -95,13 +95,13 @@ rendering:
     # Лимит оценочного размера сетевых пакетов (в байтах) для одного игрока за тик.
     max-bytes-per-player-per-tick: 98304
     # Общий лимит времени (в наносекундах), который render-network scheduler может тратить за 1 серверный тик.
-    max-work-nanos-per-tick: 2000000
+    max-work-nanos-per-tick: 6000000
     # Минимальный коэффициент для второстепенных очередей (visibility-diff и metadata),
     # который применяется при деградации TPS/ping.
-    secondary-budget-min-scale: 0.25
+    secondary-budget-min-scale: 0.5
     # Порог TPS для мягкого/жесткого снижения budget второстепенных очередей.
-    adaptive-tps-soft-threshold: 19.2
-    adaptive-tps-hard-threshold: 17.0
+    adaptive-tps-soft-threshold: 18.8
+    adaptive-tps-hard-threshold: 16.5
     # Порог среднего ping (ms) для мягкого/жесткого снижения budget второстепенных очередей.
-    adaptive-ping-soft-threshold-ms: 120
-    adaptive-ping-hard-threshold-ms: 220
+    adaptive-ping-soft-threshold-ms: 140
+    adaptive-ping-hard-threshold-ms: 260
