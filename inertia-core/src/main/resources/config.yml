@@ -20,8 +20,10 @@ physics:
   chunk-cache:
     # Максимум записей в памяти для кэша физики чанков (0 отключает ограничение).
     max-entries: 4096
-    # TTL записи в секундах (0 отключает истечение).
-    ttl-seconds: 900
+    # TTL "горячего" memory cache в секундах (0 отключает истечение).
+    memory-ttl-seconds: 900
+    # TTL "холодного" disk cache в секундах (0 отключает истечение).
+    disk-ttl-seconds: 7200
 
 rendering:
   network-entity-tracker:

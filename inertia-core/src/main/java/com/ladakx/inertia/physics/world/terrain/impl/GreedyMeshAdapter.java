@@ -32,6 +32,9 @@ import org.bukkit.Location;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,8 +77,20 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         File worldFolder = world.getWorldBukkit().getWorldFolder();
         File cacheDir = new File(worldFolder, "physics");
-        Duration cacheTtl = Duration.ofSeconds(Math.max(0, cacheSettings.ttlSeconds));
-        ChunkPhysicsCache cache = new ChunkPhysicsCache(cacheDir, cacheSettings.maxEntries, cacheTtl);
+        Duration memoryCacheTtl = Duration.ofSeconds(Math.max(0, cacheSettings.memoryTtlSeconds));
+        Duration diskCacheTtl = Duration.ofSeconds(Math.max(0, cacheSettings.diskTtlSeconds));
+        String pluginVersion = InertiaPlugin.getInstance().getDescription().getVersion();
+        long worldSeed = world.getWorldBukkit().getSeed();
+        String configHash = computeConfigHash();
+        ChunkPhysicsCache cache = new ChunkPhysicsCache(
+                cacheDir,
+                cacheSettings.maxEntries,
+                memoryCacheTtl,
+                diskCacheTtl,
+                pluginVersion,
+                worldSeed,
+                configHash
+        );
 
         this.generator = new GreedyMeshGenerator(
                 blocksConfig,
@@ -194,6 +209,22 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (pending != null) pending.cancel();
 
         requestChunkGeneration(x, z, null, GenerationRequestKind.DIRTY);
+    }
+
+    private String computeConfigHash() {
+        String source = InertiaPlugin.getInstance().getConfig().saveToString();
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashed = digest.digest(source.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder(hashed.length * 2);
+            for (byte b : hashed) {
+                builder.append(Character.forDigit((b >> 4) & 0xF, 16));
+                builder.append(Character.forDigit(b & 0xF, 16));
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            return Integer.toHexString(source.hashCode());
+        }
     }
 
     private void requestChunkGeneration(int x, int z) {
