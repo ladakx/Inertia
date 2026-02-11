@@ -26,6 +26,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.Optional;
 
@@ -58,12 +59,41 @@ public class ChainSpawner implements BodySpawner {
             throw new IllegalArgumentException("Body ID '" + context.bodyId() + "' is not of type CHAIN.");
         }
 
-        int size = context.getParam("size", Integer.class, 10);
-        Location startLoc = context.location(); // already offset in Tool logic or Command logic
+        int size = context.getParam("size", Integer.class, -1);
+        Location startLoc = context.location();
+        Location endLoc = context.getParam("end", Location.class, null);
 
         if (!context.world().isInsideWorld(startLoc)) {
             if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.ERROR_OCCURRED, "{error}", "Outside of world bounds!");
             return false;
+        }
+
+        double spacing = def.creation().spacing();
+        Vector direction;
+        double step;
+
+        if (endLoc != null) {
+            if (!startLoc.getWorld().equals(endLoc.getWorld())) {
+                if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.ERROR_OCCURRED, "{error}", "Start/end world mismatch!");
+                return false;
+            }
+            Vector delta = endLoc.toVector().subtract(startLoc.toVector());
+            double dist = delta.length();
+            if (dist < 1.0e-4) {
+                direction = new Vector(0, -1, 0);
+                if (size <= 0) size = 2;
+                step = spacing;
+            } else {
+                direction = delta.clone().multiply(1.0 / dist);
+                if (size <= 0) {
+                    size = Math.max(2, (int) Math.ceil(dist / spacing) + 1);
+                }
+                step = dist / (size - 1);
+            }
+        } else {
+            if (size <= 0) size = 10;
+            direction = new Vector(0, -1, 0);
+            step = spacing;
         }
 
         if (!context.world().canSpawnBodies(size)) {
@@ -72,26 +102,35 @@ public class ChainSpawner implements BodySpawner {
             return false;
         }
 
-        Vector direction = new Vector(0, -1, 0);
-        double spacing = def.creation().spacing();
-        RVec3 localStartPos = context.world().toJolt(startLoc);
-        Quaternionf jomlQuat = new Quaternionf().rotationTo(new org.joml.Vector3f(0, 1, 0), new org.joml.Vector3f(0, -1, 0));
+        Quaternionf jomlQuat;
+        if (direction.lengthSquared() < 1.0e-8) {
+            jomlQuat = new Quaternionf();
+        } else {
+            Vector dir = direction.clone().normalize();
+            jomlQuat = new Quaternionf().rotationTo(new Vector3f(0, 1, 0), new Vector3f((float) dir.getX(), (float) dir.getY(), (float) dir.getZ()));
+        }
         Quat linkRotation = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
         ShapeRefC shapeRef = shapeFactory.createShape(def.shapeLines());
         try {
             for (int i = 0; i < size; i++) {
-                double offsetY = i * spacing * direction.getY();
-                RVec3 pos = new RVec3(localStartPos.xx(), localStartPos.yy() + offsetY, localStartPos.zz());
-                ValidationUtils.ValidationResult result = ValidationUtils.canSpawnAt(context.world(), shapeRef, pos, linkRotation);
-                if (result != ValidationUtils.ValidationResult.SUCCESS) {
-                    if (context.player() != null) {
-                        MessageKey key = (result == ValidationUtils.ValidationResult.OUT_OF_BOUNDS)
-                                ? MessageKey.SPAWN_FAIL_OUT_OF_BOUNDS
-                                : MessageKey.SPAWN_FAIL_OBSTRUCTED;
-                        configService.getMessageManager().send(context.player(), key);
-                    }
+                Location linkLoc = startLoc.clone().add(direction.clone().multiply(i * step));
+                if (!context.world().isInsideWorld(linkLoc)) {
+                    if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.SPAWN_FAIL_OUT_OF_BOUNDS);
                     return false;
+                }
+                RVec3 pos = context.world().toJolt(linkLoc);
+                if (endLoc == null) {
+                    ValidationUtils.ValidationResult result = ValidationUtils.canSpawnAt(context.world(), shapeRef, pos, linkRotation);
+                    if (result != ValidationUtils.ValidationResult.SUCCESS) {
+                        if (context.player() != null) {
+                            MessageKey key = (result == ValidationUtils.ValidationResult.OUT_OF_BOUNDS)
+                                    ? MessageKey.SPAWN_FAIL_OUT_OF_BOUNDS
+                                    : MessageKey.SPAWN_FAIL_OBSTRUCTED;
+                            configService.getMessageManager().send(context.player(), key);
+                        }
+                        return false;
+                    }
                 }
             }
         } finally {
@@ -100,14 +139,16 @@ public class ChainSpawner implements BodySpawner {
 
         Body parentBody = null;
         GroupFilterTable groupFilter = new GroupFilterTable(size);
+        ChainPhysicsBody firstLink = null;
+        ChainPhysicsBody lastLink = null;
 
         for (int i = 0; i < size; i++) {
             if (i > 0) {
                 groupFilter.disableCollision(i, i - 1);
             }
 
-            double offsetY = i * spacing * direction.getY();
-            RVec3 pos = new RVec3(localStartPos.xx(), localStartPos.yy() + offsetY, localStartPos.zz());
+            Location linkLoc = startLoc.clone().add(direction.clone().multiply(i * step));
+            RVec3 pos = context.world().toJolt(linkLoc);
 
             ChainPhysicsBody link = new ChainPhysicsBody(
                     context.world(),
@@ -123,12 +164,62 @@ public class ChainSpawner implements BodySpawner {
                     size
             );
 
+            if (firstLink == null) firstLink = link;
+            lastLink = link;
             parentBody = link.getBody();
 
             Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
                 Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(link));
             });
         }
+
+        if (endLoc != null && firstLink != null && lastLink != null) {
+            Vector dirNorm = direction.clone();
+            if (dirNorm.lengthSquared() < 1.0e-8) {
+                dirNorm = new Vector(0, -1, 0);
+            } else {
+                dirNorm.normalize();
+            }
+
+            double jointOffset = def.creation().jointOffset();
+            RVec3 startAnchor = context.world().toJolt(startLoc.clone().add(dirNorm.clone().multiply(-jointOffset)));
+            RVec3 endAnchor = context.world().toJolt(startLoc.clone().add(direction.clone().multiply((size - 1) * step)).add(dirNorm.clone().multiply(jointOffset)));
+
+            anchorToWorld(context.world(), firstLink, startAnchor, def);
+            anchorToWorld(context.world(), lastLink, endAnchor, def);
+        }
+
         return true;
+    }
+
+    private void anchorToWorld(com.ladakx.inertia.physics.world.PhysicsWorld world,
+                               ChainPhysicsBody link,
+                               RVec3 anchorPos,
+                               ChainBodyDefinition def) {
+        Body fixedBody = Body.sFixedToWorld();
+
+        SixDofConstraintSettings settings = new SixDofConstraintSettings();
+        settings.setSpace(EConstraintSpace.WorldSpace);
+        settings.setPosition1(anchorPos);
+        settings.setPosition2(anchorPos);
+
+        settings.makeFixedAxis(EAxis.TranslationX);
+        settings.makeFixedAxis(EAxis.TranslationY);
+        settings.makeFixedAxis(EAxis.TranslationZ);
+
+        float swingRad = (float) Math.toRadians(def.limits().swingLimitAngle());
+        settings.setLimitedAxis(EAxis.RotationX, -swingRad, swingRad);
+        settings.setLimitedAxis(EAxis.RotationZ, -swingRad, swingRad);
+
+        switch (def.limits().twistMode()) {
+            case LOCKED -> settings.makeFixedAxis(EAxis.RotationY);
+            case LIMITED -> settings.setLimitedAxis(EAxis.RotationY, -0.1f, 0.1f);
+            case FREE -> settings.makeFreeAxis(EAxis.RotationY);
+        }
+
+        TwoBodyConstraint constraint = settings.create(fixedBody, link.getBody());
+        world.addConstraint(constraint);
+        link.addRelatedConstraint(constraint.toRef());
+        world.getBodyInterface().activateBody(link.getBody().getId());
     }
 }

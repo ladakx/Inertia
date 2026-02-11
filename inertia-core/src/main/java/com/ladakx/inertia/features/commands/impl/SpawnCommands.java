@@ -49,7 +49,7 @@ public class SpawnCommands extends CloudModule {
 
                     String id = ctx.get("id");
                     // Pass player to receive specific error messages (e.g. Obstructed)
-                    if (bodyFactory.spawnBody(player.getLocation(), id, player)) {
+                    if (bodyFactory.spawnBody(player.getEyeLocation(), id, player)) {
                         send(player, MessageKey.SPAWN_SUCCESS, "{id}", id);
                     }
                     // If false, spawnBody already sent the specific error message (Obstructed/Limits/World)
@@ -70,7 +70,7 @@ public class SpawnCommands extends CloudModule {
                     int size = ctx.getOrDefault("size", 10);
 
                     try {
-                        bodyFactory.spawnChain(player, id, size);
+                        bodyFactory.spawnChainAt(player, id, size, player.getEyeLocation());
                         send(player, MessageKey.CHAIN_SPAWN_SUCCESS, "{size}", String.valueOf(size));
                     } catch (Exception e) {
                         send(player, MessageKey.ERROR_OCCURRED, "{error}", e.getMessage());
@@ -92,7 +92,7 @@ public class SpawnCommands extends CloudModule {
                     String nickname = ctx.getOrDefault("nickname", null);
 
                     try {
-                        bodyFactory.spawnRagdoll(player, id, nickname, false);
+                        bodyFactory.spawnRagdollAt(player, id, nickname, false, player.getEyeLocation());
                         send(player, MessageKey.RAGDOLL_SPAWN_SUCCESS, "{id}", id);
                     } catch (Exception e) {
                         send(player, MessageKey.ERROR_OCCURRED, "{error}", e.getMessage());
@@ -114,7 +114,7 @@ public class SpawnCommands extends CloudModule {
                     float force = ctx.<Double>getOrDefault("force", 20.0).floatValue();
 
                     try {
-                        bodyFactory.spawnTNT(player.getLocation().add(0, 0.5, 0), id, force, null);
+                        bodyFactory.spawnTNT(player.getEyeLocation(), id, force, null);
                         send(player, MessageKey.TNT_SPAWNED, "{force}", String.valueOf(force));
                     } catch (Exception e) {
                         send(player, MessageKey.ERROR_OCCURRED, "{error}", e.getMessage());
@@ -163,7 +163,7 @@ public class SpawnCommands extends CloudModule {
                             return;
                         }
 
-                        int count = bodyFactory.spawnShape(player, generator, id, params);
+                        int count = bodyFactory.spawnShapeAt(player, generator, id, player.getEyeLocation(), params);
                         send(player, MessageKey.SHAPE_SPAWN_SUCCESS, "{count}", String.valueOf(count), "{shape}", type);
                     } catch (NumberFormatException e) {
                         send(player, MessageKey.SHAPE_INVALID_PARAMS);

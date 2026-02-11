@@ -163,10 +163,27 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
 
         double jointOffset = chainDef.creation().jointOffset();
         RVec3 currentPos = getBody().getPosition();
+        RVec3 parentPos = parentBody.getPosition();
+
+        double dx = parentPos.xx() - currentPos.xx();
+        double dy = parentPos.yy() - currentPos.yy();
+        double dz = parentPos.zz() - currentPos.zz();
+        double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        if (len < 1.0e-6) {
+            dx = 0.0;
+            dy = 1.0;
+            dz = 0.0;
+            len = 1.0;
+        }
+
+        double nx = dx / len;
+        double ny = dy / len;
+        double nz = dz / len;
         RVec3 pivotPoint = new RVec3(
-                currentPos.xx(),
-                currentPos.yy() + jointOffset,
-                currentPos.zz()
+                currentPos.xx() + nx * jointOffset,
+                currentPos.yy() + ny * jointOffset,
+                currentPos.zz() + nz * jointOffset
         );
 
         SixDofConstraintSettings settings = new SixDofConstraintSettings();

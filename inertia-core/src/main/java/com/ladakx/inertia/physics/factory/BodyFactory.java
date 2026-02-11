@@ -110,6 +110,30 @@ public class BodyFactory {
         spawner.spawn(new BodySpawnContext(space, spawnLoc, bodyId, player, Map.of("size", size)));
     }
 
+    public void spawnChainAt(Player player, String bodyId, int size, Location location) {
+        if (location.getWorld() == null) return;
+        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        if (space == null) return;
+
+        BodySpawner spawner = spawners.get(PhysicsBodyType.CHAIN);
+        if (spawner == null) return;
+
+        spawner.spawn(new BodySpawnContext(space, location, bodyId, player, Map.of("size", size)));
+    }
+
+    public void spawnChainBetween(Player player, String bodyId, Location start, Location end) {
+        if (start.getWorld() == null || end.getWorld() == null) return;
+        if (!start.getWorld().equals(end.getWorld())) return;
+
+        PhysicsWorld space = physicsWorldRegistry.getSpace(start.getWorld());
+        if (space == null) return;
+
+        BodySpawner spawner = spawners.get(PhysicsBodyType.CHAIN);
+        if (spawner == null) return;
+
+        spawner.spawn(new BodySpawnContext(space, start, bodyId, player, Map.of("end", end)));
+    }
+
     public void spawnRagdoll(Player player, String bodyId, boolean applyImpulse) {
         spawnRagdoll(player, bodyId, null, applyImpulse);
     }
@@ -128,6 +152,22 @@ public class BodyFactory {
             params.put("skinNickname", skinNickname);
         }
         spawner.spawn(new BodySpawnContext(space, spawnLoc, bodyId, player, params));
+    }
+
+    public void spawnRagdollAt(Player player, String bodyId, @Nullable String skinNickname, boolean applyImpulse, Location location) {
+        if (location.getWorld() == null) return;
+        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        if (space == null) return;
+
+        BodySpawner spawner = spawners.get(PhysicsBodyType.RAGDOLL);
+        if (spawner == null) return;
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("impulse", applyImpulse);
+        if (skinNickname != null && !skinNickname.isBlank()) {
+            params.put("skinNickname", skinNickname);
+        }
+        spawner.spawn(new BodySpawnContext(space, location, bodyId, player, params));
     }
 
     public void spawnRagdoll(Player player, String bodyId) {
@@ -151,6 +191,10 @@ public class BodyFactory {
 
     public int spawnShape(Player player, DebugShapeGenerator generator, String bodyId, double... params) {
         Location center = getSpawnLocation(player, 5.0);
+        return spawnShapeAt(player, generator, bodyId, center, params);
+    }
+
+    public int spawnShapeAt(Player player, DebugShapeGenerator generator, String bodyId, Location center, double... params) {
         PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
         if (space == null) return 0;
 
