@@ -3,6 +3,8 @@ package com.ladakx.inertia.rendering;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -22,8 +24,7 @@ public class NetworkEntityTracker {
     private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
 
     private final Map<UUID, PlayerPacketQueue> packetBuffer = new ConcurrentHashMap<>();
-    private final Map<UUID, Set<Integer>> pendingDestroyIds = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> pendingDestroyBacklogSinceNanos = new ConcurrentHashMap<>();
+    private final Map<UUID, PendingDestroyState> pendingDestroyIds = new ConcurrentHashMap<>();
 
     // Default values matched with InertiaConfig defaults (0.01^2 and 0.3)
     private volatile float posThresholdSq = 0.0001f;
@@ -61,6 +62,10 @@ public class NetworkEntityTracker {
     private volatile boolean destroyDrainFastPathActive = false;
     private volatile long oldestQueueAgeMillis = 0L;
     private volatile long destroyBacklogAgeMillis = 0L;
+    private volatile int massDestroyBoostTicksRemaining = 0;
+    private final AtomicLong destroyLatencyTickTotal = new AtomicLong(0);
+    private final AtomicLong destroyLatencySamples = new AtomicLong(0);
+    private final AtomicLong destroyLatencyPeakTicks = new AtomicLong(0);
     private volatile SheddingState sheddingState = SheddingState.disabled();
 
     private final PacketFactory packetFactory;
@@ -141,7 +146,7 @@ public class NetworkEntityTracker {
             return;
         }
 
-        LinkedHashSet<Integer> removedIds = new LinkedHashSet<>();
+        IntArrayList removedIds = new IntArrayList(ids.size());
 
         for (Integer id : ids) {
             if (id == null) {
@@ -161,29 +166,53 @@ public class NetworkEntityTracker {
             return;
         }
 
+        IntOpenHashSet removedSet = new IntOpenHashSet(removedIds);
+        boolean useBulkFastPath = removedIds.size() >= 64;
+
         for (Map.Entry<UUID, PlayerTrackingState> entry : playerTrackingStates.entrySet()) {
             UUID playerId = entry.getKey();
             PlayerTrackingState trackingState = entry.getValue();
             Set<Integer> visible = trackingState.visibleIds();
 
-            LinkedHashSet<Integer> hiddenForPlayer = null;
-            for (Integer removedId : removedIds) {
-                if (visible.remove(removedId)) {
+            IntArrayList hiddenForPlayer = null;
+            if (useBulkFastPath) {
+                Iterator<Integer> iterator = visible.iterator();
+                while (iterator.hasNext()) {
+                    Integer visibleId = iterator.next();
+                    if (visibleId == null || !removedSet.contains(visibleId.intValue())) {
+                        continue;
+                    }
+                    iterator.remove();
                     trackingState.markVisibleIterationDirty();
                     if (hiddenForPlayer == null) {
-                        hiddenForPlayer = new LinkedHashSet<>();
+                        hiddenForPlayer = new IntArrayList();
                     }
-                    hiddenForPlayer.add(removedId);
+                    hiddenForPlayer.add(visibleId.intValue());
+                }
+            } else {
+                for (int i = 0; i < removedIds.size(); i++) {
+                    int removedId = removedIds.getInt(i);
+                    if (visible.remove(removedId)) {
+                        trackingState.markVisibleIterationDirty();
+                        if (hiddenForPlayer == null) {
+                            hiddenForPlayer = new IntArrayList();
+                        }
+                        hiddenForPlayer.add(removedId);
+                    }
                 }
             }
 
             if (hiddenForPlayer != null && !hiddenForPlayer.isEmpty()) {
-                Set<Integer> queue = pendingDestroyIds.computeIfAbsent(playerId, ignored -> new HashSet<>());
-                if (queue.isEmpty()) {
-                    pendingDestroyBacklogSinceNanos.put(playerId, System.nanoTime());
+                PendingDestroyState queue = pendingDestroyIds.computeIfAbsent(playerId, ignored -> new PendingDestroyState());
+                if (queue.ids().isEmpty()) {
+                    queue.markBacklogStart(System.nanoTime(), tickCounter);
                 }
                 queue.addAll(hiddenForPlayer);
             }
+        }
+
+        if (useBulkFastPath) {
+            massDestroyBoostTicksRemaining = Math.max(massDestroyBoostTicksRemaining, 2);
         }
     }
 
@@ -462,14 +491,22 @@ public class NetworkEntityTracker {
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority) {
-        bufferPacket(playerId, packet, priority, null, false, false);
+        bufferPacket(playerId, packet, priority, null, false, false, -1L);
+    }
+
+    private void bufferPacket(UUID playerId, Object packet, PacketPriority priority, long destroyRegisteredAtTick) {
+        bufferPacket(playerId, packet, priority, null, false, false, destroyRegisteredAtTick);
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority, Integer visualId, boolean canCoalesce, boolean criticalMetadata) {
+        bufferPacket(playerId, packet, priority, visualId, canCoalesce, criticalMetadata, -1L);
+    }
+
+    private void bufferPacket(UUID playerId, Object packet, PacketPriority priority, Integer visualId, boolean canCoalesce, boolean criticalMetadata, long destroyRegisteredAtTick) {
         if (packet == null) return;
         int estimatedBytes = Math.max(1, packetFactory.estimatePacketSizeBytes(packet));
         int coalesced = packetBuffer.computeIfAbsent(playerId, k -> new PlayerPacketQueue())
-                .add(new QueuedPacket(packet, priority, estimatedBytes, visualId, canCoalesce, criticalMetadata, System.nanoTime()));
+                .add(new QueuedPacket(packet, priority, estimatedBytes, visualId, canCoalesce, criticalMetadata, System.nanoTime(), destroyRegisteredAtTick));
         if (coalesced > 0) {
             coalescedUpdates.addAndGet(coalesced);
         }
@@ -481,6 +518,8 @@ public class NetworkEntityTracker {
         long totalSent = 0;
         int onlinePlayersWithPackets = 0;
         int tickPeak = 0;
+
+        boolean massDestroyBudgetBoost = massDestroyBoostTicksRemaining > 0;
 
         for (Map.Entry<UUID, PlayerPacketQueue> entry : packetBuffer.entrySet()) {
             PlayerPacketQueue queue = entry.getValue();
@@ -498,7 +537,13 @@ public class NetworkEntityTracker {
             if (destroyDrainFastPathActive && destroyDrainExtraPacketsPerPlayerPerTick > 0 && maxPackets != Integer.MAX_VALUE) {
                 maxPacketsWithDestroyBurst = maxPackets + destroyDrainExtraPacketsPerPlayerPerTick;
             }
+            if (massDestroyBudgetBoost && maxPacketsWithDestroyBurst != Integer.MAX_VALUE) {
+                maxPacketsWithDestroyBurst += Math.max(16, maxPacketsWithDestroyBurst / 2);
+            }
             int maxBytes = maxBytesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxBytesPerPlayerPerTick;
+            int boostedDestroyBytes = massDestroyBudgetBoost && maxBytes != Integer.MAX_VALUE
+                    ? maxBytes + (maxBytes / 2)
+                    : maxBytes;
 
             List<Object> packetsToSend = new ArrayList<>();
             int sentPackets = 0;
@@ -509,11 +554,13 @@ public class NetworkEntityTracker {
                 if (next == null) break;
 
                 boolean isDestroyPacket = next.priority() == PacketPriority.DESTROY;
-                if (sentPackets >= maxPackets && !(destroyDrainFastPathActive && isDestroyPacket)) {
+                boolean allowDestroyPacketBurst = isDestroyPacket && (destroyDrainFastPathActive || massDestroyBudgetBoost);
+                if (sentPackets >= maxPackets && !allowDestroyPacketBurst) {
                     break;
                 }
 
-                boolean fitsByteBudget = sentBytes + next.estimatedBytes() <= maxBytes;
+                int activeByteBudget = (massDestroyBudgetBoost && isDestroyPacket) ? boostedDestroyBytes : maxBytes;
+                boolean fitsByteBudget = sentBytes + next.estimatedBytes() <= activeByteBudget;
                 if (!fitsByteBudget && sentPackets > 0) break;
 
                 QueuedPacket polled = queue.poll();
@@ -522,6 +569,12 @@ public class NetworkEntityTracker {
                 packetsToSend.add(polled.packet());
                 sentPackets++;
                 sentBytes += polled.estimatedBytes();
+                if (polled.priority() == PacketPriority.DESTROY && polled.destroyRegisteredAtTick() >= 0) {
+                    long latencyTicks = Math.max(0L, tickCounter - polled.destroyRegisteredAtTick());
+                    destroyLatencyTickTotal.addAndGet(latencyTicks);
+                    destroyLatencySamples.incrementAndGet();
+                    destroyLatencyPeakTicks.accumulateAndGet(latencyTicks, Math::max);
+                }
             }
 
             if (!packetsToSend.isEmpty()) {
@@ -547,6 +600,10 @@ public class NetworkEntityTracker {
 
         if (tickPeak > peakPacketsPerPlayer) {
             peakPacketsPerPlayer = tickPeak;
+        }
+
+        if (massDestroyBoostTicksRemaining > 0) {
+            massDestroyBoostTicksRemaining--;
         }
     }
 
@@ -634,10 +691,18 @@ public class NetworkEntityTracker {
         return destroyBacklogAgeMillis;
     }
 
+    public double getAverageDestroyLatencyTicks() {
+        long samples = destroyLatencySamples.get();
+        return samples <= 0 ? 0.0 : destroyLatencyTickTotal.get() / (double) samples;
+    }
+
+    public long getPeakDestroyLatencyTicks() {
+        return destroyLatencyPeakTicks.get();
+    }
+
     public void removePlayer(Player player) {
         UUID uuid = player.getUniqueId();
         pendingDestroyIds.remove(uuid);
-        pendingDestroyBacklogSinceNanos.remove(uuid);
         packetBuffer.remove(uuid);
         PlayerTrackingState trackingState = playerTrackingStates.remove(uuid);
         Set<Integer> visible = trackingState != null ? trackingState.visibleIds() : null;
@@ -656,12 +721,12 @@ public class NetworkEntityTracker {
         playerTrackingStates.clear();
         chunkGrid.clear();
         pendingDestroyIds.clear();
-        pendingDestroyBacklogSinceNanos.clear();
         pendingDestroyIdsBacklog = 0;
         destroyQueueDepthBacklog = 0;
         destroyDrainFastPathActive = false;
         oldestQueueAgeMillis = 0L;
         destroyBacklogAgeMillis = 0L;
+        massDestroyBoostTicksRemaining = 0;
         packetBuffer.clear();
         networkScheduler.clear();
     }
@@ -671,37 +736,39 @@ public class NetworkEntityTracker {
             return;
         }
 
-        Iterator<Map.Entry<UUID, Set<Integer>>> iterator = pendingDestroyIds.entrySet().iterator();
+        Iterator<Map.Entry<UUID, PendingDestroyState>> iterator = pendingDestroyIds.entrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<UUID, Set<Integer>> entry = iterator.next();
+            Map.Entry<UUID, PendingDestroyState> entry = iterator.next();
             UUID playerId = entry.getKey();
-            Set<Integer> ids = entry.getValue();
+            PendingDestroyState pendingState = entry.getValue();
             iterator.remove();
-            pendingDestroyBacklogSinceNanos.remove(playerId);
+            IntOpenHashSet ids = pendingState != null ? pendingState.ids() : null;
 
             if (ids == null || ids.isEmpty()) {
                 continue;
             }
 
-            int[] idArray = ids.stream().mapToInt(Integer::intValue).toArray();
+            int[] idArray = ids.toIntArray();
             if (idArray.length == 0) {
                 continue;
             }
 
+            long registeredAtTick = pendingState.firstUnregisterTick();
+
             if (idArray.length == 1) {
                 int targetId = idArray[0];
                 networkScheduler.enqueueDestroy(() ->
-                        bufferPacket(playerId, packetFactory.createDestroyPacket(targetId), PacketPriority.DESTROY)
+                        bufferPacket(playerId, packetFactory.createDestroyPacket(targetId), PacketPriority.DESTROY, registeredAtTick)
                 );
                 continue;
             }
 
             networkScheduler.enqueueDestroy(() -> {
                 try {
-                    bufferPacket(playerId, packetFactory.createDestroyPacket(idArray), PacketPriority.DESTROY);
+                    bufferPacket(playerId, packetFactory.createDestroyPacket(idArray), PacketPriority.DESTROY, registeredAtTick);
                 } catch (Throwable ignored) {
                     for (int id : idArray) {
-                        bufferPacket(playerId, packetFactory.createDestroyPacket(id), PacketPriority.DESTROY);
+                        bufferPacket(playerId, packetFactory.createDestroyPacket(id), PacketPriority.DESTROY, registeredAtTick);
                     }
                 }
             });
@@ -717,11 +784,11 @@ public class NetworkEntityTracker {
         oldestQueueAgeMillis = networkScheduler.getOldestQueueAgeMillis();
 
         long pendingAgeNanos = 0L;
-        for (Long sinceNanos : pendingDestroyBacklogSinceNanos.values()) {
-            if (sinceNanos == null) {
+        for (PendingDestroyState state : pendingDestroyIds.values()) {
+            if (state == null || state.backlogSinceNanos() <= 0L) {
                 continue;
             }
-            pendingAgeNanos = Math.max(pendingAgeNanos, Math.max(0L, now - sinceNanos));
+            pendingAgeNanos = Math.max(pendingAgeNanos, Math.max(0L, now - state.backlogSinceNanos()));
         }
         long destroyQueueAgeNanos = networkScheduler.getDestroyQueueOldestAgeMillis() * 1_000_000L;
         destroyBacklogAgeMillis = Math.max(pendingAgeNanos, destroyQueueAgeNanos) / 1_000_000L;
@@ -759,11 +826,11 @@ public class NetworkEntityTracker {
 
     private int calculatePendingDestroyBacklog() {
         int total = 0;
-        for (Set<Integer> pendingIds : pendingDestroyIds.values()) {
-            if (pendingIds == null || pendingIds.isEmpty()) {
+        for (PendingDestroyState pendingState : pendingDestroyIds.values()) {
+            if (pendingState == null || pendingState.ids().isEmpty()) {
                 continue;
             }
-            total += pendingIds.size();
+            total += pendingState.ids().size();
         }
         return total;
     }
@@ -787,7 +854,39 @@ public class NetworkEntityTracker {
                                 Integer visualId,
                                 boolean coalescible,
                                 boolean criticalMetadata,
-                                long enqueuedAtNanos) {}
+                                long enqueuedAtNanos,
+                                long destroyRegisteredAtTick) {}
+
+    private static final class PendingDestroyState {
+        private final IntOpenHashSet ids = new IntOpenHashSet();
+        private long backlogSinceNanos;
+        private long firstUnregisterTick = -1L;
+
+        private IntOpenHashSet ids() {
+            return ids;
+        }
+
+        private long backlogSinceNanos() {
+            return backlogSinceNanos;
+        }
+
+        private long firstUnregisterTick() {
+            return firstUnregisterTick;
+        }
+
+        private void markBacklogStart(long nowNanos, long tick) {
+            this.backlogSinceNanos = nowNanos;
+            if (this.firstUnregisterTick < 0L) {
+                this.firstUnregisterTick = tick;
+            }
+        }
+
+        private void addAll(IntArrayList values) {
+            for (int i = 0; i < values.size(); i++) {
+                ids.add(values.getInt(i));
+            }
+        }
+    }
 
     private static class PlayerPacketQueue {
         private final EnumMap<PacketPriority, ArrayDeque<QueuedPacket>> byPriority = new EnumMap<>(PacketPriority.class);
