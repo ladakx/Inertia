@@ -253,9 +253,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (!world.getWorldBukkit().isChunkLoaded(x, z)) return;
 
         String worldName = world.getWorldBukkit().getName();
-        if (dirtyRegion != null) {
-            chunkPhysicsManager.invalidate(x, z);
-        }
         chunkPhysicsManager.requestChunkGeneration(
                 worldName, x, z,
                 () -> captureChunkSnapshotData(x, z),
