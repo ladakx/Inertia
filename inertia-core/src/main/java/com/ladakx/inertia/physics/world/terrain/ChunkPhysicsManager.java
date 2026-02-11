@@ -269,7 +269,15 @@ public class ChunkPhysicsManager implements AutoCloseable {
                     InertiaLogger.warn("Failed to resolve terrain cache merge data at " + request.chunkX() + ", " + request.chunkZ(), previousThrowable);
                 }
                 CachedChunkPhysicsData previousData = previous == null ? null : previous.orElse(null);
-                GreedyMeshData finalData = mergeUnchangedSections(snapshot, generatedData, previousData);
+                GreedyMeshData finalData;
+                if (request.dirtyRegion() != null && previousData == null) {
+                    // Dirty generation can be partial by design. If this is the first update and
+                    // previous cache data is not available yet, force full rebuild to avoid
+                    // replacing the chunk with only the changed region.
+                    finalData = generator.generate(snapshot, null);
+                } else {
+                    finalData = mergeUnchangedSections(snapshot, generatedData, previousData);
+                }
                 if (cache != null) {
                     cacheIoExecutor.execute(() -> cache.put(
                             request.chunkX(),
