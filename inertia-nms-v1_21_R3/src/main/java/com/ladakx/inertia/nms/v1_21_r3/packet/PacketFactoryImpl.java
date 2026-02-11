@@ -72,7 +72,7 @@ public class PacketFactoryImpl implements PacketFactory {
 
     @Override
     public Object createBundlePacket(List<Object> packets) {
-        List<Packet<?>> normalized = normalizePackets(packets);
+        List<Packet<? super ClientGamePacketListener>> normalized = normalizePackets(packets);
         return new ClientboundBundlePacket(normalized);
     }
 
@@ -119,7 +119,7 @@ public class PacketFactoryImpl implements PacketFactory {
         if (packet instanceof ClientboundSetEntityDataPacket) return 160;
         if (packet instanceof ClientboundBundlePacket bundle) {
             int total = 6;
-            for (Packet<?> subPacket : bundle.subPackets()) {
+            for (Packet<? super ClientGamePacketListener> subPacket : bundle.subPackets()) {
                 total += estimatePacketSizeBytes(subPacket);
             }
             return total;
@@ -134,8 +134,8 @@ public class PacketFactoryImpl implements PacketFactory {
         return 128;
     }
 
-    private List<Packet<?>> normalizePackets(List<Object> packets) {
-        List<Packet<?>> normalized = new ArrayList<>();
+    private List<Packet<? super ClientGamePacketListener>> normalizePackets(List<Object> packets) {
+        List<Packet<? super ClientGamePacketListener>> normalized = new ArrayList<>();
         if (packets == null) {
             return normalized;
         }
@@ -146,7 +146,8 @@ public class PacketFactoryImpl implements PacketFactory {
         return normalized;
     }
 
-    private void flattenPacket(Object packet, List<Packet<?>> sink) {
+    @SuppressWarnings("unchecked")
+    private void flattenPacket(Object packet, List<Packet<? super ClientGamePacketListener>> sink) {
         if (packet == null) return;
 
         if (packet instanceof List<?> list) {
@@ -164,7 +165,7 @@ public class PacketFactoryImpl implements PacketFactory {
         }
 
         if (packet instanceof Packet<?> nmsPacket) {
-            sink.add(nmsPacket);
+            sink.add((Packet<? super ClientGamePacketListener>) nmsPacket);
         }
     }
 }
