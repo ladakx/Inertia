@@ -197,19 +197,27 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (snapshot.updates() != null) {
             Location mutableLoc = new Location(worldBukkit, 0, 0, 0);
             for (VisualState state : snapshot.updates()) {
-                if (state.getVisual() != null) {
-                    mutableLoc.setX(state.getPosition().x);
-                    mutableLoc.setY(state.getPosition().y);
-                    mutableLoc.setZ(state.getPosition().z);
-
-                    // This only updates the internal state of the tracker (Zero-Allocation / Zero-IO)
-                    // The actual packets will be formed and sent in the global Flush phase.
-                    networkEntityTracker.updateState(
-                            state.getVisual(),
-                            mutableLoc,
-                            state.getRotation()
-                    );
+                if (state.getVisual() == null) {
+                    continue;
                 }
+
+                int visualId = state.getVisual().getId();
+                AbstractPhysicsBody owner = getObjectByNetworkEntityId(visualId);
+                if (owner == null || !owner.isValid() || owner.getBody() == null || networkEntityTracker.isVisualClosed(visualId)) {
+                    continue;
+                }
+
+                mutableLoc.setX(state.getPosition().x);
+                mutableLoc.setY(state.getPosition().y);
+                mutableLoc.setZ(state.getPosition().z);
+
+                // This only updates the internal state of the tracker (Zero-Allocation / Zero-IO)
+                // The actual packets will be formed and sent in the global Flush phase.
+                networkEntityTracker.updateState(
+                        state.getVisual(),
+                        mutableLoc,
+                        state.getRotation()
+                );
             }
         }
         snapshot.release(snapshotPool);
