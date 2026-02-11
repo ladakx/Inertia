@@ -276,7 +276,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
                     // replacing the chunk with only the changed region.
                     finalData = generator.generate(snapshot, null);
                 } else {
-                    finalData = mergeUnchangedSections(snapshot, generatedData, previousData);
+                    finalData = mergeUnchangedSections(snapshot, generatedData, previousData, request.dirtyRegion());
                 }
                 if (cache != null) {
                     cacheIoExecutor.execute(() -> cache.put(
@@ -292,19 +292,25 @@ public class ChunkPhysicsManager implements AutoCloseable {
 
     private GreedyMeshData mergeUnchangedSections(ChunkSnapshotData snapshot,
                                                   GreedyMeshData generated,
-                                                  CachedChunkPhysicsData previous) {
+                                                  CachedChunkPhysicsData previous,
+                                                  DirtyChunkRegion dirtyRegion) {
         if (generated == null || snapshot == null || previous == null) {
             return generated;
         }
 
         Map<Integer, List<GreedyMeshShape>> mergedBySection = new HashMap<>(generated.sectionShapes());
         Map<Integer, List<GreedyMeshShape>> previousBySection = previous.meshData().sectionShapes();
+        Set<Integer> touchedSections = generated.touchedSections();
+        boolean dirtyUpdate = dirtyRegion != null;
 
         for (int sectionIndex = 0; sectionIndex < snapshot.sectionsCount(); sectionIndex++) {
+            int sectionY = snapshot.minSectionY() + sectionIndex;
+            if (dirtyUpdate && touchedSections.contains(sectionY)) {
+                continue;
+            }
             if (!previous.sectionFingerprintMatches(snapshot, sectionIndex)) {
                 continue;
             }
-            int sectionY = snapshot.minSectionY() + sectionIndex;
             List<GreedyMeshShape> oldShapes = previousBySection.get(sectionY);
             if (oldShapes == null || oldShapes.isEmpty()) {
                 mergedBySection.remove(sectionY);
