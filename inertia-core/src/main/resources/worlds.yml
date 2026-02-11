@@ -37,20 +37,20 @@ world:
       # Максимальная высота одного объединенного тела (в блоках)
       max-vertical-size: 64
       # Тип физической формы чанка:
-      # MeshShape - триангулированный меш (текущий режим)
+      # MeshShape - триангулированный меш
       # CompoundShape - составная форма из AABB-частей greedy mesh
-      shape-type: MeshShape
+      shape-type: CompoundShape
 
-    # Настройки для режима FLOOR_PLANE (игнорируются в GREEDY_MESH)
+    # Настройки для режима FLOOR_PLANE
     floor-plane:
-      y-level: 300
+      y-level: 1
       y-size: 1
       friction: 1.0
       restitution: 0.025
       size:
         origin: "0 0"
-        min: "-100 -100"
-        max: "100 100"
+        min: "-5120 -5120"
+        max: "5120 5120"
 
   solver:
     velocity-iterations: 10
