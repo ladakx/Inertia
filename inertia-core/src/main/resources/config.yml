@@ -77,15 +77,18 @@ rendering:
     far-allow-metadata-updates: false
     # Максимальное число проверок/обновлений видимости для одного игрока за тик.
     # При превышении остаток работы переносится на следующий тик.
-    max-visibility-updates-per-player-per-tick: 256
+    # Этап 1 (+50% от базового профиля): 384.
+    max-visibility-updates-per-player-per-tick: 384
     # Жесткий лимит проверок shouldSendUpdate() по уже видимому набору за тик на игрока.
     # Если лимит исчерпан, остаток переносится на следующий тик и учитывается в телеметрии.
-    max-transform-checks-per-player-per-tick: 256
+    # Этап 1 (+50% от базового профиля): 384.
+    max-transform-checks-per-player-per-tick: 384
     # Периодический полный пересчет видимости (в тиках), даже если игрок не сменил чанк/мир.
     full-recalc-interval-ticks: 20
     # Лимит количества сетевых пакетов, отправляемых одному игроку за тик.
     # При превышении лишние пакеты переносятся на следующий тик с учетом приоритета.
-    max-packets-per-player-per-tick: 256
+    # Этап 1 (+50% от базового профиля): 384.
+    max-packets-per-player-per-tick: 384
     # Порог backlog destroy (pending ids/очередь scheduler), начиная с которого включается fast-path
     # осушения destroy с временным приоритетом над visibility/metadata.
     destroy-backlog-threshold: 512
@@ -93,7 +96,8 @@ rendering:
     # во время drain fast-path.
     destroy-drain-extra-packets-per-player-per-tick: 128
     # Лимит оценочного размера сетевых пакетов (в байтах) для одного игрока за тик.
-    max-bytes-per-player-per-tick: 98304
+    # Этап 1 (+50% от базового профиля): 147456.
+    max-bytes-per-player-per-tick: 147456
     # Общий лимит времени (в наносекундах), который render-network scheduler может тратить за 1 серверный тик.
     max-work-nanos-per-tick: 6000000
     # Минимальный коэффициент для второстепенных очередей (visibility-diff и metadata),
@@ -105,3 +109,15 @@ rendering:
     # Порог среднего ping (ms) для мягкого/жесткого снижения budget второстепенных очередей.
     adaptive-ping-soft-threshold-ms: 140
     adaptive-ping-hard-threshold-ms: 260
+
+  # Профили для ручного переключения в зависимости от типа нагрузки.
+  # Профиль "high-entity scenes" фиксирует следующий стабильный этап после +50%:
+  # visibility/transform/packets: 384 -> 576, bytes: 147456 -> 221184.
+  # Перед применением проверяйте TPS и backlog tracker минимум 10-15 минут под целевой нагрузкой.
+  profiles:
+    high-entity-scenes:
+      network-entity-tracker:
+        max-visibility-updates-per-player-per-tick: 576
+        max-transform-checks-per-player-per-tick: 576
+        max-packets-per-player-per-tick: 576
+        max-bytes-per-player-per-tick: 221184
