@@ -87,17 +87,21 @@ public class InertiaConfig {
 
         public static class ChunkCacheSettings {
             public final int maxEntries;
-            public final int ttlSeconds;
+            public final int memoryTtlSeconds;
+            public final int diskTtlSeconds;
 
             public ChunkCacheSettings(ConfigurationSection section, FileConfiguration root) {
                 if (section == null) {
                     this.maxEntries = 4096;
-                    this.ttlSeconds = 900;
+                    this.memoryTtlSeconds = 900;
+                    this.diskTtlSeconds = 7200;
                     return;
                 }
 
                 this.maxEntries = section.getInt("max-entries", 4096);
-                this.ttlSeconds = section.getInt("ttl-seconds", 900);
+                int legacyTtl = section.getInt("ttl-seconds", 900);
+                this.memoryTtlSeconds = section.getInt("memory-ttl-seconds", legacyTtl);
+                this.diskTtlSeconds = section.getInt("disk-ttl-seconds", Math.max(legacyTtl, 7200));
             }
         }
     }
