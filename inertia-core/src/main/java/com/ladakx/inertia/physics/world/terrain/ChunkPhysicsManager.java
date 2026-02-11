@@ -3,13 +3,9 @@ package com.ladakx.inertia.physics.world.terrain;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
-import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshShape;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,7 +69,7 @@ public class ChunkPhysicsManager implements AutoCloseable {
         if (!queuedChunks.add(key) || generator == null || generationQueue == null) {
             return;
         }
-        if (dirtyRegion != null || cache == null) {
+        if (requestKind == GenerationRequestKind.DIRTY || dirtyRegion != null || cache == null) {
             enqueueCapture(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key, dirtyRegion, requestKind);
             return;
         }
@@ -242,16 +238,8 @@ public class ChunkPhysicsManager implements AutoCloseable {
             return;
         }
 
-        CompletableFuture<Optional<CachedChunkPhysicsData>> previousFuture = cache == null
-                ? CompletableFuture.completedFuture(Optional.empty())
-                : CompletableFuture.supplyAsync(() -> cache.get(request.chunkX(), request.chunkZ()), cacheIoExecutor)
-                .exceptionally(ex -> {
-                    InertiaLogger.warn("Failed to read terrain cache for merge at " + request.chunkX() + ", " + request.chunkZ(), ex);
-                    return Optional.empty();
-                });
-
         int generationId = generationRevisions.computeIfAbsent(request.key(), unused -> new AtomicInteger()).get();
-        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot, request.dirtyRegion()));
+        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot, null));
         inFlight.put(request.key(), future);
         future.whenComplete((generatedData, throwable) -> {
             inFlight.remove(request.key());
@@ -264,61 +252,15 @@ public class ChunkPhysicsManager implements AutoCloseable {
                 return;
             }
 
-            previousFuture.whenComplete((previous, previousThrowable) -> {
-                if (previousThrowable != null) {
-                    InertiaLogger.warn("Failed to resolve terrain cache merge data at " + request.chunkX() + ", " + request.chunkZ(), previousThrowable);
-                }
-                CachedChunkPhysicsData previousData = previous == null ? null : previous.orElse(null);
-                GreedyMeshData finalData;
-                if (request.dirtyRegion() != null && previousData == null) {
-                    // Dirty generation can be partial by design. If this is the first update and
-                    // previous cache data is not available yet, force full rebuild to avoid
-                    // replacing the chunk with only the changed region.
-                    finalData = generator.generate(snapshot, null);
-                } else {
-                    finalData = mergeUnchangedSections(snapshot, generatedData, previousData);
-                }
-                if (cache != null) {
-                    cacheIoExecutor.execute(() -> cache.put(
-                            request.chunkX(),
-                            request.chunkZ(),
-                            new CachedChunkPhysicsData(finalData, snapshot.sectionFingerprints())
-                    ));
-                }
-                request.onReady().accept(finalData);
-            });
+            if (cache != null) {
+                cacheIoExecutor.execute(() -> cache.put(
+                        request.chunkX(),
+                        request.chunkZ(),
+                        new CachedChunkPhysicsData(generatedData, snapshot.sectionFingerprints())
+                ));
+            }
+            request.onReady().accept(generatedData);
         });
-    }
-
-    private GreedyMeshData mergeUnchangedSections(ChunkSnapshotData snapshot,
-                                                  GreedyMeshData generated,
-                                                  CachedChunkPhysicsData previous) {
-        if (generated == null || snapshot == null || previous == null) {
-            return generated;
-        }
-
-        Map<Integer, List<GreedyMeshShape>> mergedBySection = new HashMap<>(generated.sectionShapes());
-        Map<Integer, List<GreedyMeshShape>> previousBySection = previous.meshData().sectionShapes();
-
-        for (int sectionIndex = 0; sectionIndex < snapshot.sectionsCount(); sectionIndex++) {
-            if (!previous.sectionFingerprintMatches(snapshot, sectionIndex)) {
-                continue;
-            }
-            int sectionY = snapshot.minSectionY() + sectionIndex;
-            List<GreedyMeshShape> oldShapes = previousBySection.get(sectionY);
-            if (oldShapes == null || oldShapes.isEmpty()) {
-                mergedBySection.remove(sectionY);
-            } else {
-                mergedBySection.put(sectionY, oldShapes);
-            }
-        }
-
-        List<GreedyMeshShape> mergedShapes = new ArrayList<>();
-        for (List<GreedyMeshShape> sectionShapes : mergedBySection.values()) {
-            mergedShapes.addAll(sectionShapes);
-        }
-
-        return new GreedyMeshData(mergedShapes, generated.fullRebuild(), generated.touchedSections());
     }
 
     @Override
