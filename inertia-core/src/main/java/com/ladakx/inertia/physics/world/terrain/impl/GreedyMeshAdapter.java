@@ -46,6 +46,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private final Map<Long, PendingMesh> pendingMeshData = new ConcurrentHashMap<>();
     private WorldsConfig.ChunkManagementSettings chunkSettings;
     private WorldsConfig.GreedyMeshShapeType greedyMeshShapeType = WorldsConfig.GreedyMeshShapeType.MESH_SHAPE;
+    private boolean useFastChunkCapture = true;
     private final AtomicLong meshSequence = new AtomicLong();
     private UUID meshApplyTaskId;
 
@@ -61,6 +62,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         this.chunkSettings = world.getSettings().chunkManagement();
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
         this.greedyMeshShapeType = meshingSettings.shapeType();
+        this.useFastChunkCapture = meshingSettings.fastChunkCapture();
 
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         File worldFolder = world.getWorldBukkit().getWorldFolder();
@@ -195,13 +197,27 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         String worldName = world.getWorldBukkit().getName();
         chunkPhysicsManager.requestChunkGeneration(
                 worldName, x, z,
-                () -> ChunkSnapshotData.capture(world.getWorldBukkit().getChunkAt(x, z), joltTools),
+                () -> captureChunkSnapshotData(x, z),
                 data -> {
                     if (world != null) {
                         enqueueMeshData(x, z, data);
                     }
                 }
         );
+    }
+
+    private ChunkSnapshotData captureChunkSnapshotData(int x, int z) {
+        Chunk chunk = world.getWorldBukkit().getChunkAt(x, z);
+        long startedNanos = System.nanoTime();
+        ChunkSnapshotData snapshotData = useFastChunkCapture
+                ? ChunkSnapshotData.captureFast(chunk, joltTools)
+                : ChunkSnapshotData.capture(chunk, joltTools);
+        long elapsedNanos = System.nanoTime() - startedNanos;
+        double elapsedMillis = elapsedNanos / 1_000_000.0;
+        InertiaLogger.debug("Chunk capture [" + (useFastChunkCapture ? "fast" : "legacy") + "] "
+                + world.getWorldBukkit().getName() + " (" + x + "," + z + "): "
+                + elapsedNanos + "ns (" + String.format(java.util.Locale.ROOT, "%.3f", elapsedMillis) + "ms)");
+        return snapshotData;
     }
 
     private void activateDynamicBodiesInChunk(int chunkX, int chunkZ) {
