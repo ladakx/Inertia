@@ -133,18 +133,26 @@ public class MassSpawnScheduler {
     }
 
     private int runJobChunk(SpawnJob job, int maxItems) {
-        int spent = 0;
-        while (spent < maxItems && job.hasRemaining()) {
-            if (!job.world().canSpawnBodies(1)) {
-                job.markFinished("World body limit reached");
-                break;
-            }
+        int remainingCapacity = job.world().getRemainingBodyCapacity();
+        int chunkLimit = Math.min(maxItems, remainingCapacity);
 
+        if (chunkLimit <= 0) {
+            job.markFinished("World body limit reached");
+            return 0;
+        }
+
+        int spent = 0;
+        while (spent < chunkLimit && job.hasRemaining()) {
             Vector offset = job.nextOffset();
             Location spawnAt = job.center().clone().add(offset);
             boolean success = spawnAction.apply(spawnAt, job);
             job.markAttempt(success);
             spent++;
+
+            if (spent >= remainingCapacity) {
+                job.markFinished("World body limit reached");
+                break;
+            }
 
             if (Bukkit.getWorld(job.worldKey()) == null) {
                 job.markFinished("World is invalid");
