@@ -152,7 +152,8 @@ public class WorldsConfig {
                             gmSec.getBoolean("vertical-merging", true),
                             gmSec.getInt("max-vertical-size", 64),
                             shapeType,
-                            gmSec.getBoolean("fast-chunk-capture", true)
+                            gmSec.getBoolean("fast-chunk-capture", true),
+                            gmSec.getInt("max-capture-millis-per-tick", 2)
                     );
                 }
             } else if (simSec.contains("greedy-mesh")) {
@@ -163,7 +164,8 @@ public class WorldsConfig {
                             gmSec.getBoolean("vertical-merging", true),
                             gmSec.getInt("max-vertical-size", 64),
                             shapeType,
-                            gmSec.getBoolean("fast-chunk-capture", true)
+                            gmSec.getBoolean("fast-chunk-capture", true),
+                            gmSec.getInt("max-capture-millis-per-tick", 2)
                     );
                 }
             }
@@ -173,7 +175,7 @@ public class WorldsConfig {
             floorSettings = new FloorPlaneSettings(0, 1, 1, 0, new FloorBounds(new Vec3(0,0,0), -100, -100, 100, 100));
         }
         if (greedySettings == null) {
-            greedySettings = new GreedyMeshingSettings(true, 64, GreedyMeshShapeType.MESH_SHAPE, true);
+            greedySettings = new GreedyMeshingSettings(true, 64, GreedyMeshShapeType.MESH_SHAPE, true, 2);
         }
 
         SimulationSettings simulation = new SimulationSettings(simEnable, simType, floorSettings, greedySettings);
@@ -348,7 +350,8 @@ public class WorldsConfig {
     public record GreedyMeshingSettings(boolean verticalMerging,
                                         int maxVerticalSize,
                                         GreedyMeshShapeType shapeType,
-                                        boolean fastChunkCapture) {}
+                                        boolean fastChunkCapture,
+                                        int maxCaptureMillisPerTick) {}
 
     public enum GreedyMeshShapeType {
         MESH_SHAPE,

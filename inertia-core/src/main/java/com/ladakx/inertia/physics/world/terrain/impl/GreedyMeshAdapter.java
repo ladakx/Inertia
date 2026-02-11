@@ -17,6 +17,7 @@ import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsCache;
 import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsManager;
+import com.ladakx.inertia.physics.world.terrain.ChunkPhysicsManager.GenerationRequestKind;
 import com.ladakx.inertia.physics.world.terrain.ChunkSnapshotData;
 import com.ladakx.inertia.physics.world.terrain.DirtyChunkRegion;
 import com.ladakx.inertia.physics.world.terrain.GenerationQueue;
@@ -50,8 +51,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private WorldsConfig.ChunkManagementSettings chunkSettings;
     private WorldsConfig.GreedyMeshShapeType greedyMeshShapeType = WorldsConfig.GreedyMeshShapeType.MESH_SHAPE;
     private boolean useFastChunkCapture = true;
+    private int maxCaptureMillisPerTick = 2;
     private final AtomicLong meshSequence = new AtomicLong();
     private UUID meshApplyTaskId;
+    private BukkitTask captureTickTask;
 
     @Override
     public void onEnable(PhysicsWorld world) {
@@ -66,6 +69,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
         this.greedyMeshShapeType = meshingSettings.shapeType();
         this.useFastChunkCapture = meshingSettings.fastChunkCapture();
+        this.maxCaptureMillisPerTick = Math.max(0, meshingSettings.maxCaptureMillisPerTick());
 
         GenerationQueue generationQueue = new GenerationQueue(workerThreads);
         File worldFolder = world.getWorldBukkit().getWorldFolder();
@@ -79,8 +83,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 meshingSettings
         );
 
-        this.chunkPhysicsManager = new ChunkPhysicsManager(generationQueue, cache, generator, this::executeOnMainThread);
+        this.chunkPhysicsManager = new ChunkPhysicsManager(generationQueue, cache, generator);
         this.meshApplyTaskId = world.addTickTask(this::processPendingMeshes);
+        this.captureTickTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), this::processCaptureQueue, 1L, 1L);
 
         if (chunkSettings.generateOnLoad()) {
             for (Chunk chunk : world.getWorldBukkit().getLoadedChunks()) {
@@ -103,6 +108,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             world.removeTickTask(meshApplyTaskId);
             meshApplyTaskId = null;
         }
+        if (captureTickTask != null) {
+            captureTickTask.cancel();
+            captureTickTask = null;
+        }
         if (chunkPhysicsManager != null) {
             chunkPhysicsManager.close();
         }
@@ -119,7 +128,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.add(key);
         if (chunkSettings.generateOnLoad()) {
-            requestChunkGeneration(x, z);
+            requestChunkGeneration(x, z, null, GenerationRequestKind.GENERATE_ON_LOAD);
         }
     }
 
@@ -165,7 +174,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             pendingUpdates.remove(key);
             DirtyChunkRegion mergedRegion = pendingDirtyRegions.remove(key);
             if (loadedChunks.contains(key)) {
-                requestChunkGeneration(chunkX, chunkZ, mergedRegion);
+                requestChunkGeneration(chunkX, chunkZ, mergedRegion, GenerationRequestKind.DIRTY);
             }
         }, delay);
         pendingUpdates.put(key, task);
@@ -184,14 +193,18 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         BukkitTask pending = pendingUpdates.remove(key);
         if (pending != null) pending.cancel();
 
-        requestChunkGeneration(x, z);
+        requestChunkGeneration(x, z, null, GenerationRequestKind.DIRTY);
     }
 
     private void requestChunkGeneration(int x, int z) {
-        requestChunkGeneration(x, z, null);
+        requestChunkGeneration(x, z, null, GenerationRequestKind.GENERATE_ON_LOAD);
     }
 
     private void requestChunkGeneration(int x, int z, DirtyChunkRegion dirtyRegion) {
+        requestChunkGeneration(x, z, dirtyRegion, dirtyRegion == null ? GenerationRequestKind.GENERATE_ON_LOAD : GenerationRequestKind.DIRTY);
+    }
+
+    private void requestChunkGeneration(int x, int z, DirtyChunkRegion dirtyRegion, GenerationRequestKind requestKind) {
         if (world == null || chunkPhysicsManager == null) return;
 
         // Проверка границ мира
@@ -219,8 +232,27 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                         enqueueMeshData(x, z, data);
                     }
                 },
-                dirtyRegion
+                dirtyRegion,
+                requestKind
         );
+    }
+
+    private void processCaptureQueue() {
+        if (world == null || chunkPhysicsManager == null) {
+            return;
+        }
+        List<ChunkPhysicsManager.ChunkCoordinate> playerChunks = world.getWorldBukkit().getPlayers().stream()
+                .map(player -> new ChunkPhysicsManager.ChunkCoordinate(player.getLocation().getBlockX() >> 4, player.getLocation().getBlockZ() >> 4))
+                .toList();
+        chunkPhysicsManager.processCaptureQueue(playerChunks, maxCaptureMillisPerTick);
+    }
+
+
+    public ChunkPhysicsManager.CaptureMetrics getCaptureMetrics() {
+        if (chunkPhysicsManager == null) {
+            return new ChunkPhysicsManager.CaptureMetrics(0, 0.0, 0);
+        }
+        return chunkPhysicsManager.getCaptureMetrics();
     }
 
     private ChunkSnapshotData captureChunkSnapshotData(int x, int z) {
@@ -584,14 +616,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 bi.destroyBody(id);
             } catch (Exception ignored) {}
         }
-    }
-
-    private void executeOnMainThread(Runnable task) {
-        if (Bukkit.isPrimaryThread()) {
-            task.run();
-            return;
-        }
-        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), task);
     }
 
     private record PendingMesh(int x, int z, GreedyMeshData data, long sequence) {}
