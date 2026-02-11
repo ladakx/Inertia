@@ -40,6 +40,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private ChunkPhysicsManager chunkPhysicsManager;
     private JoltTools joltTools;
     private BlocksConfig blocksConfig;
+    private GreedyMeshGenerator generator;
     private final Map<Long, List<Integer>> chunkBodies = new HashMap<>();
     private final Set<Long> loadedChunks = ConcurrentHashMap.newKeySet();
     private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
@@ -70,7 +71,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         Duration cacheTtl = Duration.ofSeconds(Math.max(0, cacheSettings.ttlSeconds));
         ChunkPhysicsCache cache = new ChunkPhysicsCache(cacheDir, cacheSettings.maxEntries, cacheTtl);
 
-        GreedyMeshGenerator generator = new GreedyMeshGenerator(
+        this.generator = new GreedyMeshGenerator(
                 blocksConfig,
                 joltTools,
                 meshingSettings
@@ -105,6 +106,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         loadedChunks.clear();
         pendingMeshData.clear();
         chunkPhysicsManager = null;
+        generator = null;
         joltTools = null;
         world = null;
     }
@@ -209,9 +211,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private ChunkSnapshotData captureChunkSnapshotData(int x, int z) {
         Chunk chunk = world.getWorldBukkit().getChunkAt(x, z);
         long startedNanos = System.nanoTime();
+        short[] profileMap = generator != null ? generator.materialToProfileId() : null;
         ChunkSnapshotData snapshotData = useFastChunkCapture
-                ? ChunkSnapshotData.captureFast(chunk, joltTools)
-                : ChunkSnapshotData.capture(chunk, joltTools);
+                ? ChunkSnapshotData.captureFast(chunk, joltTools, profileMap)
+                : ChunkSnapshotData.capture(chunk, joltTools, profileMap);
         long elapsedNanos = System.nanoTime() - startedNanos;
         double elapsedMillis = elapsedNanos / 1_000_000.0;
         InertiaLogger.debug("Chunk capture [" + (useFastChunkCapture ? "fast" : "legacy") + "] "
