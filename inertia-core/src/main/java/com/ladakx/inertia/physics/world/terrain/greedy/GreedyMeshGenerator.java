@@ -25,7 +25,8 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     private final BlocksConfig blocksConfig;
     private final JoltTools joltTools;
     private final WorldsConfig.GreedyMeshingSettings settings;
-    private final PhysicalProfile[] materialProfiles;
+    private final short[] materialToProfileId;
+    private final PhysicalProfile[] profilesById;
 
     // Используем ThreadLocal для буферов, чтобы не аллоцировать память каждый раз
     private static final ThreadLocal<WorkingBuffers> BUFFERS = ThreadLocal.withInitial(WorkingBuffers::new);
@@ -35,30 +36,50 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         this.blocksConfig = Objects.requireNonNull(blocksConfig, "blocksConfig");
         this.joltTools = Objects.requireNonNull(joltTools, "joltTools");
         this.settings = Objects.requireNonNull(settings, "settings");
-        this.materialProfiles = buildMaterialProfiles();
+        ProfileMappings mappings = buildProfileMappings();
+        this.materialToProfileId = mappings.materialToProfileId();
+        this.profilesById = mappings.profilesById();
     }
 
-    private PhysicalProfile[] buildMaterialProfiles() {
+    public short[] materialToProfileId() {
+        return materialToProfileId;
+    }
+
+    private ProfileMappings buildProfileMappings() {
         Material[] materials = Material.values();
-        PhysicalProfile[] profiles = new PhysicalProfile[materials.length];
+        short[] materialIds = new short[materials.length];
+        List<PhysicalProfile> profileList = new ArrayList<>();
+
         for (Material material : materials) {
-            blocksConfig.find(material).ifPresentOrElse(
-                    profile -> profiles[material.ordinal()] = profile,
-                    () -> {
-                        try {
-                            if (material.isBlock() && !material.isAir()) {
-                                BlockState state = joltTools.createBlockState(material);
-                                List<AaBox> boxes = joltTools.boundingBoxes(state);
-                                if (boxes != null && !boxes.isEmpty()) {
-                                    profiles[material.ordinal()] = new PhysicalProfile(material.name(), 0.5f, 0.6f, 0.2f, boxes);
-                                }
-                            }
-                        } catch (Exception ignored) {
-                        }
-                    }
-            );
+            PhysicalProfile profile = resolvePhysicalProfile(material);
+            if (profile == null || profile.boundingBoxes().isEmpty()) {
+                continue;
+            }
+            if (profileList.size() >= Short.MAX_VALUE - 1) {
+                throw new IllegalStateException("Too many physical profiles for compact short ids");
+            }
+            short profileId = (short) (profileList.size() + 1);
+            materialIds[material.ordinal()] = profileId;
+            profileList.add(profile);
         }
-        return profiles;
+
+        return new ProfileMappings(materialIds, profileList.toArray(new PhysicalProfile[0]));
+    }
+
+    private PhysicalProfile resolvePhysicalProfile(Material material) {
+        return blocksConfig.find(material).orElseGet(() -> {
+            try {
+                if (material.isBlock() && !material.isAir()) {
+                    BlockState state = joltTools.createBlockState(material);
+                    List<AaBox> boxes = joltTools.boundingBoxes(state);
+                    if (boxes != null && !boxes.isEmpty()) {
+                        return new PhysicalProfile(material.name(), 0.5f, 0.6f, 0.2f, boxes);
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+            return null;
+        });
     }
 
     @Override
@@ -96,19 +117,19 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                 int worldIndexY = baseY + y;
                 for (int z = 0; z < 16; z++) {
                     for (int x = 0; x < 16; x++) {
-                        Material material = snapshot.getMaterial(x, worldIndexY, z);
-                        if (material == null || material == Material.AIR || material.isAir()) {
+                        short profileId = snapshot.getProfileId(x, worldIndexY, z);
+                        if (profileId == EMPTY_PROFILE) {
                             continue;
                         }
 
-                        PhysicalProfile profile = materialProfiles[material.ordinal()];
+                        PhysicalProfile profile = profileFromIndex(profileId);
                         if (profile != null && !profile.boundingBoxes().isEmpty()) {
                             int index = flattenIndex(x, worldIndexY, z);
 
                             if (profileIndices[index] == EMPTY_PROFILE) {
                                 touchedIndices[touchedCount++] = index;
                             }
-                            profileIndices[index] = (short) (material.ordinal() + 1);
+                            profileIndices[index] = profileId;
 
                             // Сложные формы (заборы, ступени) обрабатываем отдельно, без мержинга
                             if (profile.boundingBoxes().size() > 1) {
@@ -395,7 +416,11 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
     private PhysicalProfile profileFromIndex(short profileIndex) {
         if (profileIndex == EMPTY_PROFILE) return null;
-        return materialProfiles[profileIndex - 1];
+        int index = profileIndex - 1;
+        if (index < 0 || index >= profilesById.length) {
+            return null;
+        }
+        return profilesById[index];
     }
 
     private int flattenIndex(int x, int y, int z) {
@@ -459,5 +484,8 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
                 complexIndices = new int[total];
             }
         }
+    }
+
+    private record ProfileMappings(short[] materialToProfileId, PhysicalProfile[] profilesById) {
     }
 }
