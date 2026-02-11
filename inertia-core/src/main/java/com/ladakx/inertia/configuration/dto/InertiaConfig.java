@@ -156,6 +156,17 @@ public class InertiaConfig {
         public static class NetworkEntityTrackerSettings {
             public final float posThresholdSq;
             public final float rotThresholdDot;
+            public final float nearPosThresholdSq;
+            public final float midPosThresholdSq;
+            public final float farPosThresholdSq;
+            public final float nearRotThresholdDot;
+            public final float midRotThresholdDot;
+            public final float farRotThresholdDot;
+            public final float midDistanceSq;
+            public final float farDistanceSq;
+            public final int midUpdateIntervalTicks;
+            public final int farUpdateIntervalTicks;
+            public final boolean farAllowMetadataUpdates;
             public final int maxVisibilityUpdatesPerPlayerPerTick;
             public final int fullRecalcIntervalTicks;
             public final int maxPacketsPerPlayerPerTick;
@@ -169,11 +180,59 @@ public class InertiaConfig {
                 double posThreshold = section != null ? section.getDouble("pos-threshold", defaultPosThreshold) : defaultPosThreshold;
                 if (posThreshold < 0) posThreshold = 0;
                 this.posThresholdSq = (float) (posThreshold * posThreshold);
+                this.nearPosThresholdSq = this.posThresholdSq;
+
+                double defaultMidPosThreshold = 0.04;
+                double midPosThreshold = section != null ? section.getDouble("mid-pos-threshold", defaultMidPosThreshold) : defaultMidPosThreshold;
+                if (midPosThreshold < 0) midPosThreshold = 0;
+                this.midPosThresholdSq = (float) (midPosThreshold * midPosThreshold);
+
+                double defaultFarPosThreshold = 0.09;
+                double farPosThreshold = section != null ? section.getDouble("far-pos-threshold", defaultFarPosThreshold) : defaultFarPosThreshold;
+                if (farPosThreshold < 0) farPosThreshold = 0;
+                this.farPosThresholdSq = (float) (farPosThreshold * farPosThreshold);
 
                 double rotDot = section != null ? section.getDouble("rot-threshold-dot", defaultRotThresholdDot) : defaultRotThresholdDot;
                 if (rotDot < 0) rotDot = 0;
                 if (rotDot > 1) rotDot = 1;
                 this.rotThresholdDot = (float) rotDot;
+                this.nearRotThresholdDot = this.rotThresholdDot;
+
+                double defaultMidRotDot = 0.2;
+                double midRotDot = section != null ? section.getDouble("mid-rot-threshold-dot", defaultMidRotDot) : defaultMidRotDot;
+                if (midRotDot < 0) midRotDot = 0;
+                if (midRotDot > 1) midRotDot = 1;
+                this.midRotThresholdDot = (float) midRotDot;
+
+                double defaultFarRotDot = 0.1;
+                double farRotDot = section != null ? section.getDouble("far-rot-threshold-dot", defaultFarRotDot) : defaultFarRotDot;
+                if (farRotDot < 0) farRotDot = 0;
+                if (farRotDot > 1) farRotDot = 1;
+                this.farRotThresholdDot = (float) farRotDot;
+
+                double defaultMidDistance = 24.0;
+                double midDistance = section != null ? section.getDouble("mid-distance", defaultMidDistance) : defaultMidDistance;
+                if (midDistance < 0) midDistance = 0;
+                this.midDistanceSq = (float) (midDistance * midDistance);
+
+                double defaultFarDistance = 56.0;
+                double farDistance = section != null ? section.getDouble("far-distance", defaultFarDistance) : defaultFarDistance;
+                if (farDistance < midDistance) farDistance = midDistance;
+                this.farDistanceSq = (float) (farDistance * farDistance);
+
+                int defaultMidUpdateIntervalTicks = 2;
+                int configuredMidUpdateIntervalTicks = section != null
+                        ? section.getInt("mid-update-interval-ticks", defaultMidUpdateIntervalTicks)
+                        : defaultMidUpdateIntervalTicks;
+                this.midUpdateIntervalTicks = Math.max(1, configuredMidUpdateIntervalTicks);
+
+                int defaultFarUpdateIntervalTicks = 4;
+                int configuredFarUpdateIntervalTicks = section != null
+                        ? section.getInt("far-update-interval-ticks", defaultFarUpdateIntervalTicks)
+                        : defaultFarUpdateIntervalTicks;
+                this.farUpdateIntervalTicks = Math.max(1, configuredFarUpdateIntervalTicks);
+
+                this.farAllowMetadataUpdates = section != null && section.getBoolean("far-allow-metadata-updates", false);
 
                 int defaultMaxUpdatesPerTick = 256;
                 int configuredMaxUpdatesPerTick = section != null
