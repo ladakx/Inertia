@@ -211,15 +211,17 @@ public final class PhysicsDisplayComposite {
     }
 
     public void destroy() {
-        if (tracker != null) {
-            List<Integer> ids = new ArrayList<>(parts.size());
-            for (DisplayPart part : parts) {
-                int visualId = part.visual().getId();
-                ids.add(visualId);
-                if (owner.isValid()) {
-                    owner.getSpace().unregisterNetworkEntityId(visualId);
-                }
+        List<Integer> ids = new ArrayList<>(parts.size());
+        for (DisplayPart part : parts) {
+            int visualId = part.visual().getId();
+            ids.add(visualId);
+            try {
+                owner.getSpace().unregisterNetworkEntityId(visualId);
+            } catch (Exception ignored) {
             }
+        }
+
+        if (tracker != null && !ids.isEmpty()) {
             tracker.unregisterBatch(ids);
         }
     }

@@ -170,6 +170,8 @@ public class InertiaConfig {
             public final int maxVisibilityUpdatesPerPlayerPerTick;
             public final int fullRecalcIntervalTicks;
             public final int maxPacketsPerPlayerPerTick;
+            public final int destroyBacklogThreshold;
+            public final int destroyDrainExtraPacketsPerPlayerPerTick;
             public final int maxBytesPerPlayerPerTick;
             public final long maxWorkNanosPerTick;
             public final double secondaryBudgetMinScale;
@@ -257,6 +259,18 @@ public class InertiaConfig {
                         ? section.getInt("max-packets-per-player-per-tick", defaultMaxPacketsPerPlayerPerTick)
                         : defaultMaxPacketsPerPlayerPerTick;
                 this.maxPacketsPerPlayerPerTick = Math.max(1, configuredMaxPacketsPerPlayerPerTick);
+
+                int defaultDestroyBacklogThreshold = 512;
+                int configuredDestroyBacklogThreshold = section != null
+                        ? section.getInt("destroy-backlog-threshold", defaultDestroyBacklogThreshold)
+                        : defaultDestroyBacklogThreshold;
+                this.destroyBacklogThreshold = Math.max(1, configuredDestroyBacklogThreshold);
+
+                int defaultDestroyDrainExtraPacketsPerPlayerPerTick = 128;
+                int configuredDestroyDrainExtraPacketsPerPlayerPerTick = section != null
+                        ? section.getInt("destroy-drain-extra-packets-per-player-per-tick", defaultDestroyDrainExtraPacketsPerPlayerPerTick)
+                        : defaultDestroyDrainExtraPacketsPerPlayerPerTick;
+                this.destroyDrainExtraPacketsPerPlayerPerTick = Math.max(0, configuredDestroyDrainExtraPacketsPerPlayerPerTick);
 
                 int defaultMaxBytesPerPlayerPerTick = 98304;
                 int configuredMaxBytesPerPlayerPerTick = section != null
