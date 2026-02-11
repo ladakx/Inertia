@@ -37,6 +37,7 @@ public class NetworkEntityTracker {
     private volatile int farUpdateIntervalTicks = 4;
     private volatile boolean farAllowMetadataUpdates = false;
     private volatile int maxVisibilityUpdatesPerPlayerPerTick = 256;
+    private volatile int maxTransformChecksPerPlayerPerTick = 256;
     private volatile int fullRecalcIntervalTicks = 20;
     private volatile int maxPacketsPerPlayerPerTick = 256;
     private volatile int destroyBacklogThreshold = 512;
@@ -51,6 +52,7 @@ public class NetworkEntityTracker {
     private final AtomicLong droppedPackets = new AtomicLong(0);
     private final AtomicLong lodSkippedUpdates = new AtomicLong(0);
     private final AtomicLong lodSkippedMetadataUpdates = new AtomicLong(0);
+    private final AtomicLong transformChecksSkippedDueBudget = new AtomicLong(0);
     private volatile int pendingDestroyIdsBacklog = 0;
     private volatile int destroyQueueDepthBacklog = 0;
     private volatile boolean destroyDrainFastPathActive = false;
@@ -81,6 +83,7 @@ public class NetworkEntityTracker {
         this.farUpdateIntervalTicks = settings.farUpdateIntervalTicks;
         this.farAllowMetadataUpdates = settings.farAllowMetadataUpdates;
         this.maxVisibilityUpdatesPerPlayerPerTick = settings.maxVisibilityUpdatesPerPlayerPerTick;
+        this.maxTransformChecksPerPlayerPerTick = settings.maxTransformChecksPerPlayerPerTick;
         this.fullRecalcIntervalTicks = settings.fullRecalcIntervalTicks;
         this.maxPacketsPerPlayerPerTick = settings.maxPacketsPerPlayerPerTick;
         this.destroyBacklogThreshold = settings.destroyBacklogThreshold;
@@ -154,11 +157,13 @@ public class NetworkEntityTracker {
 
         for (Map.Entry<UUID, PlayerTrackingState> entry : playerTrackingStates.entrySet()) {
             UUID playerId = entry.getKey();
-            Set<Integer> visible = entry.getValue().visibleIds();
+            PlayerTrackingState trackingState = entry.getValue();
+            Set<Integer> visible = trackingState.visibleIds();
 
             LinkedHashSet<Integer> hiddenForPlayer = null;
             for (Integer removedId : removedIds) {
                 if (visible.remove(removedId)) {
+                    trackingState.markVisibleIterationDirty();
                     if (hiddenForPlayer == null) {
                         hiddenForPlayer = new LinkedHashSet<>();
                     }
@@ -167,7 +172,7 @@ public class NetworkEntityTracker {
             }
 
             if (hiddenForPlayer != null && !hiddenForPlayer.isEmpty()) {
-                pendingDestroyIds.computeIfAbsent(playerId, ignored -> ConcurrentHashMap.newKeySet()).addAll(hiddenForPlayer);
+                pendingDestroyIds.computeIfAbsent(playerId, ignored -> new HashSet<>()).addAll(hiddenForPlayer);
             }
         }
     }
@@ -231,15 +236,14 @@ public class NetworkEntityTracker {
             if (requiresFullRecalc) {
                 trackingState.rebuildCandidates(chunkGrid, pChunkX, pChunkZ, viewDistanceChunks);
                 trackingState.markFullRecalcDone(tickCounter);
+                trackingState.markVisibilityDirty();
             }
 
-            if (trackingState.needsWorkQueueRebuild()) {
-                trackingState.rebuildWorkQueue();
-            }
-
-            if (!destroyDrainFastPathActive) {
+            if (!destroyDrainFastPathActive && trackingState.needsVisibilityPass()) {
                 enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared);
             }
+
+            enqueueTransformSlice(playerId, trackingState, viewDistanceSquared);
         }
 
         playerTrackingStates.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
@@ -258,11 +262,18 @@ public class NetworkEntityTracker {
         networkScheduler.enqueueVisibility(() -> runVisibilitySlice(playerId, trackingState, viewDistanceSquared));
     }
 
+    private void enqueueTransformSlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
+        if (!trackingState.tryMarkTransformTaskQueued()) {
+            return;
+        }
+        networkScheduler.enqueueMetadata(() -> runTransformSlice(playerId, trackingState, viewDistanceSquared));
+    }
+
     private void runVisibilitySlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
         try {
             Player player = Bukkit.getPlayer(playerId);
             if (player == null || !player.isOnline()) {
-                trackingState.visibleIds().clear();
+                trackingState.clearVisible();
                 return;
             }
 
@@ -275,17 +286,16 @@ public class NetworkEntityTracker {
 
             int budget = maxVisibilityUpdatesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxVisibilityUpdatesPerPlayerPerTick;
             int processed = 0;
-            Set<Integer> visible = trackingState.visibleIds();
-
             while (processed < budget) {
-                Integer id = trackingState.nextWorkEntityId();
+                Integer id = trackingState.nextCandidateId();
                 if (id == null) {
+                    trackingState.markVisibilityPassComplete();
                     break;
                 }
 
                 TrackedVisual tracked = visualsById.get(id);
                 if (tracked == null) {
-                    visible.remove(id);
+                    trackingState.removeVisible(id);
                     processed++;
                     continue;
                 }
@@ -302,48 +312,15 @@ public class NetworkEntityTracker {
                 boolean inRange = sameWorld && distSq <= viewDistanceSquared;
 
                 if (inRange) {
-                    LodLevel lodLevel = resolveLodLevel(distSq);
-                    if (visible.add(id)) {
+                    if (trackingState.addVisible(id)) {
                         Location spawnLoc = tracked.location().clone();
                         Quaternionf spawnRot = new Quaternionf(tracked.rotation());
                         networkScheduler.enqueueSpawn(() ->
                                 bufferPacket(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN)
                         );
                         tracked.markSent(player);
-                    } else {
-                        boolean shouldSendUpdate = tracked.shouldSendUpdate(
-                                lodLevel,
-                                tickCounter,
-                                posThresholdSq,
-                                rotThresholdDot,
-                                midPosThresholdSq,
-                                midRotThresholdDot,
-                                midUpdateIntervalTicks,
-                                farPosThresholdSq,
-                                farRotThresholdDot,
-                                farUpdateIntervalTicks
-                        );
-                        if (!shouldSendUpdate && lodLevel != LodLevel.NEAR && tracked.hasSignificantNearChange(posThresholdSq, rotThresholdDot)) {
-                            lodSkippedUpdates.incrementAndGet();
-                        }
-
-                        Object updatePacket = shouldSendUpdate ? tracked.getPendingUpdatePacket() : null;
-                        if (updatePacket != null) {
-                            bufferPacket(playerId, updatePacket, PacketPriority.TELEPORT);
-                            tracked.markSent(player);
-                        }
-
-                        Object metaPacket = tracked.getPendingMetaPacket();
-                        if (metaPacket != null) {
-                            boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
-                            if (allowMetaPacket) {
-                                networkScheduler.enqueueMetadata(() -> bufferPacket(playerId, metaPacket, PacketPriority.METADATA));
-                            } else {
-                                lodSkippedMetadataUpdates.incrementAndGet();
-                            }
-                        }
                     }
-                } else if (visible.remove(id)) {
+                } else if (trackingState.removeVisible(id)) {
                     networkScheduler.enqueueDestroy(() -> bufferPacket(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY));
                 }
 
@@ -351,9 +328,105 @@ public class NetworkEntityTracker {
             }
         } finally {
             trackingState.markVisibilityTaskDone();
-            if (!trackingState.needsWorkQueueRebuild()) {
+            if (!destroyDrainFastPathActive && trackingState.needsVisibilityPass()) {
                 enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared);
             }
+        }
+    }
+
+    private void runTransformSlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
+        try {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null || !player.isOnline()) {
+                trackingState.clearVisible();
+                return;
+            }
+
+            Location playerLoc = player.getLocation();
+            World playerWorld = playerLoc.getWorld();
+            if (playerWorld == null) {
+                return;
+            }
+            UUID playerWorldId = playerWorld.getUID();
+
+            int checkBudget = maxTransformChecksPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxTransformChecksPerPlayerPerTick;
+            int checked = 0;
+            while (checked < checkBudget) {
+                Integer id = trackingState.nextVisibleId();
+                if (id == null) {
+                    trackingState.resetVisibleCursor();
+                    break;
+                }
+
+                TrackedVisual tracked = visualsById.get(id);
+                if (tracked == null) {
+                    trackingState.removeVisible(id);
+                    checked++;
+                    continue;
+                }
+
+                Location trackedLoc = tracked.location();
+                World trackedWorld = trackedLoc.getWorld();
+                boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
+
+                double dx = trackedLoc.getX() - playerLoc.getX();
+                double dy = trackedLoc.getY() - playerLoc.getY();
+                double dz = trackedLoc.getZ() - playerLoc.getZ();
+                double distSq = dx * dx + dy * dy + dz * dz;
+
+                boolean inRange = sameWorld && distSq <= viewDistanceSquared;
+                if (!inRange) {
+                    if (trackingState.removeVisible(id)) {
+                        networkScheduler.enqueueDestroy(() -> bufferPacket(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY));
+                    }
+                    checked++;
+                    continue;
+                }
+
+                LodLevel lodLevel = resolveLodLevel(distSq);
+                boolean shouldSendUpdate = tracked.shouldSendUpdate(
+                        lodLevel,
+                        tickCounter,
+                        posThresholdSq,
+                        rotThresholdDot,
+                        midPosThresholdSq,
+                        midRotThresholdDot,
+                        midUpdateIntervalTicks,
+                        farPosThresholdSq,
+                        farRotThresholdDot,
+                        farUpdateIntervalTicks
+                );
+                if (!shouldSendUpdate && lodLevel != LodLevel.NEAR && tracked.hasSignificantNearChange(posThresholdSq, rotThresholdDot)) {
+                    lodSkippedUpdates.incrementAndGet();
+                }
+
+                Object updatePacket = shouldSendUpdate ? tracked.getPendingUpdatePacket() : null;
+                if (updatePacket != null) {
+                    bufferPacket(playerId, updatePacket, PacketPriority.TELEPORT);
+                    tracked.markSent(player);
+                }
+
+                Object metaPacket = tracked.getPendingMetaPacket();
+                if (metaPacket != null) {
+                    boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
+                    if (allowMetaPacket) {
+                        networkScheduler.enqueueMetadata(() -> bufferPacket(playerId, metaPacket, PacketPriority.METADATA));
+                    } else {
+                        lodSkippedMetadataUpdates.incrementAndGet();
+                    }
+                }
+
+                checked++;
+            }
+
+            if (checkBudget != Integer.MAX_VALUE) {
+                int remaining = trackingState.remainingVisibleChecks();
+                if (remaining > 0) {
+                    transformChecksSkippedDueBudget.addAndGet(remaining);
+                }
+            }
+        } finally {
+            trackingState.markTransformTaskDone();
         }
     }
 
@@ -461,6 +534,10 @@ public class NetworkEntityTracker {
 
     public long getLodSkippedMetadataUpdates() {
         return lodSkippedMetadataUpdates.get();
+    }
+
+    public long getTransformChecksSkippedDueBudget() {
+        return transformChecksSkippedDueBudget.get();
     }
 
     public int getSpawnQueueDepth() {
@@ -666,11 +743,16 @@ public class NetworkEntityTracker {
         private long lastFullRecalcTick;
         private boolean initialized;
 
-        private final Set<Integer> visibleIds = ConcurrentHashMap.newKeySet();
+        private final Set<Integer> visibleIds = new HashSet<>();
+        private final List<Integer> visibleIterationOrder = new ArrayList<>();
         private final List<Integer> precomputedCandidateIds = new ArrayList<>();
-        private final List<Integer> workQueue = new ArrayList<>();
-        private int workCursor = 0;
+        private final Set<Integer> candidateLookup = new HashSet<>();
+        private int candidateCursor = 0;
+        private int visibleCursor = 0;
+        private boolean visibilityDirty;
+        private boolean visibleIterationDirty;
         private boolean visibilityTaskQueued;
+        private boolean transformTaskQueued;
 
         public int chunkX() { return chunkX; }
         public int chunkZ() { return chunkZ; }
@@ -687,44 +769,106 @@ public class NetworkEntityTracker {
         }
 
         public void rebuildCandidates(Map<Long, Set<Integer>> chunkGrid, int centerChunkX, int centerChunkZ, int viewDistanceChunks) {
-            LinkedHashSet<Integer> accumulator = new LinkedHashSet<>();
+            candidateLookup.clear();
+            precomputedCandidateIds.clear();
             for (int x = -viewDistanceChunks; x <= viewDistanceChunks; x++) {
                 for (int z = -viewDistanceChunks; z <= viewDistanceChunks; z++) {
                     long chunkKey = ChunkUtils.getChunkKey(centerChunkX + x, centerChunkZ + z);
                     Set<Integer> ids = chunkGrid.get(chunkKey);
                     if (ids != null && !ids.isEmpty()) {
-                        accumulator.addAll(ids);
+                        for (Integer id : ids) {
+                            if (candidateLookup.add(id)) {
+                                precomputedCandidateIds.add(id);
+                            }
+                        }
                     }
                 }
             }
 
-            precomputedCandidateIds.clear();
-            precomputedCandidateIds.addAll(accumulator);
-            workCursor = 0;
+            candidateCursor = 0;
+            if (visibleIds.removeIf(id -> !candidateLookup.contains(id))) {
+                visibleIterationDirty = true;
+            }
+            resetVisibleCursor();
         }
 
         public void markFullRecalcDone(long tick) {
             this.lastFullRecalcTick = tick;
         }
 
-        public boolean needsWorkQueueRebuild() {
-            return workCursor >= workQueue.size();
+        public void markVisibilityDirty() {
+            this.visibilityDirty = true;
+            this.candidateCursor = 0;
         }
 
-        public void rebuildWorkQueue() {
-            LinkedHashSet<Integer> queueUnion = new LinkedHashSet<>(precomputedCandidateIds);
-            queueUnion.addAll(visibleIds);
-
-            workQueue.clear();
-            workQueue.addAll(queueUnion);
-            workCursor = 0;
+        public boolean needsVisibilityPass() {
+            return visibilityDirty;
         }
 
-        public Integer nextWorkEntityId() {
-            if (workCursor >= workQueue.size()) {
+        public void markVisibilityPassComplete() {
+            this.visibilityDirty = false;
+        }
+
+        public Integer nextCandidateId() {
+            if (candidateCursor >= precomputedCandidateIds.size()) {
                 return null;
             }
-            return workQueue.get(workCursor++);
+            return precomputedCandidateIds.get(candidateCursor++);
+        }
+
+        public Integer nextVisibleId() {
+            if (visibleIterationDirty) {
+                visibleIterationOrder.clear();
+                visibleIterationOrder.addAll(visibleIds);
+                visibleIterationDirty = false;
+            }
+
+            int size = visibleIterationOrder.size();
+            if (size == 0) {
+                return null;
+            }
+
+            if (visibleCursor >= size) {
+                visibleCursor = 0;
+            }
+
+            return visibleIterationOrder.get(visibleCursor++);
+        }
+
+        public void resetVisibleCursor() {
+            this.visibleCursor = 0;
+        }
+
+        public int remainingVisibleChecks() {
+            return Math.max(0, visibleIterationOrder.size() - visibleCursor);
+        }
+
+        public boolean addVisible(int id) {
+            boolean added = visibleIds.add(id);
+            if (added) {
+                visibleIterationDirty = true;
+            }
+            return added;
+        }
+
+        public boolean removeVisible(int id) {
+            boolean removed = visibleIds.remove(id);
+            if (removed) {
+                visibleIterationDirty = true;
+            }
+            return removed;
+        }
+
+        public void clearVisible() {
+            if (!visibleIds.isEmpty()) {
+                visibleIds.clear();
+                visibleIterationDirty = true;
+            }
+            resetVisibleCursor();
+        }
+
+        public void markVisibleIterationDirty() {
+            this.visibleIterationDirty = true;
         }
 
         public boolean tryMarkVisibilityTaskQueued() {
@@ -738,6 +882,18 @@ public class NetworkEntityTracker {
         public void markVisibilityTaskDone() {
             visibilityTaskQueued = false;
         }
+
+        public boolean tryMarkTransformTaskQueued() {
+            if (transformTaskQueued) {
+                return false;
+            }
+            transformTaskQueued = true;
+            return true;
+        }
+
+        public void markTransformTaskDone() {
+            transformTaskQueued = false;
+        }
     }
 
     private void addToGrid(int id, Location loc) {
@@ -746,7 +902,7 @@ public class NetworkEntityTracker {
     }
 
     private void addToGrid(int id, long chunkKey) {
-        chunkGrid.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(id);
+        chunkGrid.computeIfAbsent(chunkKey, k -> new HashSet<>()).add(id);
     }
 
     private void removeFromGrid(int id, Location loc) {
