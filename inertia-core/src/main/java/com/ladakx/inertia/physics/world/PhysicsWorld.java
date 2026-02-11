@@ -46,31 +46,32 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
     private final String worldName;
     private final World worldBukkit;
-
     private final WorldsConfig.WorldProfile settings;
-
     private final RVec3 origin;
 
     private final PhysicsSystem physicsSystem;
     private final JobSystem jobSystem;
     private final TempAllocator tempAllocator;
     private final PhysicsLoop physicsLoop;
+
     private final PhysicsObjectManager objectManager;
     private final PhysicsTaskManager taskManager;
     private final PhysicsQueryEngine queryEngine;
     private final ChunkTicketManager chunkTicketManager;
     private final TerrainAdapter terrainAdapter;
+
     private final PhysicsContactListener contactListener;
     private final WorldBoundaryManager boundaryManager;
+
     private final List<Body> staticBodies = new ArrayList<>();
     private final Set<Integer> systemStaticBodyIds = ConcurrentHashMap.newKeySet();
+
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     private final SnapshotPool snapshotPool;
     private final InertiaBodyActivationListener bodyActivationListener;
-
-    // --- CHANGED: Use Singleton NetworkEntityTracker ---
     private final NetworkEntityTracker networkEntityTracker;
-    private @Nullable BukkitTask networkTickTask;
+
+    // Removed: private @Nullable BukkitTask networkTickTask;
 
     public PhysicsWorld(World world,
                         WorldsConfig.WorldProfile settings,
@@ -83,22 +84,26 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.worldName = world.getName();
         this.settings = settings;
         this.origin = settings.size().origin();
+
         this.physicsSystem = physicsSystem;
         this.jobSystem = jobSystem;
         this.tempAllocator = tempAllocator;
         this.terrainAdapter = terrainAdapter;
+
         this.chunkTicketManager = new ChunkTicketManager(world);
         this.objectManager = new PhysicsObjectManager();
         this.taskManager = new PhysicsTaskManager();
         this.snapshotPool = new SnapshotPool();
-        this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
 
+        this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.networkEntityTracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
 
         this.contactListener = new PhysicsContactListener(objectManager);
         this.physicsSystem.setContactListener(contactListener);
+
         this.bodyActivationListener = new InertiaBodyActivationListener(objectManager);
         this.physicsSystem.setBodyActivationListener(bodyActivationListener);
+
         this.boundaryManager = new WorldBoundaryManager(this, settings.size());
         this.boundaryManager.createBoundaries();
 
@@ -112,9 +117,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 worldName,
                 settings.tickRate(),
                 settings.performance().maxBodies(),
-                this::runPhysicsStep,   // ASYNC
-                this::collectSnapshot,  // ASYNC
-                this::applySnapshot,    // SYNC (Main Thread)
+                this::runPhysicsStep,
+                this::collectSnapshot,
+                this::applySnapshot,
                 () -> physicsSystem.getNumActiveBodies(EBodyType.RigidBody),
                 physicsSystem::getNumBodies,
                 this::countStaticBodies
@@ -124,9 +129,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             this.physicsLoop.addListener(metricsService);
         }
 
-        // Tick network visibility independently of snapshot processing so renders don't vanish
-        // if the physics thread lags or stops producing snapshots.
-        this.networkTickTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), this::tickNetworkTracker, 1L, 1L);
+        // Removed: networkTickTask scheduling.
+        // The global tracker tick is now handled by InertiaPlugin main class.
     }
 
     private void runPhysicsStep() {
@@ -153,7 +157,6 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         for (AbstractPhysicsBody obj : allBodies) {
             if (!obj.isValid()) continue;
 
-            // Collect logic... (Bounds check, etc)
             int bodyId = obj.getBody().getId();
             RVec3 joltPos = bodyInterface.getCenterOfMassPosition(bodyId);
 
@@ -161,50 +164,46 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 toDestroy.add(obj);
                 continue;
             }
+
             if (sizeSettings.preventExit() && !boundaryManager.isInside(joltPos)) {
                 toDestroy.add(obj);
                 continue;
             }
 
-            // Chunk keys logic
             double worldX = joltPos.xx() + origin.xx();
             double worldZ = joltPos.zz() + origin.zz();
             int chunkX = (int) Math.floor(worldX) >> 4;
             int chunkZ = (int) Math.floor(worldZ) >> 4;
+
             bodiesChunkKeys.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
 
             if (obj instanceof DisplayedPhysicsBody displayed) {
-                // Capture visual state (Thread-safe read from Jolt)
                 displayed.captureSnapshot(updates, snapshotPool, origin);
             }
         }
+
         return new PhysicsSnapshot(updates, bodiesChunkKeys, toDestroy);
     }
 
-    /**
-     * Executes on the Main Server Thread
-     */
     private void applySnapshot(PhysicsSnapshot snapshot) {
-        // 1. Process Logic updates (Destroy bodies, load chunks)
         for (AbstractPhysicsBody body : snapshot.bodiesToDestroy()) {
             if (body.isValid()) {
                 schedulePhysicsTask(body::destroy);
             }
         }
+
         chunkTicketManager.updateTickets(snapshot.activeChunkKeys());
 
-        // 2. Update Network Tracker State (Update internal positions of visuals)
         if (snapshot.updates() != null) {
-            Location mutableLoc = new Location(worldBukkit, 0, 0, 0); // Reuse to avoid allocations
-
+            Location mutableLoc = new Location(worldBukkit, 0, 0, 0);
             for (VisualState state : snapshot.updates()) {
                 if (state.getVisual() != null) {
                     mutableLoc.setX(state.getPosition().x);
                     mutableLoc.setY(state.getPosition().y);
                     mutableLoc.setZ(state.getPosition().z);
-                    // Yaw/Pitch are usually derived from rotation quaternion if needed,
-                    // but for Display entities we pass the quaternion directly.
 
+                    // This only updates the internal state of the tracker (Zero-Allocation / Zero-IO)
+                    // The actual packets will be formed and sent in the global Flush phase.
                     networkEntityTracker.updateState(
                             state.getVisual(),
                             mutableLoc,
@@ -213,16 +212,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 }
             }
         }
-
-        // 3. Cleanup
         snapshot.release(snapshotPool);
     }
 
-    private void tickNetworkTracker() {
-        int viewDistanceBlocks = worldBukkit.getViewDistance() * 16;
-        double viewDistanceSquared = (double) viewDistanceBlocks * viewDistanceBlocks;
-        networkEntityTracker.tick(worldBukkit.getPlayers(), viewDistanceSquared);
-    }
     public boolean checkOverlap(@NotNull com.github.stephengold.joltjni.readonly.ConstShape shape,
                                 @NotNull RVec3 position,
                                 @NotNull Quat rotation) {
@@ -247,6 +239,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             return collector.hadHit();
         }
     }
+
+    // ... (rest of the methods: getters, toJolt, toBukkit, tasks, etc. remain unchanged)
 
     public RVec3 toJolt(Location location) {
         return new RVec3(
@@ -279,7 +273,6 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
     public WorldBoundaryManager getBoundaryManager() { return boundaryManager; }
 
-    // ... Copy remaining methods from Context to ensure no code loss ...
     public void createExplosion(@NotNull com.github.stephengold.joltjni.Vec3 originLocal, float force, float radius) {
         Location loc = new Location(worldBukkit, originLocal.getX() + origin.xx(), originLocal.getY() + origin.yy(), originLocal.getZ() + origin.zz());
         queryEngine.createExplosion(loc, force, radius);
@@ -288,6 +281,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     public List<RaycastResult> raycastEntity(@NotNull Location start, @NotNull Vector dir, double dist) {
         RaycastHit hit = queryEngine.raycast(start, dir, dist);
         if (hit == null) return Collections.emptyList();
+
         if (hit.body() instanceof AbstractPhysicsBody abstractBody) {
             long va = abstractBody.getBody().targetVa();
             Location hitLoc = hit.point().toLocation(worldBukkit);
@@ -306,9 +300,11 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     public @Nullable AbstractPhysicsBody getObjectByNetworkEntityId(int entityId) { return objectManager.getByNetworkEntityId(entityId); }
     public @Nullable AbstractPhysicsBody getObjectByUuid(UUID uuid) { return objectManager.getByUuid(uuid); }
     public @NotNull Collection<AbstractPhysicsBody> getObjects() { return objectManager.getAll(); }
+
     public UUID addTickTask(Runnable runnable) { return taskManager.addTickTask(runnable); }
     public void removeTickTask(UUID uuid) { taskManager.removeTickTask(uuid); }
     public void schedulePhysicsTask(Runnable task) { taskManager.schedule(task); }
+
     public boolean canSpawnBodies(int amount) { return physicsSystem.getNumBodies() + amount <= settings.performance().maxBodies(); }
 
     public void addConstraint(Constraint constraint) {
@@ -354,9 +350,11 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     public void onChunkUnload(int x, int z) {
         if (terrainAdapter != null) terrainAdapter.onChunkUnload(x, z);
     }
+
     public void onBlockChange(int x, int y, int z, org.bukkit.Material oldMaterial, org.bukkit.Material newMaterial) {
         if (terrainAdapter != null) terrainAdapter.onBlockChange(x, y, z, oldMaterial, newMaterial);
     }
+
     public void onChunkChange(int x, int z) {
         if (terrainAdapter != null) terrainAdapter.onChunkChange(x, z);
     }
@@ -364,12 +362,12 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     @Override
     public void close() {
         InertiaLogger.info("Closing world: " + worldName);
-        if (networkTickTask != null) {
-            networkTickTask.cancel();
-            networkTickTask = null;
-        }
+
+        // Removed networkTickTask cancellation logic as it's no longer used here.
+
         physicsLoop.stop();
         objectManager.clearAll();
+
         if (terrainAdapter != null) terrainAdapter.onDisable();
         if (boundaryManager != null) boundaryManager.destroyBoundaries();
 
@@ -380,6 +378,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         }
         staticBodies.clear();
         systemStaticBodyIds.clear();
+
         physicsSystem.destroyAllBodies();
 
         InertiaPlugin plugin = InertiaPlugin.getInstance();
@@ -390,13 +389,13 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         }
     }
 
-    // Getters
     public PhysicsSystem getPhysicsSystem() { return physicsSystem; }
     public BodyInterface getBodyInterface() { return physicsSystem.getBodyInterface(); }
     public WorldsConfig.WorldProfile getSettings() { return settings; }
     public void registerSystemStaticBody(int bodyId) { systemStaticBodyIds.add(bodyId); }
     public void unregisterSystemStaticBody(int bodyId) { systemStaticBodyIds.remove(bodyId); }
     public Set<Integer> getSystemStaticBodyIds() { return Collections.unmodifiableSet(systemStaticBodyIds); }
+
     private int countStaticBodies() {
         int count = systemStaticBodyIds.size();
         for (AbstractPhysicsBody obj : objectManager.getAll()) {
@@ -404,10 +403,13 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         }
         return count;
     }
+
     public World getWorldBukkit() { return worldBukkit; }
+
     public @Nullable ConstBody getBodyById(int id) {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
     }
+
     @Override public @NotNull World getBukkitWorld() { return worldBukkit; }
     @Override public void setSimulationPaused(boolean paused) { this.isPaused.set(paused); }
     @Override public boolean isSimulationPaused() { return isPaused.get(); }

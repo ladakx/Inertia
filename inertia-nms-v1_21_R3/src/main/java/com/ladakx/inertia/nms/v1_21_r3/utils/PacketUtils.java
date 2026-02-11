@@ -4,7 +4,6 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ServerPlayer;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
-
 import java.util.List;
 
 public final class PacketUtils {
@@ -19,6 +18,7 @@ public final class PacketUtils {
     }
 
     public static void send(Player player, List<Object> packets) {
+        if (packets == null || packets.isEmpty()) return;
         if (player instanceof CraftPlayer craftPlayer) {
             ServerPlayer serverPlayer = craftPlayer.getHandle();
             for (Object packet : packets) {
