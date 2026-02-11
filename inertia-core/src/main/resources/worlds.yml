@@ -40,6 +40,9 @@ world:
       # MeshShape - триангулированный меш
       # CompoundShape - составная форма из AABB-частей greedy mesh
       shape-type: CompoundShape
+      # Fast-path читает блоки напрямую из секций без ChunkSnapshot.
+      # Отключите для быстрого rollback на legacy путь.
+      fast-chunk-capture: true
 
     # Настройки для режима FLOOR_PLANE
     floor-plane:
