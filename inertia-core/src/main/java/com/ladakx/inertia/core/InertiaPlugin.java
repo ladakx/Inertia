@@ -176,6 +176,7 @@ public final class InertiaPlugin extends JavaPlugin {
 
         if (physicsWorldRegistry != null) physicsWorldRegistry.shutdown();
         if (physicsEngine != null) physicsEngine.shutdown();
+        if (bodyFactory != null) bodyFactory.shutdown();
 
         if (networkEntityTracker != null) networkEntityTracker.clear();
 

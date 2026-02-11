@@ -24,6 +24,32 @@ physics:
     memory-ttl-seconds: 900
     # TTL "холодного" disk cache в секундах (0 отключает истечение).
     disk-ttl-seconds: 7200
+  mass-spawn:
+    # Мінімальний бюджет spawn-операцій за тик.
+    min-budget-per-tick: 50
+    # Базовий бюджет spawn-операцій за тик.
+    base-budget-per-tick: 100
+    # Максимальний бюджет spawn-операцій за тик.
+    max-budget-per-tick: 200
+    # Бюджет у warmup-режимі (перші warmup-ticks).
+    warmup-budget-per-tick: 50
+    # Кількість початкових тіків із зниженим бюджетом.
+    warmup-ticks: 40
+    # Крок збільшення бюджету при стабільному TPS.
+    budget-increase-step: 10
+    # Крок зменшення бюджету при просіданні TPS.
+    budget-decrease-step: 20
+    # Поріг TPS, який вважається стабільним.
+    stable-tps-threshold: 19.2
+    # Скільки стабільних тіків потрібно для підвищення бюджету.
+    stable-ticks-to-increase-budget: 40
+    # Ліміт одночасних масових spawn-job на один світ.
+    max-concurrent-jobs-per-world: 2
+    # Ліміт одночасних масових spawn-job на одного гравця.
+    max-concurrent-jobs-per-player: 1
+    # Додатковий ліміт кількості spawn в межах одного job за тик.
+    max-spawns-per-job-per-tick: 200
+
 
 rendering:
   network-entity-tracker:
