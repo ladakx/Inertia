@@ -44,7 +44,11 @@ public final class RenderNetworkBudgetScheduler {
     }
 
     public void enqueueSpawn(Runnable task) {
-        spawnQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
+        enqueueSpawn(task, null, -1L);
+    }
+
+    public void enqueueSpawn(Runnable task, Integer visualId, long tokenVersion) {
+        spawnQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), visualId, tokenVersion));
     }
 
     public void enqueueVisibility(Runnable task) {
@@ -52,11 +56,15 @@ public final class RenderNetworkBudgetScheduler {
     }
 
     public void enqueueMetadata(Runnable task) {
-        metadataQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
+        enqueueMetadata(task, null, -1L);
+    }
+
+    public void enqueueMetadata(Runnable task, Integer visualId, long tokenVersion) {
+        metadataQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), visualId, tokenVersion));
     }
 
     public void enqueueDestroy(Runnable task) {
-        destroyQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
+        destroyQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), null, -1L));
     }
 
     public void enqueueMetadataCoalesced(int visualId, Runnable task) {
@@ -72,7 +80,22 @@ public final class RenderNetworkBudgetScheduler {
             }
         }
 
-        metadataQueue.addLast(new ScheduledTask(task, System.nanoTime(), visualId));
+        metadataQueue.addLast(new ScheduledTask(task, System.nanoTime(), visualId, -1L));
+    }
+
+    public void invalidateVisual(int visualId, long activeTokenVersion) {
+        removeStaleForVisual(spawnQueue, visualId, activeTokenVersion);
+        removeStaleForVisual(metadataQueue, visualId, activeTokenVersion);
+    }
+
+    public void invalidateVisuals(int[] visualIds, java.util.function.IntToLongFunction activeTokenProvider) {
+        if (visualIds == null || visualIds.length == 0 || activeTokenProvider == null) {
+            return;
+        }
+        for (int visualId : visualIds) {
+            long activeToken = activeTokenProvider.applyAsLong(visualId);
+            invalidateVisual(visualId, activeToken);
+        }
     }
 
     public void runTick(Collection<? extends Player> players) {
@@ -242,6 +265,19 @@ public final class RenderNetworkBudgetScheduler {
         return Math.max(0L, now - first.enqueuedAtNanos);
     }
 
+    private void removeStaleForVisual(ArrayDeque<ScheduledTask> queue, int visualId, long activeTokenVersion) {
+        Iterator<ScheduledTask> iterator = queue.iterator();
+        while (iterator.hasNext()) {
+            ScheduledTask task = iterator.next();
+            if (task.visualId == null || task.visualId != visualId) {
+                continue;
+            }
+            if (task.tokenVersion >= 0L && task.tokenVersion != activeTokenVersion) {
+                iterator.remove();
+            }
+        }
+    }
+
     public double getLastSecondaryScale() {
         return lastSecondaryScale;
     }
@@ -258,15 +294,17 @@ public final class RenderNetworkBudgetScheduler {
         private final Runnable runnable;
         private final long enqueuedAtNanos;
         private final Integer visualId;
+        private final long tokenVersion;
 
         private ScheduledTask(Runnable runnable, long enqueuedAtNanos) {
-            this(runnable, enqueuedAtNanos, null);
+            this(runnable, enqueuedAtNanos, null, -1L);
         }
 
-        private ScheduledTask(Runnable runnable, long enqueuedAtNanos, Integer visualId) {
+        private ScheduledTask(Runnable runnable, long enqueuedAtNanos, Integer visualId, long tokenVersion) {
             this.runnable = runnable;
             this.enqueuedAtNanos = enqueuedAtNanos;
             this.visualId = visualId;
+            this.tokenVersion = tokenVersion;
         }
     }
 }

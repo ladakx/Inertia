@@ -22,6 +22,7 @@ public class NetworkEntityTracker {
     private static final long DEFAULT_TOMBSTONE_TTL_TICKS = 3L;
 
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
+    private final Map<Integer, Long> visualTokenVersions = new ConcurrentHashMap<>();
     private final Map<Integer, Long> visualTombstones = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerTrackingState> playerTrackingStates = new ConcurrentHashMap<>();
     private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
@@ -130,6 +131,7 @@ public class NetworkEntityTracker {
         Objects.requireNonNull(rotation, "rotation");
 
         clearTombstone(visual.getId());
+        bumpVisualToken(visual.getId());
 
         TrackedVisual tracked = new TrackedVisual(visual, location.clone(), new Quaternionf(rotation));
         visualsById.put(visual.getId(), tracked);
@@ -157,6 +159,9 @@ public class NetworkEntityTracker {
             if (id == null) {
                 continue;
             }
+
+            long activeTokenVersion = invalidateVisualQueues(id.intValue());
+            networkScheduler.invalidateVisual(id.intValue(), activeTokenVersion);
 
             TrackedVisual tracked = visualsById.remove(id);
             if (tracked == null) {
@@ -398,8 +403,11 @@ public class NetworkEntityTracker {
                     if (trackingState.addVisible(id)) {
                         Location spawnLoc = tracked.location().clone();
                         Quaternionf spawnRot = new Quaternionf(tracked.rotation());
+                        long tokenVersion = currentVisualToken(id);
                         networkScheduler.enqueueSpawn(() ->
-                                bufferPacket(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN)
+                                bufferPacket(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN,
+                                        tracked.visual().getId(), false, false, -1L, tokenVersion)
+                        , tracked.visual().getId(), tokenVersion
                         );
                         tracked.markSent(player);
                     }
@@ -487,14 +495,17 @@ public class NetworkEntityTracker {
 
                 Object positionPacket = updateDecision.positionSent() ? tracked.getPendingPositionPacket() : null;
                 if (positionPacket != null) {
-                    bufferPacket(playerId, positionPacket, PacketPriority.TELEPORT, tracked.visual().getId(), true, false);
+                    long tokenVersion = currentVisualToken(tracked.visual().getId());
+                    bufferPacket(playerId, positionPacket, PacketPriority.TELEPORT, tracked.visual().getId(), true, false, -1L, tokenVersion);
                     tracked.markSent(player);
                 }
 
                 Object transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
                 if (transformMetaPacket != null) {
+                    long tokenVersion = currentVisualToken(tracked.visual().getId());
                     networkScheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
-                            () -> bufferPacket(playerId, transformMetaPacket, PacketPriority.METADATA, tracked.visual().getId(), false, updateDecision.transformMetadataForced()));
+                            () -> bufferPacket(playerId, transformMetaPacket, PacketPriority.METADATA, tracked.visual().getId(), false,
+                                    updateDecision.transformMetadataForced(), -1L, tokenVersion));
                 }
 
                 PendingMetadata meta = tracked.getPendingMetaPacket();
@@ -507,8 +518,10 @@ public class NetworkEntityTracker {
                                 lodSkippedMetadataUpdates.incrementAndGet();
                             }
                         } else {
+                            long tokenVersion = currentVisualToken(tracked.visual().getId());
                             networkScheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
-                                    () -> bufferPacket(playerId, meta.packet(), PacketPriority.METADATA, tracked.visual().getId(), false, meta.critical()));
+                                    () -> bufferPacket(playerId, meta.packet(), PacketPriority.METADATA, tracked.visual().getId(), false,
+                                            meta.critical(), -1L, tokenVersion));
                         }
                     } else {
                         lodSkippedMetadataUpdates.incrementAndGet();
@@ -530,22 +543,38 @@ public class NetworkEntityTracker {
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority) {
-        bufferPacket(playerId, packet, priority, null, false, false, -1L);
+        bufferPacket(playerId, packet, priority, null, false, false, -1L, -1L);
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority, long destroyRegisteredAtTick) {
-        bufferPacket(playerId, packet, priority, null, false, false, destroyRegisteredAtTick);
+        bufferPacket(playerId, packet, priority, null, false, false, destroyRegisteredAtTick, -1L);
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority, Integer visualId, boolean canCoalesce, boolean criticalMetadata) {
-        bufferPacket(playerId, packet, priority, visualId, canCoalesce, criticalMetadata, -1L);
+        bufferPacket(playerId, packet, priority, visualId, canCoalesce, criticalMetadata, -1L, -1L);
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority, Integer visualId, boolean canCoalesce, boolean criticalMetadata, long destroyRegisteredAtTick) {
+        bufferPacket(playerId, packet, priority, visualId, canCoalesce, criticalMetadata, destroyRegisteredAtTick, -1L);
+    }
+
+    private void bufferPacket(UUID playerId,
+                              Object packet,
+                              PacketPriority priority,
+                              Integer visualId,
+                              boolean canCoalesce,
+                              boolean criticalMetadata,
+                              long destroyRegisteredAtTick,
+                              long tokenVersion) {
         if (packet == null) return;
+        if (!isTokenCurrent(visualId, tokenVersion)) {
+            droppedPackets.incrementAndGet();
+            return;
+        }
         int estimatedBytes = Math.max(1, packetFactory.estimatePacketSizeBytes(packet));
         int coalesced = packetBuffer.computeIfAbsent(playerId, k -> new PlayerPacketQueue())
-                .add(new QueuedPacket(packet, priority, estimatedBytes, visualId, canCoalesce, criticalMetadata, System.nanoTime(), destroyRegisteredAtTick));
+                .add(new QueuedPacket(packet, priority, estimatedBytes, visualId, canCoalesce, criticalMetadata,
+                        System.nanoTime(), destroyRegisteredAtTick, tokenVersion), this::isTokenCurrent);
         if (coalesced > 0) {
             coalescedUpdates.addAndGet(coalesced);
         }
@@ -591,6 +620,11 @@ public class NetworkEntityTracker {
             while (sentPackets < maxPacketsWithDestroyBurst) {
                 QueuedPacket next = queue.peek();
                 if (next == null) break;
+                if (!isTokenCurrent(next.visualId(), next.tokenVersion())) {
+                    queue.poll();
+                    droppedPackets.incrementAndGet();
+                    continue;
+                }
 
                 boolean isDestroyPacket = next.priority() == PacketPriority.DESTROY;
                 boolean allowDestroyPacketBurst = isDestroyPacket && (destroyDrainFastPathActive || massDestroyBudgetBoost);
@@ -604,6 +638,10 @@ public class NetworkEntityTracker {
 
                 QueuedPacket polled = queue.poll();
                 if (polled == null) break;
+                if (!isTokenCurrent(polled.visualId(), polled.tokenVersion())) {
+                    droppedPackets.incrementAndGet();
+                    continue;
+                }
 
                 packetsToSend.add(polled.packet());
                 sentPackets++;
@@ -767,6 +805,7 @@ public class NetworkEntityTracker {
         destroyBacklogAgeMillis = 0L;
         massDestroyBoostTicksRemaining = 0;
         packetBuffer.clear();
+        visualTokenVersions.clear();
         networkScheduler.clear();
     }
 
@@ -803,6 +842,7 @@ public class NetworkEntityTracker {
             }
 
             networkScheduler.enqueueDestroy(() -> {
+                preFlushBeforeBulkDestroy(playerId, idArray);
                 try {
                     bufferPacket(playerId, packetFactory.createDestroyPacket(idArray), PacketPriority.DESTROY, registeredAtTick);
                 } catch (Throwable ignored) {
@@ -894,7 +934,45 @@ public class NetworkEntityTracker {
                                 boolean coalescible,
                                 boolean criticalMetadata,
                                 long enqueuedAtNanos,
-                                long destroyRegisteredAtTick) {}
+                                long destroyRegisteredAtTick,
+                                long tokenVersion) {}
+
+    private long bumpVisualToken(int visualId) {
+        return visualTokenVersions.merge(visualId, 1L, Long::sum);
+    }
+
+    private long currentVisualToken(int visualId) {
+        return visualTokenVersions.getOrDefault(visualId, 0L);
+    }
+
+    private long invalidateVisualQueues(int visualId) {
+        long activeToken = bumpVisualToken(visualId);
+        for (PlayerPacketQueue queue : packetBuffer.values()) {
+            if (queue == null) {
+                continue;
+            }
+            queue.invalidateVisual(visualId, activeToken);
+        }
+        return activeToken;
+    }
+
+    private boolean isTokenCurrent(Integer visualId, long tokenVersion) {
+        if (visualId == null || tokenVersion < 0L) {
+            return true;
+        }
+        return currentVisualToken(visualId.intValue()) == tokenVersion;
+    }
+
+    private void preFlushBeforeBulkDestroy(UUID playerId, int[] visualIds) {
+        if (visualIds == null || visualIds.length == 0) {
+            return;
+        }
+        PlayerPacketQueue queue = packetBuffer.get(playerId);
+        if (queue != null) {
+            queue.pruneBeforeBulkDestroy(visualIds);
+        }
+        networkScheduler.invalidateVisuals(visualIds, this::currentVisualToken);
+    }
 
     private static final class PendingDestroyState {
         private final IntOpenHashSet ids = new IntOpenHashSet();
@@ -938,8 +1016,15 @@ public class NetworkEntityTracker {
             byPriority.put(PacketPriority.METADATA, new ArrayDeque<>());
         }
 
-        public int add(QueuedPacket packet) {
+        public int add(QueuedPacket packet, java.util.function.BiPredicate<Integer, Long> tokenValidator) {
             int coalesced = 0;
+            if (packet == null) {
+                return 0;
+            }
+            if (packet.visualId() != null && packet.tokenVersion() >= 0L && tokenValidator != null
+                    && !tokenValidator.test(packet.visualId(), packet.tokenVersion())) {
+                return 0;
+            }
             if (packet.priority() == PacketPriority.TELEPORT && packet.coalescible() && packet.visualId() != null) {
                 QueuedPacket previous = lastTeleportByVisualId.put(packet.visualId(), packet);
                 if (previous != null && byPriority.get(PacketPriority.TELEPORT).remove(previous)) {
@@ -990,6 +1075,64 @@ public class NetworkEntityTracker {
         public void clear() {
             byPriority.values().forEach(ArrayDeque::clear);
             lastTeleportByVisualId.clear();
+        }
+
+        public void invalidateVisual(int visualId, long activeTokenVersion) {
+            pruneQueue(PacketPriority.SPAWN, visualId, activeTokenVersion);
+            pruneQueue(PacketPriority.TELEPORT, visualId, activeTokenVersion);
+            pruneQueue(PacketPriority.METADATA, visualId, activeTokenVersion);
+        }
+
+        public void pruneBeforeBulkDestroy(int[] visualIds) {
+            if (visualIds == null || visualIds.length == 0) {
+                return;
+            }
+            IntOpenHashSet set = new IntOpenHashSet(visualIds.length);
+            for (int visualId : visualIds) {
+                set.add(visualId);
+            }
+            pruneQueue(PacketPriority.SPAWN, set);
+            pruneQueue(PacketPriority.TELEPORT, set);
+            pruneQueue(PacketPriority.METADATA, set);
+        }
+
+        private void pruneQueue(PacketPriority priority, int visualId, long activeTokenVersion) {
+            ArrayDeque<QueuedPacket> queue = byPriority.get(priority);
+            if (queue == null || queue.isEmpty()) {
+                return;
+            }
+            Iterator<QueuedPacket> iterator = queue.iterator();
+            while (iterator.hasNext()) {
+                QueuedPacket packet = iterator.next();
+                if (packet.visualId() == null || packet.visualId() != visualId) {
+                    continue;
+                }
+                if (packet.tokenVersion() >= 0L && packet.tokenVersion() != activeTokenVersion) {
+                    iterator.remove();
+                    if (priority == PacketPriority.TELEPORT) {
+                        lastTeleportByVisualId.remove(visualId, packet);
+                    }
+                }
+            }
+        }
+
+        private void pruneQueue(PacketPriority priority, IntOpenHashSet visualIds) {
+            ArrayDeque<QueuedPacket> queue = byPriority.get(priority);
+            if (queue == null || queue.isEmpty()) {
+                return;
+            }
+            Iterator<QueuedPacket> iterator = queue.iterator();
+            while (iterator.hasNext()) {
+                QueuedPacket packet = iterator.next();
+                Integer visualId = packet.visualId();
+                if (visualId == null || !visualIds.contains(visualId.intValue())) {
+                    continue;
+                }
+                iterator.remove();
+                if (priority == PacketPriority.TELEPORT) {
+                    lastTeleportByVisualId.remove(visualId, packet);
+                }
+            }
         }
     }
 
