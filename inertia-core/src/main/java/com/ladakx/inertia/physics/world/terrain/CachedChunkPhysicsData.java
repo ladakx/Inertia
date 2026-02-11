@@ -2,10 +2,15 @@ package com.ladakx.inertia.physics.world.terrain;
 
 import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
 
-public record CachedChunkPhysicsData(GreedyMeshData meshData, long[] sectionFingerprints) {
+public record CachedChunkPhysicsData(GreedyMeshData meshData, long[] sectionFingerprints) implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     public CachedChunkPhysicsData {
         Objects.requireNonNull(meshData, "meshData");
