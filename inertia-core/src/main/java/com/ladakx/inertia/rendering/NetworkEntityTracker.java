@@ -22,6 +22,7 @@ public class NetworkEntityTracker {
     private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
 
     private final Map<UUID, PlayerPacketQueue> packetBuffer = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<Integer>> pendingDestroyIds = new ConcurrentHashMap<>();
 
     // Default values matched with InertiaConfig defaults (0.01^2 and 0.3)
     private volatile float posThresholdSq = 0.0001f;
@@ -75,22 +76,51 @@ public class NetworkEntityTracker {
     }
 
     public void unregisterById(int id) {
-        TrackedVisual tracked = visualsById.remove(id);
-        if (tracked != null) {
+        unregisterBatch(Collections.singleton(id));
+    }
+
+    public void unregisterBatch(@NotNull Collection<Integer> ids) {
+        Objects.requireNonNull(ids, "ids");
+        if (ids.isEmpty()) {
+            return;
+        }
+
+        LinkedHashSet<Integer> removedIds = new LinkedHashSet<>();
+
+        for (Integer id : ids) {
+            if (id == null) {
+                continue;
+            }
+
+            TrackedVisual tracked = visualsById.remove(id);
+            if (tracked == null) {
+                continue;
+            }
+
             removeFromGrid(id, tracked.location());
-            NetworkVisual visual = tracked.visual();
+            removedIds.add(id);
+        }
 
-            Object destroyPacket = visual.createDestroyPacket();
+        if (removedIds.isEmpty()) {
+            return;
+        }
 
-            Iterator<Map.Entry<UUID, PlayerTrackingState>> it = playerTrackingStates.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<UUID, PlayerTrackingState> entry = it.next();
-                if (entry.getValue().visibleIds().remove(id)) {
-                    Player player = Bukkit.getPlayer(entry.getKey());
-                    if (player != null) {
-                        packetFactory.sendPacket(player, destroyPacket);
+        for (Map.Entry<UUID, PlayerTrackingState> entry : playerTrackingStates.entrySet()) {
+            UUID playerId = entry.getKey();
+            Set<Integer> visible = entry.getValue().visibleIds();
+
+            LinkedHashSet<Integer> hiddenForPlayer = null;
+            for (Integer removedId : removedIds) {
+                if (visible.remove(removedId)) {
+                    if (hiddenForPlayer == null) {
+                        hiddenForPlayer = new LinkedHashSet<>();
                     }
+                    hiddenForPlayer.add(removedId);
                 }
+            }
+
+            if (hiddenForPlayer != null && !hiddenForPlayer.isEmpty()) {
+                pendingDestroyIds.computeIfAbsent(playerId, ignored -> ConcurrentHashMap.newKeySet()).addAll(hiddenForPlayer);
             }
         }
     }
@@ -224,6 +254,8 @@ public class NetworkEntityTracker {
     private void flushPackets() {
         if (packetFactory == null) return;
 
+        enqueuePendingDestroyPackets();
+
         long totalSent = 0;
         int onlinePlayersWithPackets = 0;
         int tickPeak = 0;
@@ -306,6 +338,7 @@ public class NetworkEntityTracker {
 
     public void removePlayer(Player player) {
         UUID uuid = player.getUniqueId();
+        pendingDestroyIds.remove(uuid);
         packetBuffer.remove(uuid);
         PlayerTrackingState trackingState = playerTrackingStates.remove(uuid);
         Set<Integer> visible = trackingState != null ? trackingState.visibleIds() : null;
@@ -323,7 +356,44 @@ public class NetworkEntityTracker {
         visualsById.clear();
         playerTrackingStates.clear();
         chunkGrid.clear();
+        pendingDestroyIds.clear();
         packetBuffer.clear();
+    }
+
+    private void enqueuePendingDestroyPackets() {
+        if (pendingDestroyIds.isEmpty()) {
+            return;
+        }
+
+        Iterator<Map.Entry<UUID, Set<Integer>>> iterator = pendingDestroyIds.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, Set<Integer>> entry = iterator.next();
+            UUID playerId = entry.getKey();
+            Set<Integer> ids = entry.getValue();
+            iterator.remove();
+
+            if (ids == null || ids.isEmpty()) {
+                continue;
+            }
+
+            int[] idArray = ids.stream().mapToInt(Integer::intValue).toArray();
+            if (idArray.length == 0) {
+                continue;
+            }
+
+            if (idArray.length == 1) {
+                bufferPacket(playerId, packetFactory.createDestroyPacket(idArray[0]), PacketPriority.SPAWN_DESTROY);
+                continue;
+            }
+
+            try {
+                bufferPacket(playerId, packetFactory.createDestroyPacket(idArray), PacketPriority.SPAWN_DESTROY);
+            } catch (Throwable ignored) {
+                for (int id : idArray) {
+                    bufferPacket(playerId, packetFactory.createDestroyPacket(id), PacketPriority.SPAWN_DESTROY);
+                }
+            }
+        }
     }
 
     private enum PacketPriority {
