@@ -3,6 +3,9 @@ package com.ladakx.inertia.physics.world.terrain.impl;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
+import com.ladakx.inertia.api.body.MotionType;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.BlocksConfig;
@@ -141,6 +144,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
         if (!loadedChunks.contains(key)) return;
 
+        activateDynamicBodiesInChunk(chunkX, chunkZ);
+
         chunkPhysicsManager.invalidate(chunkX, chunkZ);
 
         BukkitTask existing = pendingUpdates.get(key);
@@ -161,6 +166,8 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         if (world == null || chunkPhysicsManager == null) return;
         long key = ChunkUtils.getChunkKey(x, z);
         if (!loadedChunks.contains(key)) return;
+
+        activateDynamicBodiesInChunk(x, z);
 
         chunkPhysicsManager.invalidate(x, z);
         BukkitTask pending = pendingUpdates.remove(key);
@@ -195,6 +202,31 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                     }
                 }
         );
+    }
+
+    private void activateDynamicBodiesInChunk(int chunkX, int chunkZ) {
+        if (world == null) {
+            return;
+        }
+
+        world.schedulePhysicsTask(() -> {
+            for (InertiaPhysicsBody body : world.getBodies()) {
+                if (!(body instanceof AbstractPhysicsBody physicsBody)) {
+                    continue;
+                }
+                if (!physicsBody.isValid() || physicsBody.getMotionType() != MotionType.DYNAMIC) {
+                    continue;
+                }
+
+                RVec3 position = physicsBody.getBody().getPosition();
+                int bodyChunkX = ((int) Math.floor(position.xx() + world.getOrigin().xx())) >> 4;
+                int bodyChunkZ = ((int) Math.floor(position.zz() + world.getOrigin().zz())) >> 4;
+
+                if (bodyChunkX == chunkX && bodyChunkZ == chunkZ) {
+                    physicsBody.activate();
+                }
+            }
+        });
     }
 
     private void enqueueMeshData(int x, int z, GreedyMeshData data) {
