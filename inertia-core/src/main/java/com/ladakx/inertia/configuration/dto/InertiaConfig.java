@@ -125,6 +125,8 @@ public class InertiaConfig {
             public final float rotThresholdDot;
             public final int maxVisibilityUpdatesPerPlayerPerTick;
             public final int fullRecalcIntervalTicks;
+            public final int maxPacketsPerPlayerPerTick;
+            public final int maxBytesPerPlayerPerTick;
 
             public NetworkEntityTrackerSettings(ConfigurationSection section, FileConfiguration root) {
                 // Defaults are aligned with previous hardcoded values in NetworkEntityTracker
@@ -151,6 +153,18 @@ public class InertiaConfig {
                         ? section.getInt("full-recalc-interval-ticks", defaultFullRecalcIntervalTicks)
                         : defaultFullRecalcIntervalTicks;
                 this.fullRecalcIntervalTicks = Math.max(1, configuredFullRecalcIntervalTicks);
+
+                int defaultMaxPacketsPerPlayerPerTick = 256;
+                int configuredMaxPacketsPerPlayerPerTick = section != null
+                        ? section.getInt("max-packets-per-player-per-tick", defaultMaxPacketsPerPlayerPerTick)
+                        : defaultMaxPacketsPerPlayerPerTick;
+                this.maxPacketsPerPlayerPerTick = Math.max(1, configuredMaxPacketsPerPlayerPerTick);
+
+                int defaultMaxBytesPerPlayerPerTick = 98304;
+                int configuredMaxBytesPerPlayerPerTick = section != null
+                        ? section.getInt("max-bytes-per-player-per-tick", defaultMaxBytesPerPlayerPerTick)
+                        : defaultMaxBytesPerPlayerPerTick;
+                this.maxBytesPerPlayerPerTick = Math.max(1, configuredMaxBytesPerPlayerPerTick);
             }
         }
     }

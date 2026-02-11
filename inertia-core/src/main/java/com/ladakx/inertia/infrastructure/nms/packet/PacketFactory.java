@@ -44,4 +44,11 @@ public interface PacketFactory {
      * Implementation should handle bundling if supported, or sequential sending otherwise.
      */
     void sendBundle(Player player, List<Object> packets);
+
+    /**
+     * Approximate packet size in bytes for per-player network budget accounting.
+     */
+    default int estimatePacketSizeBytes(Object packet) {
+        return 256;
+    }
 }
