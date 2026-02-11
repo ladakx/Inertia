@@ -171,6 +171,12 @@ public class InertiaConfig {
             public final int fullRecalcIntervalTicks;
             public final int maxPacketsPerPlayerPerTick;
             public final int maxBytesPerPlayerPerTick;
+            public final long maxWorkNanosPerTick;
+            public final double secondaryBudgetMinScale;
+            public final double adaptiveTpsSoftThreshold;
+            public final double adaptiveTpsHardThreshold;
+            public final int adaptivePingSoftThresholdMs;
+            public final int adaptivePingHardThresholdMs;
 
             public NetworkEntityTrackerSettings(ConfigurationSection section, FileConfiguration root) {
                 // Defaults are aligned with previous hardcoded values in NetworkEntityTracker
@@ -257,6 +263,41 @@ public class InertiaConfig {
                         ? section.getInt("max-bytes-per-player-per-tick", defaultMaxBytesPerPlayerPerTick)
                         : defaultMaxBytesPerPlayerPerTick;
                 this.maxBytesPerPlayerPerTick = Math.max(1, configuredMaxBytesPerPlayerPerTick);
+
+                long defaultMaxWorkNanosPerTick = 2_000_000L;
+                long configuredMaxWorkNanosPerTick = section != null
+                        ? section.getLong("max-work-nanos-per-tick", defaultMaxWorkNanosPerTick)
+                        : defaultMaxWorkNanosPerTick;
+                this.maxWorkNanosPerTick = Math.max(100_000L, configuredMaxWorkNanosPerTick);
+
+                double defaultSecondaryBudgetMinScale = 0.25D;
+                double configuredSecondaryBudgetMinScale = section != null
+                        ? section.getDouble("secondary-budget-min-scale", defaultSecondaryBudgetMinScale)
+                        : defaultSecondaryBudgetMinScale;
+                this.secondaryBudgetMinScale = Math.max(0.05D, Math.min(1.0D, configuredSecondaryBudgetMinScale));
+
+                double defaultAdaptiveTpsSoftThreshold = 19.2D;
+                this.adaptiveTpsSoftThreshold = section != null
+                        ? section.getDouble("adaptive-tps-soft-threshold", defaultAdaptiveTpsSoftThreshold)
+                        : defaultAdaptiveTpsSoftThreshold;
+
+                double defaultAdaptiveTpsHardThreshold = 17.0D;
+                double configuredAdaptiveTpsHardThreshold = section != null
+                        ? section.getDouble("adaptive-tps-hard-threshold", defaultAdaptiveTpsHardThreshold)
+                        : defaultAdaptiveTpsHardThreshold;
+                this.adaptiveTpsHardThreshold = Math.max(1.0D, Math.min(configuredAdaptiveTpsHardThreshold, this.adaptiveTpsSoftThreshold));
+
+                int defaultAdaptivePingSoftThresholdMs = 120;
+                int configuredAdaptivePingSoftThresholdMs = section != null
+                        ? section.getInt("adaptive-ping-soft-threshold-ms", defaultAdaptivePingSoftThresholdMs)
+                        : defaultAdaptivePingSoftThresholdMs;
+                this.adaptivePingSoftThresholdMs = Math.max(1, configuredAdaptivePingSoftThresholdMs);
+
+                int defaultAdaptivePingHardThresholdMs = 220;
+                int configuredAdaptivePingHardThresholdMs = section != null
+                        ? section.getInt("adaptive-ping-hard-threshold-ms", defaultAdaptivePingHardThresholdMs)
+                        : defaultAdaptivePingHardThresholdMs;
+                this.adaptivePingHardThresholdMs = Math.max(this.adaptivePingSoftThresholdMs, configuredAdaptivePingHardThresholdMs);
             }
         }
     }

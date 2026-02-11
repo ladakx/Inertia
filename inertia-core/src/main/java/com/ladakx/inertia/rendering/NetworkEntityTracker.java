@@ -51,6 +51,7 @@ public class NetworkEntityTracker {
     private final AtomicLong lodSkippedMetadataUpdates = new AtomicLong(0);
 
     private final PacketFactory packetFactory;
+    private final RenderNetworkBudgetScheduler networkScheduler = new RenderNetworkBudgetScheduler();
 
     public NetworkEntityTracker(PacketFactory packetFactory) {
         this.packetFactory = packetFactory;
@@ -78,6 +79,25 @@ public class NetworkEntityTracker {
         this.fullRecalcIntervalTicks = settings.fullRecalcIntervalTicks;
         this.maxPacketsPerPlayerPerTick = settings.maxPacketsPerPlayerPerTick;
         this.maxBytesPerPlayerPerTick = settings.maxBytesPerPlayerPerTick;
+        this.networkScheduler.applySettings(settings);
+    }
+
+    public record VisualRegistration(NetworkVisual visual, Location location, Quaternionf rotation) {
+        public VisualRegistration {
+            Objects.requireNonNull(visual, "visual");
+            Objects.requireNonNull(location, "location");
+            Objects.requireNonNull(rotation, "rotation");
+        }
+    }
+
+    public void registerBatch(@NotNull Collection<VisualRegistration> registrations) {
+        Objects.requireNonNull(registrations, "registrations");
+        for (VisualRegistration registration : registrations) {
+            if (registration == null) {
+                continue;
+            }
+            register(registration.visual(), registration.location(), registration.rotation());
+        }
     }
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
@@ -172,19 +192,18 @@ public class NetworkEntityTracker {
     public void tick(@NotNull Collection<? extends Player> players, double viewDistanceSquared) {
         tickCounter++;
 
-        // Phase 1: Pre-calculate shared packets for all dirty entities
         for (TrackedVisual tracked : visualsById.values()) {
             tracked.beginTick();
         }
 
+        enqueuePendingDestroyTasks();
+
         int viewDistanceChunks = (int) Math.ceil(Math.sqrt(viewDistanceSquared) / 16.0);
 
-        // Phase 2: Visibility & Queueing
         for (Player player : players) {
             if (player == null || !player.isOnline()) continue;
             UUID playerId = player.getUniqueId();
             PlayerTrackingState trackingState = playerTrackingStates.computeIfAbsent(playerId, k -> new PlayerTrackingState());
-            Set<Integer> visible = trackingState.visibleIds();
 
             Location playerLoc = player.getLocation();
             int pChunkX = playerLoc.getBlockX() >> 4;
@@ -210,11 +229,47 @@ public class NetworkEntityTracker {
                 trackingState.rebuildWorkQueue();
             }
 
+            enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared);
+        }
+
+        playerTrackingStates.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
+
+        networkScheduler.runTick(players);
+
+        flushPackets();
+    }
+
+    private void enqueueVisibilitySlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
+        if (!trackingState.tryMarkVisibilityTaskQueued()) {
+            return;
+        }
+        networkScheduler.enqueueVisibility(() -> runVisibilitySlice(playerId, trackingState, viewDistanceSquared));
+    }
+
+    private void runVisibilitySlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
+        try {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null || !player.isOnline()) {
+                trackingState.visibleIds().clear();
+                return;
+            }
+
+            Location playerLoc = player.getLocation();
+            World playerWorld = playerLoc.getWorld();
+            if (playerWorld == null) {
+                return;
+            }
+            UUID playerWorldId = playerWorld.getUID();
+
             int budget = maxVisibilityUpdatesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxVisibilityUpdatesPerPlayerPerTick;
             int processed = 0;
+            Set<Integer> visible = trackingState.visibleIds();
+
             while (processed < budget) {
                 Integer id = trackingState.nextWorkEntityId();
-                if (id == null) break;
+                if (id == null) {
+                    break;
+                }
 
                 TrackedVisual tracked = visualsById.get(id);
                 if (tracked == null) {
@@ -237,7 +292,11 @@ public class NetworkEntityTracker {
                 if (inRange) {
                     LodLevel lodLevel = resolveLodLevel(distSq);
                     if (visible.add(id)) {
-                        bufferPacket(playerId, tracked.visual().createSpawnPacket(tracked.location(), tracked.rotation()), PacketPriority.SPAWN_DESTROY);
+                        Location spawnLoc = tracked.location().clone();
+                        Quaternionf spawnRot = new Quaternionf(tracked.rotation());
+                        networkScheduler.enqueueSpawn(() ->
+                                bufferPacket(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN_DESTROY)
+                        );
                         tracked.markSent(player);
                     } else {
                         boolean shouldSendUpdate = tracked.shouldSendUpdate(
@@ -266,24 +325,24 @@ public class NetworkEntityTracker {
                         if (metaPacket != null) {
                             boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
                             if (allowMetaPacket) {
-                                bufferPacket(playerId, metaPacket, PacketPriority.METADATA);
+                                networkScheduler.enqueueMetadata(() -> bufferPacket(playerId, metaPacket, PacketPriority.METADATA));
                             } else {
                                 lodSkippedMetadataUpdates.incrementAndGet();
                             }
                         }
                     }
                 } else if (visible.remove(id)) {
-                    bufferPacket(playerId, tracked.visual().createDestroyPacket(), PacketPriority.SPAWN_DESTROY);
+                    networkScheduler.enqueueDestroy(() -> bufferPacket(playerId, tracked.visual().createDestroyPacket(), PacketPriority.SPAWN_DESTROY));
                 }
 
                 processed++;
             }
+        } finally {
+            trackingState.markVisibilityTaskDone();
+            if (!trackingState.needsWorkQueueRebuild()) {
+                enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared);
+            }
         }
-
-        playerTrackingStates.keySet().removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
-
-        // Phase 3: Flush
-        flushPackets();
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority) {
@@ -295,8 +354,6 @@ public class NetworkEntityTracker {
 
     private void flushPackets() {
         if (packetFactory == null) return;
-
-        enqueuePendingDestroyPackets();
 
         long totalSent = 0;
         int onlinePlayersWithPackets = 0;
@@ -327,7 +384,6 @@ public class NetworkEntityTracker {
                 boolean fitsByteBudget = sentBytes + next.estimatedBytes() <= maxBytes;
                 if (!fitsByteBudget && sentPackets > 0) break;
 
-                // Always allow at least one packet to avoid queue starvation by a large packet.
                 QueuedPacket polled = queue.poll();
                 if (polled == null) break;
 
@@ -386,6 +442,34 @@ public class NetworkEntityTracker {
         return lodSkippedMetadataUpdates.get();
     }
 
+    public int getSpawnQueueDepth() {
+        return networkScheduler.getSpawnQueueDepth();
+    }
+
+    public int getVisibilityQueueDepth() {
+        return networkScheduler.getVisibilityQueueDepth();
+    }
+
+    public int getMetadataQueueDepth() {
+        return networkScheduler.getMetadataQueueDepth();
+    }
+
+    public int getDestroyQueueDepth() {
+        return networkScheduler.getDestroyQueueDepth();
+    }
+
+    public long getSchedulerDeferredCount() {
+        return networkScheduler.getLastTickDeferredTasks();
+    }
+
+    public long getSchedulerTickWorkNanos() {
+        return networkScheduler.getLastTickWorkNanos();
+    }
+
+    public double getSchedulerSecondaryScale() {
+        return networkScheduler.getLastSecondaryScale();
+    }
+
     public void removePlayer(Player player) {
         UUID uuid = player.getUniqueId();
         pendingDestroyIds.remove(uuid);
@@ -408,9 +492,10 @@ public class NetworkEntityTracker {
         chunkGrid.clear();
         pendingDestroyIds.clear();
         packetBuffer.clear();
+        networkScheduler.clear();
     }
 
-    private void enqueuePendingDestroyPackets() {
+    private void enqueuePendingDestroyTasks() {
         if (pendingDestroyIds.isEmpty()) {
             return;
         }
@@ -432,17 +517,22 @@ public class NetworkEntityTracker {
             }
 
             if (idArray.length == 1) {
-                bufferPacket(playerId, packetFactory.createDestroyPacket(idArray[0]), PacketPriority.SPAWN_DESTROY);
+                int targetId = idArray[0];
+                networkScheduler.enqueueDestroy(() ->
+                        bufferPacket(playerId, packetFactory.createDestroyPacket(targetId), PacketPriority.SPAWN_DESTROY)
+                );
                 continue;
             }
 
-            try {
-                bufferPacket(playerId, packetFactory.createDestroyPacket(idArray), PacketPriority.SPAWN_DESTROY);
-            } catch (Throwable ignored) {
-                for (int id : idArray) {
-                    bufferPacket(playerId, packetFactory.createDestroyPacket(id), PacketPriority.SPAWN_DESTROY);
+            networkScheduler.enqueueDestroy(() -> {
+                try {
+                    bufferPacket(playerId, packetFactory.createDestroyPacket(idArray), PacketPriority.SPAWN_DESTROY);
+                } catch (Throwable ignored) {
+                    for (int id : idArray) {
+                        bufferPacket(playerId, packetFactory.createDestroyPacket(id), PacketPriority.SPAWN_DESTROY);
+                    }
                 }
-            }
+            });
         }
     }
 
@@ -517,6 +607,7 @@ public class NetworkEntityTracker {
         private final List<Integer> precomputedCandidateIds = new ArrayList<>();
         private final List<Integer> workQueue = new ArrayList<>();
         private int workCursor = 0;
+        private boolean visibilityTaskQueued;
 
         public int chunkX() { return chunkX; }
         public int chunkZ() { return chunkZ; }
@@ -571,6 +662,18 @@ public class NetworkEntityTracker {
                 return null;
             }
             return workQueue.get(workCursor++);
+        }
+
+        public boolean tryMarkVisibilityTaskQueued() {
+            if (visibilityTaskQueued) {
+                return false;
+            }
+            visibilityTaskQueued = true;
+            return true;
+        }
+
+        public void markVisibilityTaskDone() {
+            visibilityTaskQueued = false;
         }
     }
 

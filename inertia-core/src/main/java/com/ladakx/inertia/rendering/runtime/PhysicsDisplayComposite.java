@@ -19,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -77,11 +78,13 @@ public final class PhysicsDisplayComposite {
         Location baseLoc = new Location(world, pos.xx() + origin.xx(), pos.yy() + origin.yy(), pos.zz() + origin.zz());
         Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
 
+        List<NetworkEntityTracker.VisualRegistration> registrations = new ArrayList<>(parts.size());
         for (DisplayPart part : parts) {
             int visualId = part.visual().getId();
-            tracker.register(part.visual(), baseLoc, baseRot);
+            registrations.add(new NetworkEntityTracker.VisualRegistration(part.visual(), baseLoc, baseRot));
             owner.getSpace().registerNetworkEntityId(owner, visualId);
         }
+        tracker.registerBatch(registrations);
     }
 
     public void capture(boolean sleeping, RVec3 origin, List<VisualState> accumulator, SnapshotPool pool) {
@@ -209,15 +212,15 @@ public final class PhysicsDisplayComposite {
 
     public void destroy() {
         if (tracker != null) {
+            List<Integer> ids = new ArrayList<>(parts.size());
             for (DisplayPart part : parts) {
                 int visualId = part.visual().getId();
-                // Tracker handles packet buffering for removal
-                tracker.unregister(part.visual());
-
+                ids.add(visualId);
                 if (owner.isValid()) {
                     owner.getSpace().unregisterNetworkEntityId(visualId);
                 }
             }
+            tracker.unregisterBatch(ids);
         }
     }
 
