@@ -16,6 +16,7 @@ import org.joml.Vector3f;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiPredicate;
 
 public class NetworkEntityTracker {
 
@@ -494,17 +495,26 @@ public class NetworkEntityTracker {
                 }
 
                 Object positionPacket = updateDecision.positionSent() ? tracked.getPendingPositionPacket() : null;
+                Object transformMetaPacket = null;
                 if (positionPacket != null) {
                     long tokenVersion = currentVisualToken(tracked.visual().getId());
+                    if (transformMetaPacket != null) {
+                        positionPacket = List.of(positionPacket, transformMetaPacket);
+                        transformMetaPacket = null;
+                    } else {
+                        transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
+                    }
                     bufferPacket(playerId, positionPacket, PacketPriority.TELEPORT, tracked.visual().getId(), true, false, -1L, tokenVersion);
                     tracked.markSent(player);
+                } else {
+                    transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
                 }
 
-                Object transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
                 if (transformMetaPacket != null) {
                     long tokenVersion = currentVisualToken(tracked.visual().getId());
+                    Object finalTransformMetaPacket = transformMetaPacket;
                     networkScheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
-                            () -> bufferPacket(playerId, transformMetaPacket, PacketPriority.METADATA, tracked.visual().getId(), false,
+                            () -> bufferPacket(playerId, finalTransformMetaPacket, PacketPriority.METADATA, tracked.visual().getId(), false,
                                     updateDecision.transformMetadataForced(), -1L, tokenVersion));
                 }
 
@@ -1017,7 +1027,7 @@ public class NetworkEntityTracker {
             byPriority.put(PacketPriority.METADATA, new ArrayDeque<>());
         }
 
-        public int add(QueuedPacket packet, java.util.function.BiPredicate<Integer, Long> tokenValidator) {
+        public int add(QueuedPacket packet, BiPredicate<Integer, Long> tokenValidator) {
             int coalesced = 0;
             if (packet == null) {
                 return 0;

@@ -16,7 +16,7 @@ physics:
   # Точность вычислений: DP (double precision) или SP (single precision).
   precision: DP
   # Количество потоков для генерации/обработки физики.
-  worker-threads: 2
+  worker-threads: 3
   chunk-cache:
     # Максимум записей в памяти для кэша физики чанков (0 отключает ограничение).
     max-entries: 4096
@@ -58,11 +58,11 @@ rendering:
     pos-threshold: 0.01
     # Порог изменения поворота (abs(dot) кватернионов, диапазон 0..1).
     # 1.0 = одинаковые повороты; меньше = сильнее различие. Если dot ниже порога — отправляется обновление.
-    rot-threshold-dot: 0.3
+    rot-threshold-dot: 0.1
     # Дистанция (в блоках) между near/mid LOD.
-    mid-distance: 32.0
+    mid-distance: 40.0
     # Дистанция (в блоках) между mid/far LOD.
-    far-distance: 72.0
+    far-distance: 80.0
     # Для mid/far обновления телепорта отправляются не чаще, чем раз в N тиков
     # (если объект не превысил пороги LOD).
     mid-update-interval-ticks: 1
