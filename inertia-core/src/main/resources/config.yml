@@ -83,6 +83,12 @@ rendering:
     # Лимит количества сетевых пакетов, отправляемых одному игроку за тик.
     # При превышении лишние пакеты переносятся на следующий тик с учетом приоритета.
     max-packets-per-player-per-tick: 256
+    # Порог backlog destroy (pending ids/очередь scheduler), начиная с которого включается fast-path
+    # осушения destroy с временным приоритетом над visibility/metadata.
+    destroy-backlog-threshold: 512
+    # Дополнительный пакетный бюджет (сверх max-packets-per-player-per-tick) для destroy-пакетов
+    # во время drain fast-path.
+    destroy-drain-extra-packets-per-player-per-tick: 128
     # Лимит оценочного размера сетевых пакетов (в байтах) для одного игрока за тик.
     max-bytes-per-player-per-tick: 98304
     # Общий лимит времени (в наносекундах), который render-network scheduler может тратить за 1 серверный тик.
