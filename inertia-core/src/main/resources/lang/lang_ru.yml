@@ -297,3 +297,6 @@ admin-stats-tasks:
   - "<gray>Глубина очереди one-time/recurring: <white>{queueOneTime}<gray>/<white>{queueRecurring}"
   - "<gray>Снапшоты dropped/overwritten: <white>{snapDropped}<gray>/<white>{snapOverwritten}"
 admin-stats-footer: "<red><bold>=============================="
+
+terrain-regenerate-radius-success:
+  - "{prefix} <gray>Перегенерировано <white>{count} <gray>чанков террейна в радиусе <yellow>{radius}<gray>."

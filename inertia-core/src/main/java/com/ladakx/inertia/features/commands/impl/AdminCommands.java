@@ -9,6 +9,7 @@ import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.incendo.cloud.CommandManager;
@@ -20,6 +21,7 @@ import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 public class AdminCommands extends CloudModule {
 
@@ -220,6 +222,62 @@ public class AdminCommands extends CloudModule {
                     send(ctx.sender(), MessageKey.ADMIN_STATS_FOOTER);
                 })
         );
+
+        manager.command(adminRoot
+                .literal("terrain")
+                .literal("regenerate")
+                .permission("inertia.admin.terrain-cache")
+                .required("radius", IntegerParser.integerParser(0))
+                .handler(ctx -> {
+                    if (!validatePlayer(ctx.sender())) {
+                        return;
+                    }
+                    Player player = (Player) ctx.sender();
+                    if (!validateWorld(player)) {
+                        return;
+                    }
+                    int radius = ctx.get("radius");
+                    executeTerrainRegenerateRadius(player, radius);
+                })
+        );
+    }
+
+    private void executeTerrainRegenerateRadius(Player player, int radius) {
+        Objects.requireNonNull(player, "player");
+        PhysicsWorld physicsWorld = worldRegistry.getSpace(player.getWorld());
+        if (physicsWorld == null) {
+            return;
+        }
+        TerrainAdapter terrainAdapter = physicsWorld.getTerrainAdapter();
+        if (terrainAdapter == null) {
+            return;
+        }
+
+        Chunk centerChunk = player.getLocation().getChunk();
+        int centerX = centerChunk.getX();
+        int centerZ = centerChunk.getZ();
+        int radiusSquared = radius * radius;
+        int regenerated = 0;
+
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                if ((dx * dx) + (dz * dz) > radiusSquared) {
+                    continue;
+                }
+
+                int chunkX = centerX + dx;
+                int chunkZ = centerZ + dz;
+                if (!player.getWorld().isChunkLoaded(chunkX, chunkZ)) {
+                    player.getWorld().loadChunk(chunkX, chunkZ, true);
+                }
+                physicsWorld.onChunkChange(chunkX, chunkZ);
+                regenerated++;
+            }
+        }
+
+        send(player, MessageKey.TERRAIN_REGENERATE_RADIUS_SUCCESS,
+                "{count}", String.valueOf(regenerated),
+                "{radius}", String.valueOf(radius));
     }
     private List<String> booleanSuggestions() {
         return List.of("true", "false");
