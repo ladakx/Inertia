@@ -13,9 +13,11 @@ import java.io.Serializable;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 public class ChunkPhysicsCache {
 
@@ -30,6 +32,7 @@ public class ChunkPhysicsCache {
     private final String pluginVersion;
     private final long worldSeed;
     private final String configHash;
+    private final CacheGenerationMetadata expectedMetadata;
 
     public ChunkPhysicsCache(File baseDir,
                              int maxEntries,
@@ -37,9 +40,11 @@ public class ChunkPhysicsCache {
                              Duration diskTtl,
                              String pluginVersion,
                              long worldSeed,
-                             String configHash) {
+                             String configHash,
+                             CacheGenerationMetadata expectedMetadata) {
         Objects.requireNonNull(pluginVersion, "pluginVersion");
         Objects.requireNonNull(configHash, "configHash");
+        this.expectedMetadata = Objects.requireNonNull(expectedMetadata, "expectedMetadata");
         this.baseDir = new File(Objects.requireNonNull(baseDir, "baseDir"),
                 "v" + CACHE_FORMAT_VERSION + "_" + sanitize(pluginVersion) + "_" + worldSeed + "_" + sanitize(configHash));
         this.maxEntries = Math.max(0, maxEntries);
@@ -114,6 +119,7 @@ public class ChunkPhysicsCache {
                 pluginVersion,
                 worldSeed,
                 configHash,
+                expectedMetadata,
                 data
         );
 
@@ -159,6 +165,7 @@ public class ChunkPhysicsCache {
                 && pluginVersion.equals(payload.pluginVersion())
                 && worldSeed == payload.worldSeed()
                 && configHash.equals(payload.configHash())
+                && expectedMetadata.equals(payload.metadata())
                 && payload.data() != null;
     }
 
@@ -240,8 +247,48 @@ public class ChunkPhysicsCache {
                                 String pluginVersion,
                                 long worldSeed,
                                 String configHash,
+                                CacheGenerationMetadata metadata,
                                 CachedChunkPhysicsData data) implements Serializable {
         @Serial
         private static final long serialVersionUID = 1L;
+    }
+
+    public record CacheGenerationMetadata(String generationMethod,
+                                          int algorithmVersion,
+                                          Map<String, String> parameters) implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        public CacheGenerationMetadata {
+            generationMethod = Objects.requireNonNullElse(generationMethod, "UNKNOWN");
+            if (algorithmVersion < 0) {
+                throw new IllegalArgumentException("algorithmVersion must be >= 0");
+            }
+            parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
+        }
+
+        @Override
+        public Map<String, String> parameters() {
+            return Map.copyOf(parameters);
+        }
+
+        public static CacheGenerationMetadata of(String generationMethod,
+                                                 int algorithmVersion,
+                                                 Map<String, String> parameters) {
+            return new CacheGenerationMetadata(generationMethod, algorithmVersion, normalizeParameters(parameters));
+        }
+
+        private static Map<String, String> normalizeParameters(Map<String, String> parameters) {
+            if (parameters == null || parameters.isEmpty()) {
+                return Map.of();
+            }
+            Set<String> keys = new LinkedHashSet<>(parameters.keySet());
+            Map<String, String> normalized = new LinkedHashMap<>();
+            keys.stream().sorted().forEach(key -> normalized.put(
+                    Objects.requireNonNullElse(key, "<null>"),
+                    Objects.requireNonNullElse(parameters.get(key), "<null>")
+            ));
+            return normalized;
+        }
     }
 }
