@@ -81,8 +81,8 @@ rendering:
     far-distance: 80.0
     # Для mid/far обновления телепорта отправляются не чаще, чем раз в N тиков
     # (если объект не превысил пороги LOD).
-    mid-update-interval-ticks: 1
-    far-update-interval-ticks: 1
+    mid-update-interval-ticks: 0
+    far-update-interval-ticks: 0
     # Пороги позиционных изменений для LOD-уровней (в блоках).
     mid-pos-threshold: 0.01
     far-pos-threshold: 0.02
