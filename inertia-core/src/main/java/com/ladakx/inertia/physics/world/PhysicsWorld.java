@@ -70,6 +70,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final SnapshotPool snapshotPool;
     private final InertiaBodyActivationListener bodyActivationListener;
     private final NetworkEntityTracker networkEntityTracker;
+    private final @Nullable PhysicsMetricsService metricsService;
 
     // Removed: private @Nullable BukkitTask networkTickTask;
 
@@ -93,6 +94,12 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.chunkTicketManager = new ChunkTicketManager(world);
         this.objectManager = new PhysicsObjectManager();
         this.taskManager = new PhysicsTaskManager();
+        var taskManagerSettings = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig().PHYSICS.TASK_MANAGER;
+        this.taskManager.updateLimits(
+                taskManagerSettings.maxOneTimeTasksPerTick,
+                taskManagerSettings.oneTimeTaskBudgetNanos,
+                taskManagerSettings.recurringTaskBudgetNanos
+        );
         this.snapshotPool = new SnapshotPool();
 
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
@@ -125,6 +132,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 this::countStaticBodies
         );
 
+        this.metricsService = metricsService;
         if (metricsService != null) {
             this.physicsLoop.addListener(metricsService);
         }
@@ -142,7 +150,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (errors != EPhysicsUpdateError.None) {
             InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
         }
-        taskManager.runAll();
+        PhysicsTaskManager.TaskManagerMetrics taskManagerMetrics = taskManager.runAll();
+        if (metricsService != null) {
+            metricsService.updateTaskManagerMetrics(taskManagerMetrics);
+        }
     }
 
     private PhysicsSnapshot collectSnapshot() {
@@ -310,6 +321,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     public @NotNull Collection<AbstractPhysicsBody> getObjects() { return objectManager.getAll(); }
 
     public UUID addTickTask(Runnable runnable) { return taskManager.addTickTask(runnable); }
+    public UUID addTickTask(Runnable runnable, PhysicsTaskManager.RecurringTaskPriority priority) {
+        return taskManager.addTickTask(runnable, priority);
+    }
     public void removeTickTask(UUID uuid) { taskManager.removeTickTask(uuid); }
     public void schedulePhysicsTask(Runnable task) { taskManager.schedule(task); }
 

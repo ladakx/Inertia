@@ -290,4 +290,9 @@ admin-stats-performance:
   - "<gray>Пик MSPT (1s): <red>{peak} <gray>ms"
 admin-stats-bodies:
   - "<gray>Тела: <white>{dynamic} <gray>Динамических | <white>{static} <gray>Статичных"
+admin-stats-tasks:
+  - "<gray>TaskManager one-time/recurring суммарно: <white>{oneTime} <gray>/ <white>{recurringTotal} <gray>мс"
+  - "<gray>Recurring по категориям (мс): <white>{recurringByCategory}"
+  - "<gray>Пропущено recurring: <white>{skipped}"
+  - "<gray>Глубина очереди one-time/recurring: <white>{queueOneTime}<gray>/<white>{queueRecurring}"
 admin-stats-footer: "<red><bold>=============================="
