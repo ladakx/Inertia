@@ -8,7 +8,7 @@ general:
       # Дефолтная дальность рендера хитбоксов.
       default-range: 20
       # Максимальная дальность рендера хитбоксов.
-      max-range: 100
+      max-range: 20
       # Интервал отрисовки хитбоксов в тиках.
       render-interval-ticks: 2
 
@@ -18,7 +18,7 @@ physics:
   # Количество потоков для генерации/обработки физики.
   worker-threads: 3
   # Режим буфера снапшотов физики: LATEST (только последний кадр) или FIFO (совместимый режим).
-  snapshot-mode: LATEST
+  snapshot-mode: FIFO
   terrain-generation:
     # Максимальное количество chunk capture на main-thread за один тик.
     max-capture-per-tick: 4
@@ -34,11 +34,11 @@ physics:
     disk-ttl-seconds: 7200
   task-manager:
     # Максимум одноразових задач за один physics-тік.
-    max-one-time-tasks-per-tick: 50
+    max-one-time-tasks-per-tick: 100
     # Time budget (ns) для виконання one-time фази.
-    one-time-budget-nanos: 4000000
+    one-time-budget-nanos: 5000000
     # Time budget (ns) для recurring фази.
-    recurring-budget-nanos: 3000000
+    recurring-budget-nanos: 4000000
 
   mass-spawn:
     # Мінімальний бюджет spawn-операцій за тик.
@@ -71,7 +71,7 @@ rendering:
   network-entity-tracker:
     # Порог смещения позиции (в блоках). Если объект сдвинулся меньше — обновление позиции не отправляется.
     # Внутри сравнение идёт по квадрату дистанции.
-    pos-threshold: 0.01
+    pos-threshold: 0.0
     # Порог изменения поворота (abs(dot) кватернионов, диапазон 0..1).
     # 1.0 = одинаковые повороты; меньше = сильнее различие. Если dot ниже порога — отправляется обновление.
     rot-threshold-dot: 1.0
@@ -82,49 +82,49 @@ rendering:
     # Для mid/far обновления телепорта отправляются не чаще, чем раз в N тиков
     # (если объект не превысил пороги LOD).
     mid-update-interval-ticks: 1
-    far-update-interval-ticks: 2
+    far-update-interval-ticks: 1
     # Пороги позиционных изменений для LOD-уровней (в блоках).
-    mid-pos-threshold: 0.02
-    far-pos-threshold: 0.045
+    mid-pos-threshold: 0.01
+    far-pos-threshold: 0.02
     # Пороги поворота (abs(dot) кватернионов) для LOD-уровней.
-    mid-rot-threshold-dot: 0.85
-    far-rot-threshold-dot: 0.75
+    mid-rot-threshold-dot: 0.99
+    far-rot-threshold-dot: 0.95
     # Для far-range отключаем часть некритичных metadata-апдейтов.
     far-allow-metadata-updates: true
     # Максимальное число проверок/обновлений видимости для одного игрока за тик.
     # При превышении остаток работы переносится на следующий тик.
     # Этап 1 (+50% от базового профиля): 384.
-    max-visibility-updates-per-player-per-tick: 384
+    max-visibility-updates-per-player-per-tick: 1024
     # Жесткий лимит проверок shouldSendUpdate() по уже видимому набору за тик на игрока.
     # Если лимит исчерпан, остаток переносится на следующий тик и учитывается в телеметрии.
     # Этап 1 (+50% от базового профиля): 384.
-    max-transform-checks-per-player-per-tick: 384
+    max-transform-checks-per-player-per-tick: 1024
     # Периодический полный пересчет видимости (в тиках), даже если игрок не сменил чанк/мир.
-    full-recalc-interval-ticks: 20
+    full-recalc-interval-ticks: 10
     # Лимит количества сетевых пакетов, отправляемых одному игроку за тик.
     # При превышении лишние пакеты переносятся на следующий тик с учетом приоритета.
     # Этап 1 (+50% от базового профиля): 384.
-    max-packets-per-player-per-tick: 384
+    max-packets-per-player-per-tick: 1024
     # Порог backlog destroy (pending ids/очередь scheduler), начиная с которого включается fast-path
     # осушения destroy с временным приоритетом над visibility/metadata.
     destroy-backlog-threshold: 512
     # Дополнительный пакетный бюджет (сверх max-packets-per-player-per-tick) для destroy-пакетов
     # во время drain fast-path.
-    destroy-drain-extra-packets-per-player-per-tick: 128
+    destroy-drain-extra-packets-per-player-per-tick: 256
     # Лимит оценочного размера сетевых пакетов (в байтах) для одного игрока за тик.
     # Этап 1 (+50% от базового профиля): 147456.
-    max-bytes-per-player-per-tick: 147456
+    max-bytes-per-player-per-tick: 1048576
     # Общий лимит времени (в наносекундах), который render-network scheduler может тратить за 1 серверный тик.
-    max-work-nanos-per-tick: 6000000
+    max-work-nanos-per-tick: 10000000
     # Минимальный коэффициент для второстепенных очередей (visibility-diff и metadata),
     # который применяется при деградации TPS/ping.
-    secondary-budget-min-scale: 0.5
+    secondary-budget-min-scale: 0.8
     # Порог TPS для мягкого/жесткого снижения budget второстепенных очередей.
-    adaptive-tps-soft-threshold: 18.8
-    adaptive-tps-hard-threshold: 16.5
+    adaptive-tps-soft-threshold: 18.0
+    adaptive-tps-hard-threshold: 15.0
     # Порог среднего ping (ms) для мягкого/жесткого снижения budget второстепенных очередей.
-    adaptive-ping-soft-threshold-ms: 140
-    adaptive-ping-hard-threshold-ms: 260
+    adaptive-ping-soft-threshold-ms: 200
+    adaptive-ping-hard-threshold-ms: 400
 
   # Профили для ручного переключения в зависимости от типа нагрузки.
   # Профиль "high-entity scenes" фиксирует следующий стабильный этап после +50%:
@@ -133,10 +133,10 @@ rendering:
   profiles:
     high-entity-scenes:
       network-entity-tracker:
-        max-visibility-updates-per-player-per-tick: 576
-        max-transform-checks-per-player-per-tick: 576
-        max-packets-per-player-per-tick: 576
-        max-bytes-per-player-per-tick: 221184
+        max-visibility-updates-per-player-per-tick: 2048
+        max-transform-checks-per-player-per-tick: 2048
+        max-packets-per-player-per-tick: 2048
+        max-bytes-per-player-per-tick: 2097152
 
 
 performance:
@@ -145,20 +145,20 @@ performance:
       # Потоки фізичного job-систему світу (Jolt world threads).
       world-threads: 3
       # Загальний бюджет physics task manager на тік (ms), ділиться між one-time та recurring.
-      task-budget-ms: 7
+      task-budget-ms: 10
       # Режим черги снапшотів: LATEST або FIFO.
-      snapshot-queue-mode: LATEST
+      snapshot-queue-mode: FIFO
     network:
       # Кількість воркерів для async network-compute фази трекера.
-      compute-threads: 3
+      compute-threads: 4
       # Бюджет flush/scheduler в наносекундах на серверний тік.
-      flush-budget-nanos: 6000000
+      flush-budget-nanos: 10000000
       # Ліміт байтів на тік для network flush per-player budget.
-      max-bytes-per-tick: 147456
+      max-bytes-per-tick: 1048576
     terrain:
       # Бюджет chunk capture на main-thread (ms) на тік.
-      capture-budget-ms: 2
+      capture-budget-ms: 4
       # Кількість воркерів генерації terrain mesh.
       generate-workers: 3
       # Максимум одночасних in-flight generation задач.
-      max-in-flight: 3
+      max-in-flight: 4
