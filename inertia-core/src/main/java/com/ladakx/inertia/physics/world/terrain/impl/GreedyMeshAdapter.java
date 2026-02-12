@@ -55,6 +55,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private WorldsConfig.GreedyMeshShapeType greedyMeshShapeType = WorldsConfig.GreedyMeshShapeType.MESH_SHAPE;
     private boolean useFastChunkCapture = true;
     private int maxCaptureMillisPerTick = 2;
+    private int maxCapturePerTick = 4;
     private final AtomicLong meshSequence = new AtomicLong();
     private UUID meshApplyTaskId;
     private BukkitTask captureTickTask;
@@ -73,8 +74,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         this.greedyMeshShapeType = meshingSettings.shapeType();
         this.useFastChunkCapture = meshingSettings.fastChunkCapture();
         this.maxCaptureMillisPerTick = Math.max(0, meshingSettings.maxCaptureMillisPerTick());
+        this.maxCapturePerTick = Math.max(1, config.PHYSICS.TERRAIN_GENERATION.maxCapturePerTick);
 
-        GenerationQueue generationQueue = new GenerationQueue(workerThreads);
+        GenerationQueue generationQueue = new GenerationQueue(workerThreads, config.PHYSICS.TERRAIN_GENERATION.maxGenerateJobsInFlight);
         File worldFolder = world.getWorldBukkit().getWorldFolder();
         File cacheDir = new File(worldFolder, "physics");
         Duration memoryCacheTtl = Duration.ofSeconds(Math.max(0, cacheSettings.memoryTtlSeconds));
@@ -266,13 +268,13 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         List<ChunkPhysicsManager.ChunkCoordinate> playerChunks = world.getWorldBukkit().getPlayers().stream()
                 .map(player -> new ChunkPhysicsManager.ChunkCoordinate(player.getLocation().getBlockX() >> 4, player.getLocation().getBlockZ() >> 4))
                 .toList();
-        chunkPhysicsManager.processCaptureQueue(playerChunks, maxCaptureMillisPerTick);
+        chunkPhysicsManager.processCaptureQueue(playerChunks, maxCapturePerTick, maxCaptureMillisPerTick);
     }
 
 
     public ChunkPhysicsManager.CaptureMetrics getCaptureMetrics() {
         if (chunkPhysicsManager == null) {
-            return new ChunkPhysicsManager.CaptureMetrics(0, 0.0, 0);
+            return new ChunkPhysicsManager.CaptureMetrics(0, 0.0, 0.0, 0.0, 0, 0, 0);
         }
         return chunkPhysicsManager.getCaptureMetrics();
     }

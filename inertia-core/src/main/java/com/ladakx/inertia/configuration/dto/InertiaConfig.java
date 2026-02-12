@@ -68,6 +68,7 @@ public class InertiaConfig {
         public final Precision precision;
         public final int workerThreads;
         public final ChunkCacheSettings CHUNK_CACHE;
+        public final TerrainGenerationSettings TERRAIN_GENERATION;
         public final MassSpawnSettings MASS_SPAWN;
 
         public PhysicsSettings(ConfigurationSection section, FileConfiguration root) {
@@ -75,6 +76,7 @@ public class InertiaConfig {
                 this.precision = Precision.SP;
                 this.workerThreads = 2;
                 this.CHUNK_CACHE = new ChunkCacheSettings(null, root);
+                this.TERRAIN_GENERATION = new TerrainGenerationSettings(null, root);
                 this.MASS_SPAWN = new MassSpawnSettings(null, root);
                 return;
             }
@@ -85,7 +87,22 @@ public class InertiaConfig {
 
             this.workerThreads = section.getInt("worker-threads", 2);
             this.CHUNK_CACHE = new ChunkCacheSettings(section.getConfigurationSection("chunk-cache"), root);
+            this.TERRAIN_GENERATION = new TerrainGenerationSettings(section.getConfigurationSection("terrain-generation"), root);
             this.MASS_SPAWN = new MassSpawnSettings(section.getConfigurationSection("mass-spawn"), root);
+        }
+
+        public static class TerrainGenerationSettings {
+            public final int maxCapturePerTick;
+            public final int maxGenerateJobsInFlight;
+
+            public TerrainGenerationSettings(ConfigurationSection section, FileConfiguration root) {
+                this.maxCapturePerTick = section != null
+                        ? Math.max(1, section.getInt("max-capture-per-tick", 4))
+                        : 4;
+                this.maxGenerateJobsInFlight = section != null
+                        ? Math.max(1, section.getInt("max-generate-jobs-in-flight", 3))
+                        : 3;
+            }
         }
 
         public static class ChunkCacheSettings {

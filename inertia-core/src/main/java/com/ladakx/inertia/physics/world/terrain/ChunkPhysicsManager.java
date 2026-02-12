@@ -6,7 +6,6 @@ import com.ladakx.inertia.physics.world.terrain.greedy.GreedyMeshData;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -19,16 +18,18 @@ import java.util.function.Supplier;
 
 public class ChunkPhysicsManager implements AutoCloseable {
 
-    private final Set<Long> queuedChunks = ConcurrentHashMap.newKeySet();
-    private final Map<Long, CompletableFuture<GreedyMeshData>> inFlight = new ConcurrentHashMap<>();
+    private final Map<Long, RequestEntry> requests = new ConcurrentHashMap<>();
     private final Map<Long, AtomicInteger> generationRevisions = new ConcurrentHashMap<>();
-    private final Map<Long, PendingCaptureRequest> pendingCaptureRequests = new ConcurrentHashMap<>();
     private final GenerationQueue generationQueue;
     private final ChunkPhysicsCache cache;
     private final PhysicsGenerator<GreedyMeshData> generator;
     private final ExecutorService cacheIoExecutor;
     private final AtomicLong totalCaptureNanos = new AtomicLong();
     private final AtomicLong captureSamples = new AtomicLong();
+    private final AtomicLong totalGenerateNanos = new AtomicLong();
+    private final AtomicLong generateSamples = new AtomicLong();
+    private final AtomicLong totalApplyNanos = new AtomicLong();
+    private final AtomicLong applySamples = new AtomicLong();
     private final AtomicLong skippedByBudgetCount = new AtomicLong();
 
     public ChunkPhysicsManager(GenerationQueue generationQueue,
@@ -66,52 +67,68 @@ public class ChunkPhysicsManager implements AutoCloseable {
                                        DirtyChunkRegion dirtyRegion,
                                        GenerationRequestKind requestKind) {
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
-        if (!queuedChunks.add(key) || generator == null || generationQueue == null) {
+        if (generator == null || generationQueue == null) {
             return;
         }
+
+        requests.compute(key, (unused, existing) -> {
+            if (existing != null && existing.state() != RequestState.APPLIED) {
+                return existing;
+            }
+            return new RequestEntry(
+                    worldName,
+                    chunkX,
+                    chunkZ,
+                    key,
+                    snapshotSupplier,
+                    onReady,
+                    dirtyRegion,
+                    requestKind,
+                    RequestState.REQUESTED,
+                    null,
+                    System.nanoTime(),
+                    null
+            );
+        });
+
         if (requestKind == GenerationRequestKind.DIRTY || dirtyRegion != null || cache == null) {
-            enqueueCapture(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key, dirtyRegion, requestKind);
             return;
         }
 
         int cacheRevision = generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get();
-
         CompletableFuture
                 .supplyAsync(() -> cache.get(chunkX, chunkZ), cacheIoExecutor)
                 .whenComplete((cached, throwable) -> {
-                    if (!queuedChunks.contains(key)) {
+                    RequestEntry entry = requests.get(key);
+                    if (entry == null || entry.state() != RequestState.REQUESTED) {
                         return;
                     }
                     if (throwable != null) {
                         InertiaLogger.warn("Failed to read terrain cache at " + chunkX + ", " + chunkZ, throwable);
-                    } else if (cached != null
-                            && cached.isPresent()
-                            && generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get() == cacheRevision) {
-                        queuedChunks.remove(key);
-                        onReady.accept(cached.get().meshData());
                         return;
                     }
-                    enqueueCapture(worldName, chunkX, chunkZ, snapshotSupplier, onReady, key, null, requestKind);
+                    if (cached != null
+                            && cached.isPresent()
+                            && generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).get() == cacheRevision) {
+                        completeApply(entry, cached.get().meshData());
+                    }
                 });
     }
 
     public void cancelChunk(int chunkX, int chunkZ) {
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
-        queuedChunks.remove(key);
-        pendingCaptureRequests.remove(key);
-        CompletableFuture<GreedyMeshData> future = inFlight.remove(key);
-        if (future != null) {
-            future.cancel(true);
+        RequestEntry request = requests.remove(key);
+        if (request != null && request.future() != null) {
+            request.future().cancel(true);
         }
     }
 
     public void invalidate(int chunkX, int chunkZ) {
         long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
         generationRevisions.computeIfAbsent(key, unused -> new AtomicInteger()).incrementAndGet();
-        pendingCaptureRequests.remove(key);
-        CompletableFuture<GreedyMeshData> future = inFlight.remove(key);
-        if (future != null) {
-            future.cancel(true);
+        RequestEntry request = requests.remove(key);
+        if (request != null && request.future() != null) {
+            request.future().cancel(true);
         }
         if (cache != null) {
             cacheIoExecutor.execute(() -> cache.invalidate(chunkX, chunkZ));
@@ -124,63 +141,59 @@ public class ChunkPhysicsManager implements AutoCloseable {
         }
     }
 
-    public void processCaptureQueue(List<ChunkCoordinate> playerChunks, int maxCaptureMillisPerTick) {
-        if (pendingCaptureRequests.isEmpty()) {
+    public void processCaptureQueue(List<ChunkCoordinate> playerChunks, int maxCapturePerTick, int maxCaptureMillisPerTick) {
+        if (requests.isEmpty()) {
             return;
         }
+        int chunkBudget = Math.max(1, maxCapturePerTick);
         int budgetMillis = Math.max(0, maxCaptureMillisPerTick);
         long budgetNanos = budgetMillis <= 0 ? Long.MAX_VALUE : budgetMillis * 1_000_000L;
         long tickStarted = System.nanoTime();
+        int captured = 0;
 
-        while (true) {
+        while (captured < chunkBudget) {
             if ((System.nanoTime() - tickStarted) >= budgetNanos) {
-                int skipped = pendingCaptureRequests.size();
-                if (skipped > 0) {
-                    skippedByBudgetCount.addAndGet(skipped);
-                }
+                skippedByBudgetCount.addAndGet(countRequestsInState(RequestState.REQUESTED));
                 return;
             }
-            PendingCaptureRequest request = pollHighestPriorityRequest(playerChunks);
+            RequestEntry request = pollHighestPriorityRequest(playerChunks);
             if (request == null) {
                 return;
             }
             captureAndGenerate(request);
+            captured++;
         }
     }
 
     public CaptureMetrics getCaptureMetrics() {
-        long samples = captureSamples.get();
-        double averageMillis = samples == 0 ? 0.0 : (totalCaptureNanos.get() / 1_000_000.0) / samples;
-        return new CaptureMetrics(pendingCaptureRequests.size(), averageMillis, skippedByBudgetCount.get());
-    }
-
-    private void enqueueCapture(String worldName,
-                                int chunkX,
-                                int chunkZ,
-                                Supplier<ChunkSnapshotData> snapshotSupplier,
-                                Consumer<GreedyMeshData> onReady,
-                                long key,
-                                DirtyChunkRegion dirtyRegion,
-                                GenerationRequestKind requestKind) {
-        PendingCaptureRequest request = new PendingCaptureRequest(
-                worldName,
-                chunkX,
-                chunkZ,
-                key,
-                snapshotSupplier,
-                onReady,
-                dirtyRegion,
-                requestKind,
-                System.nanoTime()
+        return new CaptureMetrics(
+                countRequestsInState(RequestState.REQUESTED),
+                averageMillis(totalCaptureNanos, captureSamples),
+                averageMillis(totalGenerateNanos, generateSamples),
+                averageMillis(totalApplyNanos, applySamples),
+                skippedByBudgetCount.get(),
+                generationQueue.getQueueDepth(),
+                generationQueue.getInFlightJobs()
         );
-        pendingCaptureRequests.put(key, request);
     }
 
-    private PendingCaptureRequest pollHighestPriorityRequest(List<ChunkCoordinate> playerChunks) {
+    private long countRequestsInState(RequestState state) {
+        return requests.values().stream().filter(request -> request.state() == state).count();
+    }
+
+    private double averageMillis(AtomicLong totalNanos, AtomicLong sampleCount) {
+        long samples = sampleCount.get();
+        return samples == 0 ? 0.0 : (totalNanos.get() / 1_000_000.0) / samples;
+    }
+
+    private RequestEntry pollHighestPriorityRequest(List<ChunkCoordinate> playerChunks) {
         long nowNanos = System.nanoTime();
-        PendingCaptureRequest bestRequest = null;
+        RequestEntry bestRequest = null;
         double bestScore = Double.MAX_VALUE;
-        for (PendingCaptureRequest request : pendingCaptureRequests.values()) {
+        for (RequestEntry request : requests.values()) {
+            if (request.state() != RequestState.REQUESTED) {
+                continue;
+            }
             double score = scoreRequest(request, playerChunks, nowNanos);
             if (score < bestScore) {
                 bestScore = score;
@@ -190,10 +203,11 @@ public class ChunkPhysicsManager implements AutoCloseable {
         if (bestRequest == null) {
             return null;
         }
-        return pendingCaptureRequests.remove(bestRequest.key(), bestRequest) ? bestRequest : null;
+        RequestEntry captured = bestRequest.withState(RequestState.CAPTURED);
+        return requests.replace(bestRequest.key(), bestRequest, captured) ? captured : null;
     }
 
-    private double scoreRequest(PendingCaptureRequest request, List<ChunkCoordinate> playerChunks, long nowNanos) {
+    private double scoreRequest(RequestEntry request, List<ChunkCoordinate> playerChunks, long nowNanos) {
         double base = request.requestKind() == GenerationRequestKind.DIRTY ? 0.0 : 10_000.0;
         double distanceScore = distanceSqToNearestPlayerChunk(request.chunkX(), request.chunkZ(), playerChunks);
         double ageMillis = Math.max(0.0, (nowNanos - request.enqueueNanos()) / 1_000_000.0);
@@ -216,59 +230,84 @@ public class ChunkPhysicsManager implements AutoCloseable {
         return nearest;
     }
 
-    private void captureAndGenerate(PendingCaptureRequest request) {
-        if (!queuedChunks.contains(request.key())) {
-            return;
-        }
+    private void captureAndGenerate(RequestEntry request) {
         ChunkSnapshotData snapshot;
-        long started = System.nanoTime();
+        long captureStarted = System.nanoTime();
         try {
             snapshot = request.snapshotSupplier().get();
         } catch (Exception ex) {
-            queuedChunks.remove(request.key());
+            requests.remove(request.key());
             InertiaLogger.warn("Failed to capture chunk for " + request.worldName() + " at " + request.chunkX() + ", " + request.chunkZ(), ex);
             return;
         }
-        long elapsed = System.nanoTime() - started;
-        totalCaptureNanos.addAndGet(elapsed);
+        totalCaptureNanos.addAndGet(System.nanoTime() - captureStarted);
         captureSamples.incrementAndGet();
 
         if (snapshot == null) {
-            queuedChunks.remove(request.key());
+            requests.remove(request.key());
             return;
         }
 
         int generationId = generationRevisions.computeIfAbsent(request.key(), unused -> new AtomicInteger()).get();
-        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot, null));
-        inFlight.put(request.key(), future);
+        long generateStarted = System.nanoTime();
+        CompletableFuture<GreedyMeshData> future = generationQueue.submit(() -> generator.generate(snapshot, request.dirtyRegion()));
+        RequestEntry withFuture = request.withSnapshot(snapshot).withFuture(future);
+        requests.put(request.key(), withFuture);
+
         future.whenComplete((generatedData, throwable) -> {
-            inFlight.remove(request.key());
-            queuedChunks.remove(request.key());
+            totalGenerateNanos.addAndGet(System.nanoTime() - generateStarted);
+            generateSamples.incrementAndGet();
+
+            RequestEntry current = requests.get(request.key());
+            if (current == null) {
+                return;
+            }
             if (throwable != null) {
+                requests.remove(request.key());
                 InertiaLogger.warn("Failed to generate physics chunk at " + request.chunkX() + ", " + request.chunkZ(), throwable);
                 return;
             }
             if (generationRevisions.computeIfAbsent(request.key(), unused -> new AtomicInteger()).get() != generationId) {
+                requests.remove(request.key());
                 return;
             }
 
+            requests.put(request.key(), current.withState(RequestState.GENERATED));
             if (cache != null) {
+                ChunkSnapshotData finalSnapshot = withFuture.snapshot();
                 cacheIoExecutor.execute(() -> cache.put(
                         request.chunkX(),
                         request.chunkZ(),
-                        new CachedChunkPhysicsData(generatedData, snapshot.sectionFingerprints())
+                        new CachedChunkPhysicsData(generatedData, finalSnapshot.sectionFingerprints())
                 ));
             }
-            request.onReady().accept(generatedData);
+            completeApply(requests.get(request.key()), generatedData);
         });
+    }
+
+    private void completeApply(RequestEntry entry, GreedyMeshData generatedData) {
+        if (entry == null) {
+            return;
+        }
+        long applyStarted = System.nanoTime();
+        try {
+            entry.onReady().accept(generatedData);
+            totalApplyNanos.addAndGet(System.nanoTime() - applyStarted);
+            applySamples.incrementAndGet();
+            requests.put(entry.key(), entry.withState(RequestState.APPLIED));
+        } finally {
+            requests.remove(entry.key());
+        }
     }
 
     @Override
     public void close() {
-        inFlight.values().forEach(future -> future.cancel(true));
-        inFlight.clear();
-        queuedChunks.clear();
-        pendingCaptureRequests.clear();
+        requests.values().forEach(request -> {
+            if (request.future() != null) {
+                request.future().cancel(true);
+            }
+        });
+        requests.clear();
         if (generationQueue != null) {
             generationQueue.close();
         }
@@ -280,21 +319,48 @@ public class ChunkPhysicsManager implements AutoCloseable {
         GENERATE_ON_LOAD
     }
 
+    public enum RequestState {
+        REQUESTED,
+        CAPTURED,
+        GENERATED,
+        APPLIED
+    }
+
     public record ChunkCoordinate(int x, int z) {
     }
 
-    public record CaptureMetrics(int queueDepth, double averageCaptureMillis, long skippedByBudgetCount) {
+    public record CaptureMetrics(long captureQueueDepth,
+                                 double averageCaptureMillis,
+                                 double averageGenerateMillis,
+                                 double averageApplyMillis,
+                                 long skippedByBudgetCount,
+                                 int generateQueueDepth,
+                                 int generateInFlightJobs) {
     }
 
-    private record PendingCaptureRequest(String worldName,
-                                         int chunkX,
-                                         int chunkZ,
-                                         long key,
-                                         Supplier<ChunkSnapshotData> snapshotSupplier,
-                                         Consumer<GreedyMeshData> onReady,
-                                         DirtyChunkRegion dirtyRegion,
-                                         GenerationRequestKind requestKind,
-                                         long enqueueNanos) {
+    private record RequestEntry(String worldName,
+                                int chunkX,
+                                int chunkZ,
+                                long key,
+                                Supplier<ChunkSnapshotData> snapshotSupplier,
+                                Consumer<GreedyMeshData> onReady,
+                                DirtyChunkRegion dirtyRegion,
+                                GenerationRequestKind requestKind,
+                                RequestState state,
+                                ChunkSnapshotData snapshot,
+                                long enqueueNanos,
+                                CompletableFuture<GreedyMeshData> future) {
+        private RequestEntry withState(RequestState newState) {
+            return new RequestEntry(worldName, chunkX, chunkZ, key, snapshotSupplier, onReady, dirtyRegion, requestKind, newState, snapshot, enqueueNanos, future);
+        }
+
+        private RequestEntry withSnapshot(ChunkSnapshotData newSnapshot) {
+            return new RequestEntry(worldName, chunkX, chunkZ, key, snapshotSupplier, onReady, dirtyRegion, requestKind, state, newSnapshot, enqueueNanos, future);
+        }
+
+        private RequestEntry withFuture(CompletableFuture<GreedyMeshData> newFuture) {
+            return new RequestEntry(worldName, chunkX, chunkZ, key, snapshotSupplier, onReady, dirtyRegion, requestKind, state, snapshot, enqueueNanos, newFuture);
+        }
     }
 
     private static class CacheIoThreadFactory implements ThreadFactory {
