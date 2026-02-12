@@ -5,10 +5,16 @@ import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.features.commands.CloudModule;
+import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
+import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.incendo.cloud.CommandManager;
 import org.incendo.cloud.parser.standard.BooleanParser;
+import org.incendo.cloud.parser.standard.IntegerParser;
+import org.incendo.cloud.parser.standard.StringParser;
 
 import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
 
@@ -86,6 +92,87 @@ public class AdminCommands extends CloudModule {
                     ctx.sender().sendMessage("§7terrain.captureBudgetMs=§f" + effective.terrainCaptureBudgetMs()
                             + " §8| §7terrain.generateWorkers=§f" + effective.terrainGenerateWorkers()
                             + " §8| §7terrain.maxInFlight=§f" + effective.terrainMaxInFlight());
+                })
+        );
+
+
+
+        // Command: /inertia admin terrain-cache pregen <world> [radius] [all] [centerX] [centerZ] [force]
+        manager.command(adminRoot
+                .literal("terrain-cache")
+                .literal("pregen")
+                .permission("inertia.admin.terrain-cache")
+                .required("world", StringParser.stringParser(), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
+                        worldRegistry.getAllSpaces().stream().map(space -> space.getWorldBukkit().getName()).toList()))
+                .optional("radius", IntegerParser.integerParser(0))
+                .optional("all", BooleanParser.booleanParser())
+                .optional("centerX", IntegerParser.integerParser())
+                .optional("centerZ", IntegerParser.integerParser())
+                .optional("force", BooleanParser.booleanParser())
+                .handler(ctx -> {
+                    String worldName = ctx.get("world");
+                    PhysicsWorld targetWorld = worldRegistry.getAllSpaces().stream()
+                            .filter(space -> space.getWorldBukkit().getName().equalsIgnoreCase(worldName))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (targetWorld == null) {
+                        ctx.sender().sendMessage("§c[Inertia] World not found in physics registry: " + worldName);
+                        return;
+                    }
+
+                    TerrainAdapter adapter = targetWorld.getTerrainAdapter();
+                    if (adapter == null) {
+                        ctx.sender().sendMessage("§c[Inertia] Terrain adapter is not enabled for world: " + worldName);
+                        return;
+                    }
+
+                    boolean all = ctx.getOrDefault("all", false);
+                    int radius = Math.max(0, ctx.getOrDefault("radius", 0));
+                    boolean force = ctx.getOrDefault("force", false);
+
+                    int defaultChunkX;
+                    int defaultChunkZ;
+                    if (ctx.sender() instanceof Player player) {
+                        defaultChunkX = player.getLocation().getBlockX() >> 4;
+                        defaultChunkZ = player.getLocation().getBlockZ() >> 4;
+                    } else {
+                        defaultChunkX = 0;
+                        defaultChunkZ = 0;
+                    }
+
+                    int centerChunkX = ctx.getOrDefault("centerX", defaultChunkX);
+                    int centerChunkZ = ctx.getOrDefault("centerZ", defaultChunkZ);
+
+                    TerrainAdapter.OfflineGenerationRequest request = new TerrainAdapter.OfflineGenerationRequest(
+                            centerChunkX,
+                            centerChunkZ,
+                            radius,
+                            all,
+                            force
+                    );
+
+                    ctx.sender().sendMessage("§6[Inertia] Starting offline terrain cache pre-generation for world §f" + targetWorld.getWorldBukkit().getName()
+                            + "§6, mode=" + (all ? "WORLD_BOUNDS" : "RADIUS")
+                            + ", radius=" + radius
+                            + ", center=" + centerChunkX + "," + centerChunkZ
+                            + ", force=" + force + "...");
+
+                    adapter.generateOffline(request).whenComplete((result, throwable) -> Bukkit.getScheduler().runTask(com.ladakx.inertia.core.InertiaPlugin.getInstance(), () -> {
+                        if (throwable != null) {
+                            ctx.sender().sendMessage("§c[Inertia] Offline generation failed: " + throwable.getMessage());
+                            return;
+                        }
+                        if (result == null || !result.supported()) {
+                            ctx.sender().sendMessage("§c[Inertia] Offline generation is not supported by current terrain adapter.");
+                            return;
+                        }
+                        ctx.sender().sendMessage("§a[Inertia] Offline generation done. Requested=" + result.requestedChunks()
+                                + ", generated=" + result.generatedChunks()
+                                + ", cache-hit=" + result.skippedFromCache()
+                                + ", failed=" + result.failedChunks()
+                                + ", durationMs=" + result.durationMillis());
+                    }));
                 })
         );
 

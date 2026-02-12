@@ -450,6 +450,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
     public World getWorldBukkit() { return worldBukkit; }
 
+    public @Nullable TerrainAdapter getTerrainAdapter() { return terrainAdapter; }
+
     public @Nullable ConstBody getBodyById(int id) {
         return new BodyLockRead(physicsSystem.getBodyLockInterfaceNoLock(), id).getBody();
     }
