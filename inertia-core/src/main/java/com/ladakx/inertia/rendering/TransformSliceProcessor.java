@@ -1,15 +1,14 @@
 package com.ladakx.inertia.rendering;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 final class TransformSliceProcessor {
 
@@ -27,15 +26,18 @@ final class TransformSliceProcessor {
     private final RenderNetworkBudgetScheduler scheduler;
     private final VisibilitySliceProcessor.PacketBuffer packetBuffer;
     private final java.util.function.IntToLongFunction tokenProvider;
+    private final Function<UUID, PlayerFrame> playerFrameProvider;
 
     TransformSliceProcessor(Map<Integer, TrackedVisual> visualsById,
                             RenderNetworkBudgetScheduler scheduler,
                             VisibilitySliceProcessor.PacketBuffer packetBuffer,
-                            java.util.function.IntToLongFunction tokenProvider) {
+                            java.util.function.IntToLongFunction tokenProvider,
+                            Function<UUID, PlayerFrame> playerFrameProvider) {
         this.visualsById = Objects.requireNonNull(visualsById, "visualsById");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.packetBuffer = Objects.requireNonNull(packetBuffer, "packetBuffer");
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider");
+        this.playerFrameProvider = Objects.requireNonNull(playerFrameProvider, "playerFrameProvider");
     }
 
     void runSlice(UUID playerId,
@@ -60,18 +62,12 @@ final class TransformSliceProcessor {
                   AtomicLong lodSkippedMetadataUpdates,
                   AtomicLong transformChecksSkippedDueBudget) {
         try {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player == null || !player.isOnline()) {
+            PlayerFrame playerFrame = playerFrameProvider.apply(playerId);
+            if (playerFrame == null) {
                 trackingState.clearVisible();
                 return;
             }
-
-            Location playerLoc = player.getLocation();
-            World playerWorld = playerLoc.getWorld();
-            if (playerWorld == null) {
-                return;
-            }
-            UUID playerWorldId = playerWorld.getUID();
+            UUID playerWorldId = playerFrame.worldId();
 
             int checkBudget = maxTransformChecksPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxTransformChecksPerPlayerPerTick;
             int checked = 0;
@@ -93,9 +89,9 @@ final class TransformSliceProcessor {
                 World trackedWorld = trackedLoc.getWorld();
                 boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
 
-                double dx = trackedLoc.getX() - playerLoc.getX();
-                double dy = trackedLoc.getY() - playerLoc.getY();
-                double dz = trackedLoc.getZ() - playerLoc.getZ();
+                double dx = trackedLoc.getX() - playerFrame.x();
+                double dy = trackedLoc.getY() - playerFrame.y();
+                double dz = trackedLoc.getZ() - playerFrame.z();
                 double distSq = dx * dx + dy * dy + dz * dz;
 
                 boolean inRange = sameWorld && distSq <= viewDistanceSquared;
@@ -150,7 +146,7 @@ final class TransformSliceProcessor {
                     }
                     Object packetToSend = bundledPackets != null ? bundledPackets : positionPacket;
                     packetBuffer.buffer(playerId, packetToSend, PacketPriority.TELEPORT, tracked.visual().getId(), true, false, -1L, tokenVersion);
-                    tracked.markSent(player);
+                    tracked.markSent();
                 }
 
                 if (transformMetaPacket != null) {
