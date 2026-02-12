@@ -26,6 +26,8 @@ public class PhysicsMetricsService implements LoopTickListener {
     private final EnumMap<PhysicsTaskManager.RecurringTaskPriority, AtomicInteger> recurringSkippedByCategory = new EnumMap<>(PhysicsTaskManager.RecurringTaskPriority.class);
     private final AtomicInteger oneTimeQueueDepth = new AtomicInteger(0);
     private final AtomicInteger recurringQueueDepth = new AtomicInteger(0);
+    private final AtomicLong droppedSnapshots = new AtomicLong(0);
+    private final AtomicLong overwrittenSnapshots = new AtomicLong(0);
 
     public PhysicsMetricsService() {
         for (PhysicsTaskManager.RecurringTaskPriority priority : PhysicsTaskManager.RecurringTaskPriority.values()) {
@@ -39,7 +41,14 @@ public class PhysicsMetricsService implements LoopTickListener {
     }
 
     @Override
-    public void onTickEnd(long tickNumber, long durationNanos, int activeBodies, int totalBodies, int staticBodies, int maxBodies) {
+    public void onTickEnd(long tickNumber,
+                          long durationNanos,
+                          int activeBodies,
+                          int totalBodies,
+                          int staticBodies,
+                          int maxBodies,
+                          long droppedSnapshots,
+                          long overwrittenSnapshots) {
         double ms = durationNanos / 1_000_000.0;
         mspt1s.add(ms);
         mspt5s.add(ms);
@@ -49,6 +58,8 @@ public class PhysicsMetricsService implements LoopTickListener {
         this.totalBodyCount.set(totalBodies);
         this.staticBodyCount.set(staticBodies);
         this.maxBodyLimit.set(maxBodies);
+        this.droppedSnapshots.set(droppedSnapshots);
+        this.overwrittenSnapshots.set(overwrittenSnapshots);
     }
 
     // Використовується в BossBar
@@ -82,6 +93,14 @@ public class PhysicsMetricsService implements LoopTickListener {
     public int getSleepingBodyCount() { return totalBodyCount.get() - activeBodyCount.get(); }
     public int getStaticBodyCount() { return staticBodyCount.get(); }
     public int getMaxBodyLimit() { return maxBodyLimit.get(); }
+
+    public long getDroppedSnapshots() {
+        return droppedSnapshots.get();
+    }
+
+    public long getOverwrittenSnapshots() {
+        return overwrittenSnapshots.get();
+    }
 
     public void updateTaskManagerMetrics(PhysicsTaskManager.TaskManagerMetrics metrics) {
         if (metrics == null) {

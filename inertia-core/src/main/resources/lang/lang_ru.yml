@@ -295,4 +295,5 @@ admin-stats-tasks:
   - "<gray>Recurring по категориям (мс): <white>{recurringByCategory}"
   - "<gray>Пропущено recurring: <white>{skipped}"
   - "<gray>Глубина очереди one-time/recurring: <white>{queueOneTime}<gray>/<white>{queueRecurring}"
+  - "<gray>Снапшоты dropped/overwritten: <white>{snapDropped}<gray>/<white>{snapOverwritten}"
 admin-stats-footer: "<red><bold>=============================="
