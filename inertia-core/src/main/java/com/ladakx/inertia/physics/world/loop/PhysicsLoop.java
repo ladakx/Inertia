@@ -3,14 +3,16 @@ package com.ladakx.inertia.physics.world.loop;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
+import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayDeque;
 import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.concurrent.locks.LockSupport;
@@ -20,16 +22,22 @@ public class PhysicsLoop {
     private static final int MIN_SNAPSHOTS_PER_SYNC_TICK = 5;
     private static final int MAX_SNAPSHOTS_PER_SYNC_TICK = 10;
     private static final int MIN_OVERLOADED_WORLD_TPS = 10;
+    private static final int MAX_FIFO_SNAPSHOTS = 2;
+
+    public enum SnapshotMode {
+        FIFO,
+        LATEST
+    }
 
     private final String name;
-    // Оптимизация: Используем обычный Thread вместо ScheduledExecutor для более точного контроля цикла и sleep
     private final Thread tickThread;
     private final AtomicBoolean isActive = new AtomicBoolean(false);
 
-    // Оптимизация: ArrayBlockingQueue имеет фиксированный размер, что полезно для backpressure,
-    // но ConcurrentLinkedQueue быстрее. Мы реализуем "мягкое" ограничение сами.
-    private final Queue<PhysicsSnapshot> snapshotQueue = new ConcurrentLinkedQueue<>();
-    private static final int MAX_QUEUE_SIZE = 3; // Максимум 3 кадра буферизации (снижает input lag)
+    private final AtomicReference<PhysicsSnapshot> latestSnapshot = new AtomicReference<>();
+    private final Object fifoLock = new Object();
+    private final ArrayDeque<PhysicsSnapshot> fifoSnapshots = new ArrayDeque<>(MAX_FIFO_SNAPSHOTS);
+    private final SnapshotPool snapshotPool;
+    private final SnapshotMode snapshotMode;
 
     private BukkitTask syncTask;
     private final Runnable physicsStep;
@@ -46,6 +54,9 @@ public class PhysicsLoop {
     private final int maxSnapshotsPerSyncTick;
     private final int syncCapacityTps;
 
+    private final AtomicLong droppedSnapshots = new AtomicLong(0);
+    private final AtomicLong overwrittenSnapshots = new AtomicLong(0);
+
     private volatile int effectiveTargetTps;
 
     public PhysicsLoop(String name,
@@ -56,7 +67,9 @@ public class PhysicsLoop {
                        Consumer<PhysicsSnapshot> snapshotConsumer,
                        Supplier<Integer> activeBodyCounter,
                        Supplier<Integer> totalBodyCounter,
-                       Supplier<Integer> staticBodyCounter) {
+                       Supplier<Integer> staticBodyCounter,
+                       SnapshotPool snapshotPool,
+                       SnapshotMode snapshotMode) {
         this.name = name;
         if (tps <= 0) {
             InertiaLogger.warn("Invalid tick-rate (" + tps + ") for world '" + name + "'. Falling back to 20.");
@@ -86,10 +99,11 @@ public class PhysicsLoop {
         this.activeBodyCounter = activeBodyCounter;
         this.totalBodyCounter = totalBodyCounter;
         this.staticBodyCounter = staticBodyCounter;
+        this.snapshotPool = snapshotPool;
+        this.snapshotMode = snapshotMode;
 
         this.tickThread = new Thread(this::runLoop, "inertia-loop-" + name);
         this.tickThread.setDaemon(true);
-        // Приоритет выше нормального, чтобы физика была плавной даже при нагрузке на CPU
         this.tickThread.setPriority(Thread.NORM_PRIORITY + 1);
         this.tickThread.setUncaughtExceptionHandler((t, e) -> {
             InertiaLogger.error("Uncaught error in physics loop thread '" + t.getName() + "'", e);
@@ -111,13 +125,22 @@ public class PhysicsLoop {
             this.syncTask = Bukkit.getScheduler().runTaskTimer(InertiaPlugin.getInstance(), () -> {
                 if (!isActive.get()) return;
 
-                // Обрабатываем ВСЕ доступные снапшоты в этом тике, чтобы догнать физику
-                // Но ограничиваемся, чтобы не повесить сервер
-                int processed = 0;
-                PhysicsSnapshot snapshot;
-                while (processed < maxSnapshotsPerSyncTick && (snapshot = snapshotQueue.poll()) != null) {
+                if (snapshotMode == SnapshotMode.FIFO) {
+                    int processed = 0;
+                    while (processed < maxSnapshotsPerSyncTick) {
+                        PhysicsSnapshot snapshot = pollFifoSnapshot();
+                        if (snapshot == null) {
+                            break;
+                        }
+                        snapshotConsumer.accept(snapshot);
+                        processed++;
+                    }
+                    return;
+                }
+
+                PhysicsSnapshot snapshot = latestSnapshot.getAndSet(null);
+                if (snapshot != null) {
                     snapshotConsumer.accept(snapshot);
-                    processed++;
                 }
             }, 1L, 1L);
         } catch (Throwable t) {
@@ -129,20 +152,13 @@ public class PhysicsLoop {
         long lastTime = System.nanoTime();
 
         while (isActive.get()) {
-            int queueSize = snapshotQueue.size();
+            int queueSize = getPendingSnapshotCount();
+            boolean backlog = queueSize > 0;
 
-            // 1. Backpressure (Тормозим физику, если сервер не успевает)
-            if (queueSize >= MAX_QUEUE_SIZE) {
-                LockSupport.parkNanos(1_000_000); // Спим 1мс
-                continue;
-            }
-
-            int desiredTps = queueSize >= MAX_QUEUE_SIZE - 1
+            int desiredTps = backlog
                     ? Math.max(MIN_OVERLOADED_WORLD_TPS, effectiveTargetTps / 2)
                     : Math.min(targetTps, syncCapacityTps);
             if (desiredTps != effectiveTargetTps) {
-//                InertiaLogger.warn("World '" + name + "' snapshot queue backlog=" + queueSize
-//                        + ". Adjusting physics TPS from " + effectiveTargetTps + " to " + desiredTps + ".");
                 effectiveTargetTps = desiredTps;
             }
 
@@ -159,48 +175,94 @@ public class PhysicsLoop {
 
                     for (LoopTickListener listener : listeners) listener.onTickStart(tick);
 
-                    // Шаг физики
                     physicsStep.run();
 
-                    // Создание снапшота для рендера
                     PhysicsSnapshot snapshot = snapshotProducer.get();
                     if (snapshot != null) {
-                        snapshotQueue.offer(snapshot);
+                        publishSnapshot(snapshot);
                     }
 
                     long duration = System.nanoTime() - startTick;
 
-                    // Метрики
                     if (!listeners.isEmpty()) {
                         int active = activeBodyCounter.get();
                         int total = totalBodyCounter.get();
                         int stat = staticBodyCounter.get();
+                        long dropped = droppedSnapshots.get();
+                        long overwritten = overwrittenSnapshots.get();
                         for (LoopTickListener listener : listeners) {
-                            listener.onTickEnd(tick, duration, active, total, stat, maxBodyLimit);
+                            listener.onTickEnd(tick, duration, active, total, stat, maxBodyLimit, dropped, overwritten);
                         }
                     }
 
                 } catch (Throwable e) {
                     InertiaLogger.error("Error in physics loop: " + name, e);
-                    // If a fatal error happens (e.g. OOM), stop the loop to avoid spamming and undefined state.
                     isActive.set(false);
                 }
             } else {
-                // Умный сон до следующего тика
                 long waitNs = nsPerTick - deltaTime;
-                if (waitNs > 1_000_000) { // Если ждать больше 1мс
-                    LockSupport.parkNanos(waitNs - 500_000); // Спим чуть меньше, чтобы не пропустить
+                if (waitNs > 1_000_000) {
+                    LockSupport.parkNanos(waitNs - 500_000);
                 } else {
-                    Thread.onSpinWait(); // Активное ожидание для точности
+                    Thread.onSpinWait();
                 }
             }
+        }
+    }
+
+    private void publishSnapshot(PhysicsSnapshot snapshot) {
+        if (snapshotMode == SnapshotMode.FIFO) {
+            PhysicsSnapshot evicted = null;
+            synchronized (fifoLock) {
+                if (fifoSnapshots.size() >= MAX_FIFO_SNAPSHOTS) {
+                    evicted = fifoSnapshots.pollFirst();
+                    droppedSnapshots.incrementAndGet();
+                }
+                fifoSnapshots.offerLast(snapshot);
+            }
+            if (evicted != null) {
+                evicted.release(snapshotPool);
+            }
+            return;
+        }
+
+        PhysicsSnapshot previous = latestSnapshot.getAndSet(snapshot);
+        if (previous != null) {
+            overwrittenSnapshots.incrementAndGet();
+            previous.release(snapshotPool);
+        }
+    }
+
+    private int getPendingSnapshotCount() {
+        if (snapshotMode == SnapshotMode.FIFO) {
+            synchronized (fifoLock) {
+                return fifoSnapshots.size();
+            }
+        }
+        return latestSnapshot.get() == null ? 0 : 1;
+    }
+
+    private PhysicsSnapshot pollFifoSnapshot() {
+        synchronized (fifoLock) {
+            return fifoSnapshots.pollFirst();
         }
     }
 
     public void stop() {
         if (isActive.compareAndSet(true, false)) {
             if (syncTask != null) syncTask.cancel();
-            snapshotQueue.clear();
+
+            PhysicsSnapshot pendingLatest = latestSnapshot.getAndSet(null);
+            if (pendingLatest != null) {
+                pendingLatest.release(snapshotPool);
+            }
+
+            synchronized (fifoLock) {
+                PhysicsSnapshot snapshot;
+                while ((snapshot = fifoSnapshots.pollFirst()) != null) {
+                    snapshot.release(snapshotPool);
+                }
+            }
         }
     }
 }
