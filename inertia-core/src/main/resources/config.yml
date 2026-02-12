@@ -58,7 +58,7 @@ rendering:
     pos-threshold: 0.01
     # Порог изменения поворота (abs(dot) кватернионов, диапазон 0..1).
     # 1.0 = одинаковые повороты; меньше = сильнее различие. Если dot ниже порога — отправляется обновление.
-    rot-threshold-dot: 0.1
+    rot-threshold-dot: 1.0
     # Дистанция (в блоках) между near/mid LOD.
     mid-distance: 40.0
     # Дистанция (в блоках) между mid/far LOD.
@@ -71,8 +71,8 @@ rendering:
     mid-pos-threshold: 0.02
     far-pos-threshold: 0.045
     # Пороги поворота (abs(dot) кватернионов) для LOD-уровней.
-    mid-rot-threshold-dot: 0.1
-    far-rot-threshold-dot: 0.05
+    mid-rot-threshold-dot: 0.85
+    far-rot-threshold-dot: 0.75
     # Для far-range отключаем часть некритичных metadata-апдейтов.
     far-allow-metadata-updates: true
     # Максимальное число проверок/обновлений видимости для одного игрока за тик.

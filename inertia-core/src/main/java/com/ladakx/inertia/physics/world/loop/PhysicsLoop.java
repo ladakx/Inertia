@@ -20,7 +20,6 @@ public class PhysicsLoop {
     private static final int MIN_SNAPSHOTS_PER_SYNC_TICK = 5;
     private static final int MAX_SNAPSHOTS_PER_SYNC_TICK = 10;
     private static final int MIN_OVERLOADED_WORLD_TPS = 10;
-    private static final long QUEUE_TELEMETRY_INTERVAL_NS = TimeUnit.SECONDS.toNanos(5);
 
     private final String name;
     // Оптимизация: Используем обычный Thread вместо ScheduledExecutor для более точного контроля цикла и sleep
@@ -128,28 +127,13 @@ public class PhysicsLoop {
 
     private void runLoop() {
         long lastTime = System.nanoTime();
-        long telemetryWindowStart = lastTime;
-        long telemetrySamples = 0;
-        long telemetryQueueSum = 0;
-        int telemetryQueueMax = 0;
 
         while (isActive.get()) {
             int queueSize = snapshotQueue.size();
 
-            telemetrySamples++;
-            telemetryQueueSum += queueSize;
-            if (queueSize > telemetryQueueMax) telemetryQueueMax = queueSize;
-
             // 1. Backpressure (Тормозим физику, если сервер не успевает)
             if (queueSize >= MAX_QUEUE_SIZE) {
                 LockSupport.parkNanos(1_000_000); // Спим 1мс
-                emitQueueTelemetryIfNeeded(System.nanoTime(), telemetryWindowStart, telemetrySamples, telemetryQueueSum, telemetryQueueMax);
-                if (System.nanoTime() - telemetryWindowStart >= QUEUE_TELEMETRY_INTERVAL_NS) {
-                    telemetryWindowStart = System.nanoTime();
-                    telemetrySamples = 0;
-                    telemetryQueueSum = 0;
-                    telemetryQueueMax = 0;
-                }
                 continue;
             }
 
@@ -157,22 +141,14 @@ public class PhysicsLoop {
                     ? Math.max(MIN_OVERLOADED_WORLD_TPS, effectiveTargetTps / 2)
                     : Math.min(targetTps, syncCapacityTps);
             if (desiredTps != effectiveTargetTps) {
-                InertiaLogger.warn("World '" + name + "' snapshot queue backlog=" + queueSize
-                        + ". Adjusting physics TPS from " + effectiveTargetTps + " to " + desiredTps + ".");
+//                InertiaLogger.warn("World '" + name + "' snapshot queue backlog=" + queueSize
+//                        + ". Adjusting physics TPS from " + effectiveTargetTps + " to " + desiredTps + ".");
                 effectiveTargetTps = desiredTps;
             }
 
             long nsPerTick = 1_000_000_000L / Math.max(1, effectiveTargetTps);
             long now = System.nanoTime();
             long deltaTime = now - lastTime;
-
-            emitQueueTelemetryIfNeeded(now, telemetryWindowStart, telemetrySamples, telemetryQueueSum, telemetryQueueMax);
-            if (now - telemetryWindowStart >= QUEUE_TELEMETRY_INTERVAL_NS) {
-                telemetryWindowStart = now;
-                telemetrySamples = 0;
-                telemetryQueueSum = 0;
-                telemetryQueueMax = 0;
-            }
 
             if (deltaTime >= nsPerTick) {
                 lastTime = now;
@@ -225,30 +201,6 @@ public class PhysicsLoop {
         if (isActive.compareAndSet(true, false)) {
             if (syncTask != null) syncTask.cancel();
             snapshotQueue.clear();
-        }
-    }
-
-    private void emitQueueTelemetryIfNeeded(long now,
-                                            long telemetryWindowStart,
-                                            long telemetrySamples,
-                                            long telemetryQueueSum,
-                                            int telemetryQueueMax) {
-        if (now - telemetryWindowStart < QUEUE_TELEMETRY_INTERVAL_NS || telemetrySamples <= 0) {
-            return;
-        }
-
-        double averageQueueSize = telemetryQueueSum / (double) telemetrySamples;
-        String telemetryMessage = "World '" + name + "' snapshotQueue telemetry: current=" + snapshotQueue.size()
-                + ", avg=" + String.format("%.2f", averageQueueSize)
-                + ", max=" + telemetryQueueMax
-                + ", physicsTps=" + effectiveTargetTps
-                + ", targetTps=" + targetTps
-                + ", syncBatch=" + maxSnapshotsPerSyncTick;
-
-        if (averageQueueSize >= MAX_QUEUE_SIZE - 0.5 || telemetryQueueMax >= MAX_QUEUE_SIZE) {
-            InertiaLogger.warn(telemetryMessage + " (stable backlog detected)");
-        } else {
-            InertiaLogger.debug(telemetryMessage);
         }
     }
 }

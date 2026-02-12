@@ -3,6 +3,7 @@ package com.ladakx.inertia.core.impl;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
+import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
@@ -13,6 +14,7 @@ import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
+import com.ladakx.inertia.rendering.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import org.bukkit.Location;
@@ -24,6 +26,7 @@ import org.joml.Quaternionf;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import com.ladakx.inertia.core.impl.RenderingServiceImpl;
 
 public class InertiaAPIImpl extends InertiaAPI {
 
@@ -32,16 +35,19 @@ public class InertiaAPIImpl extends InertiaAPI {
     private final ConfigurationService configurationService;
     private final RenderFactory renderFactory;
     private final JShapeFactory shapeFactory;
+    private final RenderingService renderingService;
 
     public InertiaAPIImpl(InertiaPlugin plugin,
                           PhysicsWorldRegistry physicsWorldRegistry,
                           ConfigurationService configurationService,
-                          JShapeFactory shapeFactory) {
+                          JShapeFactory shapeFactory,
+                          NetworkEntityTracker networkEntityTracker) {
         this.plugin = plugin;
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.configurationService = configurationService;
         this.renderFactory = plugin.getRenderFactory();
         this.shapeFactory = shapeFactory;
+        this.renderingService = new RenderingServiceImpl(renderFactory, networkEntityTracker);
     }
 
     @Override
@@ -112,5 +118,10 @@ public class InertiaAPIImpl extends InertiaAPI {
     @Override
     public @NotNull Collection<IPhysicsWorld> getAllPhysicsWorlds() {
         return new ArrayList<>(physicsWorldRegistry.getAllSpaces());
+    }
+
+    @Override
+    public @NotNull RenderingService rendering() {
+        return renderingService;
     }
 }
