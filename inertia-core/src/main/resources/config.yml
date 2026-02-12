@@ -76,35 +76,35 @@ rendering:
     # 1.0 = одинаковые повороты; меньше = сильнее различие. Если dot ниже порога — отправляется обновление.
     rot-threshold-dot: 1.0
     # Дистанция (в блоках) между near/mid LOD.
-    mid-distance: 40.0
+    mid-distance: 32.0
     # Дистанция (в блоках) между mid/far LOD.
-    far-distance: 80.0
+    far-distance: 128.0
     # Для mid/far обновления телепорта отправляются не чаще, чем раз в N тиков
     # (если объект не превысил пороги LOD).
-    mid-update-interval-ticks: 0
-    far-update-interval-ticks: 0
+    mid-update-interval-ticks: 1
+    far-update-interval-ticks: 1
     # Пороги позиционных изменений для LOD-уровней (в блоках).
-    mid-pos-threshold: 0.0
-    far-pos-threshold: 0.0
+    mid-pos-threshold: 0.05
+    far-pos-threshold: 0.2
     # Пороги поворота (abs(dot) кватернионов) для LOD-уровней.
-    mid-rot-threshold-dot: 1.0
-    far-rot-threshold-dot: 1.0
+    mid-rot-threshold-dot: 0.98
+    far-rot-threshold-dot: 0.75
     # Для far-range отключаем часть некритичных metadata-апдейтов.
     far-allow-metadata-updates: true
     # Максимальное число проверок/обновлений видимости для одного игрока за тик.
     # При превышении остаток работы переносится на следующий тик.
     # Этап 1 (+50% от базового профиля): 384.
-    max-visibility-updates-per-player-per-tick: 1024
+    max-visibility-updates-per-player-per-tick: 384
     # Жесткий лимит проверок shouldSendUpdate() по уже видимому набору за тик на игрока.
     # Если лимит исчерпан, остаток переносится на следующий тик и учитывается в телеметрии.
     # Этап 1 (+50% от базового профиля): 384.
-    max-transform-checks-per-player-per-tick: 1024
+    max-transform-checks-per-player-per-tick: 384
     # Периодический полный пересчет видимости (в тиках), даже если игрок не сменил чанк/мир.
     full-recalc-interval-ticks: 10
     # Лимит количества сетевых пакетов, отправляемых одному игроку за тик.
     # При превышении лишние пакеты переносятся на следующий тик с учетом приоритета.
     # Этап 1 (+50% от базового профиля): 384.
-    max-packets-per-player-per-tick: 1024
+    max-packets-per-player-per-tick: 384
     # Порог backlog destroy (pending ids/очередь scheduler), начиная с которого включается fast-path
     # осушения destroy с временным приоритетом над visibility/metadata.
     destroy-backlog-threshold: 512
@@ -113,9 +113,9 @@ rendering:
     destroy-drain-extra-packets-per-player-per-tick: 256
     # Лимит оценочного размера сетевых пакетов (в байтах) для одного игрока за тик.
     # Этап 1 (+50% от базового профиля): 147456.
-    max-bytes-per-player-per-tick: 1048576
+    max-bytes-per-player-per-tick: 148576
     # Общий лимит времени (в наносекундах), который render-network scheduler может тратить за 1 серверный тик.
-    max-work-nanos-per-tick: 1000000000
+    max-work-nanos-per-tick: 10000000
     # Минимальный коэффициент для второстепенных очередей (visibility-diff и metadata),
     # который применяется при деградации TPS/ping.
     secondary-budget-min-scale: 0.8
