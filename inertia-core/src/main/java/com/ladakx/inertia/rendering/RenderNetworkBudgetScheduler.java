@@ -102,7 +102,7 @@ public final class RenderNetworkBudgetScheduler {
         }
     }
 
-    public void runTick(Collection<? extends Player> players) {
+    public void runTick(Collection<?> players) {
         long tickStart = System.nanoTime();
         long effectiveBudget = maxWorkNanosPerTick;
 
@@ -159,25 +159,25 @@ public final class RenderNetworkBudgetScheduler {
         return used;
     }
 
-    private double computeSecondaryScale(Collection<? extends Player> players) {
+    private double computeSecondaryScale(Collection<?> players) {
         double mspt = Bukkit.getAverageTickTime();
         double tps = mspt <= 0 ? 20.0D : Math.min(20.0D, 1000.0D / mspt);
 
         double tpsScale = normalizeDescending(tps, tpsSoftThreshold, tpsHardThreshold, secondaryMinScale);
         int avgPing = computeAveragePing(players);
-        double pingScale = normalizeAscending(avgPing, pingSoftThresholdMs, pingHardThresholdMs, secondaryMinScale);
+        double pingScale = avgPing <= 0 ? 1.0D : normalizeAscending(avgPing, pingSoftThresholdMs, pingHardThresholdMs, secondaryMinScale);
 
         return Math.min(tpsScale, pingScale);
     }
 
-    private int computeAveragePing(Collection<? extends Player> players) {
+    private int computeAveragePing(Collection<?> players) {
         if (players == null || players.isEmpty()) {
             return 0;
         }
         long sum = 0L;
         int count = 0;
-        for (Player player : players) {
-            if (player == null || !player.isOnline()) {
+        for (Object obj : players) {
+            if (!(obj instanceof Player player) || !player.isOnline()) {
                 continue;
             }
             sum += Math.max(0, player.spigot().getPing());

@@ -200,7 +200,8 @@ public class PhysicsTaskManager {
         }
 
         if (allowBudgetSkipping) {
-            group.roundRobinCursor.updateAndGet(current -> (current + executed) % Math.max(size, 1));
+            int executedFinal = executed;
+            group.roundRobinCursor.updateAndGet(current -> (current + executedFinal) % Math.max(size, 1));
         } else {
             group.roundRobinCursor.set(0);
         }

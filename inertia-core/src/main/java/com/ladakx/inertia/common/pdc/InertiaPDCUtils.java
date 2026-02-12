@@ -30,6 +30,4 @@ public final class InertiaPDCUtils {
         if (item == null || !item.hasItemMeta()) return false;
         return item.getItemMeta().getPersistentDataContainer().has(new NamespacedKey(plugin, key), PersistentDataType.STRING);
     }
-
-    // Packet-based рендеринг не використовує Bukkit PersistentDataContainer для entity.
 }
