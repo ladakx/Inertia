@@ -94,11 +94,16 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.chunkTicketManager = new ChunkTicketManager(world);
         this.objectManager = new PhysicsObjectManager();
         this.taskManager = new PhysicsTaskManager();
-        var taskManagerSettings = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig().PHYSICS.TASK_MANAGER;
+        var inertiaConfig = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig();
+        var taskManagerSettings = inertiaConfig.PHYSICS.TASK_MANAGER;
+        int taskBudgetMs = inertiaConfig.PERFORMANCE.THREADING.physics.taskBudgetMs;
+        long totalTaskBudgetNanos = Math.max(100_000L, taskBudgetMs * 1_000_000L);
+        long oneTimeBudgetNanos = Math.max(taskManagerSettings.oneTimeTaskBudgetNanos, (long) (totalTaskBudgetNanos * 0.6d));
+        long recurringBudgetNanos = Math.max(taskManagerSettings.recurringTaskBudgetNanos, totalTaskBudgetNanos - oneTimeBudgetNanos);
         this.taskManager.updateLimits(
                 taskManagerSettings.maxOneTimeTasksPerTick,
-                taskManagerSettings.oneTimeTaskBudgetNanos,
-                taskManagerSettings.recurringTaskBudgetNanos
+                oneTimeBudgetNanos,
+                recurringBudgetNanos
         );
         this.snapshotPool = new SnapshotPool();
 
@@ -131,7 +136,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 physicsSystem::getNumBodies,
                 this::countStaticBodies,
                 this.snapshotPool,
-                InertiaPlugin.getInstance().getConfigManager().getInertiaConfig().PHYSICS.snapshotMode
+                InertiaPlugin.getInstance().getConfigManager().getInertiaConfig().PERFORMANCE.THREADING.physics.snapshotQueueMode
         );
 
         this.metricsService = metricsService;
@@ -387,6 +392,17 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (terrainAdapter != null) terrainAdapter.onChunkChange(x, z);
     }
 
+
+    public void applyThreadingSettings(com.ladakx.inertia.configuration.dto.InertiaConfig.ThreadingSettings settings) {
+        if (settings == null) {
+            return;
+        }
+        long totalTaskBudgetNanos = Math.max(100_000L, settings.physics.taskBudgetMs * 1_000_000L);
+        long oneTimeBudgetNanos = Math.max(100_000L, (long) (totalTaskBudgetNanos * 0.6d));
+        long recurringBudgetNanos = Math.max(100_000L, totalTaskBudgetNanos - oneTimeBudgetNanos);
+        taskManager.updateBudget(oneTimeBudgetNanos, recurringBudgetNanos);
+        physicsLoop.applySettings(settings.physics.snapshotQueueMode);
+    }
     @Override
     public void close() {
         InertiaLogger.info("Closing world: " + worldName);

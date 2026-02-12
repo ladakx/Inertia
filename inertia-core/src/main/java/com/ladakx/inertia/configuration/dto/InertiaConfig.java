@@ -14,11 +14,101 @@ public class InertiaConfig {
     public final GeneralSettings GENERAL;
     public final PhysicsSettings PHYSICS;
     public final RenderingSettings RENDERING;
+    public final PerformanceSettings PERFORMANCE;
 
     public InertiaConfig(FileConfiguration cfg) {
         this.GENERAL = new GeneralSettings(cfg.getConfigurationSection("general"), cfg);
         this.PHYSICS = new PhysicsSettings(cfg.getConfigurationSection("physics"), cfg);
         this.RENDERING = new RenderingSettings(cfg.getConfigurationSection("rendering"), cfg);
+        this.PERFORMANCE = new PerformanceSettings(cfg.getConfigurationSection("performance"), this.PHYSICS);
+    }
+
+    public static class PerformanceSettings {
+        public final ThreadingSettings THREADING;
+
+        public PerformanceSettings(ConfigurationSection section, PhysicsSettings physicsSettings) {
+            this.THREADING = new ThreadingSettings(section != null ? section.getConfigurationSection("threading") : null, physicsSettings);
+        }
+    }
+
+    public static class ThreadingSettings {
+        public final PhysicsThreadingSettings physics;
+        public final NetworkThreadingSettings network;
+        public final TerrainThreadingSettings terrain;
+
+        public ThreadingSettings(ConfigurationSection section, PhysicsSettings physicsSettings) {
+            ConfigurationSection physicsSection = section != null ? section.getConfigurationSection("physics") : null;
+            ConfigurationSection networkSection = section != null ? section.getConfigurationSection("network") : null;
+            ConfigurationSection terrainSection = section != null ? section.getConfigurationSection("terrain") : null;
+
+            this.physics = new PhysicsThreadingSettings(physicsSection, physicsSettings);
+            this.network = new NetworkThreadingSettings(networkSection);
+            this.terrain = new TerrainThreadingSettings(terrainSection, physicsSettings);
+        }
+    }
+
+    public static class PhysicsThreadingSettings {
+        public final int worldThreads;
+        public final int taskBudgetMs;
+        public final PhysicsLoop.SnapshotMode snapshotQueueMode;
+
+        public PhysicsThreadingSettings(ConfigurationSection section, PhysicsSettings physicsSettings) {
+            int available = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+            int fallbackWorldThreads = physicsSettings != null ? physicsSettings.workerThreads : 2;
+            this.worldThreads = clamp(section != null ? section.getInt("world-threads", fallbackWorldThreads) : fallbackWorldThreads, 1, Math.max(1, available * 2));
+
+            long oneTimeBudget = physicsSettings != null ? physicsSettings.TASK_MANAGER.oneTimeTaskBudgetNanos : 4_000_000L;
+            long recurringBudget = physicsSettings != null ? physicsSettings.TASK_MANAGER.recurringTaskBudgetNanos : 3_000_000L;
+            int fallbackBudgetMs = (int) Math.max(1L, (oneTimeBudget + recurringBudget) / 1_000_000L);
+            this.taskBudgetMs = clamp(section != null ? section.getInt("task-budget-ms", fallbackBudgetMs) : fallbackBudgetMs, 1, 100);
+
+            String fallbackMode = physicsSettings != null ? physicsSettings.snapshotMode.name() : PhysicsLoop.SnapshotMode.LATEST.name();
+            String modeValue = section != null ? section.getString("snapshot-queue-mode", fallbackMode) : fallbackMode;
+            PhysicsLoop.SnapshotMode parsedMode;
+            try {
+                parsedMode = PhysicsLoop.SnapshotMode.valueOf(modeValue.toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                parsedMode = PhysicsLoop.SnapshotMode.LATEST;
+            }
+            this.snapshotQueueMode = parsedMode;
+        }
+    }
+
+    public static class NetworkThreadingSettings {
+        public final int computeThreads;
+        public final long flushBudgetNanos;
+        public final int maxBytesPerTick;
+
+        public NetworkThreadingSettings(ConfigurationSection section) {
+            int fallbackThreads = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
+            this.computeThreads = clamp(section != null ? section.getInt("compute-threads", fallbackThreads) : fallbackThreads, 1, 16);
+            this.flushBudgetNanos = clamp(section != null ? section.getLong("flush-budget-nanos", 2_000_000L) : 2_000_000L, 100_000L, 25_000_000L);
+            this.maxBytesPerTick = clamp(section != null ? section.getInt("max-bytes-per-tick", 147_456) : 147_456, 1_024, 4_194_304);
+        }
+    }
+
+    public static class TerrainThreadingSettings {
+        public final int captureBudgetMs;
+        public final int generateWorkers;
+        public final int maxInFlight;
+
+        public TerrainThreadingSettings(ConfigurationSection section, PhysicsSettings physicsSettings) {
+            int fallbackCaptureBudgetMs = 2;
+            int fallbackWorkers = physicsSettings != null ? physicsSettings.workerThreads : 2;
+            int fallbackInFlight = physicsSettings != null ? physicsSettings.TERRAIN_GENERATION.maxGenerateJobsInFlight : 3;
+
+            this.captureBudgetMs = clamp(section != null ? section.getInt("capture-budget-ms", fallbackCaptureBudgetMs) : fallbackCaptureBudgetMs, 0, 25);
+            this.generateWorkers = clamp(section != null ? section.getInt("generate-workers", fallbackWorkers) : fallbackWorkers, 1, 16);
+            this.maxInFlight = clamp(section != null ? section.getInt("max-in-flight", fallbackInFlight) : fallbackInFlight, 1, 64);
+        }
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static long clamp(long value, long min, long max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     // ==========================================

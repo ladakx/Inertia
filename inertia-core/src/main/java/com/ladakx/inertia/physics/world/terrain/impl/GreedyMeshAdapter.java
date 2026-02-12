@@ -66,7 +66,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     public void onEnable(PhysicsWorld world) {
         this.world = world;
         InertiaConfig config = InertiaPlugin.getInstance().getConfigManager().getInertiaConfig();
-        int workerThreads = config.PHYSICS.workerThreads;
+        InertiaConfig.TerrainThreadingSettings terrainThreading = config.PERFORMANCE.THREADING.terrain;
         InertiaConfig.PhysicsSettings.ChunkCacheSettings cacheSettings = config.PHYSICS.CHUNK_CACHE;
 
         this.joltTools = InertiaPlugin.getInstance().getJoltTools();
@@ -75,10 +75,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         WorldsConfig.GreedyMeshingSettings meshingSettings = world.getSettings().simulation().greedyMeshing();
         this.greedyMeshShapeType = meshingSettings.shapeType();
         this.useFastChunkCapture = meshingSettings.fastChunkCapture();
-        this.maxCaptureMillisPerTick = Math.max(0, meshingSettings.maxCaptureMillisPerTick());
+        this.maxCaptureMillisPerTick = Math.max(0, terrainThreading.captureBudgetMs);
         this.maxCapturePerTick = Math.max(1, config.PHYSICS.TERRAIN_GENERATION.maxCapturePerTick);
 
-        GenerationQueue generationQueue = new GenerationQueue(workerThreads, config.PHYSICS.TERRAIN_GENERATION.maxGenerateJobsInFlight);
+        GenerationQueue generationQueue = new GenerationQueue(terrainThreading.generateWorkers, terrainThreading.maxInFlight);
         File worldFolder = world.getWorldBukkit().getWorldFolder();
         File cacheDir = new File(worldFolder, "physics");
         Duration memoryCacheTtl = Duration.ofSeconds(Math.max(0, cacheSettings.memoryTtlSeconds));

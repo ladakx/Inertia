@@ -34,6 +34,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.concurrent.CompletableFuture;
+
 public final class InertiaPlugin extends JavaPlugin {
 
     private static InertiaPlugin instance;
@@ -98,7 +100,8 @@ public final class InertiaPlugin extends JavaPlugin {
 
         this.networkEntityTracker = new NetworkEntityTracker(
                 packetFactory,
-                configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER
+                configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER,
+                configurationService.getInertiaConfig().PERFORMANCE.THREADING.network
         );
 
         // Global network tick task (Replaces local tasks in PhysicsWorld)
@@ -184,22 +187,28 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     public void reload() {
-        if (configurationService != null) {
-            configurationService.reloadAsync().thenRun(() -> {
-                Bukkit.getScheduler().runTask(this, () -> {
-                    if (physicsWorldRegistry != null) {
-                        physicsWorldRegistry.reload();
-                    }
+        if (configurationService == null) {
+            return;
+        }
+
+        configurationService.reloadAsync()
+                .thenCompose(v -> CompletableFuture.runAsync(() -> {
+                    // IO-free pre-apply stage (kept async intentionally for safe hot reload staging)
+                    configurationService.getAppliedThreadingConfig();
+                }))
+                .thenRun(() -> Bukkit.getScheduler().runTask(this, () -> {
                     if (itemRegistry != null) {
                         itemRegistry.reload();
                     }
                     if (networkEntityTracker != null) {
                         networkEntityTracker.applySettings(configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER);
+                        networkEntityTracker.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING.network);
+                    }
+                    if (physicsWorldRegistry != null) {
+                        physicsWorldRegistry.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING);
                     }
                     InertiaLogger.info("Inertia systems reloaded.");
-                });
-            });
-        }
+                }));
     }
 
     private boolean setupNativeLibraries() {

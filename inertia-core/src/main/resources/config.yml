@@ -137,3 +137,28 @@ rendering:
         max-transform-checks-per-player-per-tick: 576
         max-packets-per-player-per-tick: 576
         max-bytes-per-player-per-tick: 221184
+
+
+performance:
+  threading:
+    physics:
+      # Потоки фізичного job-систему світу (Jolt world threads).
+      world-threads: 3
+      # Загальний бюджет physics task manager на тік (ms), ділиться між one-time та recurring.
+      task-budget-ms: 7
+      # Режим черги снапшотів: LATEST або FIFO.
+      snapshot-queue-mode: LATEST
+    network:
+      # Кількість воркерів для async network-compute фази трекера.
+      compute-threads: 3
+      # Бюджет flush/scheduler в наносекундах на серверний тік.
+      flush-budget-nanos: 6000000
+      # Ліміт байтів на тік для network flush per-player budget.
+      max-bytes-per-tick: 147456
+    terrain:
+      # Бюджет chunk capture на main-thread (ms) на тік.
+      capture-budget-ms: 2
+      # Кількість воркерів генерації terrain mesh.
+      generate-workers: 3
+      # Максимум одночасних in-flight generation задач.
+      max-in-flight: 3
