@@ -18,6 +18,7 @@ import org.incendo.cloud.parser.standard.StringParser;
 
 import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
 
+import java.util.List;
 import java.util.Locale;
 
 public class AdminCommands extends CloudModule {
@@ -220,4 +221,26 @@ public class AdminCommands extends CloudModule {
                 })
         );
     }
+    private List<String> booleanSuggestions() {
+        return List.of("true", "false");
+    }
+
+    private List<String> radiusSuggestions() {
+        return List.of("0", "4", "8", "16", "32", "64", "128");
+    }
+
+    private List<String> centerXSuggestions(CommandSender sender) {
+        if (sender instanceof Player player) {
+            return List.of(String.valueOf(player.getLocation().getBlockX() >> 4));
+        }
+        return List.of("0");
+    }
+
+    private List<String> centerZSuggestions(CommandSender sender) {
+        if (sender instanceof Player player) {
+            return List.of(String.valueOf(player.getLocation().getBlockZ() >> 4));
+        }
+        return List.of("0");
+    }
+
 }
