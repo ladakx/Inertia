@@ -30,6 +30,14 @@ physics:
     memory-ttl-seconds: 900
     # TTL "холодного" disk cache в секундах (0 отключает истечение).
     disk-ttl-seconds: 7200
+  task-manager:
+    # Максимум одноразових задач за один physics-тік.
+    max-one-time-tasks-per-tick: 50
+    # Time budget (ns) для виконання one-time фази.
+    one-time-budget-nanos: 4000000
+    # Time budget (ns) для recurring фази.
+    recurring-budget-nanos: 3000000
+
   mass-spawn:
     # Мінімальний бюджет spawn-операцій за тик.
     min-budget-per-tick: 50
