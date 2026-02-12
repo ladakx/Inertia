@@ -102,6 +102,17 @@ public class PhysicsWorldRegistry {
         }
     }
 
+
+    public void applyThreadingSettings(com.ladakx.inertia.configuration.dto.InertiaConfig.ThreadingSettings threadingSettings) {
+        for (PhysicsWorld space : spaces.values()) {
+            try {
+                space.applyThreadingSettings(threadingSettings);
+            } catch (Exception e) {
+                InertiaLogger.error("Failed to apply threading settings for world: " + space.getBukkitWorld().getName(), e);
+            }
+        }
+    }
+
     public void reload() {
         InertiaLogger.info("Reloading Physics World Registry...");
         for (PhysicsWorld space : spaces.values()) {

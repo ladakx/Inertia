@@ -37,7 +37,7 @@ public class PhysicsLoop {
     private final Object fifoLock = new Object();
     private final ArrayDeque<PhysicsSnapshot> fifoSnapshots = new ArrayDeque<>(MAX_FIFO_SNAPSHOTS);
     private final SnapshotPool snapshotPool;
-    private final SnapshotMode snapshotMode;
+    private volatile SnapshotMode snapshotMode;
 
     private BukkitTask syncTask;
     private final Runnable physicsStep;
@@ -111,6 +111,13 @@ public class PhysicsLoop {
         });
 
         start();
+    }
+
+    public void applySettings(SnapshotMode snapshotMode) {
+        if (snapshotMode == null) {
+            return;
+        }
+        this.snapshotMode = snapshotMode;
     }
 
     public void addListener(LoopTickListener listener) {

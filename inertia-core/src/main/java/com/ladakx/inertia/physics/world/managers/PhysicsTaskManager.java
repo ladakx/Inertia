@@ -92,6 +92,11 @@ public class PhysicsTaskManager {
         this.recurringTaskBudgetNanos = Math.max(100_000L, recurringTaskBudgetNanos);
     }
 
+    public void updateBudget(long oneTimeTaskBudgetNanos, long recurringTaskBudgetNanos) {
+        this.oneTimeTaskBudgetNanos = Math.max(100_000L, oneTimeTaskBudgetNanos);
+        this.recurringTaskBudgetNanos = Math.max(100_000L, recurringTaskBudgetNanos);
+    }
+
     public UUID addTickTask(@NotNull Runnable task) {
         return addTickTask(task, RecurringTaskPriority.NORMAL);
     }

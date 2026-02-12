@@ -43,6 +43,10 @@ public final class RenderNetworkBudgetScheduler {
         this.pingHardThresholdMs = Math.max(this.pingSoftThresholdMs, settings.adaptivePingHardThresholdMs);
     }
 
+    public void applyThreadingSettings(long flushBudgetNanos) {
+        this.maxWorkNanosPerTick = Math.max(100_000L, flushBudgetNanos);
+    }
+
     public void enqueueSpawn(Runnable task) {
         enqueueSpawn(task, null, -1L);
     }
