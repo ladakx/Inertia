@@ -1,14 +1,13 @@
 package com.ladakx.inertia.rendering;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Player;
 import org.joml.Quaternionf;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 
 final class VisibilitySliceProcessor {
 
@@ -28,15 +27,18 @@ final class VisibilitySliceProcessor {
     private final RenderNetworkBudgetScheduler scheduler;
     private final PacketBuffer packetBuffer;
     private final java.util.function.IntToLongFunction tokenProvider;
+    private final Function<UUID, PlayerFrame> playerFrameProvider;
 
     VisibilitySliceProcessor(Map<Integer, TrackedVisual> visualsById,
                              RenderNetworkBudgetScheduler scheduler,
                              PacketBuffer packetBuffer,
-                             java.util.function.IntToLongFunction tokenProvider) {
+                             java.util.function.IntToLongFunction tokenProvider,
+                             Function<UUID, PlayerFrame> playerFrameProvider) {
         this.visualsById = Objects.requireNonNull(visualsById, "visualsById");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.packetBuffer = Objects.requireNonNull(packetBuffer, "packetBuffer");
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider");
+        this.playerFrameProvider = Objects.requireNonNull(playerFrameProvider, "playerFrameProvider");
     }
 
     void runSlice(UUID playerId,
@@ -46,18 +48,12 @@ final class VisibilitySliceProcessor {
                   boolean destroyDrainFastPathActive,
                   Runnable rescheduleIfNeeded) {
         try {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player == null || !player.isOnline()) {
+            PlayerFrame playerFrame = playerFrameProvider.apply(playerId);
+            if (playerFrame == null) {
                 trackingState.clearVisible();
                 return;
             }
-
-            Location playerLoc = player.getLocation();
-            World playerWorld = playerLoc.getWorld();
-            if (playerWorld == null) {
-                return;
-            }
-            UUID playerWorldId = playerWorld.getUID();
+            UUID playerWorldId = playerFrame.worldId();
 
             int budget = maxVisibilityUpdatesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxVisibilityUpdatesPerPlayerPerTick;
             int processed = 0;
@@ -79,9 +75,9 @@ final class VisibilitySliceProcessor {
                 World trackedWorld = trackedLoc.getWorld();
                 boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
 
-                double dx = trackedLoc.getX() - playerLoc.getX();
-                double dy = trackedLoc.getY() - playerLoc.getY();
-                double dz = trackedLoc.getZ() - playerLoc.getZ();
+                double dx = trackedLoc.getX() - playerFrame.x();
+                double dy = trackedLoc.getY() - playerFrame.y();
+                double dz = trackedLoc.getZ() - playerFrame.z();
                 double distSq = dx * dx + dy * dy + dz * dz;
 
                 boolean inRange = sameWorld && distSq <= viewDistanceSquared;
@@ -98,7 +94,7 @@ final class VisibilitySliceProcessor {
                                 visualId,
                                 tokenVersion
                         );
-                        tracked.markSent(player);
+                        tracked.markSent();
                     }
                 } else if (trackingState.removeVisible(id)) {
                     scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,

@@ -1,9 +1,5 @@
 package com.ladakx.inertia.rendering;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.entity.Player;
 
 import java.util.Collection;
 import java.util.Map;
@@ -32,24 +28,20 @@ final class PlayerTickProcessor {
         this.transformEnqueuer = Objects.requireNonNull(transformEnqueuer, "transformEnqueuer");
     }
 
-    void processPlayers(Collection<? extends Player> players,
+    void processPlayers(Collection<PlayerFrame> players,
                         double viewDistanceSquared,
                         int viewDistanceChunks,
                         long tickCounter,
                         int fullRecalcIntervalTicks,
                         boolean destroyDrainFastPathActive) {
-        for (Player player : players) {
-            if (player == null || !player.isOnline()) continue;
-            UUID playerId = player.getUniqueId();
+        for (PlayerFrame player : players) {
+            if (player == null) continue;
+            UUID playerId = player.playerId();
             PlayerTrackingState trackingState = playerTrackingStates.computeIfAbsent(playerId, k -> new PlayerTrackingState());
 
-            Location playerLoc = player.getLocation();
-            int pChunkX = playerLoc.getBlockX() >> 4;
-            int pChunkZ = playerLoc.getBlockZ() >> 4;
-            World playerWorld = playerLoc.getWorld();
-            if (playerWorld == null) continue;
-
-            UUID playerWorldId = playerWorld.getUID();
+            int pChunkX = player.chunkX();
+            int pChunkZ = player.chunkZ();
+            UUID playerWorldId = player.worldId();
             boolean chunkChanged = !trackingState.initialized() || pChunkX != trackingState.chunkX() || pChunkZ != trackingState.chunkZ();
             boolean worldChanged = !trackingState.initialized() || !playerWorldId.equals(trackingState.worldId());
             boolean periodicFullRecalc = !trackingState.initialized()
@@ -71,7 +63,6 @@ final class PlayerTickProcessor {
             transformEnqueuer.enqueue(playerId, trackingState, viewDistanceSquared);
         }
 
-        playerTrackingStates.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
     }
 }
 
