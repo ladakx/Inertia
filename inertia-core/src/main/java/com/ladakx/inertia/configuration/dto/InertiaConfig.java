@@ -70,6 +70,7 @@ public class InertiaConfig {
         public final ChunkCacheSettings CHUNK_CACHE;
         public final TerrainGenerationSettings TERRAIN_GENERATION;
         public final MassSpawnSettings MASS_SPAWN;
+        public final TaskManagerSettings TASK_MANAGER;
 
         public PhysicsSettings(ConfigurationSection section, FileConfiguration root) {
             if (section == null) {
@@ -78,6 +79,7 @@ public class InertiaConfig {
                 this.CHUNK_CACHE = new ChunkCacheSettings(null, root);
                 this.TERRAIN_GENERATION = new TerrainGenerationSettings(null, root);
                 this.MASS_SPAWN = new MassSpawnSettings(null, root);
+                this.TASK_MANAGER = new TaskManagerSettings(null, root);
                 return;
             }
 
@@ -89,6 +91,29 @@ public class InertiaConfig {
             this.CHUNK_CACHE = new ChunkCacheSettings(section.getConfigurationSection("chunk-cache"), root);
             this.TERRAIN_GENERATION = new TerrainGenerationSettings(section.getConfigurationSection("terrain-generation"), root);
             this.MASS_SPAWN = new MassSpawnSettings(section.getConfigurationSection("mass-spawn"), root);
+            this.TASK_MANAGER = new TaskManagerSettings(section.getConfigurationSection("task-manager"), root);
+        }
+
+        public static class TaskManagerSettings {
+            public final int maxOneTimeTasksPerTick;
+            public final long oneTimeTaskBudgetNanos;
+            public final long recurringTaskBudgetNanos;
+
+            public TaskManagerSettings(ConfigurationSection section, FileConfiguration root) {
+                this.maxOneTimeTasksPerTick = section != null
+                        ? Math.max(1, section.getInt("max-one-time-tasks-per-tick", 50))
+                        : 50;
+
+                long oneTimeBudget = section != null
+                        ? section.getLong("one-time-budget-nanos", 4_000_000L)
+                        : 4_000_000L;
+                this.oneTimeTaskBudgetNanos = Math.max(100_000L, oneTimeBudget);
+
+                long recurringBudget = section != null
+                        ? section.getLong("recurring-budget-nanos", 3_000_000L)
+                        : 3_000_000L;
+                this.recurringTaskBudgetNanos = Math.max(100_000L, recurringBudget);
+            }
         }
 
         public static class TerrainGenerationSettings {

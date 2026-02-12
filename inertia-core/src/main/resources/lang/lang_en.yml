@@ -158,6 +158,11 @@ admin-stats-performance:
   - "<gray>Peak MSPT (1s): <red>{peak} <gray>ms"
 admin-stats-bodies:
   - "<gray>Bodies: <white>{dynamic} <gray>Dynamic | <white>{static} <gray>Static"
+admin-stats-tasks:
+  - "<gray>TaskManager one-time/recurring total: <white>{oneTime} <gray>/ <white>{recurringTotal} <gray>ms"
+  - "<gray>Recurring by category (ms): <white>{recurringByCategory}"
+  - "<gray>Recurring skipped: <white>{skipped}"
+  - "<gray>Queue depth one-time/recurring: <white>{queueOneTime}<gray>/<white>{queueRecurring}"
 admin-stats-footer: "<red><bold>=============================="
 tool-inspect-name: "<light_purple>Inspector Tool"
 tool-inspect-lore:
