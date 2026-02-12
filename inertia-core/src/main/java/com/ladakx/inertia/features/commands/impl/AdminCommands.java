@@ -105,16 +105,11 @@ public class AdminCommands extends CloudModule {
                 .permission("inertia.admin.terrain-cache")
                 .required("world", StringParser.stringParser(), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
                         worldRegistry.getAllSpaces().stream().map(space -> space.getWorldBukkit().getName()).toList()))
-                .optional("radius", IntegerParser.integerParser(0), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
-                        radiusSuggestions()))
-                .optional("all", BooleanParser.booleanParser(), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
-                        booleanSuggestions()))
-                .optional("centerX", IntegerParser.integerParser(), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
-                        centerXSuggestions(c.sender())))
-                .optional("centerZ", IntegerParser.integerParser(), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
-                        centerZSuggestions(c.sender())))
-                .optional("force", BooleanParser.booleanParser(), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
-                        booleanSuggestions()))
+                .optional("radius", IntegerParser.integerParser(0))
+                .optional("all", BooleanParser.booleanParser())
+                .optional("centerX", IntegerParser.integerParser())
+                .optional("centerZ", IntegerParser.integerParser())
+                .optional("force", BooleanParser.booleanParser())
                 .handler(ctx -> {
                     String worldName = ctx.get("world");
                     PhysicsWorld targetWorld = worldRegistry.getAllSpaces().stream()
