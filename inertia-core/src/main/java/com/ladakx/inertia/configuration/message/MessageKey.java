@@ -72,6 +72,7 @@ public enum MessageKey {
     ADMIN_STATS_HEADER("admin-stats-header"),
     ADMIN_STATS_PERFORMANCE("admin-stats-performance"),
     ADMIN_STATS_BODIES("admin-stats-bodies"),
+    ADMIN_STATS_TASKS("admin-stats-tasks"),
     ADMIN_STATS_FOOTER("admin-stats-footer"),
 
     DEBUG_INSPECT_HEADER("debug-inspect-header"),

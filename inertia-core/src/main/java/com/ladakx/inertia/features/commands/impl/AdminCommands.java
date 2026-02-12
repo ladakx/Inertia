@@ -10,6 +10,8 @@ import org.bukkit.command.CommandSender;
 import org.incendo.cloud.CommandManager;
 import org.incendo.cloud.parser.standard.BooleanParser;
 
+import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
+
 import java.util.Locale;
 
 public class AdminCommands extends CloudModule {
@@ -80,10 +82,28 @@ public class AdminCommands extends CloudModule {
                     // Форматируем числа
                     String fmtAvg = String.format(Locale.ROOT, "%.2f / %.2f / %.2f", avg1s, avg5s, avg1m);
                     String fmtPeak = String.format(Locale.ROOT, "%.2f", peak1s);
-                    
+                    String recurringByCategory = String.format(Locale.ROOT, "C:%.2f / N:%.2f / B:%.2f",
+                            metricsService.getRecurringExecutionMs(PhysicsTaskManager.RecurringTaskPriority.CRITICAL),
+                            metricsService.getRecurringExecutionMs(PhysicsTaskManager.RecurringTaskPriority.NORMAL),
+                            metricsService.getRecurringExecutionMs(PhysicsTaskManager.RecurringTaskPriority.BACKGROUND)
+                    );
+                    String skippedByCategory = String.format(Locale.ROOT, "C:%d / N:%d / B:%d",
+                            metricsService.getRecurringSkipped(PhysicsTaskManager.RecurringTaskPriority.CRITICAL),
+                            metricsService.getRecurringSkipped(PhysicsTaskManager.RecurringTaskPriority.NORMAL),
+                            metricsService.getRecurringSkipped(PhysicsTaskManager.RecurringTaskPriority.BACKGROUND)
+                    );
+
                     send(ctx.sender(), MessageKey.ADMIN_STATS_HEADER);
                     send(ctx.sender(), MessageKey.ADMIN_STATS_PERFORMANCE, "{avg}", fmtAvg, "{peak}", fmtPeak);
                     send(ctx.sender(), MessageKey.ADMIN_STATS_BODIES, "{dynamic}", String.valueOf(activeBodies), "{static}", String.valueOf(staticBodies));
+                    send(ctx.sender(), MessageKey.ADMIN_STATS_TASKS,
+                            "{oneTime}", String.format(Locale.ROOT, "%.2f", metricsService.getOneTimeExecutionMs()),
+                            "{recurringTotal}", String.format(Locale.ROOT, "%.2f", metricsService.getRecurringExecutionMsTotal()),
+                            "{recurringByCategory}", recurringByCategory,
+                            "{skipped}", skippedByCategory,
+                            "{queueOneTime}", String.valueOf(metricsService.getOneTimeQueueDepth()),
+                            "{queueRecurring}", String.valueOf(metricsService.getRecurringQueueDepth())
+                    );
                     send(ctx.sender(), MessageKey.ADMIN_STATS_FOOTER);
                 })
         );
