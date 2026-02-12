@@ -5,160 +5,157 @@ import com.github.stephengold.joltjni.JoltPhysicsObject;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 /**
- * Утилітарний клас для завантаження та **повної ініціалізації** нативних бібліотек Jolt.
+ * Утилітарний клас для завантаження нативних бібліотек Jolt з GitHub Releases.
  */
 public final class LibraryLoader {
+
+    private static final String GITHUB_BASE_URL = "https://github.com/ladakx/jolt-jni/releases/download/";
+    private static final String VERSION_TAG = "3.6.0";
 
     private boolean initialized = false;
 
     /**
-     * Завантажує та ініціалізує нативні бібліотеки Jolt.
-     *
-     * @param plugin Екземпляр плагіна, необхідний для доступу до ресурсів JAR.
-     * @param precision Яку версію бібліотеки завантажувати (SP чи DP).
-     * @throws JoltNativeException Якщо не вдалося завантажити/ініціалізувати Jolt.
+     * Завантажує бібліотеку з GitHub (або локального кешу) та ініціалізує Jolt.
      */
     public void init(JavaPlugin plugin, Precision precision) throws JoltNativeException {
         if (initialized) {
-            InertiaLogger.info("Jolt natives are already loaded and initialized.");
+            InertiaLogger.info("Jolt natives are already loaded.");
             return;
         }
 
-        // 1. ЗАВАНТАЖЕННЯ БІБЛІОТЕКИ
-        InertiaLogger.info("Attempting to load Jolt JNI native library (Precision: " + precision + ")...");
-        String nativeResourcePath = getNativeLibraryResourcePath(precision);
-
-        if (nativeResourcePath == null) {
-            throw new JoltNativeException("Unsupported OS or architecture. Cannot load Jolt JNI.");
-        }
-        InertiaLogger.info("Native library path resolved to: " + nativeResourcePath);
-
-        try (InputStream libraryStream = plugin.getResource(nativeResourcePath)) {
-            if (libraryStream == null) {
-                InertiaLogger.error("Could not find the native library inside the JAR at path: " + nativeResourcePath);
-                InertiaLogger.error("Ensure you have placed the native files in 'src/main/resources/natives/sp' and 'natives/dp'.");
-                throw new JoltNativeException("Native library not found in JAR: " + nativeResourcePath);
-            }
-
-            // Використовуємо префікс для унікальності тимчасового файлу
-            String tempPrefix = (precision == Precision.DP) ? "libjoltjni-dp-" : "libjoltjni-sp-";
-            File tempFile = File.createTempFile(tempPrefix, getLibrarySuffix());
-            tempFile.deleteOnExit();
-            Files.copy(libraryStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-            System.load(tempFile.getAbsolutePath());
-            InertiaLogger.info("Jolt JNI native library file loaded successfully! (Path: " + tempFile.getAbsolutePath() + ")");
-
-        } catch (IOException e) {
-            throw new JoltNativeException(new IOException("Could not extract the Jolt JNI native library", e));
-        } catch (UnsatisfiedLinkError e) {
-            throw new JoltNativeException(new UnsatisfiedLinkError("Failed to link Jolt JNI. Version mismatch or missing dependencies."));
-        } catch (Exception e) {
-            throw new JoltNativeException(new Exception("An unexpected error occurred while loading Jolt JNI", e));
-        }
-
-        // 2. ІНІЦІАЛІЗАЦІЯ JOLT (Залишається без змін)
         try {
-            InertiaLogger.info("Initializing Jolt native environment...");
+            // 1. Визначення імені файлу та URL
+            String fileName = resolveFileName(precision);
+            File dataFolder = plugin.getDataFolder();
+            File nativesDir = new File(dataFolder, "natives");
+            File nativeLibFile = new File(nativesDir, fileName);
 
-            // (1) Запускаємо очищувач пам'яті
-            JoltPhysicsObject.startCleaner();
-            InertiaLogger.info("JoltPhysicsObject cleaner started.");
+            // 2. Перевірка наявності або завантаження
+            if (!nativeLibFile.exists()) {
+                InertiaLogger.info("Native library not found locally. Downloading from GitHub...");
+                InertiaLogger.info("Target: " + fileName);
 
-            // (2) Реєструємо алокатор за замовчуванням (malloc/free)
-            Jolt.registerDefaultAllocator();
-            InertiaLogger.info("Jolt default allocator registered.");
+                if (!nativesDir.exists() && !nativesDir.mkdirs()) {
+                    throw new IOException("Failed to create directory: " + nativesDir.getAbsolutePath());
+                }
 
-            // (3) Встановлюємо колбеки для логування та помилок
-            Jolt.installDefaultAssertCallback();
-            Jolt.installDefaultTraceCallback();
-            InertiaLogger.info("Jolt default callbacks installed.");
+                String downloadUrl = GITHUB_BASE_URL + VERSION_TAG + "/" + fileName;
+                downloadFile(downloadUrl, nativeLibFile);
 
-            // (4) Створюємо "Фабрику" - КРИТИЧНИЙ КРОК
-            if (!Jolt.newFactory()) {
-                throw new JoltNativeException("Jolt.newFactory() failed. Could not create Jolt Factory.");
+                InertiaLogger.info("Download complete: " + nativeLibFile.getAbsolutePath());
+            } else {
+                InertiaLogger.info("Found local native library: " + nativeLibFile.getAbsolutePath());
             }
-            InertiaLogger.info("Jolt factory created.");
 
-            // (5) Реєструємо всі фізичні типи
-            Jolt.registerTypes();
-            InertiaLogger.info("Jolt types registered.");
+            // 3. Завантаження бібліотеки в пам'ять (System.load)
+            try {
+                System.load(nativeLibFile.getAbsolutePath());
+                InertiaLogger.info("Native library loaded successfully.");
+            } catch (UnsatisfiedLinkError e) {
+                // Спроба видалити пошкоджений файл, щоб наступного разу завантажити заново
+                InertiaLogger.error("Failed to load library. It might be corrupted. Deleting file...");
+                nativeLibFile.delete();
+                throw e;
+            }
 
-            // (6) Логуємо версію для підтвердження
-            InertiaLogger.info("JDolt native environment initialized successfully. Jolt Version: " + Jolt.versionString());
+            // 4. Ініціалізація Jolt (стандартна процедура)
+            initializeJoltRuntime();
+
             initialized = true;
 
-        } catch (UnsatisfiedLinkError e) {
-            InertiaLogger.error("CRITICAL: Jolt initialization steps failed AFTER loading library.");
-            InertiaLogger.error("This means the loaded .so file is incompatible or corrupted.");
+        } catch (Exception e) {
             throw new JoltNativeException(e);
-        } catch (Throwable t) {
-            InertiaLogger.error("CRITICAL: Failed during Jolt static initialization block.");
-            throw new JoltNativeException(t);
         }
     }
 
     /**
-     * Отримує шлях до ресурсу бібліотеки на основі ОС, архітектури та ТОЧНОСТІ.
-     * * @param precision Вибір SP або DP.
-     * @return Внутрішній шлях до ресурсу в JAR.
+     * Формує назву файлу на основі списку активів у вашому релізі.
+     * Логіка складна через різницю в іменуванні для Mac та Win/Linux.
      */
-    private String getNativeLibraryResourcePath(Precision precision) {
+    private String resolveFileName(Precision precision) throws JoltNativeException {
         String os = System.getProperty("os.name").toLowerCase();
         String arch = System.getProperty("os.arch").toLowerCase();
 
-        String osName;
-        String archName;
+        String precString = (precision == Precision.DP) ? "dp" : "sp";
 
+        // Windows
         if (os.contains("win")) {
-            osName = "windows";
-            archName = "x86-64"; // Jolt-JNI (станом на 3.5.0) не надає aarch64 для Windows
-        } else if (os.contains("mac")) {
-            osName = "osx";
-            archName = (arch.equals("aarch64")) ? "aarch64" : "x86-64";
-        } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-            osName = "linux";
-            archName = (arch.equals("aarch64")) ? "aarch64" : "x86-64";
-        } else {
-            return null; // Unsupported OS
+            // Формат: jolt-jni-windows-{dp|sp}-release.dll
+            // Примітка: Ми беремо 'release' версію, не debug
+            return String.format("jolt-jni-windows-%s-release.dll", precString);
         }
 
-        // Визначаємо префікс шляху на основі точності
-        String precisionPath = (precision == Precision.DP) ? "dp" : "sp";
-
-        // Будуємо новий, унікальний шлях до ресурсу
-        return String.format("natives/%s/%s/%s/libjoltjni%s",
-                precisionPath, osName, archName, getLibrarySuffix());
-    }
-
-    private String getLibrarySuffix() {
-        String os = System.getProperty("os.name").toLowerCase();
-        if (os.contains("win")) {
-            return ".dll";
+        // Linux
+        else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
+            // Формат: libjolt-jni-linux-{dp|sp}-release.so
+            return String.format("libjolt-jni-linux-%s-release.so", precString);
         }
-        if (os.contains("mac")) {
-            return ".dylib";
+
+        // MacOS
+        else if (os.contains("mac")) {
+            // Формат: libjolt-jni-macos-{arch}-{dp|sp}.dylib
+            // У вашому списку немає суфікса "-release" для Mac
+            String macArch = arch.equals("aarch64") || arch.contains("arm") ? "arm64" : "intel";
+            return String.format("libjolt-jni-macos-%s-%s.dylib", macArch, precString);
         }
-        return ".so";
+
+        else {
+            throw new JoltNativeException("Unsupported OS: " + os);
+        }
     }
 
     /**
-     * Внутрішній клас винятків для помилок ініціалізації Jolt.
+     * Завантажує файл за URL і зберігає його на диск.
      */
-    public static class JoltNativeException extends Exception {
-        public JoltNativeException(String message) {
-            super(message);
+    private void downloadFile(String fileUrl, File destination) throws IOException {
+        URL url = new URL(fileUrl);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(10000);
+
+        // Обробка редіректів (GitHub Release часто робить редірект на AWS)
+        int status = connection.getResponseCode();
+        if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == HttpURLConnection.HTTP_SEE_OTHER) {
+            String newUrl = connection.getHeaderField("Location");
+            connection = (HttpURLConnection) new URL(newUrl).openConnection();
         }
 
-        public JoltNativeException(Throwable cause) {
-            super("Failed to load or initialize Jolt natives", cause);
+        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+             FileOutputStream fileOutputStream = new FileOutputStream(destination)) {
+
+            byte[] dataBuffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
+                fileOutputStream.write(dataBuffer, 0, bytesRead);
+            }
         }
+    }
+
+    private void initializeJoltRuntime() {
+        InertiaLogger.info("Initializing Jolt objects...");
+        JoltPhysicsObject.startCleaner();
+        Jolt.registerDefaultAllocator();
+        Jolt.installDefaultAssertCallback();
+        Jolt.installDefaultTraceCallback();
+
+        if (!Jolt.newFactory()) {
+            throw new RuntimeException("Jolt.newFactory() failed.");
+        }
+        Jolt.registerTypes();
+        InertiaLogger.info("Jolt initialized! Version: " + Jolt.versionString());
+    }
+
+    public static class JoltNativeException extends Exception {
+        public JoltNativeException(String message) { super(message); }
+        public JoltNativeException(Throwable cause) { super(cause); }
     }
 }

@@ -4,7 +4,7 @@
 blocks:
   stone:
     render:
-      model: stone # посилання на модель з render.yml
+      model: stone
     physics:
       angular-damping: 0.1
       linear-damping: 0.3
@@ -17,7 +17,7 @@ blocks:
         - "type=box x=0.5 y=0.5 z=0.5"
   grass:
     render:
-      model: grass # посилання на модель з render.yml
+      model: grass
     physics:
       angular-damping: 0.1
       linear-damping: 0.3
@@ -30,7 +30,7 @@ blocks:
         - "type=box x=0.5 y=0.5 z=0.5"
   tnt_physics:
     render:
-      model: tnt # посилання на модель з render.yml
+      model: tnt
     physics:
       angular-damping: 0.1
       linear-damping: 0.3
@@ -43,7 +43,7 @@ blocks:
         - "type=box x=0.5 y=0.5 z=0.5"
   slab:
     render:
-      model: slab # посилання на модель з render.yml
+      model: slab
     physics:
       angular-damping: 0.1
       linear-damping: 0.3

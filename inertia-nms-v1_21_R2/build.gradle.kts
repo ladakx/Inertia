@@ -1,7 +1,7 @@
 plugins {
     `java-library`
     id("java")
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.11"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.19"
 }
 
 dependencies {
