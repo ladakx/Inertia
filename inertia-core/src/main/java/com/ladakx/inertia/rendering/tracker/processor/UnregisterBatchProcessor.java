@@ -1,5 +1,11 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.processor;
 
+import com.ladakx.inertia.rendering.tracker.budget.RenderNetworkBudgetScheduler;
+import com.ladakx.inertia.rendering.tracker.grid.ChunkGridIndex;
+import com.ladakx.inertia.rendering.tracker.registry.VisualTombstoneService;
+import com.ladakx.inertia.rendering.tracker.state.PendingDestroyState;
+import com.ladakx.inertia.rendering.tracker.state.PlayerTrackingState;
+import com.ladakx.inertia.rendering.tracker.state.TrackedVisual;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 
@@ -10,12 +16,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-final class UnregisterBatchProcessor {
+public final class UnregisterBatchProcessor {
 
-    record Result(boolean bulkFastPathUsed, int removedCount) {}
+    public record Result(boolean bulkFastPathUsed, int removedCount) {}
 
     @FunctionalInterface
-    interface VisualQueueInvalidator {
+    public interface VisualQueueInvalidator {
         long invalidateVisualQueues(int visualId);
     }
 
@@ -28,7 +34,7 @@ final class UnregisterBatchProcessor {
     private final VisualQueueInvalidator queueInvalidator;
     private final long tombstoneTtlTicks;
 
-    UnregisterBatchProcessor(Map<Integer, TrackedVisual> visualsById,
+    public UnregisterBatchProcessor(Map<Integer, TrackedVisual> visualsById,
                              ChunkGridIndex chunkGrid,
                              VisualTombstoneService tombstoneService,
                              RenderNetworkBudgetScheduler scheduler,
@@ -46,7 +52,7 @@ final class UnregisterBatchProcessor {
         this.tombstoneTtlTicks = Math.max(0L, tombstoneTtlTicks);
     }
 
-    Result unregisterBatch(Collection<Integer> ids, long tickCounter) {
+    public Result unregisterBatch(Collection<Integer> ids, long tickCounter) {
         Objects.requireNonNull(ids, "ids");
         if (ids.isEmpty()) {
             return new Result(false, 0);
@@ -125,4 +131,3 @@ final class UnregisterBatchProcessor {
         return new Result(useBulkFastPath, removedIds.size());
     }
 }
-

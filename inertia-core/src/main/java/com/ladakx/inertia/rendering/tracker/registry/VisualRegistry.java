@@ -1,29 +1,32 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.registry;
 
 import com.ladakx.inertia.common.chunk.ChunkUtils;
+import com.ladakx.inertia.rendering.NetworkVisual;
+import com.ladakx.inertia.rendering.tracker.grid.ChunkGridIndex;
+import com.ladakx.inertia.rendering.tracker.state.TrackedVisual;
 import org.bukkit.Location;
 import org.joml.Quaternionf;
 
 import java.util.Map;
 import java.util.Objects;
 
-final class VisualRegistry {
+public final class VisualRegistry {
     private final Map<Integer, TrackedVisual> visualsById;
     private final ChunkGridIndex chunkGrid;
     private final VisualTokenService tokenService;
     private final VisualTombstoneService tombstoneService;
 
-    VisualRegistry(Map<Integer, TrackedVisual> visualsById,
-                   ChunkGridIndex chunkGrid,
-                   VisualTokenService tokenService,
-                   VisualTombstoneService tombstoneService) {
+    public VisualRegistry(Map<Integer, TrackedVisual> visualsById,
+                          ChunkGridIndex chunkGrid,
+                          VisualTokenService tokenService,
+                          VisualTombstoneService tombstoneService) {
         this.visualsById = Objects.requireNonNull(visualsById, "visualsById");
         this.chunkGrid = Objects.requireNonNull(chunkGrid, "chunkGrid");
         this.tokenService = Objects.requireNonNull(tokenService, "tokenService");
         this.tombstoneService = Objects.requireNonNull(tombstoneService, "tombstoneService");
     }
 
-    void register(NetworkVisual visual, Location location, Quaternionf rotation) {
+    public void register(NetworkVisual visual, Location location, Quaternionf rotation) {
         Objects.requireNonNull(visual, "visual");
         Objects.requireNonNull(location, "location");
         Objects.requireNonNull(rotation, "rotation");
@@ -36,7 +39,7 @@ final class VisualRegistry {
         chunkGrid.add(visual.getId(), location);
     }
 
-    void updateState(NetworkVisual visual, Location location, Quaternionf rotation, long tickCounter) {
+    public void updateState(NetworkVisual visual, Location location, Quaternionf rotation, long tickCounter) {
         if (tombstoneService.isTombstoned(visual.getId(), tickCounter)) {
             return;
         }
@@ -58,21 +61,20 @@ final class VisualRegistry {
         }
     }
 
-    void markMetaDirty(NetworkVisual visual, boolean critical) {
+    public void markMetaDirty(NetworkVisual visual, boolean critical) {
         TrackedVisual tracked = visualsById.get(visual.getId());
         if (tracked != null) {
             tracked.markMetaDirty(critical);
         }
     }
 
-    void beginTick() {
+    public void beginTick() {
         for (TrackedVisual tracked : visualsById.values()) {
             tracked.beginTick();
         }
     }
 
-    boolean isClosed(int visualId, long tickCounter) {
+    public boolean isClosed(int visualId, long tickCounter) {
         return tombstoneService.isTombstoned(visualId, tickCounter);
     }
 }
-

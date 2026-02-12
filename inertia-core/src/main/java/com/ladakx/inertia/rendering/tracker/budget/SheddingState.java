@@ -1,13 +1,13 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.budget;
 
-record SheddingState(int midTeleportIntervalMultiplier,
-                     int farTeleportIntervalMultiplier,
-                     int metadataDropModulo) {
-    static SheddingState disabled() {
+public record SheddingState(int midTeleportIntervalMultiplier,
+                           int farTeleportIntervalMultiplier,
+                           int metadataDropModulo) {
+    public static SheddingState disabled() {
         return new SheddingState(1, 1, 1);
     }
 
-    static SheddingState of(int intensity) {
+    public static SheddingState of(int intensity) {
         return switch (intensity) {
             case 0 -> disabled();
             case 1 -> new SheddingState(2, 2, 2);
@@ -17,4 +17,3 @@ record SheddingState(int midTeleportIntervalMultiplier,
         };
     }
 }
-

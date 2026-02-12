@@ -1,10 +1,11 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.state;
 
 import com.ladakx.inertia.common.chunk.ChunkUtils;
+import com.ladakx.inertia.rendering.tracker.grid.ChunkGridIndex;
 
 import java.util.*;
 
-final class PlayerTrackingState {
+public final class PlayerTrackingState {
     private int chunkX;
     private int chunkZ;
     private UUID worldId;
@@ -22,21 +23,21 @@ final class PlayerTrackingState {
     private boolean visibilityTaskQueued;
     private boolean transformTaskQueued;
 
-    int chunkX() { return chunkX; }
-    int chunkZ() { return chunkZ; }
-    UUID worldId() { return worldId; }
-    long lastFullRecalcTick() { return lastFullRecalcTick; }
-    boolean initialized() { return initialized; }
-    Set<Integer> visibleIds() { return visibleIds; }
+    public int chunkX() { return chunkX; }
+    public int chunkZ() { return chunkZ; }
+    public UUID worldId() { return worldId; }
+    public long lastFullRecalcTick() { return lastFullRecalcTick; }
+    public boolean initialized() { return initialized; }
+    public Set<Integer> visibleIds() { return visibleIds; }
 
-    void updatePosition(int chunkX, int chunkZ, UUID worldId) {
+    public void updatePosition(int chunkX, int chunkZ, UUID worldId) {
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
         this.worldId = worldId;
         this.initialized = true;
     }
 
-    void rebuildCandidates(ChunkGridIndex chunkGrid, int centerChunkX, int centerChunkZ, int viewDistanceChunks) {
+    public void rebuildCandidates(ChunkGridIndex chunkGrid, int centerChunkX, int centerChunkZ, int viewDistanceChunks) {
         candidateLookup.clear();
         precomputedCandidateIds.clear();
         for (int x = -viewDistanceChunks; x <= viewDistanceChunks; x++) {
@@ -60,31 +61,31 @@ final class PlayerTrackingState {
         resetVisibleCursor();
     }
 
-    void markFullRecalcDone(long tick) {
+    public void markFullRecalcDone(long tick) {
         this.lastFullRecalcTick = tick;
     }
 
-    void markVisibilityDirty() {
+    public void markVisibilityDirty() {
         this.visibilityDirty = true;
         this.candidateCursor = 0;
     }
 
-    boolean needsVisibilityPass() {
+    public boolean needsVisibilityPass() {
         return visibilityDirty;
     }
 
-    void markVisibilityPassComplete() {
+    public void markVisibilityPassComplete() {
         this.visibilityDirty = false;
     }
 
-    Integer nextCandidateId() {
+    public Integer nextCandidateId() {
         if (candidateCursor >= precomputedCandidateIds.size()) {
             return null;
         }
         return precomputedCandidateIds.get(candidateCursor++);
     }
 
-    Integer nextVisibleId() {
+    public Integer nextVisibleId() {
         if (visibleIterationDirty) {
             visibleIterationOrder.clear();
             visibleIterationOrder.addAll(visibleIds);
@@ -103,15 +104,15 @@ final class PlayerTrackingState {
         return visibleIterationOrder.get(visibleCursor++);
     }
 
-    void resetVisibleCursor() {
+    public void resetVisibleCursor() {
         this.visibleCursor = 0;
     }
 
-    int remainingVisibleChecks() {
+    public int remainingVisibleChecks() {
         return Math.max(0, visibleIterationOrder.size() - visibleCursor);
     }
 
-    boolean addVisible(int id) {
+    public boolean addVisible(int id) {
         boolean added = visibleIds.add(id);
         if (added) {
             visibleIterationDirty = true;
@@ -119,7 +120,7 @@ final class PlayerTrackingState {
         return added;
     }
 
-    boolean removeVisible(int id) {
+    public boolean removeVisible(int id) {
         boolean removed = visibleIds.remove(id);
         if (removed) {
             visibleIterationDirty = true;
@@ -127,7 +128,7 @@ final class PlayerTrackingState {
         return removed;
     }
 
-    void clearVisible() {
+    public void clearVisible() {
         if (!visibleIds.isEmpty()) {
             visibleIds.clear();
             visibleIterationDirty = true;
@@ -135,11 +136,11 @@ final class PlayerTrackingState {
         resetVisibleCursor();
     }
 
-    void markVisibleIterationDirty() {
+    public void markVisibleIterationDirty() {
         this.visibleIterationDirty = true;
     }
 
-    boolean tryMarkVisibilityTaskQueued() {
+    public boolean tryMarkVisibilityTaskQueued() {
         if (visibilityTaskQueued) {
             return false;
         }
@@ -147,11 +148,11 @@ final class PlayerTrackingState {
         return true;
     }
 
-    void markVisibilityTaskDone() {
+    public void markVisibilityTaskDone() {
         visibilityTaskQueued = false;
     }
 
-    boolean tryMarkTransformTaskQueued() {
+    public boolean tryMarkTransformTaskQueued() {
         if (transformTaskQueued) {
             return false;
         }
@@ -159,11 +160,11 @@ final class PlayerTrackingState {
         return true;
     }
 
-    void markTransformTaskDone() {
+    public void markTransformTaskDone() {
         transformTaskQueued = false;
     }
 
-    void forceRecalc() {
+    public void forceRecalc() {
         this.lastFullRecalcTick = -1;
     }
 }

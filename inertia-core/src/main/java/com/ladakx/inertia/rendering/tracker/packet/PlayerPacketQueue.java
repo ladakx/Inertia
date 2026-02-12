@@ -1,4 +1,4 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.packet;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 
@@ -8,19 +8,19 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-final class PlayerPacketQueue {
+public final class PlayerPacketQueue {
     private final Object mutex = new Object();
     private final EnumMap<PacketPriority, ArrayDeque<QueuedPacket>> byPriority = new EnumMap<>(PacketPriority.class);
     private final Map<Integer, QueuedPacket> lastTeleportByVisualId = new HashMap<>();
 
-    PlayerPacketQueue() {
+    public PlayerPacketQueue() {
         byPriority.put(PacketPriority.DESTROY, new ArrayDeque<>());
         byPriority.put(PacketPriority.SPAWN, new ArrayDeque<>());
         byPriority.put(PacketPriority.TELEPORT, new ArrayDeque<>());
         byPriority.put(PacketPriority.METADATA, new ArrayDeque<>());
     }
 
-    int add(QueuedPacket packet, java.util.function.BiPredicate<Integer, Long> tokenValidator) {
+    public int add(QueuedPacket packet, java.util.function.BiPredicate<Integer, Long> tokenValidator) {
         int coalesced = 0;
         if (packet == null) {
             return 0;
@@ -41,7 +41,7 @@ final class PlayerPacketQueue {
         return coalesced;
     }
 
-    QueuedPacket peek() {
+    public QueuedPacket peek() {
         synchronized (mutex) {
             QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).peekFirst();
             if (packet != null) return packet;
@@ -53,7 +53,7 @@ final class PlayerPacketQueue {
         }
     }
 
-    QueuedPacket poll() {
+    public QueuedPacket poll() {
         synchronized (mutex) {
             QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).pollFirst();
             if (packet != null) return packet;
@@ -70,7 +70,7 @@ final class PlayerPacketQueue {
         }
     }
 
-    int size() {
+    public int size() {
         synchronized (mutex) {
             int total = 0;
             for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
@@ -80,7 +80,7 @@ final class PlayerPacketQueue {
         }
     }
 
-    boolean isEmpty() {
+    public boolean isEmpty() {
         synchronized (mutex) {
             for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
                 if (!queue.isEmpty()) return false;
@@ -89,14 +89,14 @@ final class PlayerPacketQueue {
         }
     }
 
-    void clear() {
+    public void clear() {
         synchronized (mutex) {
             byPriority.values().forEach(ArrayDeque::clear);
             lastTeleportByVisualId.clear();
         }
     }
 
-    void invalidateVisual(int visualId, long activeTokenVersion) {
+    public void invalidateVisual(int visualId, long activeTokenVersion) {
         synchronized (mutex) {
             pruneQueue(PacketPriority.SPAWN, visualId, activeTokenVersion);
             pruneQueue(PacketPriority.TELEPORT, visualId, activeTokenVersion);
@@ -104,7 +104,7 @@ final class PlayerPacketQueue {
         }
     }
 
-    void pruneBeforeBulkDestroy(int[] visualIds) {
+    public void pruneBeforeBulkDestroy(int[] visualIds) {
         if (visualIds == null || visualIds.length == 0) {
             return;
         }
@@ -158,4 +158,3 @@ final class PlayerPacketQueue {
         }
     }
 }
-

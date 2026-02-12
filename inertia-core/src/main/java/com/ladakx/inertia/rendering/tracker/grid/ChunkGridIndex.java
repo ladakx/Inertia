@@ -1,4 +1,4 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.grid;
 
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import org.bukkit.Location;
@@ -7,24 +7,24 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-final class ChunkGridIndex {
+public final class ChunkGridIndex {
     private final Map<Long, Set<Integer>> grid = new ConcurrentHashMap<>();
 
-    void add(int id, Location loc) {
+    public void add(int id, Location loc) {
         long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
         add(id, key);
     }
 
-    void add(int id, long chunkKey) {
+    public void add(int id, long chunkKey) {
         grid.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(id);
     }
 
-    void remove(int id, Location loc) {
+    public void remove(int id, Location loc) {
         long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
         remove(id, key);
     }
 
-    void remove(int id, long chunkKey) {
+    public void remove(int id, long chunkKey) {
         Set<Integer> set = grid.get(chunkKey);
         if (set == null) {
             return;
@@ -35,12 +35,11 @@ final class ChunkGridIndex {
         }
     }
 
-    Set<Integer> get(long chunkKey) {
+    public Set<Integer> get(long chunkKey) {
         return grid.get(chunkKey);
     }
 
-    void clear() {
+    public void clear() {
         grid.clear();
     }
 }
-

@@ -2,7 +2,7 @@ package com.ladakx.inertia.core.impl;
 
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.rendering.VisualTracker;
-import com.ladakx.inertia.rendering.NetworkEntityTracker;
+import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
 import org.jetbrains.annotations.NotNull;
 
@@ -68,4 +68,3 @@ public final class RenderingServiceImpl implements RenderingService {
         return visualTracker;
     }
 }
-

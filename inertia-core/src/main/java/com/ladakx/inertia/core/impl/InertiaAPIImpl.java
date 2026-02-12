@@ -14,7 +14,7 @@ import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
-import com.ladakx.inertia.rendering.NetworkEntityTracker;
+import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import org.bukkit.Location;

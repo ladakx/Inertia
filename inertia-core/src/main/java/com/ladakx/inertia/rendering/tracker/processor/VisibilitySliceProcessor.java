@@ -1,5 +1,10 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.processor;
 
+import com.ladakx.inertia.rendering.tracker.budget.RenderNetworkBudgetScheduler;
+import com.ladakx.inertia.rendering.tracker.packet.PacketPriority;
+import com.ladakx.inertia.rendering.tracker.state.PlayerFrame;
+import com.ladakx.inertia.rendering.tracker.state.PlayerTrackingState;
+import com.ladakx.inertia.rendering.tracker.state.TrackedVisual;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.joml.Quaternionf;
@@ -9,10 +14,10 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 
-final class VisibilitySliceProcessor {
+public final class VisibilitySliceProcessor {
 
     @FunctionalInterface
-    interface PacketBuffer {
+    public interface PacketBuffer {
         void buffer(UUID playerId,
                     Object packet,
                     PacketPriority priority,
@@ -29,7 +34,7 @@ final class VisibilitySliceProcessor {
     private final java.util.function.IntToLongFunction tokenProvider;
     private final Function<UUID, PlayerFrame> playerFrameProvider;
 
-    VisibilitySliceProcessor(Map<Integer, TrackedVisual> visualsById,
+    public VisibilitySliceProcessor(Map<Integer, TrackedVisual> visualsById,
                              RenderNetworkBudgetScheduler scheduler,
                              PacketBuffer packetBuffer,
                              java.util.function.IntToLongFunction tokenProvider,
@@ -41,7 +46,7 @@ final class VisibilitySliceProcessor {
         this.playerFrameProvider = Objects.requireNonNull(playerFrameProvider, "playerFrameProvider");
     }
 
-    void runSlice(UUID playerId,
+    public void runSlice(UUID playerId,
                   PlayerTrackingState trackingState,
                   double viewDistanceSquared,
                   int maxVisibilityUpdatesPerPlayerPerTick,

@@ -1,12 +1,12 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.budget;
 
-final class SheddingPolicy {
+public final class SheddingPolicy {
 
-    SheddingState compute(RenderNetworkBudgetScheduler scheduler,
-                          int destroyBacklogThreshold,
-                          int pendingDestroyIdsBacklog,
-                          int destroyQueueDepthBacklog,
-                          boolean destroyDrainFastPathActive) {
+    public SheddingState compute(RenderNetworkBudgetScheduler scheduler,
+                                 int destroyBacklogThreshold,
+                                 int pendingDestroyIdsBacklog,
+                                 int destroyQueueDepthBacklog,
+                                 boolean destroyDrainFastPathActive) {
         int metadataDepth = scheduler.getMetadataQueueDepth();
         int totalDepth = scheduler.queueDepth();
         int destroyDepth = destroyQueueDepthBacklog + pendingDestroyIdsBacklog;
@@ -22,4 +22,3 @@ final class SheddingPolicy {
         return SheddingState.of(intensity);
     }
 }
-

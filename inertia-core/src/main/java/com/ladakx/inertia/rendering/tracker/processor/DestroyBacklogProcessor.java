@@ -1,6 +1,9 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.processor;
 
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
+import com.ladakx.inertia.rendering.tracker.budget.RenderNetworkBudgetScheduler;
+import com.ladakx.inertia.rendering.tracker.packet.PacketPriority;
+import com.ladakx.inertia.rendering.tracker.state.PendingDestroyState;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 
 import java.util.Iterator;
@@ -8,21 +11,21 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-final class DestroyBacklogProcessor {
+public final class DestroyBacklogProcessor {
 
-    record Metrics(int pendingDestroyIdsBacklog,
-                   int destroyQueueDepthBacklog,
-                   boolean destroyDrainFastPathActive,
-                   long oldestQueueAgeMillis,
-                   long destroyBacklogAgeMillis) {}
+    public record Metrics(int pendingDestroyIdsBacklog,
+                          int destroyQueueDepthBacklog,
+                          boolean destroyDrainFastPathActive,
+                          long oldestQueueAgeMillis,
+                          long destroyBacklogAgeMillis) {}
 
     @FunctionalInterface
-    interface PacketBuffer {
+    public interface PacketBuffer {
         void buffer(UUID playerId, Object packet, PacketPriority priority, long destroyRegisteredAtTick);
     }
 
     @FunctionalInterface
-    interface PreFlushBulkDestroy {
+    public interface PreFlushBulkDestroy {
         void preFlush(UUID playerId, int[] visualIds);
     }
 
@@ -32,7 +35,7 @@ final class DestroyBacklogProcessor {
     private final PacketBuffer packetBuffer;
     private final PreFlushBulkDestroy preFlushBulkDestroy;
 
-    DestroyBacklogProcessor(Map<UUID, PendingDestroyState> pendingDestroyIds,
+    public DestroyBacklogProcessor(Map<UUID, PendingDestroyState> pendingDestroyIds,
                             RenderNetworkBudgetScheduler scheduler,
                             PacketFactory packetFactory,
                             PacketBuffer packetBuffer,
@@ -44,7 +47,7 @@ final class DestroyBacklogProcessor {
         this.preFlushBulkDestroy = Objects.requireNonNull(preFlushBulkDestroy, "preFlushBulkDestroy");
     }
 
-    void enqueuePendingDestroyTasks() {
+    public void enqueuePendingDestroyTasks() {
         if (pendingDestroyIds.isEmpty()) {
             return;
         }
@@ -89,7 +92,7 @@ final class DestroyBacklogProcessor {
         }
     }
 
-    Metrics refreshMetrics(int destroyBacklogThreshold) {
+    public Metrics refreshMetrics(int destroyBacklogThreshold) {
         long now = System.nanoTime();
         int pendingBacklog = calculatePendingDestroyBacklog();
         int queueBacklog = scheduler.getDestroyQueueDepth();
@@ -127,4 +130,3 @@ final class DestroyBacklogProcessor {
         return total;
     }
 }
-

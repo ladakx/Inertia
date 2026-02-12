@@ -26,7 +26,7 @@ import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import com.ladakx.inertia.infrastructure.nms.jolt.JoltToolsInit;
 import com.ladakx.inertia.infrastructure.nms.player.PlayerTools;
 import com.ladakx.inertia.infrastructure.nms.player.PlayerToolsInit;
-import com.ladakx.inertia.rendering.NetworkEntityTracker;
+import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.infrastructure.nms.render.RenderFactoryInit;
 import com.ladakx.inertia.features.tools.ToolRegistry;
