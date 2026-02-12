@@ -152,7 +152,7 @@ final class TransformSliceProcessor {
                 if (transformMetaPacket != null) {
                     long tokenVersion = tokenProvider.applyAsLong(tracked.visual().getId());
                     Object finalTransformMetaPacket = transformMetaPacket;
-                    scheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
+                    scheduler.enqueueMetadataCoalesced(playerId, tracked.visual().getId(),
                             () -> packetBuffer.buffer(playerId, finalTransformMetaPacket, PacketPriority.METADATA, tracked.visual().getId(), false,
                                     updateDecision.transformMetadataForced(), -1L, tokenVersion));
                 }
@@ -167,7 +167,7 @@ final class TransformSliceProcessor {
                             }
                         } else {
                             long tokenVersion = tokenProvider.applyAsLong(tracked.visual().getId());
-                            scheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
+                            scheduler.enqueueMetadataCoalesced(playerId, tracked.visual().getId(),
                                     () -> packetBuffer.buffer(playerId, meta.packet(), PacketPriority.METADATA, tracked.visual().getId(), false,
                                             meta.critical(), -1L, tokenVersion));
                         }
