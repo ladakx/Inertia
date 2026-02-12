@@ -1,9 +1,7 @@
 package com.ladakx.inertia.rendering;
 
-import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -11,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import org.joml.Quaternionf;
 
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -25,7 +24,13 @@ public class NetworkEntityTracker {
     private final ChunkGridIndex chunkGrid = new ChunkGridIndex();
 
     private final Map<UUID, PlayerPacketQueue> packetBuffer = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerPacketQueue> packetBufferBack = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerPacketQueue> intentBufferFront = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerPacketQueue> intentBufferBack = new ConcurrentHashMap<>();
+    private volatile Map<UUID, PlayerPacketQueue> activeIntentBuffer = intentBufferBack;
+    private volatile Map<UUID, PlayerPacketQueue> lastCompletedIntentBuffer = intentBufferBack;
     private final Map<UUID, PendingDestroyState> pendingDestroyIds = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerFrame> playerFrames = new ConcurrentHashMap<>();
 
     // Default values matched with InertiaConfig defaults (0.01^2 and 0.3)
     private volatile float posThresholdSq = 0.0001f;
@@ -46,7 +51,7 @@ public class NetworkEntityTracker {
     private volatile int destroyBacklogThreshold = 512;
     private volatile int destroyDrainExtraPacketsPerPlayerPerTick = 128;
     private volatile int maxBytesPerPlayerPerTick = 98304;
-    private long tickCounter = 0L;
+    private volatile long tickCounter = 0L;
 
     private volatile double averagePacketsPerPlayer = 0.0;
     private volatile int peakPacketsPerPlayer = 0;
@@ -79,21 +84,29 @@ public class NetworkEntityTracker {
     private final PlayerTickProcessor playerTickProcessor;
     private final DestroyBacklogProcessor destroyBacklogProcessor;
     private final SheddingPolicy sheddingPolicy = new SheddingPolicy();
+    private final ExecutorService asyncPhaseExecutor;
+    private volatile CompletableFuture<Void> asyncPhaseFuture;
+    private volatile int asyncBacklogTicks = 0;
+    private volatile int backlogPressureMultiplier = 1;
 
     public NetworkEntityTracker(PacketFactory packetFactory) {
         this.packetFactory = packetFactory;
+        int workers = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
+        this.asyncPhaseExecutor = new ForkJoinPool(workers);
         this.visualRegistry = new VisualRegistry(visualsById, chunkGrid, tokenService, tombstoneService);
         this.visibilitySliceProcessor = new VisibilitySliceProcessor(
                 visualsById,
                 networkScheduler,
                 this::bufferPacket,
-                this::currentVisualToken
+                this::currentVisualToken,
+                playerFrames::get
         );
         this.transformSliceProcessor = new TransformSliceProcessor(
                 visualsById,
                 networkScheduler,
                 this::bufferPacket,
-                this::currentVisualToken
+                this::currentVisualToken,
+                playerFrames::get
         );
         this.playerTickProcessor = new PlayerTickProcessor(
                 playerTrackingStates,
@@ -219,6 +232,65 @@ public class NetworkEntityTracker {
         );
 
         int viewDistanceChunks = (int) Math.ceil(Math.sqrt(viewDistanceSquared) / 16.0);
+
+        Collection<PlayerFrame> playerSnapshot = capturePlayerFrames(players);
+
+        flushCompletedAsyncIntents();
+
+        if (asyncPhaseFuture == null || asyncPhaseFuture.isDone()) {
+            asyncBacklogTicks = 0;
+            activeIntentBuffer = activeIntentBuffer == intentBufferBack ? intentBufferFront : intentBufferBack;
+            lastCompletedIntentBuffer = activeIntentBuffer;
+            asyncPhaseFuture = CompletableFuture.runAsync(() -> runAsyncPhaseB(
+                    playerSnapshot,
+                    viewDistanceSquared,
+                    viewDistanceChunks
+            ), asyncPhaseExecutor);
+        } else {
+            asyncBacklogTicks++;
+        }
+
+        applyDestroyMetrics(destroyBacklogProcessor.refreshMetrics(destroyBacklogThreshold));
+
+        flushPackets();
+    }
+
+
+    private Collection<PlayerFrame> capturePlayerFrames(Collection<? extends Player> players) {
+        ArrayList<PlayerFrame> snapshot = new ArrayList<>(players.size());
+        HashSet<UUID> alive = new HashSet<>();
+        for (Player player : players) {
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+            Location location = player.getLocation();
+            World world = location.getWorld();
+            if (world == null) {
+                continue;
+            }
+            UUID playerId = player.getUniqueId();
+            PlayerFrame frame = new PlayerFrame(
+                    playerId,
+                    world.getUID(),
+                    location.getX(),
+                    location.getY(),
+                    location.getZ(),
+                    location.getBlockX() >> 4,
+                    location.getBlockZ() >> 4
+            );
+            snapshot.add(frame);
+            alive.add(playerId);
+            playerFrames.put(playerId, frame);
+        }
+        playerFrames.keySet().removeIf(uuid -> !alive.contains(uuid));
+        playerTrackingStates.keySet().removeIf(uuid -> !alive.contains(uuid));
+        return snapshot;
+    }
+
+    private void runAsyncPhaseB(Collection<PlayerFrame> players, double viewDistanceSquared, int viewDistanceChunks) {
+        int backlogMultiplier = 1 + Math.min(3, Math.max(0, asyncBacklogTicks) / 2);
+        backlogPressureMultiplier = backlogMultiplier;
+
         playerTickProcessor.processPlayers(
                 players,
                 viewDistanceSquared,
@@ -230,9 +302,48 @@ public class NetworkEntityTracker {
 
         networkScheduler.runTick(players);
 
-        applyDestroyMetrics(destroyBacklogProcessor.refreshMetrics(destroyBacklogThreshold));
+    }
 
-        flushPackets();
+    private void flushCompletedAsyncIntents() {
+        CompletableFuture<Void> localFuture = asyncPhaseFuture;
+        if (localFuture == null || !localFuture.isDone()) {
+            return;
+        }
+        try {
+            localFuture.join();
+        } catch (CompletionException ignored) {
+        }
+        asyncPhaseFuture = null;
+
+        Map<UUID, PlayerPacketQueue> completedIntentBuffer = lastCompletedIntentBuffer;
+
+        packetBufferBack.clear();
+        for (Map.Entry<UUID, PlayerPacketQueue> entry : completedIntentBuffer.entrySet()) {
+            UUID playerId = entry.getKey();
+            PlayerPacketQueue intentQueue = entry.getValue();
+            if (intentQueue == null || intentQueue.isEmpty()) {
+                continue;
+            }
+            PlayerPacketQueue stagedQueue = packetBufferBack.computeIfAbsent(playerId, k -> new PlayerPacketQueue());
+            QueuedPacket qp;
+            while ((qp = intentQueue.poll()) != null) {
+                stagedQueue.add(qp, this::isTokenCurrent);
+            }
+        }
+        completedIntentBuffer.clear();
+
+        for (Map.Entry<UUID, PlayerPacketQueue> entry : packetBufferBack.entrySet()) {
+            PlayerPacketQueue incoming = entry.getValue();
+            if (incoming == null || incoming.isEmpty()) {
+                continue;
+            }
+            PlayerPacketQueue target = packetBuffer.computeIfAbsent(entry.getKey(), k -> new PlayerPacketQueue());
+            QueuedPacket qp;
+            while ((qp = incoming.poll()) != null) {
+                target.add(qp, this::isTokenCurrent);
+            }
+        }
+        packetBufferBack.clear();
     }
 
     private void addTombstone(int visualId) {
@@ -270,7 +381,7 @@ public class NetworkEntityTracker {
                 playerId,
                 trackingState,
                 viewDistanceSquared,
-                maxVisibilityUpdatesPerPlayerPerTick,
+                Math.max(16, maxVisibilityUpdatesPerPlayerPerTick / Math.max(1, backlogPressureMultiplier)),
                 destroyDrainFastPathActive,
                 () -> enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared)
         );
@@ -281,16 +392,16 @@ public class NetworkEntityTracker {
                 playerId,
                 trackingState,
                 viewDistanceSquared,
-                maxTransformChecksPerPlayerPerTick,
+                Math.max(16, maxTransformChecksPerPlayerPerTick / Math.max(1, backlogPressureMultiplier)),
                 tickCounter,
                 posThresholdSq,
                 rotThresholdDot,
                 midPosThresholdSq,
                 midRotThresholdDot,
-                midUpdateIntervalTicks,
+                Math.max(1, midUpdateIntervalTicks * Math.max(1, backlogPressureMultiplier)),
                 farPosThresholdSq,
                 farRotThresholdDot,
-                farUpdateIntervalTicks,
+                Math.max(1, farUpdateIntervalTicks * Math.max(1, backlogPressureMultiplier)),
                 farAllowMetadataUpdates,
                 sheddingState,
                 this::resolveLodLevel,
@@ -343,7 +454,7 @@ public class NetworkEntityTracker {
             return;
         }
         int estimatedBytes = Math.max(1, packetFactory.estimatePacketSizeBytes(packet));
-        int coalesced = packetBuffer.computeIfAbsent(playerId, k -> new PlayerPacketQueue())
+        int coalesced = activeIntentBuffer.computeIfAbsent(playerId, k -> new PlayerPacketQueue())
                 .add(new QueuedPacket(packet, priority, estimatedBytes, visualId, canCoalesce, criticalMetadata,
                         System.nanoTime(), destroyRegisteredAtTick, tokenVersion), this::isTokenCurrent);
         if (coalesced > 0) {
@@ -482,6 +593,9 @@ public class NetworkEntityTracker {
         UUID uuid = player.getUniqueId();
         pendingDestroyIds.remove(uuid);
         packetBuffer.remove(uuid);
+        packetBufferBack.remove(uuid);
+        intentBufferFront.remove(uuid);
+        intentBufferBack.remove(uuid);
         PlayerTrackingState trackingState = playerTrackingStates.remove(uuid);
         Set<Integer> visible = trackingState != null ? trackingState.visibleIds() : null;
         if (visible != null) {
@@ -499,6 +613,7 @@ public class NetworkEntityTracker {
         playerTrackingStates.clear();
         chunkGrid.clear();
         pendingDestroyIds.clear();
+        playerFrames.clear();
         pendingDestroyIdsBacklog = 0;
         destroyQueueDepthBacklog = 0;
         destroyDrainFastPathActive = false;
@@ -506,6 +621,9 @@ public class NetworkEntityTracker {
         destroyBacklogAgeMillis = 0L;
         massDestroyBoostTicksRemaining = 0;
         packetBuffer.clear();
+        packetBufferBack.clear();
+        intentBufferFront.clear();
+        intentBufferBack.clear();
         tokenService.clear();
         tombstoneService.clear();
         networkScheduler.clear();
@@ -532,11 +650,13 @@ public class NetworkEntityTracker {
 
     private long invalidateVisualQueues(int visualId) {
         long activeToken = bumpVisualToken(visualId);
-        for (PlayerPacketQueue queue : packetBuffer.values()) {
-            if (queue == null) {
-                continue;
+        for (Map<UUID, PlayerPacketQueue> buffer : List.of(packetBuffer, packetBufferBack, intentBufferFront, intentBufferBack)) {
+            for (PlayerPacketQueue queue : buffer.values()) {
+                if (queue == null) {
+                    continue;
+                }
+                queue.invalidateVisual(visualId, activeToken);
             }
-            queue.invalidateVisual(visualId, activeToken);
         }
         return activeToken;
     }
@@ -549,9 +669,11 @@ public class NetworkEntityTracker {
         if (visualIds == null || visualIds.length == 0) {
             return;
         }
-        PlayerPacketQueue queue = packetBuffer.get(playerId);
-        if (queue != null) {
-            queue.pruneBeforeBulkDestroy(visualIds);
+        for (Map<UUID, PlayerPacketQueue> buffer : List.of(packetBuffer, packetBufferBack, intentBufferFront, intentBufferBack)) {
+            PlayerPacketQueue queue = buffer.get(playerId);
+            if (queue != null) {
+                queue.pruneBeforeBulkDestroy(visualIds);
+            }
         }
         networkScheduler.invalidateVisuals(visualIds, this::currentVisualToken);
     }

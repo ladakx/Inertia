@@ -1,7 +1,6 @@
 package com.ladakx.inertia.rendering;
 
 import org.bukkit.Location;
-import org.bukkit.entity.Player;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -189,7 +188,7 @@ final class TrackedVisual {
         return cachedMetaPacket;
     }
 
-    void markSent(Player player) {
+    void markSent() {
     }
 
     private void syncAll() {
