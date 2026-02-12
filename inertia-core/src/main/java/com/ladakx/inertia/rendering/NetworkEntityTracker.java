@@ -3,30 +3,26 @@ package com.ladakx.inertia.rendering;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.configuration.dto.InertiaConfig;
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiPredicate;
 
 public class NetworkEntityTracker {
 
     private static final long DEFAULT_TOMBSTONE_TTL_TICKS = 3L;
 
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
-    private final Map<Integer, Long> visualTokenVersions = new ConcurrentHashMap<>();
-    private final Map<Integer, Long> visualTombstones = new ConcurrentHashMap<>();
+    private final VisualTokenService tokenService = new VisualTokenService();
+    private final VisualTombstoneService tombstoneService = new VisualTombstoneService();
     private final Map<UUID, PlayerTrackingState> playerTrackingStates = new ConcurrentHashMap<>();
-    private final Map<Long, Set<Integer>> chunkGrid = new ConcurrentHashMap<>();
+    private final ChunkGridIndex chunkGrid = new ChunkGridIndex();
 
     private final Map<UUID, PlayerPacketQueue> packetBuffer = new ConcurrentHashMap<>();
     private final Map<UUID, PendingDestroyState> pendingDestroyIds = new ConcurrentHashMap<>();
@@ -75,9 +71,53 @@ public class NetworkEntityTracker {
 
     private final PacketFactory packetFactory;
     private final RenderNetworkBudgetScheduler networkScheduler = new RenderNetworkBudgetScheduler();
+    private final VisibilitySliceProcessor visibilitySliceProcessor;
+    private final TransformSliceProcessor transformSliceProcessor;
+    private final PacketFlushProcessor packetFlushProcessor = new PacketFlushProcessor();
+    private final UnregisterBatchProcessor unregisterBatchProcessor;
+    private final VisualRegistry visualRegistry;
+    private final PlayerTickProcessor playerTickProcessor;
+    private final DestroyBacklogProcessor destroyBacklogProcessor;
+    private final SheddingPolicy sheddingPolicy = new SheddingPolicy();
 
     public NetworkEntityTracker(PacketFactory packetFactory) {
         this.packetFactory = packetFactory;
+        this.visualRegistry = new VisualRegistry(visualsById, chunkGrid, tokenService, tombstoneService);
+        this.visibilitySliceProcessor = new VisibilitySliceProcessor(
+                visualsById,
+                networkScheduler,
+                this::bufferPacket,
+                this::currentVisualToken
+        );
+        this.transformSliceProcessor = new TransformSliceProcessor(
+                visualsById,
+                networkScheduler,
+                this::bufferPacket,
+                this::currentVisualToken
+        );
+        this.playerTickProcessor = new PlayerTickProcessor(
+                playerTrackingStates,
+                chunkGrid,
+                this::enqueueVisibilitySlice,
+                this::enqueueTransformSlice
+        );
+        this.unregisterBatchProcessor = new UnregisterBatchProcessor(
+                visualsById,
+                chunkGrid,
+                tombstoneService,
+                networkScheduler,
+                playerTrackingStates,
+                pendingDestroyIds,
+                this::invalidateVisualQueues,
+                DEFAULT_TOMBSTONE_TTL_TICKS
+        );
+        this.destroyBacklogProcessor = new DestroyBacklogProcessor(
+                pendingDestroyIds,
+                networkScheduler,
+                packetFactory,
+                this::bufferPacket,
+                this::preFlushBeforeBulkDestroy
+        );
     }
 
     public NetworkEntityTracker(PacketFactory packetFactory, InertiaConfig.RenderingSettings.NetworkEntityTrackerSettings settings) {
@@ -127,16 +167,7 @@ public class NetworkEntityTracker {
     }
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
-        Objects.requireNonNull(visual, "visual");
-        Objects.requireNonNull(location, "location");
-        Objects.requireNonNull(rotation, "rotation");
-
-        clearTombstone(visual.getId());
-        bumpVisualToken(visual.getId());
-
-        TrackedVisual tracked = new TrackedVisual(visual, location.clone(), new Quaternionf(rotation));
-        visualsById.put(visual.getId(), tracked);
-        addToGrid(visual.getId(), location);
+        visualRegistry.register(visual, location, rotation);
     }
 
     public void unregister(@NotNull NetworkVisual visual) {
@@ -149,108 +180,18 @@ public class NetworkEntityTracker {
     }
 
     public void unregisterBatch(@NotNull Collection<Integer> ids) {
-        Objects.requireNonNull(ids, "ids");
-        if (ids.isEmpty()) {
-            return;
-        }
-
-        IntArrayList removedIds = new IntArrayList(ids.size());
-
-        for (Integer id : ids) {
-            if (id == null) {
-                continue;
-            }
-
-            long activeTokenVersion = invalidateVisualQueues(id.intValue());
-            networkScheduler.invalidateVisual(id.intValue(), activeTokenVersion);
-
-            TrackedVisual tracked = visualsById.remove(id);
-            if (tracked == null) {
-                continue;
-            }
-
-            removeFromGrid(id, tracked.location());
-            addTombstone(id);
-            removedIds.add(id);
-        }
-
-        if (removedIds.isEmpty()) {
-            return;
-        }
-
-        IntOpenHashSet removedSet = new IntOpenHashSet(removedIds);
-        boolean useBulkFastPath = removedIds.size() >= 64;
-
-        for (Map.Entry<UUID, PlayerTrackingState> entry : playerTrackingStates.entrySet()) {
-            UUID playerId = entry.getKey();
-            PlayerTrackingState trackingState = entry.getValue();
-            Set<Integer> visible = trackingState.visibleIds();
-
-            IntArrayList hiddenForPlayer = null;
-            if (useBulkFastPath) {
-                Iterator<Integer> iterator = visible.iterator();
-                while (iterator.hasNext()) {
-                    Integer visibleId = iterator.next();
-                    if (visibleId == null || !removedSet.contains(visibleId.intValue())) {
-                        continue;
-                    }
-                    iterator.remove();
-                    trackingState.markVisibleIterationDirty();
-                    if (hiddenForPlayer == null) {
-                        hiddenForPlayer = new IntArrayList();
-                    }
-                    hiddenForPlayer.add(visibleId.intValue());
-                }
-            } else {
-                for (int i = 0; i < removedIds.size(); i++) {
-                    int removedId = removedIds.getInt(i);
-                    if (visible.remove(removedId)) {
-                        trackingState.markVisibleIterationDirty();
-                        if (hiddenForPlayer == null) {
-                            hiddenForPlayer = new IntArrayList();
-                        }
-                        hiddenForPlayer.add(removedId);
-                    }
-                }
-            }
-
-            if (hiddenForPlayer != null && !hiddenForPlayer.isEmpty()) {
-                PendingDestroyState queue = pendingDestroyIds.computeIfAbsent(playerId, ignored -> new PendingDestroyState());
-                if (queue.ids().isEmpty()) {
-                    queue.markBacklogStart(System.nanoTime(), tickCounter);
-                }
-                queue.addAll(hiddenForPlayer);
-            }
-        }
-
-        if (useBulkFastPath) {
+        UnregisterBatchProcessor.Result result = unregisterBatchProcessor.unregisterBatch(ids, tickCounter);
+        if (result.bulkFastPathUsed()) {
             massDestroyBoostTicksRemaining = Math.max(massDestroyBoostTicksRemaining, 2);
         }
     }
 
     public void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
-        if (isVisualTombstoned(visual.getId())) {
-            return;
-        }
-
-        TrackedVisual tracked = visualsById.get(visual.getId());
-        if (tracked != null) {
-            long oldChunkKey = ChunkUtils.getChunkKey(tracked.location().getBlockX() >> 4, tracked.location().getBlockZ() >> 4);
-            long newChunkKey = ChunkUtils.getChunkKey(location.getBlockX() >> 4, location.getBlockZ() >> 4);
-
-            tracked.update(location, rotation);
-
-            if (oldChunkKey != newChunkKey) {
-                removeFromGrid(visual.getId(), oldChunkKey);
-                addToGrid(visual.getId(), newChunkKey);
-            }
-        } else {
-            register(visual, location, rotation);
-        }
+        visualRegistry.updateState(visual, location, rotation, tickCounter);
     }
 
     public boolean isVisualClosed(int visualId) {
-        return isVisualTombstoned(visualId);
+        return visualRegistry.isClosed(visualId, tickCounter);
     }
 
     public void updateMetadata(@NotNull NetworkVisual visual) {
@@ -258,90 +199,56 @@ public class NetworkEntityTracker {
     }
 
     public void updateMetadata(@NotNull NetworkVisual visual, boolean critical) {
-        TrackedVisual tracked = visualsById.get(visual.getId());
-        if (tracked != null) {
-            tracked.markMetaDirty(critical);
-        }
+        visualRegistry.markMetaDirty(visual, critical);
     }
 
     public void tick(@NotNull Collection<? extends Player> players, double viewDistanceSquared) {
         tickCounter++;
         pruneExpiredTombstones();
 
-        for (TrackedVisual tracked : visualsById.values()) {
-            tracked.beginTick();
-        }
+        visualRegistry.beginTick();
 
-        enqueuePendingDestroyTasks();
-        refreshDestroyBacklogMetrics();
-        sheddingState = computeSheddingState();
+        destroyBacklogProcessor.enqueuePendingDestroyTasks();
+        applyDestroyMetrics(destroyBacklogProcessor.refreshMetrics(destroyBacklogThreshold));
+        sheddingState = sheddingPolicy.compute(
+                networkScheduler,
+                destroyBacklogThreshold,
+                pendingDestroyIdsBacklog,
+                destroyQueueDepthBacklog,
+                destroyDrainFastPathActive
+        );
 
         int viewDistanceChunks = (int) Math.ceil(Math.sqrt(viewDistanceSquared) / 16.0);
-
-        for (Player player : players) {
-            if (player == null || !player.isOnline()) continue;
-            UUID playerId = player.getUniqueId();
-            PlayerTrackingState trackingState = playerTrackingStates.computeIfAbsent(playerId, k -> new PlayerTrackingState());
-
-            Location playerLoc = player.getLocation();
-            int pChunkX = playerLoc.getBlockX() >> 4;
-            int pChunkZ = playerLoc.getBlockZ() >> 4;
-            World playerWorld = playerLoc.getWorld();
-            if (playerWorld == null) continue;
-
-            UUID playerWorldId = playerWorld.getUID();
-            boolean chunkChanged = !trackingState.initialized() || pChunkX != trackingState.chunkX() || pChunkZ != trackingState.chunkZ();
-            boolean worldChanged = !trackingState.initialized() || !playerWorldId.equals(trackingState.worldId());
-            boolean periodicFullRecalc = !trackingState.initialized()
-                    || (tickCounter - trackingState.lastFullRecalcTick()) >= fullRecalcIntervalTicks;
-            boolean requiresFullRecalc = chunkChanged || worldChanged || periodicFullRecalc;
-
-            trackingState.updatePosition(pChunkX, pChunkZ, playerWorldId);
-
-            if (requiresFullRecalc) {
-                trackingState.rebuildCandidates(chunkGrid, pChunkX, pChunkZ, viewDistanceChunks);
-                trackingState.markFullRecalcDone(tickCounter);
-                trackingState.markVisibilityDirty();
-            }
-
-            if (!destroyDrainFastPathActive && trackingState.needsVisibilityPass()) {
-                enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared);
-            }
-
-            enqueueTransformSlice(playerId, trackingState, viewDistanceSquared);
-        }
-
-        playerTrackingStates.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
+        playerTickProcessor.processPlayers(
+                players,
+                viewDistanceSquared,
+                viewDistanceChunks,
+                tickCounter,
+                fullRecalcIntervalTicks,
+                destroyDrainFastPathActive
+        );
 
         networkScheduler.runTick(players);
 
-        refreshDestroyBacklogMetrics();
+        applyDestroyMetrics(destroyBacklogProcessor.refreshMetrics(destroyBacklogThreshold));
 
         flushPackets();
     }
 
     private void addTombstone(int visualId) {
-        visualTombstones.put(visualId, tickCounter + DEFAULT_TOMBSTONE_TTL_TICKS);
+        tombstoneService.add(visualId, tickCounter + DEFAULT_TOMBSTONE_TTL_TICKS);
     }
 
     private void clearTombstone(int visualId) {
-        visualTombstones.remove(visualId);
+        tombstoneService.clear(visualId);
     }
 
     private boolean isVisualTombstoned(int visualId) {
-        Long expiresAtTick = visualTombstones.get(visualId);
-        if (expiresAtTick == null) {
-            return false;
-        }
-        if (tickCounter > expiresAtTick) {
-            visualTombstones.remove(visualId, expiresAtTick);
-            return false;
-        }
-        return true;
+        return tombstoneService.isTombstoned(visualId, tickCounter);
     }
 
     private void pruneExpiredTombstones() {
-        visualTombstones.entrySet().removeIf(entry -> tickCounter > entry.getValue());
+        tombstoneService.pruneExpired(tickCounter);
     }
 
     private void enqueueVisibilitySlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
@@ -359,206 +266,51 @@ public class NetworkEntityTracker {
     }
 
     private void runVisibilitySlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
-        try {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player == null || !player.isOnline()) {
-                trackingState.clearVisible();
-                return;
-            }
-
-            Location playerLoc = player.getLocation();
-            World playerWorld = playerLoc.getWorld();
-            if (playerWorld == null) {
-                return;
-            }
-            UUID playerWorldId = playerWorld.getUID();
-
-            int budget = maxVisibilityUpdatesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxVisibilityUpdatesPerPlayerPerTick;
-            int processed = 0;
-            while (processed < budget) {
-                Integer id = trackingState.nextCandidateId();
-                if (id == null) {
-                    trackingState.markVisibilityPassComplete();
-                    break;
-                }
-
-                TrackedVisual tracked = visualsById.get(id);
-                if (tracked == null) {
-                    trackingState.removeVisible(id);
-                    processed++;
-                    continue;
-                }
-
-                Location trackedLoc = tracked.location();
-                World trackedWorld = trackedLoc.getWorld();
-                boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
-
-                double dx = trackedLoc.getX() - playerLoc.getX();
-                double dy = trackedLoc.getY() - playerLoc.getY();
-                double dz = trackedLoc.getZ() - playerLoc.getZ();
-                double distSq = dx * dx + dy * dy + dz * dz;
-
-                boolean inRange = sameWorld && distSq <= viewDistanceSquared;
-
-                if (inRange) {
-                    if (trackingState.addVisible(id)) {
-                        Location spawnLoc = tracked.location().clone();
-                        Quaternionf spawnRot = new Quaternionf(tracked.rotation());
-                        long tokenVersion = currentVisualToken(id);
-                        networkScheduler.enqueueSpawn(() ->
-                                bufferPacket(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN,
-                                        tracked.visual().getId(), false, false, -1L, tokenVersion)
-                        , tracked.visual().getId(), tokenVersion
-                        );
-                        tracked.markSent(player);
-                    }
-                } else if (trackingState.removeVisible(id)) {
-                    networkScheduler.enqueueDestroy(() -> bufferPacket(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY));
-                }
-
-                processed++;
-            }
-        } finally {
-            trackingState.markVisibilityTaskDone();
-            if (!destroyDrainFastPathActive && trackingState.needsVisibilityPass()) {
-                enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared);
-            }
-        }
+        visibilitySliceProcessor.runSlice(
+                playerId,
+                trackingState,
+                viewDistanceSquared,
+                maxVisibilityUpdatesPerPlayerPerTick,
+                destroyDrainFastPathActive,
+                () -> enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared)
+        );
     }
 
     private void runTransformSlice(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared) {
-        try {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player == null || !player.isOnline()) {
-                trackingState.clearVisible();
-                return;
-            }
+        transformSliceProcessor.runSlice(
+                playerId,
+                trackingState,
+                viewDistanceSquared,
+                maxTransformChecksPerPlayerPerTick,
+                tickCounter,
+                posThresholdSq,
+                rotThresholdDot,
+                midPosThresholdSq,
+                midRotThresholdDot,
+                midUpdateIntervalTicks,
+                farPosThresholdSq,
+                farRotThresholdDot,
+                farUpdateIntervalTicks,
+                farAllowMetadataUpdates,
+                sheddingState,
+                this::resolveLodLevel,
+                this::shouldDropMetadata,
+                droppedUpdates,
+                lodSkippedUpdates,
+                lodSkippedMetadataUpdates,
+                transformChecksSkippedDueBudget
+        );
+    }
 
-            Location playerLoc = player.getLocation();
-            World playerWorld = playerLoc.getWorld();
-            if (playerWorld == null) {
-                return;
-            }
-            UUID playerWorldId = playerWorld.getUID();
-
-            int checkBudget = maxTransformChecksPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxTransformChecksPerPlayerPerTick;
-            int checked = 0;
-            while (checked < checkBudget) {
-                Integer id = trackingState.nextVisibleId();
-                if (id == null) {
-                    trackingState.resetVisibleCursor();
-                    break;
-                }
-
-                TrackedVisual tracked = visualsById.get(id);
-                if (tracked == null) {
-                    trackingState.removeVisible(id);
-                    checked++;
-                    continue;
-                }
-
-                Location trackedLoc = tracked.location();
-                World trackedWorld = trackedLoc.getWorld();
-                boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
-
-                double dx = trackedLoc.getX() - playerLoc.getX();
-                double dy = trackedLoc.getY() - playerLoc.getY();
-                double dz = trackedLoc.getZ() - playerLoc.getZ();
-                double distSq = dx * dx + dy * dy + dz * dz;
-
-                boolean inRange = sameWorld && distSq <= viewDistanceSquared;
-                if (!inRange) {
-                    if (trackingState.removeVisible(id)) {
-                        networkScheduler.enqueueDestroy(() -> bufferPacket(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY));
-                    }
-                    checked++;
-                    continue;
-                }
-
-                LodLevel lodLevel = resolveLodLevel(distSq);
-                int midInterval = midUpdateIntervalTicks * sheddingState.midTeleportIntervalMultiplier();
-                int farInterval = farUpdateIntervalTicks * sheddingState.farTeleportIntervalMultiplier();
-                UpdateDecision updateDecision = tracked.prepareUpdate(
-                        lodLevel,
-                        tickCounter,
-                        posThresholdSq,
-                        rotThresholdDot,
-                        midPosThresholdSq,
-                        midRotThresholdDot,
-                        midInterval,
-                        farPosThresholdSq,
-                        farRotThresholdDot,
-                        farInterval
-                );
-                if (!updateDecision.positionSent() && lodLevel != LodLevel.NEAR && tracked.hasSignificantNearChange(posThresholdSq, rotThresholdDot)) {
-                    lodSkippedUpdates.incrementAndGet();
-                }
-
-                Object positionPacket = updateDecision.positionSent() ? tracked.getPendingPositionPacket() : null;
-                Object transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
-                PendingMetadata meta = tracked.getPendingMetaPacket();
-                boolean metadataBundledWithPosition = false;
-                if (positionPacket != null) {
-                    long tokenVersion = currentVisualToken(tracked.visual().getId());
-                    List<Object> bundledPackets = null;
-                    if (transformMetaPacket != null) {
-                        bundledPackets = new ArrayList<>(3);
-                        bundledPackets.add(positionPacket);
-                        bundledPackets.add(transformMetaPacket);
-                        transformMetaPacket = null;
-                    }
-                    if (meta != null) {
-                        if (bundledPackets == null) {
-                            bundledPackets = new ArrayList<>(2);
-                            bundledPackets.add(positionPacket);
-                        }
-                        bundledPackets.add(meta.packet());
-                        metadataBundledWithPosition = true;
-                    }
-                    Object packetToSend = bundledPackets != null ? bundledPackets : positionPacket;
-                    bufferPacket(playerId, packetToSend, PacketPriority.TELEPORT, tracked.visual().getId(), true, false, -1L, tokenVersion);
-                    tracked.markSent(player);
-                }
-
-                if (transformMetaPacket != null) {
-                    long tokenVersion = currentVisualToken(tracked.visual().getId());
-                    Object finalTransformMetaPacket = transformMetaPacket;
-                    networkScheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
-                            () -> bufferPacket(playerId, finalTransformMetaPacket, PacketPriority.METADATA, tracked.visual().getId(), false,
-                                    updateDecision.transformMetadataForced(), -1L, tokenVersion));
-                }
-
-                if (meta != null && !metadataBundledWithPosition) {
-                    boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
-                    if (allowMetaPacket) {
-                        if (shouldDropMetadata(meta.critical(), lodLevel, tracked.visual().getId())) {
-                            droppedUpdates.incrementAndGet();
-                            if (lodLevel != LodLevel.NEAR) {
-                                lodSkippedMetadataUpdates.incrementAndGet();
-                            }
-                        } else {
-                            long tokenVersion = currentVisualToken(tracked.visual().getId());
-                            networkScheduler.enqueueMetadataCoalesced(tracked.visual().getId(),
-                                    () -> bufferPacket(playerId, meta.packet(), PacketPriority.METADATA, tracked.visual().getId(), false,
-                                            meta.critical(), -1L, tokenVersion));
-                        }
-                    } else {
-                        lodSkippedMetadataUpdates.incrementAndGet();
-                    }
-                }
-
-                checked++;
-            }
-
-            if (checkBudget != Integer.MAX_VALUE) {
-                int remaining = trackingState.remainingVisibleChecks();
-                if (remaining > 0) {
-                    transformChecksSkippedDueBudget.addAndGet(remaining);
-                }
-            }
-        } finally {
-            trackingState.markTransformTaskDone();
+    private void applyDestroyMetrics(DestroyBacklogProcessor.Metrics metrics) {
+        if (metrics == null) {
+            return;
         }
+        pendingDestroyIdsBacklog = metrics.pendingDestroyIdsBacklog();
+        destroyQueueDepthBacklog = metrics.destroyQueueDepthBacklog();
+        destroyDrainFastPathActive = metrics.destroyDrainFastPathActive();
+        oldestQueueAgeMillis = metrics.oldestQueueAgeMillis();
+        destroyBacklogAgeMillis = metrics.destroyBacklogAgeMillis();
     }
 
     private void bufferPacket(UUID playerId, Object packet, PacketPriority priority) {
@@ -600,102 +352,32 @@ public class NetworkEntityTracker {
     }
 
     private void flushPackets() {
-        if (packetFactory == null) return;
-
-        long totalSent = 0;
-        int onlinePlayersWithPackets = 0;
-        int tickPeak = 0;
-
         boolean massDestroyBudgetBoost = massDestroyBoostTicksRemaining > 0;
+        PacketFlushProcessor.FlushStats stats = packetFlushProcessor.flush(
+                packetBuffer,
+                packetFactory,
+                this::isTokenCurrent,
+                maxPacketsPerPlayerPerTick,
+                destroyDrainExtraPacketsPerPlayerPerTick,
+                destroyDrainFastPathActive,
+                massDestroyBudgetBoost,
+                maxBytesPerPlayerPerTick,
+                tickCounter,
+                droppedPackets,
+                deferredPackets,
+                destroyLatencyTickTotal,
+                destroyLatencySamples,
+                destroyLatencyPeakTicks
+        );
 
-        for (Map.Entry<UUID, PlayerPacketQueue> entry : packetBuffer.entrySet()) {
-            PlayerPacketQueue queue = entry.getValue();
-            if (queue.isEmpty()) continue;
-
-            Player player = Bukkit.getPlayer(entry.getKey());
-            if (player == null || !player.isOnline()) {
-                droppedPackets.addAndGet(queue.size());
-                queue.clear();
-                continue;
-            }
-
-            int maxPackets = maxPacketsPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxPacketsPerPlayerPerTick;
-            int maxPacketsWithDestroyBurst = maxPackets;
-            if (destroyDrainFastPathActive && destroyDrainExtraPacketsPerPlayerPerTick > 0 && maxPackets != Integer.MAX_VALUE) {
-                maxPacketsWithDestroyBurst = maxPackets + destroyDrainExtraPacketsPerPlayerPerTick;
-            }
-            if (massDestroyBudgetBoost && maxPacketsWithDestroyBurst != Integer.MAX_VALUE) {
-                maxPacketsWithDestroyBurst += Math.max(16, maxPacketsWithDestroyBurst / 2);
-            }
-            int maxBytes = maxBytesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxBytesPerPlayerPerTick;
-            int boostedDestroyBytes = massDestroyBudgetBoost && maxBytes != Integer.MAX_VALUE
-                    ? maxBytes + (maxBytes / 2)
-                    : maxBytes;
-
-            List<Object> packetsToSend = new ArrayList<>();
-            int sentPackets = 0;
-            int sentBytes = 0;
-
-            while (sentPackets < maxPacketsWithDestroyBurst) {
-                QueuedPacket next = queue.peek();
-                if (next == null) break;
-                if (!isTokenCurrent(next.visualId(), next.tokenVersion())) {
-                    queue.poll();
-                    droppedPackets.incrementAndGet();
-                    continue;
-                }
-
-                boolean isDestroyPacket = next.priority() == PacketPriority.DESTROY;
-                boolean allowDestroyPacketBurst = isDestroyPacket && (destroyDrainFastPathActive || massDestroyBudgetBoost);
-                if (sentPackets >= maxPackets && !allowDestroyPacketBurst) {
-                    break;
-                }
-
-                int activeByteBudget = (massDestroyBudgetBoost && isDestroyPacket) ? boostedDestroyBytes : maxBytes;
-                boolean fitsByteBudget = sentBytes + next.estimatedBytes() <= activeByteBudget;
-                if (!fitsByteBudget && sentPackets > 0) break;
-
-                QueuedPacket polled = queue.poll();
-                if (polled == null) break;
-                if (!isTokenCurrent(polled.visualId(), polled.tokenVersion())) {
-                    droppedPackets.incrementAndGet();
-                    continue;
-                }
-
-                packetsToSend.add(polled.packet());
-                sentPackets++;
-                sentBytes += polled.estimatedBytes();
-                if (polled.priority() == PacketPriority.DESTROY && polled.destroyRegisteredAtTick() >= 0) {
-                    long latencyTicks = Math.max(0L, tickCounter - polled.destroyRegisteredAtTick());
-                    destroyLatencyTickTotal.addAndGet(latencyTicks);
-                    destroyLatencySamples.incrementAndGet();
-                    destroyLatencyPeakTicks.accumulateAndGet(latencyTicks, Math::max);
-                }
-            }
-
-            if (!packetsToSend.isEmpty()) {
-                packetFactory.sendBundle(player, packetsToSend);
-                totalSent += sentPackets;
-                onlinePlayersWithPackets++;
-                if (sentPackets > tickPeak) {
-                    tickPeak = sentPackets;
-                }
-            }
-
-            int deferred = queue.size();
-            if (deferred > 0) {
-                deferredPackets.addAndGet(deferred);
-            }
-        }
-
-        if (onlinePlayersWithPackets > 0) {
-            double tickAverage = totalSent / (double) onlinePlayersWithPackets;
+        if (stats.onlinePlayersWithPackets() > 0) {
+            double tickAverage = stats.totalSent() / (double) stats.onlinePlayersWithPackets();
             long sampleIndex = averageSamples.getAndIncrement();
             averagePacketsPerPlayer = ((averagePacketsPerPlayer * sampleIndex) + tickAverage) / (sampleIndex + 1);
         }
 
-        if (tickPeak > peakPacketsPerPlayer) {
-            peakPacketsPerPlayer = tickPeak;
+        if (stats.tickPeak() > peakPacketsPerPlayer) {
+            peakPacketsPerPlayer = stats.tickPeak();
         }
 
         if (massDestroyBoostTicksRemaining > 0) {
@@ -824,91 +506,9 @@ public class NetworkEntityTracker {
         destroyBacklogAgeMillis = 0L;
         massDestroyBoostTicksRemaining = 0;
         packetBuffer.clear();
-        visualTokenVersions.clear();
+        tokenService.clear();
+        tombstoneService.clear();
         networkScheduler.clear();
-    }
-
-    private void enqueuePendingDestroyTasks() {
-        if (pendingDestroyIds.isEmpty()) {
-            return;
-        }
-
-        Iterator<Map.Entry<UUID, PendingDestroyState>> iterator = pendingDestroyIds.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<UUID, PendingDestroyState> entry = iterator.next();
-            UUID playerId = entry.getKey();
-            PendingDestroyState pendingState = entry.getValue();
-            iterator.remove();
-            IntOpenHashSet ids = pendingState != null ? pendingState.ids() : null;
-
-            if (ids == null || ids.isEmpty()) {
-                continue;
-            }
-
-            int[] idArray = ids.toIntArray();
-            if (idArray.length == 0) {
-                continue;
-            }
-
-            long registeredAtTick = pendingState.firstUnregisterTick();
-
-            if (idArray.length == 1) {
-                int targetId = idArray[0];
-                networkScheduler.enqueueDestroy(() ->
-                        bufferPacket(playerId, packetFactory.createDestroyPacket(targetId), PacketPriority.DESTROY, registeredAtTick)
-                );
-                continue;
-            }
-
-            networkScheduler.enqueueDestroy(() -> {
-                preFlushBeforeBulkDestroy(playerId, idArray);
-                try {
-                    bufferPacket(playerId, packetFactory.createDestroyPacket(idArray), PacketPriority.DESTROY, registeredAtTick);
-                } catch (Throwable ignored) {
-                    for (int id : idArray) {
-                        bufferPacket(playerId, packetFactory.createDestroyPacket(id), PacketPriority.DESTROY, registeredAtTick);
-                    }
-                }
-            });
-        }
-    }
-
-    private void refreshDestroyBacklogMetrics() {
-        long now = System.nanoTime();
-        int pendingBacklog = calculatePendingDestroyBacklog();
-        int queueBacklog = networkScheduler.getDestroyQueueDepth();
-        pendingDestroyIdsBacklog = pendingBacklog;
-        destroyQueueDepthBacklog = queueBacklog;
-        oldestQueueAgeMillis = networkScheduler.getOldestQueueAgeMillis();
-
-        long pendingAgeNanos = 0L;
-        for (PendingDestroyState state : pendingDestroyIds.values()) {
-            if (state == null || state.backlogSinceNanos() <= 0L) {
-                continue;
-            }
-            pendingAgeNanos = Math.max(pendingAgeNanos, Math.max(0L, now - state.backlogSinceNanos()));
-        }
-        long destroyQueueAgeNanos = networkScheduler.getDestroyQueueOldestAgeMillis() * 1_000_000L;
-        destroyBacklogAgeMillis = Math.max(pendingAgeNanos, destroyQueueAgeNanos) / 1_000_000L;
-
-        int threshold = Math.max(1, destroyBacklogThreshold);
-        destroyDrainFastPathActive = pendingBacklog >= threshold || queueBacklog >= threshold;
-    }
-
-    private SheddingState computeSheddingState() {
-        int metadataDepth = networkScheduler.getMetadataQueueDepth();
-        int totalDepth = networkScheduler.queueDepth();
-        int destroyDepth = networkScheduler.getDestroyQueueDepth() + pendingDestroyIdsBacklog;
-        int threshold = Math.max(1, destroyBacklogThreshold);
-
-        int intensity = 0;
-        if (totalDepth > threshold) intensity++;
-        if (metadataDepth > threshold / 2) intensity++;
-        if (destroyDepth > threshold) intensity++;
-        if (destroyDrainFastPathActive) intensity += 2;
-
-        intensity = Math.min(4, intensity);
-        return SheddingState.of(intensity);
     }
 
     private boolean shouldDropMetadata(boolean critical, LodLevel lodLevel, int visualId) {
@@ -922,46 +522,12 @@ public class NetworkEntityTracker {
         return Math.floorMod(Objects.hash(visualId, tickCounter), aggressiveness) != 0;
     }
 
-    private int calculatePendingDestroyBacklog() {
-        int total = 0;
-        for (PendingDestroyState pendingState : pendingDestroyIds.values()) {
-            if (pendingState == null || pendingState.ids().isEmpty()) {
-                continue;
-            }
-            total += pendingState.ids().size();
-        }
-        return total;
-    }
-
-    private enum PacketPriority {
-        DESTROY,
-        SPAWN,
-        TELEPORT,
-        METADATA
-    }
-
-    private enum LodLevel {
-        NEAR,
-        MID,
-        FAR
-    }
-
-    private record QueuedPacket(Object packet,
-                                PacketPriority priority,
-                                int estimatedBytes,
-                                Integer visualId,
-                                boolean coalescible,
-                                boolean criticalMetadata,
-                                long enqueuedAtNanos,
-                                long destroyRegisteredAtTick,
-                                long tokenVersion) {}
-
     private long bumpVisualToken(int visualId) {
-        return visualTokenVersions.merge(visualId, 1L, Long::sum);
+        return tokenService.bump(visualId);
     }
 
     private long currentVisualToken(int visualId) {
-        return visualTokenVersions.getOrDefault(visualId, 0L);
+        return tokenService.current(visualId);
     }
 
     private long invalidateVisualQueues(int visualId) {
@@ -976,10 +542,7 @@ public class NetworkEntityTracker {
     }
 
     private boolean isTokenCurrent(Integer visualId, long tokenVersion) {
-        if (visualId == null || tokenVersion < 0L) {
-            return true;
-        }
-        return currentVisualToken(visualId.intValue()) == tokenVersion;
+        return tokenService.isCurrent(visualId, tokenVersion);
     }
 
     private void preFlushBeforeBulkDestroy(UUID playerId, int[] visualIds) {
@@ -993,396 +556,6 @@ public class NetworkEntityTracker {
         networkScheduler.invalidateVisuals(visualIds, this::currentVisualToken);
     }
 
-    private static final class PendingDestroyState {
-        private final IntOpenHashSet ids = new IntOpenHashSet();
-        private long backlogSinceNanos;
-        private long firstUnregisterTick = -1L;
-
-        private IntOpenHashSet ids() {
-            return ids;
-        }
-
-        private long backlogSinceNanos() {
-            return backlogSinceNanos;
-        }
-
-        private long firstUnregisterTick() {
-            return firstUnregisterTick;
-        }
-
-        private void markBacklogStart(long nowNanos, long tick) {
-            this.backlogSinceNanos = nowNanos;
-            if (this.firstUnregisterTick < 0L) {
-                this.firstUnregisterTick = tick;
-            }
-        }
-
-        private void addAll(IntArrayList values) {
-            for (int i = 0; i < values.size(); i++) {
-                ids.add(values.getInt(i));
-            }
-        }
-    }
-
-    private static class PlayerPacketQueue {
-        private final Object mutex = new Object();
-        private final EnumMap<PacketPriority, ArrayDeque<QueuedPacket>> byPriority = new EnumMap<>(PacketPriority.class);
-        private final Map<Integer, QueuedPacket> lastTeleportByVisualId = new HashMap<>();
-
-        private PlayerPacketQueue() {
-            byPriority.put(PacketPriority.DESTROY, new ArrayDeque<>());
-            byPriority.put(PacketPriority.SPAWN, new ArrayDeque<>());
-            byPriority.put(PacketPriority.TELEPORT, new ArrayDeque<>());
-            byPriority.put(PacketPriority.METADATA, new ArrayDeque<>());
-        }
-
-        public int add(QueuedPacket packet, BiPredicate<Integer, Long> tokenValidator) {
-            int coalesced = 0;
-            if (packet == null) {
-                return 0;
-            }
-            if (packet.visualId() != null && packet.tokenVersion() >= 0L && tokenValidator != null
-                    && !tokenValidator.test(packet.visualId(), packet.tokenVersion())) {
-                return 0;
-            }
-            synchronized (mutex) {
-                if (packet.priority() == PacketPriority.TELEPORT && packet.coalescible() && packet.visualId() != null) {
-                    QueuedPacket previous = lastTeleportByVisualId.put(packet.visualId(), packet);
-                    if (previous != null && byPriority.get(PacketPriority.TELEPORT).remove(previous)) {
-                        coalesced = 1;
-                    }
-                }
-                byPriority.get(packet.priority()).addLast(packet);
-            }
-            return coalesced;
-        }
-
-        public QueuedPacket peek() {
-            synchronized (mutex) {
-                QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).peekFirst();
-                if (packet != null) return packet;
-                packet = byPriority.get(PacketPriority.SPAWN).peekFirst();
-                if (packet != null) return packet;
-                packet = byPriority.get(PacketPriority.TELEPORT).peekFirst();
-                if (packet != null) return packet;
-                return byPriority.get(PacketPriority.METADATA).peekFirst();
-            }
-        }
-
-        public QueuedPacket poll() {
-            synchronized (mutex) {
-                QueuedPacket packet = byPriority.get(PacketPriority.DESTROY).pollFirst();
-                if (packet != null) return packet;
-                packet = byPriority.get(PacketPriority.SPAWN).pollFirst();
-                if (packet != null) return packet;
-                packet = byPriority.get(PacketPriority.TELEPORT).pollFirst();
-                if (packet != null) {
-                    if (packet.visualId() != null) {
-                        lastTeleportByVisualId.remove(packet.visualId(), packet);
-                    }
-                    return packet;
-                }
-                return byPriority.get(PacketPriority.METADATA).pollFirst();
-            }
-        }
-
-        public int size() {
-            synchronized (mutex) {
-                int total = 0;
-                for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
-                    total += queue.size();
-                }
-                return total;
-            }
-        }
-
-        public boolean isEmpty() {
-            synchronized (mutex) {
-                for (ArrayDeque<QueuedPacket> queue : byPriority.values()) {
-                    if (!queue.isEmpty()) return false;
-                }
-                return true;
-            }
-        }
-
-        public void clear() {
-            synchronized (mutex) {
-                byPriority.values().forEach(ArrayDeque::clear);
-                lastTeleportByVisualId.clear();
-            }
-        }
-
-        public void invalidateVisual(int visualId, long activeTokenVersion) {
-            synchronized (mutex) {
-                pruneQueue(PacketPriority.SPAWN, visualId, activeTokenVersion);
-                pruneQueue(PacketPriority.TELEPORT, visualId, activeTokenVersion);
-                pruneQueue(PacketPriority.METADATA, visualId, activeTokenVersion);
-            }
-        }
-
-        public void pruneBeforeBulkDestroy(int[] visualIds) {
-            if (visualIds == null || visualIds.length == 0) {
-                return;
-            }
-            IntOpenHashSet set = new IntOpenHashSet(visualIds.length);
-            for (int visualId : visualIds) {
-                set.add(visualId);
-            }
-            synchronized (mutex) {
-                pruneQueue(PacketPriority.SPAWN, set);
-                pruneQueue(PacketPriority.TELEPORT, set);
-                pruneQueue(PacketPriority.METADATA, set);
-            }
-        }
-
-        private void pruneQueue(PacketPriority priority, int visualId, long activeTokenVersion) {
-            ArrayDeque<QueuedPacket> queue = byPriority.get(priority);
-            if (queue == null || queue.isEmpty()) {
-                return;
-            }
-            Iterator<QueuedPacket> iterator = queue.iterator();
-            while (iterator.hasNext()) {
-                QueuedPacket packet = iterator.next();
-                if (packet.visualId() == null || packet.visualId() != visualId) {
-                    continue;
-                }
-                if (packet.tokenVersion() >= 0L && packet.tokenVersion() != activeTokenVersion) {
-                    iterator.remove();
-                    if (priority == PacketPriority.TELEPORT) {
-                        lastTeleportByVisualId.remove(visualId, packet);
-                    }
-                }
-            }
-        }
-
-        private void pruneQueue(PacketPriority priority, IntOpenHashSet visualIds) {
-            ArrayDeque<QueuedPacket> queue = byPriority.get(priority);
-            if (queue == null || queue.isEmpty()) {
-                return;
-            }
-            Iterator<QueuedPacket> iterator = queue.iterator();
-            while (iterator.hasNext()) {
-                QueuedPacket packet = iterator.next();
-                Integer visualId = packet.visualId();
-                if (visualId == null || !visualIds.contains(visualId.intValue())) {
-                    continue;
-                }
-                iterator.remove();
-                if (priority == PacketPriority.TELEPORT) {
-                    lastTeleportByVisualId.remove(visualId, packet);
-                }
-            }
-        }
-    }
-
-    private record PendingMetadata(Object packet, boolean critical) {}
-
-    private record UpdateDecision(boolean positionSent, boolean transformMetadataSent, boolean transformMetadataForced) {
-        private static final UpdateDecision NONE = new UpdateDecision(false, false, false);
-    }
-
-    private record SheddingState(int midTeleportIntervalMultiplier,
-                                 int farTeleportIntervalMultiplier,
-                                 int metadataDropModulo) {
-        private static SheddingState disabled() {
-            return new SheddingState(1, 1, 1);
-        }
-
-        private static SheddingState of(int intensity) {
-            return switch (intensity) {
-                case 0 -> disabled();
-                case 1 -> new SheddingState(2, 2, 2);
-                case 2 -> new SheddingState(2, 3, 3);
-                case 3 -> new SheddingState(3, 4, 4);
-                default -> new SheddingState(4, 6, 6);
-            };
-        }
-    }
-
-    private static class PlayerTrackingState {
-        private int chunkX;
-        private int chunkZ;
-        private UUID worldId;
-        private long lastFullRecalcTick;
-        private boolean initialized;
-
-        private final Set<Integer> visibleIds = new HashSet<>();
-        private final List<Integer> visibleIterationOrder = new ArrayList<>();
-        private final List<Integer> precomputedCandidateIds = new ArrayList<>();
-        private final Set<Integer> candidateLookup = new HashSet<>();
-        private int candidateCursor = 0;
-        private int visibleCursor = 0;
-        private boolean visibilityDirty;
-        private boolean visibleIterationDirty;
-        private boolean visibilityTaskQueued;
-        private boolean transformTaskQueued;
-
-        public int chunkX() { return chunkX; }
-        public int chunkZ() { return chunkZ; }
-        public UUID worldId() { return worldId; }
-        public long lastFullRecalcTick() { return lastFullRecalcTick; }
-        public boolean initialized() { return initialized; }
-        public Set<Integer> visibleIds() { return visibleIds; }
-
-        public void updatePosition(int chunkX, int chunkZ, UUID worldId) {
-            this.chunkX = chunkX;
-            this.chunkZ = chunkZ;
-            this.worldId = worldId;
-            this.initialized = true;
-        }
-
-        public void rebuildCandidates(Map<Long, Set<Integer>> chunkGrid, int centerChunkX, int centerChunkZ, int viewDistanceChunks) {
-            candidateLookup.clear();
-            precomputedCandidateIds.clear();
-            for (int x = -viewDistanceChunks; x <= viewDistanceChunks; x++) {
-                for (int z = -viewDistanceChunks; z <= viewDistanceChunks; z++) {
-                    long chunkKey = ChunkUtils.getChunkKey(centerChunkX + x, centerChunkZ + z);
-                    Set<Integer> ids = chunkGrid.get(chunkKey);
-                    if (ids != null && !ids.isEmpty()) {
-                        for (Integer id : ids) {
-                            if (candidateLookup.add(id)) {
-                                precomputedCandidateIds.add(id);
-                            }
-                        }
-                    }
-                }
-            }
-
-            candidateCursor = 0;
-            if (visibleIds.removeIf(id -> !candidateLookup.contains(id))) {
-                visibleIterationDirty = true;
-            }
-            resetVisibleCursor();
-        }
-
-        public void markFullRecalcDone(long tick) {
-            this.lastFullRecalcTick = tick;
-        }
-
-        public void markVisibilityDirty() {
-            this.visibilityDirty = true;
-            this.candidateCursor = 0;
-        }
-
-        public boolean needsVisibilityPass() {
-            return visibilityDirty;
-        }
-
-        public void markVisibilityPassComplete() {
-            this.visibilityDirty = false;
-        }
-
-        public Integer nextCandidateId() {
-            if (candidateCursor >= precomputedCandidateIds.size()) {
-                return null;
-            }
-            return precomputedCandidateIds.get(candidateCursor++);
-        }
-
-        public Integer nextVisibleId() {
-            if (visibleIterationDirty) {
-                visibleIterationOrder.clear();
-                visibleIterationOrder.addAll(visibleIds);
-                visibleIterationDirty = false;
-            }
-
-            int size = visibleIterationOrder.size();
-            if (size == 0) {
-                return null;
-            }
-
-            if (visibleCursor >= size) {
-                visibleCursor = 0;
-            }
-
-            return visibleIterationOrder.get(visibleCursor++);
-        }
-
-        public void resetVisibleCursor() {
-            this.visibleCursor = 0;
-        }
-
-        public int remainingVisibleChecks() {
-            return Math.max(0, visibleIterationOrder.size() - visibleCursor);
-        }
-
-        public boolean addVisible(int id) {
-            boolean added = visibleIds.add(id);
-            if (added) {
-                visibleIterationDirty = true;
-            }
-            return added;
-        }
-
-        public boolean removeVisible(int id) {
-            boolean removed = visibleIds.remove(id);
-            if (removed) {
-                visibleIterationDirty = true;
-            }
-            return removed;
-        }
-
-        public void clearVisible() {
-            if (!visibleIds.isEmpty()) {
-                visibleIds.clear();
-                visibleIterationDirty = true;
-            }
-            resetVisibleCursor();
-        }
-
-        public void markVisibleIterationDirty() {
-            this.visibleIterationDirty = true;
-        }
-
-        public boolean tryMarkVisibilityTaskQueued() {
-            if (visibilityTaskQueued) {
-                return false;
-            }
-            visibilityTaskQueued = true;
-            return true;
-        }
-
-        public void markVisibilityTaskDone() {
-            visibilityTaskQueued = false;
-        }
-
-        public boolean tryMarkTransformTaskQueued() {
-            if (transformTaskQueued) {
-                return false;
-            }
-            transformTaskQueued = true;
-            return true;
-        }
-
-        public void markTransformTaskDone() {
-            transformTaskQueued = false;
-        }
-    }
-
-    private void addToGrid(int id, Location loc) {
-        long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
-        addToGrid(id, key);
-    }
-
-    private void addToGrid(int id, long chunkKey) {
-        chunkGrid.computeIfAbsent(chunkKey, k -> new HashSet<>()).add(id);
-    }
-
-    private void removeFromGrid(int id, Location loc) {
-        long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
-        removeFromGrid(id, key);
-    }
-
-    private void removeFromGrid(int id, long chunkKey) {
-        Set<Integer> set = chunkGrid.get(chunkKey);
-        if (set != null) {
-            set.remove(id);
-            if (set.isEmpty()) {
-                chunkGrid.remove(chunkKey);
-            }
-        }
-    }
-
     private LodLevel resolveLodLevel(double distanceSq) {
         if (distanceSq <= midDistanceSq) {
             return LodLevel.NEAR;
@@ -1393,213 +566,4 @@ public class NetworkEntityTracker {
         return LodLevel.FAR;
     }
 
-    private static class TrackedVisual {
-        private final NetworkVisual visual;
-        private final Location location;
-        private final Quaternionf rotation;
-
-        private final SyncState nearSyncState = new SyncState();
-        private final SyncState midSyncState = new SyncState();
-        private final SyncState farSyncState = new SyncState();
-
-        private long lastMidUpdateTick = Long.MIN_VALUE;
-        private long lastFarUpdateTick = Long.MIN_VALUE;
-
-        private Object cachedPositionPacket = null;
-        private Object cachedTransformMetaPacket = null;
-        private PendingMetadata cachedMetaPacket = null;
-        private boolean metadataDirty = false;
-        private boolean criticalMetaDirty = false;
-        private boolean forceTransformResyncDirty = false;
-
-        private TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
-            this.visual = visual;
-            this.location = location;
-            this.rotation = rotation;
-            syncAll();
-        }
-
-        public NetworkVisual visual() { return visual; }
-        public Location location() { return location; }
-        public Quaternionf rotation() { return rotation; }
-
-        public void update(Location newLoc, Quaternionf newRot) {
-            this.location.setWorld(newLoc.getWorld());
-            this.location.setX(newLoc.getX());
-            this.location.setY(newLoc.getY());
-            this.location.setZ(newLoc.getZ());
-            this.location.setYaw(newLoc.getYaw());
-            this.location.setPitch(newLoc.getPitch());
-            this.rotation.set(newRot);
-        }
-
-        public void markMetaDirty(boolean critical) {
-            this.metadataDirty = true;
-            this.criticalMetaDirty = this.criticalMetaDirty || critical;
-            if (critical) {
-                this.forceTransformResyncDirty = true;
-            }
-        }
-
-        public void beginTick() {
-            this.cachedPositionPacket = null;
-            this.cachedTransformMetaPacket = null;
-            this.cachedMetaPacket = null;
-
-            if (this.metadataDirty) {
-                this.cachedMetaPacket = new PendingMetadata(visual.createMetadataPacket(), criticalMetaDirty);
-                this.metadataDirty = false;
-                this.criticalMetaDirty = false;
-            }
-        }
-
-        public boolean hasSignificantNearChange(float nearPosThresholdSq, float nearRotThresholdDot) {
-            return isPositionChanged(nearSyncState, nearPosThresholdSq) || isRotationChanged(nearSyncState, nearRotThresholdDot);
-        }
-
-        public UpdateDecision prepareUpdate(
-                LodLevel lodLevel,
-                long tick,
-                float nearPosThresholdSq,
-                float nearRotThresholdDot,
-                float midPosThresholdSq,
-                float midRotThresholdDot,
-                int midIntervalTicks,
-                float farPosThresholdSq,
-                float farRotThresholdDot,
-                int farIntervalTicks
-        ) {
-            return switch (lodLevel) {
-                case NEAR -> prepareNearUpdate(nearPosThresholdSq, nearRotThresholdDot);
-                case MID -> prepareLodUpdate(midSyncState, tick, midPosThresholdSq, midRotThresholdDot, midIntervalTicks, true);
-                case FAR -> prepareLodUpdate(farSyncState, tick, farPosThresholdSq, farRotThresholdDot, farIntervalTicks, false);
-            };
-        }
-
-        private UpdateDecision prepareNearUpdate(float posThresholdSq, float rotThresholdDot) {
-            boolean positionChanged = isPositionChanged(nearSyncState, posThresholdSq);
-            boolean transformChanged = isRotationChanged(nearSyncState, rotThresholdDot);
-            boolean forcedTransform = forceTransformResyncDirty;
-
-            if (!positionChanged && !transformChanged && !forcedTransform) {
-                return UpdateDecision.NONE;
-            }
-
-            if (positionChanged) {
-                emitPosition(nearSyncState);
-            }
-            if (transformChanged || forcedTransform) {
-                emitTransformMetadata(nearSyncState);
-                forceTransformResyncDirty = false;
-            }
-
-            return new UpdateDecision(positionChanged, transformChanged || forcedTransform, forcedTransform);
-        }
-
-        private UpdateDecision prepareLodUpdate(SyncState state,
-                                                long tick,
-                                                float posThresholdSq,
-                                                float rotThresholdDot,
-                                                int intervalTicks,
-                                                boolean midLod) {
-            boolean positionChanged = isPositionChanged(state, posThresholdSq);
-            boolean transformChanged = isRotationChanged(state, rotThresholdDot);
-            boolean forcedTransform = forceTransformResyncDirty;
-            boolean intervalReached = isIntervalReached(midLod ? lastMidUpdateTick : lastFarUpdateTick, tick, intervalTicks);
-
-            boolean sendPosition = positionChanged && intervalReached;
-            boolean sendTransform = forcedTransform || transformChanged || intervalReached;
-
-            if (!sendPosition && !sendTransform) {
-                return UpdateDecision.NONE;
-            }
-
-            if (sendPosition) {
-                emitPosition(state);
-            }
-            if (sendTransform) {
-                emitTransformMetadata(state);
-                forceTransformResyncDirty = false;
-            }
-
-            if (midLod) {
-                lastMidUpdateTick = tick;
-            } else {
-                lastFarUpdateTick = tick;
-            }
-
-            return new UpdateDecision(sendPosition, sendTransform, forcedTransform);
-        }
-
-        private void emitPosition(SyncState state) {
-            if (this.cachedPositionPacket == null) {
-                this.cachedPositionPacket = visual.createPositionPacket(location, rotation);
-            }
-            syncPosition(state);
-        }
-
-        private void emitTransformMetadata(SyncState state) {
-            if (this.cachedTransformMetaPacket == null) {
-                this.cachedTransformMetaPacket = visual.createTransformMetadataPacket(rotation);
-            }
-            syncRotation(state);
-        }
-
-        private boolean isPositionChanged(SyncState state, float posThresholdSq) {
-            float dx = (float) location.getX() - state.pos.x;
-            float dy = (float) location.getY() - state.pos.y;
-            float dz = (float) location.getZ() - state.pos.z;
-            float distSq = dx * dx + dy * dy + dz * dz;
-            return distSq > posThresholdSq;
-        }
-
-        private boolean isRotationChanged(SyncState state, float rotThresholdDot) {
-            float dot = Math.abs(rotation.dot(state.rot));
-            return dot < rotThresholdDot;
-        }
-
-        private boolean isIntervalReached(long lastTick, long currentTick, int intervalTicks) {
-            if (lastTick == Long.MIN_VALUE) {
-                return true;
-            }
-            return (currentTick - lastTick) >= intervalTicks;
-        }
-
-        public Object getPendingPositionPacket() {
-            return cachedPositionPacket;
-        }
-
-        public Object getPendingTransformMetaPacket() {
-            return cachedTransformMetaPacket;
-        }
-
-        public PendingMetadata getPendingMetaPacket() {
-            return cachedMetaPacket;
-        }
-
-        public void markSent(Player player) {
-        }
-
-        private void syncAll() {
-            syncPosition(nearSyncState);
-            syncRotation(nearSyncState);
-            syncPosition(midSyncState);
-            syncRotation(midSyncState);
-            syncPosition(farSyncState);
-            syncRotation(farSyncState);
-        }
-
-        private void syncPosition(SyncState state) {
-            state.pos.set((float) location.getX(), (float) location.getY(), (float) location.getZ());
-        }
-
-        private void syncRotation(SyncState state) {
-            state.rot.set(rotation);
-        }
-
-        private static class SyncState {
-            private final Vector3f pos = new Vector3f();
-            private final Quaternionf rot = new Quaternionf();
-        }
-    }
 }

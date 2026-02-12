@@ -118,7 +118,7 @@ public final class InertiaPlugin extends JavaPlugin {
 
         this.perfMonitor = new BossBarPerformanceMonitor(this, metricsService, configurationService);
 
-        InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory));
+        InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory, networkEntityTracker));
         InertiaLogger.info("Inertia API registered.");
 
         new com.ladakx.inertia.features.integrations.WorldEditIntegration().init();

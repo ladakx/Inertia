@@ -1,0 +1,46 @@
+package com.ladakx.inertia.rendering;
+
+import com.ladakx.inertia.common.chunk.ChunkUtils;
+import org.bukkit.Location;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+final class ChunkGridIndex {
+    private final Map<Long, Set<Integer>> grid = new ConcurrentHashMap<>();
+
+    void add(int id, Location loc) {
+        long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
+        add(id, key);
+    }
+
+    void add(int id, long chunkKey) {
+        grid.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(id);
+    }
+
+    void remove(int id, Location loc) {
+        long key = ChunkUtils.getChunkKey(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
+        remove(id, key);
+    }
+
+    void remove(int id, long chunkKey) {
+        Set<Integer> set = grid.get(chunkKey);
+        if (set == null) {
+            return;
+        }
+        set.remove(id);
+        if (set.isEmpty()) {
+            grid.remove(chunkKey);
+        }
+    }
+
+    Set<Integer> get(long chunkKey) {
+        return grid.get(chunkKey);
+    }
+
+    void clear() {
+        grid.clear();
+    }
+}
+
