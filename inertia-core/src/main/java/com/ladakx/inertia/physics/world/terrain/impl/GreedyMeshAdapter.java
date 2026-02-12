@@ -38,6 +38,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -61,6 +67,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private final AtomicLong meshSequence = new AtomicLong();
     private UUID meshApplyTaskId;
     private BukkitTask captureTickTask;
+    private ChunkPhysicsCache cache;
+
+    private static final int TERRAIN_ALGORITHM_VERSION = 1;
+    private static final long OFFLINE_GENERATION_AWAIT_TIMEOUT_SECONDS = 30L;
 
     @Override
     public void onEnable(PhysicsWorld world) {
@@ -86,14 +96,15 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         String pluginVersion = InertiaPlugin.getInstance().getDescription().getVersion();
         long worldSeed = world.getWorldBukkit().getSeed();
         String configHash = computeConfigHash();
-        ChunkPhysicsCache cache = new ChunkPhysicsCache(
+        this.cache = new ChunkPhysicsCache(
                 cacheDir,
                 cacheSettings.maxEntries,
                 memoryCacheTtl,
                 diskCacheTtl,
                 pluginVersion,
                 worldSeed,
-                configHash
+                configHash,
+                createCacheMetadata(meshingSettings)
         );
 
         this.generator = new GreedyMeshGenerator(
@@ -136,6 +147,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         pendingMeshData.clear();
         pendingMeshHandoffs.clear();
         chunkPhysicsManager = null;
+        cache = null;
         generator = null;
         joltTools = null;
         world = null;
@@ -227,6 +239,119 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         } catch (NoSuchAlgorithmException ex) {
             return Integer.toHexString(source.hashCode());
         }
+    }
+
+
+    @Override
+    public CompletableFuture<OfflineGenerationResult> generateOffline(OfflineGenerationRequest request) {
+        if (world == null || chunkPhysicsManager == null || generator == null || cache == null) {
+            return CompletableFuture.completedFuture(OfflineGenerationResult.unsupported());
+        }
+
+        return CompletableFuture.supplyAsync(() -> {
+            long started = System.currentTimeMillis();
+            Set<Long> targetChunks = collectTargetChunks(request);
+            AtomicInteger generated = new AtomicInteger();
+            AtomicInteger skipped = new AtomicInteger();
+            AtomicInteger failed = new AtomicInteger();
+
+            for (long key : targetChunks) {
+                int chunkX = ChunkUtils.getChunkX(key);
+                int chunkZ = ChunkUtils.getChunkZ(key);
+
+                if (!request.forceRegenerate() && cache.get(chunkX, chunkZ).isPresent()) {
+                    skipped.incrementAndGet();
+                    continue;
+                }
+
+                if (request.forceRegenerate()) {
+                    cache.invalidate(chunkX, chunkZ);
+                }
+
+                try {
+                    ChunkSnapshotData snapshot = requestChunkSnapshotSync(chunkX, chunkZ);
+                    if (snapshot == null) {
+                        failed.incrementAndGet();
+                        continue;
+                    }
+                    GreedyMeshData meshData = generator.generate(snapshot, null);
+                    cache.put(chunkX, chunkZ, new CachedChunkPhysicsData(meshData, snapshot.sectionFingerprints()));
+                    generated.incrementAndGet();
+                } catch (Exception ex) {
+                    failed.incrementAndGet();
+                    InertiaLogger.warn("Offline terrain generation failed for chunk " + chunkX + ", " + chunkZ + " in world " + world.getWorldBukkit().getName(), ex);
+                }
+            }
+
+            long elapsed = Math.max(0L, System.currentTimeMillis() - started);
+            return new OfflineGenerationResult(
+                    true,
+                    targetChunks.size(),
+                    generated.get(),
+                    skipped.get(),
+                    failed.get(),
+                    elapsed
+            );
+        });
+    }
+
+    private Set<Long> collectTargetChunks(OfflineGenerationRequest request) {
+        Set<Long> chunks = new LinkedHashSet<>();
+        if (request.useWorldBounds()) {
+            var size = world.getSettings().size();
+            int minChunkX = ((int) Math.floor(size.worldMin().xx())) >> 4;
+            int maxChunkX = ((int) Math.floor(size.worldMax().xx())) >> 4;
+            int minChunkZ = ((int) Math.floor(size.worldMin().zz())) >> 4;
+            int maxChunkZ = ((int) Math.floor(size.worldMax().zz())) >> 4;
+            for (int x = minChunkX; x <= maxChunkX; x++) {
+                for (int z = minChunkZ; z <= maxChunkZ; z++) {
+                    chunks.add(ChunkUtils.getChunkKey(x, z));
+                }
+            }
+            return chunks;
+        }
+
+        int radius = Math.max(0, request.radiusChunks());
+        for (int x = request.centerChunkX() - radius; x <= request.centerChunkX() + radius; x++) {
+            for (int z = request.centerChunkZ() - radius; z <= request.centerChunkZ() + radius; z++) {
+                chunks.add(ChunkUtils.getChunkKey(x, z));
+            }
+        }
+        return chunks;
+    }
+
+    private ChunkSnapshotData requestChunkSnapshotSync(int chunkX, int chunkZ) {
+        CompletableFuture<ChunkSnapshotData> future = new CompletableFuture<>();
+        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
+            try {
+                Chunk chunk = world.getWorldBukkit().getChunkAt(chunkX, chunkZ);
+                boolean loaded = world.getWorldBukkit().isChunkLoaded(chunkX, chunkZ);
+                if (!loaded) {
+                    chunk.load(true);
+                }
+                future.complete(captureChunkSnapshotData(chunkX, chunkZ));
+            } catch (Exception ex) {
+                future.completeExceptionally(ex);
+            }
+        });
+        try {
+            return future.get(OFFLINE_GENERATION_AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new CompletionException(ex);
+        } catch (ExecutionException | TimeoutException ex) {
+            throw new CompletionException(ex);
+        }
+    }
+
+    private ChunkPhysicsCache.CacheGenerationMetadata createCacheMetadata(WorldsConfig.GreedyMeshingSettings meshingSettings) {
+        Map<String, String> parameters = new LinkedHashMap<>();
+        parameters.put("shapeType", String.valueOf(greedyMeshShapeType));
+        parameters.put("fastChunkCapture", String.valueOf(useFastChunkCapture));
+        parameters.put("verticalMerging", String.valueOf(meshingSettings.verticalMerging()));
+        parameters.put("maxVerticalSize", String.valueOf(meshingSettings.maxVerticalSize()));
+        parameters.put("maxCaptureMillisPerTick", String.valueOf(meshingSettings.maxCaptureMillisPerTick()));
+        return ChunkPhysicsCache.CacheGenerationMetadata.of(greedyMeshShapeType.name(), TERRAIN_ALGORITHM_VERSION, parameters);
     }
 
     private void requestChunkGeneration(int x, int z) {
