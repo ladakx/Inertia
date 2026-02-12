@@ -194,11 +194,44 @@ public class NetworkEntityTracker {
 
     public void registerBatch(@NotNull Collection<VisualRegistration> registrations) {
         Objects.requireNonNull(registrations, "registrations");
+        if (registrations.isEmpty()) return;
+
         for (VisualRegistration registration : registrations) {
-            if (registration == null) {
-                continue;
-            }
+            if (registration == null) continue;
             register(registration.visual(), registration.location(), registration.rotation());
+        }
+
+        java.util.Set<Long> affectedChunks = new java.util.HashSet<>();
+        for (VisualRegistration reg : registrations) {
+            int cx = reg.location().getBlockX() >> 4;
+            int cz = reg.location().getBlockZ() >> 4;
+            affectedChunks.add(com.ladakx.inertia.common.chunk.ChunkUtils.getChunkKey(cx, cz));
+        }
+
+        notifyPlayersOfChanges(affectedChunks);
+    }
+
+    private void notifyPlayersOfChanges(java.util.Set<Long> chunkKeys) {
+        if (chunkKeys.isEmpty() || playerFrames.isEmpty()) return;
+
+        for (PlayerFrame frame : playerFrames.values()) {
+            PlayerTrackingState state = playerTrackingStates.get(frame.playerId());
+            if (state == null) continue;
+
+            boolean isNear = false;
+            for (Long key : chunkKeys) {
+                int cx = com.ladakx.inertia.common.chunk.ChunkUtils.getChunkX(key);
+                int cz = com.ladakx.inertia.common.chunk.ChunkUtils.getChunkZ(key);
+
+                if (Math.abs(frame.chunkX() - cx) <= 16 && Math.abs(frame.chunkZ() - cz) <= 16) {
+                    isNear = true;
+                    break;
+                }
+            }
+
+            if (isNear) {
+                state.forceRecalc();
+            }
         }
     }
 

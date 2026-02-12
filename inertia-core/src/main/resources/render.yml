@@ -9,8 +9,8 @@ stone:
     display_1:
       type: BLOCK_DISPLAY
       block: STONE
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 grass:
   sync:
     position: true
@@ -19,8 +19,8 @@ grass:
     display_1:
       type: BLOCK_DISPLAY
       block: GRASS_BLOCK
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 2
+      teleport-duration: 2
 tnt:
   sync:
     position: true

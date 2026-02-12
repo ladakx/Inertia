@@ -160,14 +160,21 @@ public class PhysicsLoop {
 
         while (isActive.get()) {
             int queueSize = getPendingSnapshotCount();
-            boolean backlog = queueSize > 0;
+// Виправляємо умову backlog. Для FIFO ми допускаємо наявність кадрів у буфері.
+// Вважаємо затором тільки якщо ми досягли ліміту буфера.
+            boolean backlog;
+            if (snapshotMode == SnapshotMode.FIFO) {
+                // MAX_FIFO_SNAPSHOTS = 2. Якщо черга >= 2, значить мейн тред не встигає.
+                backlog = queueSize >= MAX_FIFO_SNAPSHOTS;
+            } else {
+                // Для LATEST, якщо старий не забрали, це вже backlog, бо ми його перезапишемо.
+                backlog = queueSize > 0;
+            }
 
+// Додатково: не зменшуємо TPS занадто різко, якщо це лише короткочасний пік
             int desiredTps = backlog
                     ? Math.max(MIN_OVERLOADED_WORLD_TPS, effectiveTargetTps / 2)
                     : Math.min(targetTps, syncCapacityTps);
-            if (desiredTps != effectiveTargetTps) {
-                effectiveTargetTps = desiredTps;
-            }
 
             long nsPerTick = 1_000_000_000L / Math.max(1, effectiveTargetTps);
             long now = System.nanoTime();

@@ -162,4 +162,8 @@ final class PlayerTrackingState {
     void markTransformTaskDone() {
         transformTaskQueued = false;
     }
+
+    void forceRecalc() {
+        this.lastFullRecalcTick = -1;
+    }
 }
