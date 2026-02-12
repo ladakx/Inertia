@@ -7,6 +7,7 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Tick-local network scheduler with bounded work time and per-queue telemetry.
@@ -71,20 +72,21 @@ public final class RenderNetworkBudgetScheduler {
         destroyQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), null, -1L));
     }
 
-    public void enqueueMetadataCoalesced(int visualId, Runnable task) {
+    public void enqueueMetadataCoalesced(UUID playerId, int visualId, Runnable task) {
         Objects.requireNonNull(task, "task");
+        CoalescingKey coalescingKey = new CoalescingKey(Objects.requireNonNull(playerId, "playerId"), visualId);
 
         Iterator<ScheduledTask> iterator = metadataQueue.descendingIterator();
         while (iterator.hasNext()) {
             ScheduledTask queued = iterator.next();
-            if (queued.visualId != null && queued.visualId == visualId) {
+            if (coalescingKey.equals(queued.coalescingKey)) {
                 iterator.remove();
                 coalescedTaskCount++;
                 break;
             }
         }
 
-        metadataQueue.addLast(new ScheduledTask(task, System.nanoTime(), visualId, -1L));
+        metadataQueue.addLast(new ScheduledTask(task, System.nanoTime(), visualId, -1L, coalescingKey));
     }
 
     public void invalidateVisual(int visualId, long activeTokenVersion) {
@@ -299,16 +301,25 @@ public final class RenderNetworkBudgetScheduler {
         private final long enqueuedAtNanos;
         private final Integer visualId;
         private final long tokenVersion;
+        private final CoalescingKey coalescingKey;
 
         private ScheduledTask(Runnable runnable, long enqueuedAtNanos) {
             this(runnable, enqueuedAtNanos, null, -1L);
         }
 
         private ScheduledTask(Runnable runnable, long enqueuedAtNanos, Integer visualId, long tokenVersion) {
+            this(runnable, enqueuedAtNanos, visualId, tokenVersion, null);
+        }
+
+        private ScheduledTask(Runnable runnable, long enqueuedAtNanos, Integer visualId, long tokenVersion, CoalescingKey coalescingKey) {
             this.runnable = runnable;
             this.enqueuedAtNanos = enqueuedAtNanos;
             this.visualId = visualId;
             this.tokenVersion = tokenVersion;
+            this.coalescingKey = coalescingKey;
         }
+    }
+
+    private record CoalescingKey(UUID playerId, int visualId) {
     }
 }
