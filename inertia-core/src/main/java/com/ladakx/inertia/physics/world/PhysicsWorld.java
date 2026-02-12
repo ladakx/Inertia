@@ -129,7 +129,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 this::applySnapshot,
                 () -> physicsSystem.getNumActiveBodies(EBodyType.RigidBody),
                 physicsSystem::getNumBodies,
-                this::countStaticBodies
+                this::countStaticBodies,
+                this.snapshotPool,
+                InertiaPlugin.getInstance().getConfigManager().getInertiaConfig().PHYSICS.snapshotMode
         );
 
         this.metricsService = metricsService;

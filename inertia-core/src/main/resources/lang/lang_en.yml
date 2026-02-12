@@ -163,6 +163,7 @@ admin-stats-tasks:
   - "<gray>Recurring by category (ms): <white>{recurringByCategory}"
   - "<gray>Recurring skipped: <white>{skipped}"
   - "<gray>Queue depth one-time/recurring: <white>{queueOneTime}<gray>/<white>{queueRecurring}"
+  - "<gray>Snapshots dropped/overwritten: <white>{snapDropped}<gray>/<white>{snapOverwritten}"
 admin-stats-footer: "<red><bold>=============================="
 tool-inspect-name: "<light_purple>Inspector Tool"
 tool-inspect-lore:
