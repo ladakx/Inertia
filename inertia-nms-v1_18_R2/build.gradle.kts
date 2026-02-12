@@ -1,12 +1,11 @@
 plugins {
     `java-library`
     id("java")
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.11"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.19"
 }
 
 dependencies {
-    api(project(":inertia-core"))
-
+    compileOnly(project(":inertia-core"))
     compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
     paperweight.paperDevBundle("1.18.2-R0.1-SNAPSHOT")
 }

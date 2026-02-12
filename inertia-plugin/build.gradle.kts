@@ -1,5 +1,7 @@
 import org.gradle.api.tasks.Copy
 import java.util.Properties
+import org.gradle.kotlin.dsl.support.serviceOf
+import org.gradle.process.ExecOperations
 
 plugins {
     `java-library`
@@ -68,50 +70,42 @@ tasks.register<Copy>("copyJarToDesktop") {
     group = "deployment"
     description = "Copy the built JAR file to the desktop dev folder"
     dependsOn(tasks.shadowJar)
+
     from(tasks.shadowJar.get().archiveFile)
     into("/Users/vladislav/Desktop/dev/plugins")
 
-    doLast {
-        val jarFile = tasks.shadowJar.get().archiveFile.get().asFile
-        println("JAR file copied to: /Users/vladislav/Desktop/dev/plugins/${jarFile.name}")
-    }
+    val execOps = project.serviceOf<ExecOperations>()
 
-    val pluginFile = file("build/libs/Inertia-${version}.jar")
-    // Получаем свойства один раз, чтобы использовать их в doLast
-    val serverIp = properties["serverIp"] as String
-    val remotePath = properties["remotePath"] as String
-    val username = properties["username"] as String
-    val privateKeyPath = properties["privateKeyPath"] as String
+    val shadowJarFile = tasks.shadowJar.get().archiveFile.get().asFile
+    val serverIp = properties["serverIp"]?.toString() ?: ""
+    val remotePath = properties["remotePath"]?.toString() ?: ""
+    val username = properties["username"]?.toString() ?: ""
+    val privateKeyPath = properties["privateKeyPath"]?.toString() ?: ""
 
     doLast {
-        if (pluginFile.exists()) {
+        if (serverIp.isNotEmpty() && shadowJarFile.exists()) {
             println("Deploying to $serverIp...")
 
-            // --- НОВОЕ: Удаление папки Inertia перед загрузкой ---
-            exec {
+            execOps.exec {
                 commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "rm -rf ${remotePath}/Inertia")
             }
-            println("Remote config folder 'Inertia' deleted.")
-            // ----------------------------------------------------
 
-            exec {
-                commandLine("scp", "-i", privateKeyPath, pluginFile.absolutePath, "$username@$serverIp:$remotePath")
+            execOps.exec {
+                commandLine("scp", "-i", privateKeyPath, shadowJarFile.absolutePath, "$username@$serverIp:$remotePath")
             }
 
-            // Если нужно, чтобы сервер увидел изменения конфига сразу, возможно, стоит делать перезагрузку плагина здесь
-            exec {
-                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dayz -X stuff '\n'")
+            execOps.exec {
+                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dayz -X stuff '\\n'")
             }
-            exec {
-                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dayz -X stuff 'say Inertia deploy success\n'")
+            execOps.exec {
+                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dayz -X stuff 'say Inertia deploy success\\n'")
             }
 
-            println("Plugin loaded.")
-        } else {
-            println("File plugin not found: ${pluginFile.absolutePath}")
+            println("Deployment finished successfully.")
         }
     }
 }
+
 tasks.register("deployToDesktop") {
     group = "deployment"
     description = "Build and copy JAR to the desktop dev folder"

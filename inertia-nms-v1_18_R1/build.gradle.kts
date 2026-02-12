@@ -1,19 +1,23 @@
 plugins {
+    `java-library`
     id("java")
-}
-
-group = "me.ladakx"
-version = "unspecified"
-
-repositories {
-    mavenCentral()
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.19"
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
+    compileOnly(project(":inertia-core"))
+    compileOnly("io.papermc.paper:paper-api:1.18-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("1.18-R0.1-SNAPSHOT")
 }
 
-tasks.test {
-    useJUnitPlatform()
+paperweight.reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.REOBF_PRODUCTION
+
+tasks.assemble {
+    dependsOn(tasks.reobfJar)
+}
+
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set(17)
 }
