@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class NetworkEntityTracker {
 
     private static final long DEFAULT_TOMBSTONE_TTL_TICKS = 3L;
+    private static final long TARGET_TICK_BUDGET_NANOS = TimeUnit.MILLISECONDS.toNanos(50);
 
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
     private final VisualTokenService tokenService = new VisualTokenService();
@@ -86,7 +87,13 @@ public class NetworkEntityTracker {
     private final SheddingPolicy sheddingPolicy = new SheddingPolicy();
     private volatile ExecutorService asyncPhaseExecutor;
     private volatile CompletableFuture<Void> asyncPhaseFuture;
-    private volatile int asyncBacklogTicks = 0;
+    private volatile AsyncPhaseRequest queuedAsyncPhaseRequest;
+    private final AtomicLong asyncSkippedTicks = new AtomicLong(0);
+    private final AtomicLong asyncDurationNanosTotal = new AtomicLong(0);
+    private final AtomicLong asyncDurationSamples = new AtomicLong(0);
+    private final AtomicLong asyncDurationPeakNanos = new AtomicLong(0);
+    private final AtomicLong asyncFallbackUsed = new AtomicLong(0);
+    private volatile long asyncDurationEwmaNanos = 0L;
     private volatile int backlogPressureMultiplier = 1;
 
     public NetworkEntityTracker(PacketFactory packetFactory) {
@@ -255,17 +262,15 @@ public class NetworkEntityTracker {
 
         flushCompletedAsyncIntents();
 
-        if (asyncPhaseFuture == null || asyncPhaseFuture.isDone()) {
-            asyncBacklogTicks = 0;
-            activeIntentBuffer = activeIntentBuffer == intentBufferBack ? intentBufferFront : intentBufferBack;
-            lastCompletedIntentBuffer = activeIntentBuffer;
-            asyncPhaseFuture = CompletableFuture.runAsync(() -> runAsyncPhaseB(
-                    playerSnapshot,
-                    viewDistanceSquared,
-                    viewDistanceChunks
-            ), asyncPhaseExecutor);
+        AsyncPhaseRequest request = new AsyncPhaseRequest(playerSnapshot, viewDistanceSquared, viewDistanceChunks);
+        if (!tryStartAsyncPhase(request)) {
+            asyncSkippedTicks.incrementAndGet();
+            if (queuedAsyncPhaseRequest != null) {
+                asyncFallbackUsed.incrementAndGet();
+            }
+            queuedAsyncPhaseRequest = request;
         } else {
-            asyncBacklogTicks++;
+            queuedAsyncPhaseRequest = null;
         }
 
         applyDestroyMetrics(destroyBacklogProcessor.refreshMetrics(destroyBacklogThreshold));
@@ -306,20 +311,59 @@ public class NetworkEntityTracker {
     }
 
     private void runAsyncPhaseB(Collection<PlayerFrame> players, double viewDistanceSquared, int viewDistanceChunks) {
-        int backlogMultiplier = 1 + Math.min(3, Math.max(0, asyncBacklogTicks) / 2);
-        backlogPressureMultiplier = backlogMultiplier;
+        long startedAt = System.nanoTime();
+        try {
+            playerTickProcessor.processPlayers(
+                    players,
+                    viewDistanceSquared,
+                    viewDistanceChunks,
+                    tickCounter,
+                    fullRecalcIntervalTicks,
+                    destroyDrainFastPathActive
+            );
 
-        playerTickProcessor.processPlayers(
-                players,
-                viewDistanceSquared,
-                viewDistanceChunks,
-                tickCounter,
-                fullRecalcIntervalTicks,
-                destroyDrainFastPathActive
-        );
+            networkScheduler.runTick(players);
+        } finally {
+            long durationNanos = Math.max(0L, System.nanoTime() - startedAt);
+            asyncDurationNanosTotal.addAndGet(durationNanos);
+            asyncDurationSamples.incrementAndGet();
+            asyncDurationPeakNanos.accumulateAndGet(durationNanos, Math::max);
 
-        networkScheduler.runTick(players);
+            long previousEwma = asyncDurationEwmaNanos;
+            long nextEwma = previousEwma <= 0L ? durationNanos : ((previousEwma * 3L) + durationNanos) / 4L;
+            asyncDurationEwmaNanos = nextEwma;
+            backlogPressureMultiplier = resolveBacklogPressureMultiplier(nextEwma);
+        }
 
+    }
+
+    private int resolveBacklogPressureMultiplier(long durationNanos) {
+        if (durationNanos <= TARGET_TICK_BUDGET_NANOS) {
+            return 1;
+        }
+        if (durationNanos <= TARGET_TICK_BUDGET_NANOS + TimeUnit.MILLISECONDS.toNanos(15)) {
+            return 2;
+        }
+        if (durationNanos <= TARGET_TICK_BUDGET_NANOS + TimeUnit.MILLISECONDS.toNanos(35)) {
+            return 3;
+        }
+        return 4;
+    }
+
+    private boolean tryStartAsyncPhase(AsyncPhaseRequest request) {
+        CompletableFuture<Void> localFuture = asyncPhaseFuture;
+        if (localFuture != null && !localFuture.isDone()) {
+            return false;
+        }
+
+        activeIntentBuffer = activeIntentBuffer == intentBufferBack ? intentBufferFront : intentBufferBack;
+        lastCompletedIntentBuffer = activeIntentBuffer;
+        asyncPhaseFuture = CompletableFuture.runAsync(() -> runAsyncPhaseB(
+                request.players(),
+                request.viewDistanceSquared(),
+                request.viewDistanceChunks()
+        ), asyncPhaseExecutor);
+        return true;
     }
 
     private void flushCompletedAsyncIntents() {
@@ -349,6 +393,12 @@ public class NetworkEntityTracker {
             }
         }
         completedIntentBuffer.clear();
+
+        AsyncPhaseRequest queuedRequest = queuedAsyncPhaseRequest;
+        if (queuedRequest != null) {
+            queuedAsyncPhaseRequest = null;
+            tryStartAsyncPhase(queuedRequest);
+        }
 
         for (Map.Entry<UUID, PlayerPacketQueue> entry : packetBufferBack.entrySet()) {
             PlayerPacketQueue incoming = entry.getValue();
@@ -550,6 +600,26 @@ public class NetworkEntityTracker {
         return transformChecksSkippedDueBudget.get();
     }
 
+    public long getAsyncSkippedTicks() {
+        return asyncSkippedTicks.get();
+    }
+
+    public double getAverageAsyncDurationMillis() {
+        long samples = asyncDurationSamples.get();
+        if (samples <= 0L) {
+            return 0.0;
+        }
+        return (asyncDurationNanosTotal.get() / (double) samples) / 1_000_000.0;
+    }
+
+    public double getPeakAsyncDurationMillis() {
+        return asyncDurationPeakNanos.get() / 1_000_000.0;
+    }
+
+    public long getAsyncFallbackUsed() {
+        return asyncFallbackUsed.get();
+    }
+
     public int getSpawnQueueDepth() {
         return networkScheduler.getSpawnQueueDepth();
     }
@@ -649,6 +719,14 @@ public class NetworkEntityTracker {
         tokenService.clear();
         tombstoneService.clear();
         networkScheduler.clear();
+        queuedAsyncPhaseRequest = null;
+        asyncSkippedTicks.set(0L);
+        asyncDurationNanosTotal.set(0L);
+        asyncDurationSamples.set(0L);
+        asyncDurationPeakNanos.set(0L);
+        asyncFallbackUsed.set(0L);
+        asyncDurationEwmaNanos = 0L;
+        backlogPressureMultiplier = 1;
     }
 
     private boolean shouldDropMetadata(boolean critical, LodLevel lodLevel, int visualId) {
@@ -708,6 +786,11 @@ public class NetworkEntityTracker {
             return LodLevel.MID;
         }
         return LodLevel.FAR;
+    }
+
+    private record AsyncPhaseRequest(Collection<PlayerFrame> players,
+                                     double viewDistanceSquared,
+                                     int viewDistanceChunks) {
     }
 
 }
