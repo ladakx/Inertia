@@ -39,6 +39,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GreedyMeshAdapter implements TerrainAdapter {
@@ -51,6 +52,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private final Set<Long> loadedChunks = ConcurrentHashMap.newKeySet();
     private final Map<Long, BukkitTask> pendingUpdates = new HashMap<>();
     private final Map<Long, PendingMesh> pendingMeshData = new ConcurrentHashMap<>();
+    private final Queue<PendingMeshHandoff> pendingMeshHandoffs = new ConcurrentLinkedQueue<>();
     private WorldsConfig.ChunkManagementSettings chunkSettings;
     private WorldsConfig.GreedyMeshShapeType greedyMeshShapeType = WorldsConfig.GreedyMeshShapeType.MESH_SHAPE;
     private boolean useFastChunkCapture = true;
@@ -113,12 +115,11 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onDisable() {
+        ensureMainThread("onDisable");
         pendingUpdates.values().forEach(BukkitTask::cancel);
         pendingUpdates.clear();
         if (world != null) {
-            for (long key : new ArrayList<>(chunkBodies.keySet())) {
-                removeChunkBodies(key);
-            }
+            world.schedulePhysicsTask(this::removeAllChunkBodies);
         }
         if (meshApplyTaskId != null) {
             world.removeTickTask(meshApplyTaskId);
@@ -133,6 +134,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         }
         loadedChunks.clear();
         pendingMeshData.clear();
+        pendingMeshHandoffs.clear();
         chunkPhysicsManager = null;
         generator = null;
         joltTools = null;
@@ -141,6 +143,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onChunkLoad(int x, int z) {
+        ensureMainThread("onChunkLoad");
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.add(key);
         if (chunkSettings.generateOnLoad()) {
@@ -150,9 +153,10 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onChunkUnload(int x, int z) {
+        ensureMainThread("onChunkUnload");
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.remove(key);
-        pendingMeshData.remove(key);
+        pendingMeshHandoffs.offer(PendingMeshHandoff.discardChunk(key));
 
         BukkitTask task = pendingUpdates.remove(key);
         if (task != null) task.cancel();
@@ -168,6 +172,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onBlockChange(int x, int y, int z, Material oldMaterial, Material newMaterial) {
+        ensureMainThread("onBlockChange");
         if (world == null || chunkPhysicsManager == null || !chunkSettings.updateOnBlockChange()) return;
         if (!hasPhysicalProfile(oldMaterial) && !hasPhysicalProfile(newMaterial)) return;
 
@@ -194,6 +199,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
     @Override
     public void onChunkChange(int x, int z) {
+        ensureMainThread("onChunkChange");
         if (world == null || chunkPhysicsManager == null) return;
         long key = ChunkUtils.getChunkKey(x, z);
         if (!loadedChunks.contains(key)) return;
@@ -253,7 +259,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 () -> captureChunkSnapshotData(x, z),
                 data -> {
                     if (world != null) {
-                        enqueueMeshData(x, z, data);
+                        pendingMeshHandoffs.offer(PendingMeshHandoff.meshData(x, z, data, meshSequence.incrementAndGet()));
                     }
                 },
                 dirtyRegion,
@@ -325,15 +331,15 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         }
     }
 
-    private void enqueueMeshData(int x, int z, GreedyMeshData data) {
-        long key = ChunkUtils.getChunkKey(x, z);
-        pendingMeshData.put(key, new PendingMesh(x, z, data, meshSequence.incrementAndGet()));
-    }
-
     private void processPendingMeshes() {
-        if (world == null || pendingMeshData.isEmpty()) {
+        if (world == null) {
             return;
         }
+
+        drainMeshHandoffs();
+
+        if (pendingMeshData.isEmpty()) return;
+
         int limit = Math.max(1, chunkSettings.maxMeshAppliesPerTick());
         Collection<PendingMesh> pendingValues = pendingMeshData.values();
         if (pendingValues.isEmpty()) {
@@ -358,6 +364,18 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 applyMeshData(entry.x(), entry.z(), entry.data());
                 applied++;
             }
+        }
+    }
+
+    private void drainMeshHandoffs() {
+        PendingMeshHandoff handoff;
+        while ((handoff = pendingMeshHandoffs.poll()) != null) {
+            if (handoff.discardChunk()) {
+                pendingMeshData.remove(handoff.chunkKey());
+                continue;
+            }
+            long key = ChunkUtils.getChunkKey(handoff.x(), handoff.z());
+            pendingMeshData.put(key, new PendingMesh(handoff.x(), handoff.z(), handoff.data(), handoff.sequence()));
         }
     }
 
@@ -631,6 +649,19 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         }
     }
 
+    private void removeAllChunkBodies() {
+        if (world == null) return;
+        for (long key : new ArrayList<>(chunkBodies.keySet())) {
+            removeChunkBodies(key);
+        }
+    }
+
+    private void ensureMainThread(String methodName) {
+        if (!Bukkit.isPrimaryThread()) {
+            throw new IllegalStateException(methodName + " must be called on the primary Bukkit thread");
+        }
+    }
+
     private void removeChunkBodies(long key, Set<Integer> sections) {
         if (world == null || sections == null || sections.isEmpty()) return;
 
@@ -661,6 +692,16 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     }
 
     private record PendingMesh(int x, int z, GreedyMeshData data, long sequence) {}
+
+    private record PendingMeshHandoff(int x, int z, long chunkKey, GreedyMeshData data, long sequence, boolean discardChunk) {
+        private static PendingMeshHandoff meshData(int x, int z, GreedyMeshData data, long sequence) {
+            return new PendingMeshHandoff(x, z, 0L, data, sequence, false);
+        }
+
+        private static PendingMeshHandoff discardChunk(long chunkKey) {
+            return new PendingMeshHandoff(0, 0, chunkKey, null, 0L, true);
+        }
+    }
 
     private record MeshGroup(int sectionY, float friction, float restitution, List<float[]> vertices, List<GreedyMeshShape> shapes) {
         MeshGroup(int sectionY, float friction, float restitution) {
