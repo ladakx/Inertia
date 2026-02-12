@@ -1,6 +1,7 @@
 package com.ladakx.inertia.configuration.dto;
 
 import com.ladakx.inertia.infrastructure.nativelib.Precision;
+import com.ladakx.inertia.physics.world.loop.PhysicsLoop;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -71,6 +72,7 @@ public class InertiaConfig {
         public final TerrainGenerationSettings TERRAIN_GENERATION;
         public final MassSpawnSettings MASS_SPAWN;
         public final TaskManagerSettings TASK_MANAGER;
+        public final PhysicsLoop.SnapshotMode snapshotMode;
 
         public PhysicsSettings(ConfigurationSection section, FileConfiguration root) {
             if (section == null) {
@@ -80,6 +82,7 @@ public class InertiaConfig {
                 this.TERRAIN_GENERATION = new TerrainGenerationSettings(null, root);
                 this.MASS_SPAWN = new MassSpawnSettings(null, root);
                 this.TASK_MANAGER = new TaskManagerSettings(null, root);
+                this.snapshotMode = PhysicsLoop.SnapshotMode.LATEST;
                 return;
             }
 
@@ -92,6 +95,15 @@ public class InertiaConfig {
             this.TERRAIN_GENERATION = new TerrainGenerationSettings(section.getConfigurationSection("terrain-generation"), root);
             this.MASS_SPAWN = new MassSpawnSettings(section.getConfigurationSection("mass-spawn"), root);
             this.TASK_MANAGER = new TaskManagerSettings(section.getConfigurationSection("task-manager"), root);
+
+            String modeValue = section.getString("snapshot-mode", "LATEST");
+            PhysicsLoop.SnapshotMode parsedMode;
+            try {
+                parsedMode = PhysicsLoop.SnapshotMode.valueOf(modeValue.toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                parsedMode = PhysicsLoop.SnapshotMode.LATEST;
+            }
+            this.snapshotMode = parsedMode;
         }
 
         public static class TaskManagerSettings {

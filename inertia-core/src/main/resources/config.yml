@@ -17,6 +17,8 @@ physics:
   precision: DP
   # Количество потоков для генерации/обработки физики.
   worker-threads: 3
+  # Режим буфера снапшотов физики: LATEST (только последний кадр) или FIFO (совместимый режим).
+  snapshot-mode: LATEST
   terrain-generation:
     # Максимальное количество chunk capture на main-thread за один тик.
     max-capture-per-tick: 4

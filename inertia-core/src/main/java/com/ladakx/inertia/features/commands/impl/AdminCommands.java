@@ -102,7 +102,9 @@ public class AdminCommands extends CloudModule {
                             "{recurringByCategory}", recurringByCategory,
                             "{skipped}", skippedByCategory,
                             "{queueOneTime}", String.valueOf(metricsService.getOneTimeQueueDepth()),
-                            "{queueRecurring}", String.valueOf(metricsService.getRecurringQueueDepth())
+                            "{queueRecurring}", String.valueOf(metricsService.getRecurringQueueDepth()),
+                            "{snapDropped}", String.valueOf(metricsService.getDroppedSnapshots()),
+                            "{snapOverwritten}", String.valueOf(metricsService.getOverwrittenSnapshots())
                     );
                     send(ctx.sender(), MessageKey.ADMIN_STATS_FOOTER);
                 })
