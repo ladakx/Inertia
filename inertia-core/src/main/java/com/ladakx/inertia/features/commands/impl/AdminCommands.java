@@ -66,6 +66,29 @@ public class AdminCommands extends CloudModule {
                 })
         );
 
+        // Command: /inertia admin effective-config
+        manager.command(adminRoot
+                .literal("effective-config")
+                .permission("inertia.admin.stats")
+                .handler(ctx -> {
+                    var effective = config.getAppliedThreadingConfig();
+                    if (effective == null) {
+                        ctx.sender().sendMessage("§cEffective config is not available yet.");
+                        return;
+                    }
+                    ctx.sender().sendMessage("§6[Inertia] Effective performance.threading:");
+                    ctx.sender().sendMessage("§7physics.worldThreads=§f" + effective.physicsWorldThreads()
+                            + " §8| §7physics.taskBudgetMs=§f" + effective.physicsTaskBudgetMs()
+                            + " §8| §7physics.snapshotQueueMode=§f" + effective.snapshotQueueMode());
+                    ctx.sender().sendMessage("§7network.computeThreads=§f" + effective.networkComputeThreads()
+                            + " §8| §7network.flushBudgetNanos=§f" + effective.networkFlushBudgetNanos()
+                            + " §8| §7network.maxBytesPerTick=§f" + effective.networkMaxBytesPerTick());
+                    ctx.sender().sendMessage("§7terrain.captureBudgetMs=§f" + effective.terrainCaptureBudgetMs()
+                            + " §8| §7terrain.generateWorkers=§f" + effective.terrainGenerateWorkers()
+                            + " §8| §7terrain.maxInFlight=§f" + effective.terrainMaxInFlight());
+                })
+        );
+
         // Command: /inertia admin stats
         manager.command(adminRoot
                 .literal("stats")

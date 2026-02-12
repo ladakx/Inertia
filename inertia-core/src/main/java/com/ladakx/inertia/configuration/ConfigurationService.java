@@ -40,6 +40,7 @@ public class ConfigurationService {
     private volatile BlocksConfig blocksConfig;
     private volatile RenderConfig renderConfig;
     private volatile WorldsConfig worldsConfig;
+    private volatile AppliedThreadingConfig appliedThreadingConfig;
 
     private BlocksFile blocksFile;
     private BodiesFile bodiesFile;
@@ -134,6 +135,7 @@ public class ConfigurationService {
 
         // Reload registry (requires items to be loaded? No, registry uses strings for renders)
         physicsBodyRegistry.reload(bodiesConfig, renderConfig);
+        this.appliedThreadingConfig = AppliedThreadingConfig.from(inertiaConfig);
     }
 
     private void preloadMeshes(BodiesConfig bodies) {
@@ -174,6 +176,38 @@ public class ConfigurationService {
                 }
             }
         }
+    }
+
+
+    public record AppliedThreadingConfig(
+            int physicsWorldThreads,
+            int physicsTaskBudgetMs,
+            String snapshotQueueMode,
+            int networkComputeThreads,
+            long networkFlushBudgetNanos,
+            int networkMaxBytesPerTick,
+            int terrainCaptureBudgetMs,
+            int terrainGenerateWorkers,
+            int terrainMaxInFlight
+    ) {
+        static AppliedThreadingConfig from(InertiaConfig config) {
+            var t = config.PERFORMANCE.THREADING;
+            return new AppliedThreadingConfig(
+                    t.physics.worldThreads,
+                    t.physics.taskBudgetMs,
+                    t.physics.snapshotQueueMode.name(),
+                    t.network.computeThreads,
+                    t.network.flushBudgetNanos,
+                    t.network.maxBytesPerTick,
+                    t.terrain.captureBudgetMs,
+                    t.terrain.generateWorkers,
+                    t.terrain.maxInFlight
+            );
+        }
+    }
+
+    public AppliedThreadingConfig getAppliedThreadingConfig() {
+        return appliedThreadingConfig;
     }
 
     // Getters...

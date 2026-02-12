@@ -20,8 +20,7 @@ public class PhysicsEngine {
         int tempAllocatorSize = 32 * 1024 * 1024;
         this.tempAllocator = new TempAllocatorImpl(tempAllocatorSize);
 
-        int availableProcessors = Runtime.getRuntime().availableProcessors();
-        int numThreads = Math.max(configurationService.getInertiaConfig().PHYSICS.workerThreads, availableProcessors - 1);
+        int numThreads = configurationService.getInertiaConfig().PERFORMANCE.THREADING.physics.worldThreads;
 
         this.jobSystem = new JobSystemThreadPool(
                 Jolt.cMaxPhysicsJobs,
