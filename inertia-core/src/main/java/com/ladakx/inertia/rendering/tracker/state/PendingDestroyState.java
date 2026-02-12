@@ -1,36 +1,35 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.state;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 
-final class PendingDestroyState {
+public final class PendingDestroyState {
     private final IntOpenHashSet ids = new IntOpenHashSet();
     private long backlogSinceNanos;
     private long firstUnregisterTick = -1L;
 
-    IntOpenHashSet ids() {
+    public IntOpenHashSet ids() {
         return ids;
     }
 
-    long backlogSinceNanos() {
+    public long backlogSinceNanos() {
         return backlogSinceNanos;
     }
 
-    long firstUnregisterTick() {
+    public long firstUnregisterTick() {
         return firstUnregisterTick;
     }
 
-    void markBacklogStart(long nowNanos, long tick) {
+    public void markBacklogStart(long nowNanos, long tick) {
         this.backlogSinceNanos = nowNanos;
         if (this.firstUnregisterTick < 0L) {
             this.firstUnregisterTick = tick;
         }
     }
 
-    void addAll(IntArrayList values) {
+    public void addAll(IntArrayList values) {
         for (int i = 0; i < values.size(); i++) {
             ids.add(values.getInt(i));
         }
     }
 }
-

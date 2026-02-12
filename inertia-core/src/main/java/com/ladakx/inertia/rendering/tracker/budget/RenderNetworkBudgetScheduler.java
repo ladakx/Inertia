@@ -1,4 +1,4 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.budget;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;

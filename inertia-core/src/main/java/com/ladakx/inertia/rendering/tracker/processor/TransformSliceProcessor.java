@@ -1,5 +1,14 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.processor;
 
+import com.ladakx.inertia.rendering.tracker.budget.RenderNetworkBudgetScheduler;
+import com.ladakx.inertia.rendering.tracker.packet.PacketPriority;
+import com.ladakx.inertia.rendering.tracker.state.LodLevel;
+import com.ladakx.inertia.rendering.tracker.budget.SheddingState;
+import com.ladakx.inertia.rendering.tracker.state.PendingMetadata;
+import com.ladakx.inertia.rendering.tracker.state.UpdateDecision;
+import com.ladakx.inertia.rendering.tracker.state.PlayerFrame;
+import com.ladakx.inertia.rendering.tracker.state.PlayerTrackingState;
+import com.ladakx.inertia.rendering.tracker.state.TrackedVisual;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -10,15 +19,15 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-final class TransformSliceProcessor {
+public final class TransformSliceProcessor {
 
     @FunctionalInterface
-    interface MetadataDropPolicy {
+    public interface MetadataDropPolicy {
         boolean shouldDrop(boolean critical, LodLevel lodLevel, int visualId);
     }
 
     @FunctionalInterface
-    interface LodResolver {
+    public interface LodResolver {
         LodLevel resolve(double distanceSq);
     }
 
@@ -28,7 +37,7 @@ final class TransformSliceProcessor {
     private final java.util.function.IntToLongFunction tokenProvider;
     private final Function<UUID, PlayerFrame> playerFrameProvider;
 
-    TransformSliceProcessor(Map<Integer, TrackedVisual> visualsById,
+    public TransformSliceProcessor(Map<Integer, TrackedVisual> visualsById,
                             RenderNetworkBudgetScheduler scheduler,
                             VisibilitySliceProcessor.PacketBuffer packetBuffer,
                             java.util.function.IntToLongFunction tokenProvider,
@@ -40,7 +49,7 @@ final class TransformSliceProcessor {
         this.playerFrameProvider = Objects.requireNonNull(playerFrameProvider, "playerFrameProvider");
     }
 
-    void runSlice(UUID playerId,
+    public void runSlice(UUID playerId,
                   PlayerTrackingState trackingState,
                   double viewDistanceSquared,
                   int maxTransformChecksPerPlayerPerTick,
@@ -190,4 +199,3 @@ final class TransformSliceProcessor {
         }
     }
 }
-

@@ -23,7 +23,7 @@ import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
-import com.ladakx.inertia.rendering.NetworkEntityTracker;
+import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;

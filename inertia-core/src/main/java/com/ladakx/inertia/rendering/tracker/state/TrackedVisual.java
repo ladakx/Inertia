@@ -1,10 +1,11 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.state;
 
+import com.ladakx.inertia.rendering.NetworkVisual;
 import org.bukkit.Location;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-final class TrackedVisual {
+public final class TrackedVisual {
     private final NetworkVisual visual;
     private final Location location;
     private final Quaternionf rotation;
@@ -23,18 +24,18 @@ final class TrackedVisual {
     private boolean criticalMetaDirty = false;
     private boolean forceTransformResyncDirty = false;
 
-    TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
+    public TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
         this.visual = visual;
         this.location = location;
         this.rotation = rotation;
         syncAll();
     }
 
-    NetworkVisual visual() { return visual; }
-    Location location() { return location; }
-    Quaternionf rotation() { return rotation; }
+    public NetworkVisual visual() { return visual; }
+    public Location location() { return location; }
+    public Quaternionf rotation() { return rotation; }
 
-    void update(Location newLoc, Quaternionf newRot) {
+    public void update(Location newLoc, Quaternionf newRot) {
         this.location.setWorld(newLoc.getWorld());
         this.location.setX(newLoc.getX());
         this.location.setY(newLoc.getY());
@@ -44,7 +45,7 @@ final class TrackedVisual {
         this.rotation.set(newRot);
     }
 
-    void markMetaDirty(boolean critical) {
+    public void markMetaDirty(boolean critical) {
         this.metadataDirty = true;
         this.criticalMetaDirty = this.criticalMetaDirty || critical;
         if (critical) {
@@ -52,7 +53,7 @@ final class TrackedVisual {
         }
     }
 
-    void beginTick() {
+    public void beginTick() {
         this.cachedPositionPacket = null;
         this.cachedTransformMetaPacket = null;
         this.cachedMetaPacket = null;
@@ -64,11 +65,11 @@ final class TrackedVisual {
         }
     }
 
-    boolean hasSignificantNearChange(float nearPosThresholdSq, float nearRotThresholdDot) {
+    public boolean hasSignificantNearChange(float nearPosThresholdSq, float nearRotThresholdDot) {
         return isPositionChanged(nearSyncState, nearPosThresholdSq) || isRotationChanged(nearSyncState, nearRotThresholdDot);
     }
 
-    UpdateDecision prepareUpdate(
+    public UpdateDecision prepareUpdate(
             LodLevel lodLevel,
             long tick,
             float nearPosThresholdSq,
@@ -176,19 +177,19 @@ final class TrackedVisual {
         return (currentTick - lastTick) >= intervalTicks;
     }
 
-    Object getPendingPositionPacket() {
+    public Object getPendingPositionPacket() {
         return cachedPositionPacket;
     }
 
-    Object getPendingTransformMetaPacket() {
+    public Object getPendingTransformMetaPacket() {
         return cachedTransformMetaPacket;
     }
 
-    PendingMetadata getPendingMetaPacket() {
+    public PendingMetadata getPendingMetaPacket() {
         return cachedMetaPacket;
     }
 
-    void markSent() {
+    public void markSent() {
     }
 
     private void syncAll() {

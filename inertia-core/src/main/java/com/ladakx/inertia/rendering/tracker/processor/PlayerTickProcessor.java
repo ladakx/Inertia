@@ -1,15 +1,18 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.processor;
 
+import com.ladakx.inertia.rendering.tracker.grid.ChunkGridIndex;
+import com.ladakx.inertia.rendering.tracker.state.PlayerFrame;
+import com.ladakx.inertia.rendering.tracker.state.PlayerTrackingState;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-final class PlayerTickProcessor {
+public final class PlayerTickProcessor {
 
     @FunctionalInterface
-    interface SliceEnqueuer {
+    public interface SliceEnqueuer {
         void enqueue(UUID playerId, PlayerTrackingState trackingState, double viewDistanceSquared);
     }
 
@@ -18,7 +21,7 @@ final class PlayerTickProcessor {
     private final SliceEnqueuer visibilityEnqueuer;
     private final SliceEnqueuer transformEnqueuer;
 
-    PlayerTickProcessor(Map<UUID, PlayerTrackingState> playerTrackingStates,
+    public PlayerTickProcessor(Map<UUID, PlayerTrackingState> playerTrackingStates,
                         ChunkGridIndex chunkGrid,
                         SliceEnqueuer visibilityEnqueuer,
                         SliceEnqueuer transformEnqueuer) {
@@ -28,7 +31,7 @@ final class PlayerTickProcessor {
         this.transformEnqueuer = Objects.requireNonNull(transformEnqueuer, "transformEnqueuer");
     }
 
-    void processPlayers(Collection<PlayerFrame> players,
+    public void processPlayers(Collection<PlayerFrame> players,
                         double viewDistanceSquared,
                         int viewDistanceChunks,
                         long tickCounter,
@@ -65,4 +68,3 @@ final class PlayerTickProcessor {
 
     }
 }
-

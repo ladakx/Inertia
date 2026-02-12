@@ -6,7 +6,7 @@ import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
-import com.ladakx.inertia.rendering.NetworkEntityTracker;
+import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;

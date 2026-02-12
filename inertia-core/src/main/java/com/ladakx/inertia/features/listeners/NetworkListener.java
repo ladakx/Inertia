@@ -2,7 +2,7 @@ package com.ladakx.inertia.features.listeners;
 
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.infrastructure.nms.network.NetworkManager;
-import com.ladakx.inertia.rendering.NetworkEntityTracker;
+import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;

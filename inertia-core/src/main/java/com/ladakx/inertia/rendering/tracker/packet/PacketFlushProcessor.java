@@ -1,4 +1,4 @@
-package com.ladakx.inertia.rendering;
+package com.ladakx.inertia.rendering.tracker.packet;
 
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
 import org.bukkit.Bukkit;
@@ -11,24 +11,24 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
-final class PacketFlushProcessor {
+public final class PacketFlushProcessor {
 
-    record FlushStats(long totalSent, int onlinePlayersWithPackets, int tickPeak, int deferred) {}
+    public static record FlushStats(long totalSent, int onlinePlayersWithPackets, int tickPeak, int deferred) {}
 
-    FlushStats flush(Map<UUID, PlayerPacketQueue> packetBuffer,
-                     PacketFactory packetFactory,
-                     java.util.function.BiPredicate<Integer, Long> tokenValidator,
-                     int maxPacketsPerPlayerPerTick,
-                     int destroyDrainExtraPacketsPerPlayerPerTick,
-                     boolean destroyDrainFastPathActive,
-                     boolean massDestroyBudgetBoost,
-                     int maxBytesPerPlayerPerTick,
-                     long tickCounter,
-                     AtomicLong droppedPackets,
-                     AtomicLong deferredPackets,
-                     AtomicLong destroyLatencyTickTotal,
-                     AtomicLong destroyLatencySamples,
-                     AtomicLong destroyLatencyPeakTicks) {
+    public FlushStats flush(Map<UUID, PlayerPacketQueue> packetBuffer,
+                           PacketFactory packetFactory,
+                           java.util.function.BiPredicate<Integer, Long> tokenValidator,
+                           int maxPacketsPerPlayerPerTick,
+                           int destroyDrainExtraPacketsPerPlayerPerTick,
+                           boolean destroyDrainFastPathActive,
+                           boolean massDestroyBudgetBoost,
+                           int maxBytesPerPlayerPerTick,
+                           long tickCounter,
+                           AtomicLong droppedPackets,
+                           AtomicLong deferredPackets,
+                           AtomicLong destroyLatencyTickTotal,
+                           AtomicLong destroyLatencySamples,
+                           AtomicLong destroyLatencyPeakTicks) {
         Objects.requireNonNull(packetBuffer, "packetBuffer");
         if (packetFactory == null) {
             return new FlushStats(0L, 0, 0, 0);
@@ -129,4 +129,3 @@ final class PacketFlushProcessor {
         return new FlushStats(totalSent, onlinePlayersWithPackets, tickPeak, deferred);
     }
 }
-
