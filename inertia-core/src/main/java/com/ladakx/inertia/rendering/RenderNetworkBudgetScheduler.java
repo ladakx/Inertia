@@ -19,7 +19,8 @@ public final class RenderNetworkBudgetScheduler {
     private final ArrayDeque<ScheduledTask> metadataQueue = new ArrayDeque<>();
     private final ArrayDeque<ScheduledTask> destroyQueue = new ArrayDeque<>();
 
-    private long maxWorkNanosPerTick = 2_000_000L;
+    // Keep defaults aligned with inertia-core/src/main/resources/config.yml
+    private long maxWorkNanosPerTick = 10_000_000L;
     private double secondaryMinScale = 0.25D;
     private double tpsSoftThreshold = 19.2D;
     private double tpsHardThreshold = 17.0D;

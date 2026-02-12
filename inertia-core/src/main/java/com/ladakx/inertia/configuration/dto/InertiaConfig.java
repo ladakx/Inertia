@@ -326,21 +326,21 @@ public class InertiaConfig {
             public final int adaptivePingHardThresholdMs;
 
             public NetworkEntityTrackerSettings(ConfigurationSection section, FileConfiguration root) {
-                // Defaults are aligned with previous hardcoded values in NetworkEntityTracker
-                double defaultPosThreshold = 0.01; // blocks
-                double defaultRotThresholdDot = 0.3; // quaternion dot (abs)
+                // Keep defaults aligned with inertia-core/src/main/resources/config.yml (smooth visuals by default)
+                double defaultPosThreshold = 0.0; // blocks
+                double defaultRotThresholdDot = 1.0; // quaternion dot (abs)
 
                 double posThreshold = section != null ? section.getDouble("pos-threshold", defaultPosThreshold) : defaultPosThreshold;
                 if (posThreshold < 0) posThreshold = 0;
                 this.posThresholdSq = (float) (posThreshold * posThreshold);
                 this.nearPosThresholdSq = this.posThresholdSq;
 
-                double defaultMidPosThreshold = 0.04;
+                double defaultMidPosThreshold = 0.01;
                 double midPosThreshold = section != null ? section.getDouble("mid-pos-threshold", defaultMidPosThreshold) : defaultMidPosThreshold;
                 if (midPosThreshold < 0) midPosThreshold = 0;
                 this.midPosThresholdSq = (float) (midPosThreshold * midPosThreshold);
 
-                double defaultFarPosThreshold = 0.09;
+                double defaultFarPosThreshold = 0.02;
                 double farPosThreshold = section != null ? section.getDouble("far-pos-threshold", defaultFarPosThreshold) : defaultFarPosThreshold;
                 if (farPosThreshold < 0) farPosThreshold = 0;
                 this.farPosThresholdSq = (float) (farPosThreshold * farPosThreshold);
@@ -351,61 +351,64 @@ public class InertiaConfig {
                 this.rotThresholdDot = (float) rotDot;
                 this.nearRotThresholdDot = this.rotThresholdDot;
 
-                double defaultMidRotDot = 0.2;
+                double defaultMidRotDot = 0.99;
                 double midRotDot = section != null ? section.getDouble("mid-rot-threshold-dot", defaultMidRotDot) : defaultMidRotDot;
                 if (midRotDot < 0) midRotDot = 0;
                 if (midRotDot > 1) midRotDot = 1;
                 this.midRotThresholdDot = (float) midRotDot;
 
-                double defaultFarRotDot = 0.1;
+                double defaultFarRotDot = 0.95;
                 double farRotDot = section != null ? section.getDouble("far-rot-threshold-dot", defaultFarRotDot) : defaultFarRotDot;
                 if (farRotDot < 0) farRotDot = 0;
                 if (farRotDot > 1) farRotDot = 1;
                 this.farRotThresholdDot = (float) farRotDot;
 
-                double defaultMidDistance = 24.0;
+                double defaultMidDistance = 40.0;
                 double midDistance = section != null ? section.getDouble("mid-distance", defaultMidDistance) : defaultMidDistance;
                 if (midDistance < 0) midDistance = 0;
                 this.midDistanceSq = (float) (midDistance * midDistance);
 
-                double defaultFarDistance = 56.0;
+                double defaultFarDistance = 80.0;
                 double farDistance = section != null ? section.getDouble("far-distance", defaultFarDistance) : defaultFarDistance;
                 if (farDistance < midDistance) farDistance = midDistance;
                 this.farDistanceSq = (float) (farDistance * farDistance);
 
-                int defaultMidUpdateIntervalTicks = 2;
+                int defaultMidUpdateIntervalTicks = 0;
                 int configuredMidUpdateIntervalTicks = section != null
                         ? section.getInt("mid-update-interval-ticks", defaultMidUpdateIntervalTicks)
                         : defaultMidUpdateIntervalTicks;
-                this.midUpdateIntervalTicks = Math.max(1, configuredMidUpdateIntervalTicks);
+                this.midUpdateIntervalTicks = Math.max(0, configuredMidUpdateIntervalTicks);
 
-                int defaultFarUpdateIntervalTicks = 4;
+                int defaultFarUpdateIntervalTicks = 0;
                 int configuredFarUpdateIntervalTicks = section != null
                         ? section.getInt("far-update-interval-ticks", defaultFarUpdateIntervalTicks)
                         : defaultFarUpdateIntervalTicks;
-                this.farUpdateIntervalTicks = Math.max(1, configuredFarUpdateIntervalTicks);
+                this.farUpdateIntervalTicks = Math.max(0, configuredFarUpdateIntervalTicks);
 
-                this.farAllowMetadataUpdates = section != null && section.getBoolean("far-allow-metadata-updates", false);
+                boolean defaultFarAllowMetadataUpdates = true;
+                this.farAllowMetadataUpdates = section != null
+                        ? section.getBoolean("far-allow-metadata-updates", defaultFarAllowMetadataUpdates)
+                        : defaultFarAllowMetadataUpdates;
 
-                int defaultMaxUpdatesPerTick = 256;
+                int defaultMaxUpdatesPerTick = 1024;
                 int configuredMaxUpdatesPerTick = section != null
                         ? section.getInt("max-visibility-updates-per-player-per-tick", defaultMaxUpdatesPerTick)
                         : defaultMaxUpdatesPerTick;
                 this.maxVisibilityUpdatesPerPlayerPerTick = Math.max(1, configuredMaxUpdatesPerTick);
 
-                int defaultMaxTransformChecksPerTick = 256;
+                int defaultMaxTransformChecksPerTick = 1024;
                 int configuredMaxTransformChecksPerTick = section != null
                         ? section.getInt("max-transform-checks-per-player-per-tick", defaultMaxTransformChecksPerTick)
                         : defaultMaxTransformChecksPerTick;
                 this.maxTransformChecksPerPlayerPerTick = Math.max(1, configuredMaxTransformChecksPerTick);
 
-                int defaultFullRecalcIntervalTicks = 20;
+                int defaultFullRecalcIntervalTicks = 10;
                 int configuredFullRecalcIntervalTicks = section != null
                         ? section.getInt("full-recalc-interval-ticks", defaultFullRecalcIntervalTicks)
                         : defaultFullRecalcIntervalTicks;
                 this.fullRecalcIntervalTicks = Math.max(1, configuredFullRecalcIntervalTicks);
 
-                int defaultMaxPacketsPerPlayerPerTick = 256;
+                int defaultMaxPacketsPerPlayerPerTick = 1024;
                 int configuredMaxPacketsPerPlayerPerTick = section != null
                         ? section.getInt("max-packets-per-player-per-tick", defaultMaxPacketsPerPlayerPerTick)
                         : defaultMaxPacketsPerPlayerPerTick;
@@ -417,19 +420,19 @@ public class InertiaConfig {
                         : defaultDestroyBacklogThreshold;
                 this.destroyBacklogThreshold = Math.max(1, configuredDestroyBacklogThreshold);
 
-                int defaultDestroyDrainExtraPacketsPerPlayerPerTick = 128;
+                int defaultDestroyDrainExtraPacketsPerPlayerPerTick = 256;
                 int configuredDestroyDrainExtraPacketsPerPlayerPerTick = section != null
                         ? section.getInt("destroy-drain-extra-packets-per-player-per-tick", defaultDestroyDrainExtraPacketsPerPlayerPerTick)
                         : defaultDestroyDrainExtraPacketsPerPlayerPerTick;
                 this.destroyDrainExtraPacketsPerPlayerPerTick = Math.max(0, configuredDestroyDrainExtraPacketsPerPlayerPerTick);
 
-                int defaultMaxBytesPerPlayerPerTick = 98304;
+                int defaultMaxBytesPerPlayerPerTick = 1_048_576;
                 int configuredMaxBytesPerPlayerPerTick = section != null
                         ? section.getInt("max-bytes-per-player-per-tick", defaultMaxBytesPerPlayerPerTick)
                         : defaultMaxBytesPerPlayerPerTick;
                 this.maxBytesPerPlayerPerTick = Math.max(1, configuredMaxBytesPerPlayerPerTick);
 
-                long defaultMaxWorkNanosPerTick = 2_000_000L;
+                long defaultMaxWorkNanosPerTick = 10_000_000L;
                 long configuredMaxWorkNanosPerTick = section != null
                         ? section.getLong("max-work-nanos-per-tick", defaultMaxWorkNanosPerTick)
                         : defaultMaxWorkNanosPerTick;
