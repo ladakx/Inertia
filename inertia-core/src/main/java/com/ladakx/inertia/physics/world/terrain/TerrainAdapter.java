@@ -37,4 +37,29 @@ public interface TerrainAdapter {
 
     default void onChunkChange(int x, int z) {
     }
+
+    /**
+     * Завчасная генерация кэша terrain-данных без добавления тел в физический мир.
+     */
+    default java.util.concurrent.CompletableFuture<OfflineGenerationResult> generateOffline(OfflineGenerationRequest request) {
+        return java.util.concurrent.CompletableFuture.completedFuture(OfflineGenerationResult.unsupported());
+    }
+
+    record OfflineGenerationRequest(int centerChunkX,
+                                    int centerChunkZ,
+                                    int radiusChunks,
+                                    boolean useWorldBounds,
+                                    boolean forceRegenerate) {
+    }
+
+    record OfflineGenerationResult(boolean supported,
+                                   int requestedChunks,
+                                   int generatedChunks,
+                                   int skippedFromCache,
+                                   int failedChunks,
+                                   long durationMillis) {
+        public static OfflineGenerationResult unsupported() {
+            return new OfflineGenerationResult(false, 0, 0, 0, 0, 0);
+        }
+    }
 }
