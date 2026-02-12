@@ -84,14 +84,22 @@ public class NetworkEntityTracker {
     private final PlayerTickProcessor playerTickProcessor;
     private final DestroyBacklogProcessor destroyBacklogProcessor;
     private final SheddingPolicy sheddingPolicy = new SheddingPolicy();
-    private final ExecutorService asyncPhaseExecutor;
+    private volatile ExecutorService asyncPhaseExecutor;
     private volatile CompletableFuture<Void> asyncPhaseFuture;
     private volatile int asyncBacklogTicks = 0;
     private volatile int backlogPressureMultiplier = 1;
 
     public NetworkEntityTracker(PacketFactory packetFactory) {
+        this(packetFactory, null, null);
+    }
+
+    public NetworkEntityTracker(PacketFactory packetFactory,
+                                InertiaConfig.RenderingSettings.NetworkEntityTrackerSettings settings,
+                                InertiaConfig.NetworkThreadingSettings threadingSettings) {
         this.packetFactory = packetFactory;
-        int workers = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
+        int workers = threadingSettings != null
+                ? threadingSettings.computeThreads
+                : Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
         this.asyncPhaseExecutor = new ForkJoinPool(workers);
         this.visualRegistry = new VisualRegistry(visualsById, chunkGrid, tokenService, tombstoneService);
         this.visibilitySliceProcessor = new VisibilitySliceProcessor(
@@ -131,11 +139,9 @@ public class NetworkEntityTracker {
                 this::bufferPacket,
                 this::preFlushBeforeBulkDestroy
         );
-    }
 
-    public NetworkEntityTracker(PacketFactory packetFactory, InertiaConfig.RenderingSettings.NetworkEntityTrackerSettings settings) {
-        this(packetFactory);
         applySettings(settings);
+        applyThreadingSettings(threadingSettings);
     }
 
     public void applySettings(InertiaConfig.RenderingSettings.NetworkEntityTrackerSettings settings) {
@@ -159,6 +165,18 @@ public class NetworkEntityTracker {
         this.destroyDrainExtraPacketsPerPlayerPerTick = settings.destroyDrainExtraPacketsPerPlayerPerTick;
         this.maxBytesPerPlayerPerTick = settings.maxBytesPerPlayerPerTick;
         this.networkScheduler.applySettings(settings);
+    }
+
+    public void applyThreadingSettings(InertiaConfig.NetworkThreadingSettings settings) {
+        if (settings == null) return;
+        this.maxBytesPerPlayerPerTick = settings.maxBytesPerTick;
+        this.networkScheduler.applyThreadingSettings(settings.flushBudgetNanos);
+
+        ExecutorService previous = this.asyncPhaseExecutor;
+        this.asyncPhaseExecutor = new ForkJoinPool(settings.computeThreads);
+        if (previous != null) {
+            previous.shutdown();
+        }
     }
 
     public record VisualRegistration(NetworkVisual visual, Location location, Quaternionf rotation) {
@@ -609,6 +627,10 @@ public class NetworkEntityTracker {
     }
 
     public void clear() {
+        ExecutorService executor = this.asyncPhaseExecutor;
+        if (executor != null) {
+            executor.shutdownNow();
+        }
         visualsById.clear();
         playerTrackingStates.clear();
         chunkGrid.clear();
