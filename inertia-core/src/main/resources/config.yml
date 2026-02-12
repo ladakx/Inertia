@@ -84,11 +84,11 @@ rendering:
     mid-update-interval-ticks: 0
     far-update-interval-ticks: 0
     # Пороги позиционных изменений для LOD-уровней (в блоках).
-    mid-pos-threshold: 0.01
-    far-pos-threshold: 0.02
+    mid-pos-threshold: 0.0
+    far-pos-threshold: 0.0
     # Пороги поворота (abs(dot) кватернионов) для LOD-уровней.
-    mid-rot-threshold-dot: 0.99
-    far-rot-threshold-dot: 0.95
+    mid-rot-threshold-dot: 1.0
+    far-rot-threshold-dot: 1.0
     # Для far-range отключаем часть некритичных metadata-апдейтов.
     far-allow-metadata-updates: true
     # Максимальное число проверок/обновлений видимости для одного игрока за тик.
@@ -115,7 +115,7 @@ rendering:
     # Этап 1 (+50% от базового профиля): 147456.
     max-bytes-per-player-per-tick: 1048576
     # Общий лимит времени (в наносекундах), который render-network scheduler может тратить за 1 серверный тик.
-    max-work-nanos-per-tick: 10000000
+    max-work-nanos-per-tick: 1000000000
     # Минимальный коэффициент для второстепенных очередей (visibility-diff и metadata),
     # который применяется при деградации TPS/ping.
     secondary-budget-min-scale: 0.8
@@ -145,7 +145,7 @@ performance:
       # Потоки фізичного job-систему світу (Jolt world threads).
       world-threads: 3
       # Загальний бюджет physics task manager на тік (ms), ділиться між one-time та recurring.
-      task-budget-ms: 10
+      task-budget-ms: 50
       # Режим черги снапшотів: LATEST або FIFO.
       snapshot-queue-mode: FIFO
     network:

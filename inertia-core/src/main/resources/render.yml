@@ -9,7 +9,7 @@ stone:
     display_1:
       type: BLOCK_DISPLAY
       block: STONE
-      interpolation-duration: 3
+      interpolation-duration: 1
       teleport-duration: 1
 grass:
   sync:
@@ -29,7 +29,7 @@ tnt:
     display_1:
       type: BLOCK_DISPLAY
       block: TNT
-#      interpolation-duration: 1
+      interpolation-duration: 1
       teleport-duration: 1
 slab:
   sync:
@@ -39,7 +39,7 @@ slab:
     display_1:
       type: BLOCK_DISPLAY
       block: OAK_SLAB
-#      interpolation-duration: 1
+      interpolation-duration: 1
       teleport-duration: 1
 
 ##########
@@ -58,8 +58,8 @@ iron_chain:
       show-when:
         active: true
         sleeping: true
-#      interpolation-duration: 1
-#      teleport-duration: 1
+      interpolation-duration: 1
+      teleport-duration: 1
 
 ############
 # Ragdolls #
@@ -73,8 +73,8 @@ ragdoll_head:
       translation: "0.0 0.0 0.0"
       item-model: items.ragdoll_head
       rotate-translation: false
-#      interpolation-duration: 1
-#      teleport-duration: 1
+      interpolation-duration: 1
+      teleport-duration: 1
 ragdoll_right_arm:
   entities:
     display:
@@ -84,7 +84,7 @@ ragdoll_right_arm:
       translation: "0.0 -1024 0.0"
       item-model: items.ragdoll_right_arm
       rotate-translation: false
-#      interpolation-duration: 1
+      interpolation-duration: 1
       teleport-duration: 1
 ragdoll_left_arm:
   entities:
@@ -95,8 +95,8 @@ ragdoll_left_arm:
       translation: "0.0 -2048 0.0"
       item-model: items.ragdoll_left_arm
       rotate-translation: false
-#      interpolation-duration: 1
-#      teleport-duration: 1
+      interpolation-duration: 1
+      teleport-duration: 1
 ragdoll_torso:
   entities:
     display:
@@ -106,8 +106,8 @@ ragdoll_torso:
       translation: "0.0 -5120 0.0"
       item-model: items.ragdoll_torso
       rotate-translation: false
-#      interpolation-duration: 1
-#      teleport-duration: 1
+      interpolation-duration: 1
+      teleport-duration: 1
 ragdoll_right_leg:
   entities:
     display:
@@ -117,8 +117,8 @@ ragdoll_right_leg:
       translation: "0.0 -6144 0.0"
       item-model: items.ragdoll_right_leg
       rotate-translation: false
-#      interpolation-duration: 1
-#      teleport-duration: 1
+      interpolation-duration: 1
+      teleport-duration: 1
 ragdoll_left_leg:
   entities:
     display:
@@ -128,8 +128,8 @@ ragdoll_left_leg:
       translation: "0.0 -7168 0.0"
       item-model: items.ragdoll_left_leg
       rotate-translation: false
-#      interpolation-duration: 1
-#      teleport-duration: 1
+      interpolation-duration: 1
+      teleport-duration: 1
 
 
 ####################

@@ -29,25 +29,25 @@ iron_chain:
 ## RAGDOLL (1.21.4) +
 ragdoll_head:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "alex"
   custom-model-data: 1
 ragdoll_right_arm:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "alex"
   custom-model-data: 2
 ragdoll_left_arm:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "alex"
   custom-model-data: 3
 ragdoll_torso:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "alex"
   custom-model-data: 4
 ragdoll_right_leg:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "alex"
   custom-model-data: 5
 ragdoll_left_leg:
   type: PLAYER_HEAD
-  skull-owning-player: "steve"
+  skull-owning-player: "alex"
   custom-model-data: 6

@@ -33,25 +33,25 @@ public class NetworkEntityTracker {
     private final Map<UUID, PendingDestroyState> pendingDestroyIds = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerFrame> playerFrames = new ConcurrentHashMap<>();
 
-    // Default values matched with InertiaConfig defaults (0.01^2 and 0.3)
-    private volatile float posThresholdSq = 0.0001f;
-    private volatile float rotThresholdDot = 0.3f;
-    private volatile float midPosThresholdSq = 0.0016f;
-    private volatile float farPosThresholdSq = 0.0081f;
-    private volatile float midRotThresholdDot = 0.2f;
-    private volatile float farRotThresholdDot = 0.1f;
-    private volatile float midDistanceSq = 576.0f;
-    private volatile float farDistanceSq = 3136.0f;
-    private volatile int midUpdateIntervalTicks = 2;
-    private volatile int farUpdateIntervalTicks = 4;
-    private volatile boolean farAllowMetadataUpdates = false;
-    private volatile int maxVisibilityUpdatesPerPlayerPerTick = 256;
-    private volatile int maxTransformChecksPerPlayerPerTick = 256;
-    private volatile int fullRecalcIntervalTicks = 20;
-    private volatile int maxPacketsPerPlayerPerTick = 256;
+    // Defaults are aligned with inertia-core/src/main/resources/config.yml (smooth visuals by default).
+    private volatile float posThresholdSq = 0.0f;
+    private volatile float rotThresholdDot = 1.0f;
+    private volatile float midPosThresholdSq = 0.0001f; // 0.01^2
+    private volatile float farPosThresholdSq = 0.0004f; // 0.02^2
+    private volatile float midRotThresholdDot = 0.99f;
+    private volatile float farRotThresholdDot = 0.95f;
+    private volatile float midDistanceSq = 1600.0f; // 40^2
+    private volatile float farDistanceSq = 6400.0f; // 80^2
+    private volatile int midUpdateIntervalTicks = 0;
+    private volatile int farUpdateIntervalTicks = 0;
+    private volatile boolean farAllowMetadataUpdates = true;
+    private volatile int maxVisibilityUpdatesPerPlayerPerTick = 1024;
+    private volatile int maxTransformChecksPerPlayerPerTick = 1024;
+    private volatile int fullRecalcIntervalTicks = 10;
+    private volatile int maxPacketsPerPlayerPerTick = 1024;
     private volatile int destroyBacklogThreshold = 512;
-    private volatile int destroyDrainExtraPacketsPerPlayerPerTick = 128;
-    private volatile int maxBytesPerPlayerPerTick = 98304;
+    private volatile int destroyDrainExtraPacketsPerPlayerPerTick = 256;
+    private volatile int maxBytesPerPlayerPerTick = 1_048_576;
     private volatile long tickCounter = 0L;
 
     private volatile double averagePacketsPerPlayer = 0.0;
@@ -176,8 +176,6 @@ public class NetworkEntityTracker {
 
     public void applyThreadingSettings(InertiaConfig.NetworkThreadingSettings settings) {
         if (settings == null) return;
-        this.maxBytesPerPlayerPerTick = settings.maxBytesPerTick;
-        this.networkScheduler.applyThreadingSettings(settings.flushBudgetNanos);
 
         ExecutorService previous = this.asyncPhaseExecutor;
         this.asyncPhaseExecutor = new ForkJoinPool(settings.computeThreads);
