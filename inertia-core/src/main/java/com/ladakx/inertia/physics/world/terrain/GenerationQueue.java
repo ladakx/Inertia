@@ -4,29 +4,52 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GenerationQueue implements AutoCloseable {
 
-    private final ExecutorService executor;
+    private final ThreadPoolExecutor executor;
+    private final Semaphore inFlightLimiter;
+    private final int maxInFlight;
 
-    public GenerationQueue(int workers) {
+    public GenerationQueue(int workers, int maxGenerateJobsInFlight) {
         int threads = Math.max(1, workers);
-        this.executor = Executors.newFixedThreadPool(threads, new GenerationThreadFactory());
+        this.executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(threads, new GenerationThreadFactory());
+        this.maxInFlight = Math.max(1, maxGenerateJobsInFlight);
+        this.inFlightLimiter = new Semaphore(maxInFlight);
     }
 
     public <T> CompletableFuture<T> submit(Callable<T> task) {
         Objects.requireNonNull(task, "task");
         return CompletableFuture.supplyAsync(() -> {
+            boolean acquired = false;
             try {
+                inFlightLimiter.acquire();
+                acquired = true;
                 return task.call();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new CompletionException(e);
             } catch (Exception e) {
                 throw new CompletionException(e);
+            } finally {
+                if (acquired) {
+                    inFlightLimiter.release();
+                }
             }
         }, executor);
+    }
+
+    public int getQueueDepth() {
+        return executor.getQueue().size();
+    }
+
+    public int getInFlightJobs() {
+        return maxInFlight - inFlightLimiter.availablePermits();
     }
 
     @Override

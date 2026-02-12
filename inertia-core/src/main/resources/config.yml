@@ -17,6 +17,12 @@ physics:
   precision: DP
   # Количество потоков для генерации/обработки физики.
   worker-threads: 3
+  terrain-generation:
+    # Максимальное количество chunk capture на main-thread за один тик.
+    max-capture-per-tick: 4
+    # Максимум одновременно выполняемых generation-job в terrain queue.
+    max-generate-jobs-in-flight: 3
+
   chunk-cache:
     # Максимум записей в памяти для кэша физики чанков (0 отключает ограничение).
     max-entries: 4096
