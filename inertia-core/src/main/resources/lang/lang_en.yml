@@ -291,3 +291,6 @@ help-admin-1:
   - "<dark_gray>  </dark_gray><gray>Pause/resume simulation in all physics worlds.</gray>"
   - "<dark_gray>•</dark_gray> <gold><hover:show_text:'<gray>Inspect perf & body counts</gray>'><click:suggest_command:'/inertia admin stats'>/inertia admin stats</click></hover></gold>"
   - "<dark_gray>  </dark_gray><gray>Show performance and bodies counts.</gray>"
+
+terrain-regenerate-radius-success:
+  - "{prefix} <gray>Regenerated <white>{count} <gray>terrain chunks in radius <yellow>{radius}<gray>."

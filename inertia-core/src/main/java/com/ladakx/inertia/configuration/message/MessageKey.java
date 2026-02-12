@@ -96,7 +96,9 @@ public enum MessageKey {
     HELP_ENTITY_1("help-entity-1"),
     HELP_DEBUG_1("help-debug-1"),
     HELP_TOOL_1("help-tool-1"),
-    HELP_ADMIN_1("help-admin-1");
+    HELP_ADMIN_1("help-admin-1"),
+
+    TERRAIN_REGENERATE_RADIUS_SUCCESS("terrain-regenerate-radius-success");
 
     private final String path;
 
