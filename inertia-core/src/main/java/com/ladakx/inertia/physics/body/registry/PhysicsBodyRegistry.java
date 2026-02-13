@@ -107,4 +107,8 @@ public final class PhysicsBodyRegistry {
     public Collection<BodyModel> all() {
         return models.values();
     }
+
+    public Map<String, BodyModel> snapshot() {
+        return models;
+    }
 }

@@ -115,17 +115,54 @@ public class PhysicsWorldRegistry {
 
     public void reload() {
         InertiaLogger.info("Reloading Physics World Registry...");
-        for (PhysicsWorld space : spaces.values()) {
-            try {
-                space.close();
-            } catch (Exception e) {
-                InertiaLogger.error("Error closing world during reload: " + space.getBukkitWorld().getName(), e);
+
+        Map<String, WorldsConfig.WorldProfile> configuredWorlds = configurationService.getWorldsConfig().getAllWorlds();
+
+        for (Map.Entry<UUID, PhysicsWorld> entry : new java.util.ArrayList<>(spaces.entrySet())) {
+            PhysicsWorld space = entry.getValue();
+            World world = space.getBukkitWorld();
+            WorldsConfig.WorldProfile updatedProfile = configuredWorlds.get(world.getName());
+
+            if (updatedProfile == null) {
+                try {
+                    space.close();
+                } catch (Exception e) {
+                    InertiaLogger.error("Error closing removed world during reload: " + world.getName(), e);
+                }
+                spaces.remove(entry.getKey());
+                continue;
+            }
+
+            if (!space.getSettings().equals(updatedProfile)) {
+                try {
+                    space.close();
+                } catch (Exception e) {
+                    InertiaLogger.error("Error closing changed world during reload: " + world.getName(), e);
+                }
+                try {
+                    PhysicsWorld recreated = createSpaceInternal(world);
+                    spaces.put(entry.getKey(), recreated);
+                } catch (Exception e) {
+                    spaces.remove(entry.getKey());
+                    InertiaLogger.error("Failed to recreate physics world during reload: " + world.getName(), e);
+                }
             }
         }
-        spaces.clear();
+
         for (World world : Bukkit.getWorlds()) {
-            createSpace(world);
+            if (!configuredWorlds.containsKey(world.getName())) {
+                continue;
+            }
+            spaces.computeIfAbsent(world.getUID(), ignored -> {
+                try {
+                    return createSpaceInternal(world);
+                } catch (Exception e) {
+                    InertiaLogger.error("Failed to initialize new physics world during reload: " + world.getName(), e);
+                    return null;
+                }
+            });
         }
+
         InertiaLogger.info("Physics worlds reloaded.");
     }
 
