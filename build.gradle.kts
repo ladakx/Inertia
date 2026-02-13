@@ -16,10 +16,11 @@ subprojects {
                 artifact()
             }
         }
-        mavenCentral()
         maven("https://maven.enginehub.org/repo/")
     }
+}
 
+configure(subprojects.filter { it.name != "inertia-api" }) {
     dependencies {
         // Jolt-JNI
         "implementation"("com.github.ladakx:jolt-jni-api:3.6.1@jar")
