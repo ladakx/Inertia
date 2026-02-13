@@ -1,6 +1,5 @@
 package com.ladakx.inertia.features.listeners;
 
-import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.infrastructure.nms.network.NetworkManager;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import org.bukkit.event.EventHandler;
@@ -14,9 +13,9 @@ public class NetworkListener implements Listener {
     private final NetworkManager networkManager;
     private final NetworkEntityTracker tracker;
 
-    public NetworkListener(NetworkManager networkManager) {
-        this.networkManager = networkManager;
-        this.tracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
+    public NetworkListener(NetworkManager networkManager, NetworkEntityTracker tracker) {
+        this.networkManager = java.util.Objects.requireNonNull(networkManager, "networkManager");
+        this.tracker = tracker;
     }
 
     @EventHandler

@@ -34,6 +34,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public final class InertiaPlugin extends JavaPlugin {
@@ -79,11 +84,11 @@ public final class InertiaPlugin extends JavaPlugin {
             return;
         }
 
+        this.meshProvider = new BlockBenchMeshProvider(this);
         this.configurationService = new ConfigurationService(this, meshProvider);
         this.itemRegistry = new ItemRegistry(configurationService);
         this.itemRegistry.reload();
 
-        this.meshProvider = new BlockBenchMeshProvider(this);
         this.shapeFactory = new JShapeFactory(meshProvider);
 
         setupNMSTools();
@@ -158,7 +163,7 @@ public final class InertiaPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new WorldLoadListener(physicsWorldRegistry), this);
         Bukkit.getPluginManager().registerEvents(new BlockChangeListener(physicsWorldRegistry), this);
         // Added network listener if not already there
-        Bukkit.getPluginManager().registerEvents(new com.ladakx.inertia.features.listeners.NetworkListener(networkManager), this);
+        Bukkit.getPluginManager().registerEvents(new com.ladakx.inertia.features.listeners.NetworkListener(networkManager, networkEntityTracker), this);
     }
 
     @Override
@@ -191,24 +196,81 @@ public final class InertiaPlugin extends JavaPlugin {
             return;
         }
 
+        Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> beforeReload =
+                configurationService.getPhysicsBodyRegistry().snapshot();
+
         configurationService.reloadAsync()
-                .thenCompose(v -> CompletableFuture.runAsync(() -> {
-                    // IO-free pre-apply stage (kept async intentionally for safe hot reload staging)
-                    configurationService.getAppliedThreadingConfig();
-                }))
                 .thenRun(() -> Bukkit.getScheduler().runTask(this, () -> {
-                    if (itemRegistry != null) {
-                        itemRegistry.reload();
-                    }
-                    if (networkEntityTracker != null) {
-                        networkEntityTracker.applySettings(configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER);
-                        networkEntityTracker.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING.network);
-                    }
-                    if (physicsWorldRegistry != null) {
-                        physicsWorldRegistry.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING);
-                    }
+                    Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> afterReload =
+                            configurationService.getPhysicsBodyRegistry().snapshot();
+                    applyRuntimeReload(beforeReload, afterReload);
                     InertiaLogger.info("Inertia systems reloaded.");
-                }));
+                }))
+                .exceptionally(ex -> {
+                    InertiaLogger.error("Failed to reload inertia systems", ex);
+                    return null;
+                });
+    }
+
+    private void applyRuntimeReload(
+            Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> previousModels,
+            Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> currentModels
+    ) {
+        Objects.requireNonNull(previousModels, "previousModels");
+        Objects.requireNonNull(currentModels, "currentModels");
+
+        if (itemRegistry != null) {
+            itemRegistry.reload();
+        }
+
+        if (networkEntityTracker != null) {
+            networkEntityTracker.clear();
+            networkEntityTracker.applySettings(configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER);
+            networkEntityTracker.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING.network);
+        }
+
+        if (physicsWorldRegistry != null) {
+            physicsWorldRegistry.reload();
+            physicsWorldRegistry.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING);
+            reconcileBodies(previousModels, currentModels);
+        }
+    }
+
+    private void reconcileBodies(
+            Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> previousModels,
+            Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> currentModels
+    ) {
+        Set<String> removedBodyIds = new HashSet<>(previousModels.keySet());
+        removedBodyIds.removeAll(currentModels.keySet());
+
+        Set<String> changedBodyIds = new HashSet<>();
+        for (Map.Entry<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> entry : currentModels.entrySet()) {
+            com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel previous = previousModels.get(entry.getKey());
+            if (previous != null && !previous.equals(entry.getValue())) {
+                changedBodyIds.add(entry.getKey());
+            }
+        }
+
+        if (removedBodyIds.isEmpty() && changedBodyIds.isEmpty()) {
+            return;
+        }
+
+        for (com.ladakx.inertia.physics.world.PhysicsWorld space : physicsWorldRegistry.getAllSpaces()) {
+            for (com.ladakx.inertia.physics.body.InertiaPhysicsBody body : new ArrayList<>(space.getBodies())) {
+                String bodyId = body.getBodyId();
+                if (removedBodyIds.contains(bodyId)) {
+                    body.destroy();
+                    continue;
+                }
+                if (changedBodyIds.contains(bodyId)) {
+                    org.bukkit.Location location = body.getLocation().clone();
+                    body.destroy();
+                    if (location.getWorld() != null) {
+                        bodyFactory.spawnBody(location, bodyId);
+                    }
+                }
+            }
+        }
     }
 
     private boolean setupNativeLibraries() {
