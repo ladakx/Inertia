@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public final class InertiaPlugin extends JavaPlugin {
@@ -292,6 +293,8 @@ public final class InertiaPlugin extends JavaPlugin {
         } catch (LibraryLoader.JoltNativeException e) {
             InertiaLogger.error("Critical error loading Jolt Natives", e);
             return false;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
