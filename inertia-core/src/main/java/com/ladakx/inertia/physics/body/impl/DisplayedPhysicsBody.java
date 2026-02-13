@@ -2,6 +2,7 @@ package com.ladakx.inertia.physics.body.impl;
 
 import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
+import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
