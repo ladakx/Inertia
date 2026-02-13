@@ -69,25 +69,27 @@ val properties = Properties().apply {
 tasks.register<Copy>("copyJarToDesktop") {
     group = "deployment"
     description = "Copy the built JAR file to the desktop dev folder"
-    dependsOn(tasks.shadowJar)
 
-    from(tasks.shadowJar.get().archiveFile)
+    val shadowTask = tasks.shadowJar.get()
+    dependsOn(shadowTask)
+
+    from(shadowTask.archiveFile)
     into("/Users/vladislav/Desktop/dev/plugins")
 
     val execOps = project.serviceOf<ExecOperations>()
 
-    val shadowJarFile = tasks.shadowJar.get().archiveFile.get().asFile
-    val serverIp = properties["serverIp"]?.toString() ?: ""
-    val remotePath = properties["remotePath"]?.toString() ?: ""
-    val username = properties["username"]?.toString() ?: ""
-    val privateKeyPath = properties["privateKeyPath"]?.toString() ?: ""
-
     doLast {
+        val shadowJarFile = shadowTask.archiveFile.get().asFile
+        val serverIp = properties.getProperty("serverIp") ?: ""
+        val remotePath = properties.getProperty("remotePath") ?: ""
+        val username = properties.getProperty("username") ?: ""
+        val privateKeyPath = properties.getProperty("privateKeyPath") ?: ""
+
         if (serverIp.isNotEmpty() && shadowJarFile.exists()) {
-            println("Deploying to $serverIp...")
+            println("🚀 Deploying ${shadowJarFile.name} to $serverIp...")
 
             execOps.exec {
-                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "rm -rf ${remotePath}/Inertia")
+                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "rm -rf $remotePath/Inertia")
             }
 
             execOps.exec {
@@ -101,7 +103,9 @@ tasks.register<Copy>("copyJarToDesktop") {
                 commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "screen -S dayz -X stuff 'say Inertia deploy success\\n'")
             }
 
-            println("Deployment finished successfully.")
+            println("✅ Deployment finished successfully.")
+        } else {
+            println("⚠️ Deployment skipped: Server IP is empty or JAR not found.")
         }
     }
 }
