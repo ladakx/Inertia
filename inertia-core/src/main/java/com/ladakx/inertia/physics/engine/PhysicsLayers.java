@@ -6,7 +6,7 @@ public interface PhysicsLayers {
     int OBJ_STATIC = 1;
     int NUM_OBJ_LAYERS = 2;
 
-    // Broadphase Layers (Швидка фаза перевірки)
+    // Broadphase Layers
     int BP_MOVING = 0;
     int BP_STATIC = 1;
     int NUM_BP_LAYERS = 1;
