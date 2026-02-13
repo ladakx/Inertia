@@ -16,6 +16,8 @@ physics:
   # Точность вычислений: DP (double precision) или SP (single precision).
   precision: DP
   native-library:
+    # Версия релиза нативных библиотек в GitHub Releases (например: 3.6.0).
+    release-tag: "3.6.0"
     # Для Windows x64 сначала пробовать AVX2-сборки.
     prefer-windows-avx2: true
     # Для Linux x64 сначала пробовать FMA-сборки.

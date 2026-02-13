@@ -121,6 +121,7 @@ public final class LibraryLoader {
                 throw new JoltNativeException("Failed to delete stale native file: " + file.getAbsolutePath());
             }
         }
+        throw exception;
     }
 
     private void persistLoaderState(File nativesDir, String loaderState) throws IOException {
