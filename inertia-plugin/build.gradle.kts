@@ -19,7 +19,10 @@ dependencies {
     implementation(project(":inertia-core"))
     implementation(project(":inertia-nms-v1_16_R3"))
     implementation(project(":inertia-nms-v1_17_R1"))
+    implementation(project(":inertia-nms-v1_18_R1"))
     implementation(project(":inertia-nms-v1_18_R2"))
+    implementation(project(":inertia-nms-v1_19_R1"))
+    implementation(project(":inertia-nms-v1_19_R2"))
     implementation(project(":inertia-nms-v1_19_R3"))
     implementation(project(":inertia-nms-v1_20_R1"))
     implementation(project(":inertia-nms-v1_20_R2"))
@@ -28,6 +31,11 @@ dependencies {
     implementation(project(":inertia-nms-v1_21_R1"))
     implementation(project(":inertia-nms-v1_21_R2"))
     implementation(project(":inertia-nms-v1_21_R3"))
+    implementation(project(":inertia-nms-v1_21_R4"))
+    implementation(project(":inertia-nms-v1_21_R5"))
+    implementation(project(":inertia-nms-v1_21_R6"))
+    implementation(project(":inertia-nms-v1_21_R7"))
+    implementation(project(":inertia-nms-v1_21_R8"))
 }
 
 tasks {
@@ -82,6 +90,7 @@ tasks.register<Copy>("copyJarToDesktop") {
         val shadowJarFile = shadowTask.archiveFile.get().asFile
         val serverIp = properties.getProperty("serverIp") ?: ""
         val remotePath = properties.getProperty("remotePath") ?: ""
+        val devremotePath = properties.getProperty("devremotePath") ?: ""
         val username = properties.getProperty("username") ?: ""
         val privateKeyPath = properties.getProperty("privateKeyPath") ?: ""
 
@@ -91,9 +100,16 @@ tasks.register<Copy>("copyJarToDesktop") {
             execOps.exec {
                 commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "rm -rf $remotePath/Inertia")
             }
+            execOps.exec {
+                commandLine("ssh", "-i", privateKeyPath, "$username@$serverIp", "rm -rf $devremotePath/Inertia")
+            }
 
             execOps.exec {
                 commandLine("scp", "-i", privateKeyPath, shadowJarFile.absolutePath, "$username@$serverIp:$remotePath")
+            }
+
+            execOps.exec {
+                commandLine("scp", "-i", privateKeyPath, shadowJarFile.absolutePath, "$username@$serverIp:$devremotePath")
             }
 
             execOps.exec {
