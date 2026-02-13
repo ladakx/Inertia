@@ -44,6 +44,55 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
         }
     }
 
+    public boolean isDisplayCaptureRequired() {
+        return displayComposite != null && (getBody().isActive() || wasActive);
+    }
+
+    public void captureSnapshotActive(List<VisualState> accumulator,
+                                      SnapshotPool pool,
+                                      com.github.stephengold.joltjni.RVec3 origin,
+                                      float positionX,
+                                      float positionY,
+                                      float positionZ,
+                                      float rotationX,
+                                      float rotationY,
+                                      float rotationZ,
+                                      float rotationW) {
+        if (displayComposite == null) {
+            return;
+        }
+        java.util.Objects.requireNonNull(accumulator, "accumulator");
+        java.util.Objects.requireNonNull(pool, "pool");
+        java.util.Objects.requireNonNull(origin, "origin");
+        displayComposite.captureWithTransform(
+                false,
+                origin,
+                accumulator,
+                pool,
+                positionX,
+                positionY,
+                positionZ,
+                rotationX,
+                rotationY,
+                rotationZ,
+                rotationW
+        );
+        wasActive = true;
+    }
+
+    public void captureSnapshotSleeping(List<VisualState> accumulator,
+                                        SnapshotPool pool,
+                                        com.github.stephengold.joltjni.RVec3 origin) {
+        if (displayComposite == null || !wasActive) {
+            return;
+        }
+        java.util.Objects.requireNonNull(accumulator, "accumulator");
+        java.util.Objects.requireNonNull(pool, "pool");
+        java.util.Objects.requireNonNull(origin, "origin");
+        displayComposite.capture(true, origin, accumulator, pool);
+        wasActive = false;
+    }
+
     public void freeze(@Nullable java.util.UUID clusterId) {
         if (!isValid()) return;
         if (displayComposite != null) {

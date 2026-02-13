@@ -88,17 +88,49 @@ public final class PhysicsDisplayComposite {
     }
 
     public void capture(boolean sleeping, RVec3 origin, List<VisualState> accumulator, SnapshotPool pool) {
-        if (parts.isEmpty()) return;
-
+        Objects.requireNonNull(origin, "origin");
+        Objects.requireNonNull(accumulator, "accumulator");
+        Objects.requireNonNull(pool, "pool");
         RVec3 bodyPosJolt = body.getPosition();
         Quat bodyRotJolt = body.getRotation();
+        captureWithTransform(
+                sleeping,
+                origin,
+                accumulator,
+                pool,
+                (float) bodyPosJolt.xx(),
+                (float) bodyPosJolt.yy(),
+                (float) bodyPosJolt.zz(),
+                bodyRotJolt.getX(),
+                bodyRotJolt.getY(),
+                bodyRotJolt.getZ(),
+                bodyRotJolt.getW()
+        );
+    }
+
+
+    public void captureWithTransform(boolean sleeping,
+                                     RVec3 origin,
+                                     List<VisualState> accumulator,
+                                     SnapshotPool pool,
+                                     float positionX,
+                                     float positionY,
+                                     float positionZ,
+                                     float rotationX,
+                                     float rotationY,
+                                     float rotationZ,
+                                     float rotationW) {
+        Objects.requireNonNull(origin, "origin");
+        Objects.requireNonNull(accumulator, "accumulator");
+        Objects.requireNonNull(pool, "pool");
+        if (parts.isEmpty()) return;
 
         cacheBodyPos.set(
-                (float) (bodyPosJolt.xx() + origin.xx()),
-                (float) (bodyPosJolt.yy() + origin.yy()),
-                (float) (bodyPosJolt.zz() + origin.zz())
+                positionX + (float) origin.xx(),
+                positionY + (float) origin.yy(),
+                positionZ + (float) origin.zz()
         );
-        cacheBodyRot.set(bodyRotJolt.getX(), bodyRotJolt.getY(), bodyRotJolt.getZ(), bodyRotJolt.getW());
+        cacheBodyRot.set(rotationX, rotationY, rotationZ, rotationW);
         cacheCenterOffset.set(0, 0, 0);
 
         for (DisplayPart part : parts) {

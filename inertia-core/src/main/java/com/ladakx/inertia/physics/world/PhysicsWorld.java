@@ -39,6 +39,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -71,6 +73,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final InertiaBodyActivationListener bodyActivationListener;
     private final NetworkEntityTracker networkEntityTracker;
     private final @Nullable PhysicsMetricsService metricsService;
+    private final ThreadLocal<ByteBuffer> batchTransformBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(7 * Float.BYTES).order(ByteOrder.nativeOrder()));
 
     // Removed: private @Nullable BukkitTask networkTickTask;
 
@@ -172,8 +175,13 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         BodyInterface bodyInterface = physicsSystem.getBodyInterfaceNoLock();
         WorldsConfig.WorldSizeSettings sizeSettings = settings.size();
 
+        List<DisplayedPhysicsBody> batchActiveBodies = new ArrayList<>();
+        List<Long> batchActiveBodyIds = new ArrayList<>();
+
         for (AbstractPhysicsBody obj : allBodies) {
-            if (!obj.isValid()) continue;
+            if (!obj.isValid()) {
+                continue;
+            }
 
             int bodyId = obj.getBody().getId();
             RVec3 joltPos = bodyInterface.getCenterOfMassPosition(bodyId);
@@ -192,15 +200,68 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             double worldZ = joltPos.zz() + origin.zz();
             int chunkX = (int) Math.floor(worldX) >> 4;
             int chunkZ = (int) Math.floor(worldZ) >> 4;
-
             bodiesChunkKeys.add(ChunkUtils.getChunkKey(chunkX, chunkZ));
 
             if (obj instanceof DisplayedPhysicsBody displayed) {
-                displayed.captureSnapshot(updates, snapshotPool, origin);
+                if (!displayed.isDisplayCaptureRequired()) {
+                    continue;
+                }
+                if (displayed.getBody().isActive()) {
+                    batchActiveBodies.add(displayed);
+                    batchActiveBodyIds.add((long) bodyId);
+                } else {
+                    displayed.captureSnapshotSleeping(updates, snapshotPool, origin);
+                }
             }
         }
 
+        captureDisplayBatch(updates, batchActiveBodies, batchActiveBodyIds);
         return new PhysicsSnapshot(updates, bodiesChunkKeys, toDestroy);
+    }
+
+    private void captureDisplayBatch(List<VisualState> updates,
+                                     List<DisplayedPhysicsBody> batchBodies,
+                                     List<Long> batchBodyIds) {
+        if (batchBodies.isEmpty()) {
+            return;
+        }
+
+        ByteBuffer buffer = ensureBatchBuffer(batchBodies.size());
+        java.nio.FloatBuffer floatBuffer = buffer.asFloatBuffer();
+        long[] bodyIds = new long[batchBodyIds.size()];
+        for (int i = 0; i < batchBodyIds.size(); ++i) {
+            bodyIds[i] = batchBodyIds.get(i);
+        }
+
+        int activeCount = Body.getBatchTransforms(physicsSystem.getBodyInterfaceNoLock().va(), bodyIds, bodyIds.length, buffer);
+        for (int i = 0; i < activeCount; ++i) {
+            int offset = i * 7;
+            batchBodies.get(i).captureSnapshotActive(
+                    updates,
+                    snapshotPool,
+                    origin,
+                    floatBuffer.get(offset),
+                    floatBuffer.get(offset + 1),
+                    floatBuffer.get(offset + 2),
+                    floatBuffer.get(offset + 3),
+                    floatBuffer.get(offset + 4),
+                    floatBuffer.get(offset + 5),
+                    floatBuffer.get(offset + 6)
+            );
+        }
+
+    }
+
+    private ByteBuffer ensureBatchBuffer(int bodyCount) {
+        int neededFloats = Math.max(1, bodyCount * 7);
+        ByteBuffer buffer = batchTransformBuffer.get();
+        if (buffer.capacity() < neededFloats * Float.BYTES) {
+            buffer = ByteBuffer.allocateDirect(neededFloats * Float.BYTES).order(ByteOrder.nativeOrder());
+            batchTransformBuffer.set(buffer);
+        }
+        buffer.clear();
+        buffer.limit(neededFloats * Float.BYTES);
+        return buffer;
     }
 
     private void applySnapshot(PhysicsSnapshot snapshot) {
