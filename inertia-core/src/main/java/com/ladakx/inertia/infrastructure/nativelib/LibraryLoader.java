@@ -21,12 +21,12 @@ import java.util.Objects;
 public final class LibraryLoader {
 
     private static final String GITHUB_BASE_URL = "https://github.com/ladakx/jolt-jni/releases/download/";
-    private static final String RELEASE_TAG = "3.6.0";
+    private static final String RELEASE_TAG = "3.6.1";
     private static final String STATE_FILE_NAME = ".native-loader-state";
 
     private boolean initialized = false;
 
-    public void init(JavaPlugin plugin, Precision precision, NativeLibrarySettings settings) throws JoltNativeException {
+    public void init(JavaPlugin plugin, Precision precision, NativeLibrarySettings settings) throws JoltNativeException, IOException {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(precision, "precision");
         Objects.requireNonNull(settings, "settings");
@@ -121,7 +121,6 @@ public final class LibraryLoader {
                 throw new JoltNativeException("Failed to delete stale native file: " + file.getAbsolutePath());
             }
         }
-        throw exception;
     }
 
     private void persistLoaderState(File nativesDir, String loaderState) throws IOException {

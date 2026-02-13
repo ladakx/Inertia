@@ -22,7 +22,7 @@ subprojects {
 
     dependencies {
         // Jolt-JNI
-        "implementation"("com.github.ladakx:jolt-jni-api:3.6.0@jar")
+        "implementation"("com.github.ladakx:jolt-jni-api:3.6.1@jar")
 
         // Adventure
         "implementation"("net.kyori:adventure-text-minimessage:4.25.0")
