@@ -216,12 +216,10 @@ public final class InertiaPlugin extends JavaPlugin {
             this.libraryLoader = new LibraryLoader();
             String precisionStr = this.getConfig().getString("physics.precision", "SP");
             Precision precision = "DP".equalsIgnoreCase(precisionStr) ? Precision.DP : Precision.SP;
-            String releaseTag = this.getConfig().getString("physics.native-library.release-tag", "3.6.0");
             boolean preferWindowsAvx2 = this.getConfig().getBoolean("physics.native-library.prefer-windows-avx2", true);
             boolean preferLinuxFma = this.getConfig().getBoolean("physics.native-library.prefer-linux-fma", true);
             boolean allowLegacyCpuFallback = this.getConfig().getBoolean("physics.native-library.allow-legacy-cpu-fallback", true);
             LibraryLoader.NativeLibrarySettings nativeLibrarySettings = new LibraryLoader.NativeLibrarySettings(
-                    releaseTag,
                     preferWindowsAvx2,
                     preferLinuxFma,
                     allowLegacyCpuFallback

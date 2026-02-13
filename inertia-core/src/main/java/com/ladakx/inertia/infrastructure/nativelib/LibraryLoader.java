@@ -9,6 +9,8 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -19,6 +21,8 @@ import java.util.Objects;
 public final class LibraryLoader {
 
     private static final String GITHUB_BASE_URL = "https://github.com/ladakx/jolt-jni/releases/download/";
+    private static final String RELEASE_TAG = "3.6.0";
+    private static final String STATE_FILE_NAME = ".native-loader-state";
 
     private boolean initialized = false;
 
@@ -40,14 +44,18 @@ public final class LibraryLoader {
             throw new JoltNativeException("Failed to create directory: " + nativesDir.getAbsolutePath());
         }
 
+        final String loaderState = buildLoaderState(precision, settings);
+        cleanupNativesIfStateChanged(nativesDir, loaderState);
+
         final List<Throwable> errors = new ArrayList<>();
         for (String candidate : candidates) {
             final File nativeLibFile = new File(nativesDir, candidate);
             try {
-                ensureLibraryPresent(nativeLibFile, candidate, settings.releaseTag());
+                ensureLibraryPresent(nativeLibFile, candidate);
                 System.load(nativeLibFile.getAbsolutePath());
                 InertiaLogger.info("Native library loaded successfully: " + candidate);
                 initializeJoltRuntime();
+                persistLoaderState(nativesDir, loaderState);
                 initialized = true;
                 return;
             } catch (Throwable throwable) {
@@ -63,7 +71,7 @@ public final class LibraryLoader {
         throw exception;
     }
 
-    private void ensureLibraryPresent(File nativeLibFile, String fileName, String releaseTag) throws IOException {
+    private void ensureLibraryPresent(File nativeLibFile, String fileName) throws IOException {
         if (nativeLibFile.exists()) {
             InertiaLogger.info("Found local native library: " + nativeLibFile.getAbsolutePath());
             return;
@@ -72,9 +80,53 @@ public final class LibraryLoader {
         InertiaLogger.info("Native library not found locally. Downloading from GitHub...");
         InertiaLogger.info("Target: " + fileName);
 
-        String downloadUrl = GITHUB_BASE_URL + releaseTag + "/" + fileName;
+        String downloadUrl = GITHUB_BASE_URL + RELEASE_TAG + "/" + fileName;
         downloadFile(downloadUrl, nativeLibFile);
         InertiaLogger.info("Download complete: " + nativeLibFile.getAbsolutePath());
+    }
+
+    private String buildLoaderState(Precision precision, NativeLibrarySettings settings) {
+        return "release=" + RELEASE_TAG
+                + ";precision=" + precision.name()
+                + ";preferWindowsAvx2=" + settings.preferWindowsAvx2()
+                + ";preferLinuxFma=" + settings.preferLinuxFma()
+                + ";allowLegacyCpuFallback=" + settings.allowLegacyCpuFallback();
+    }
+
+    private void cleanupNativesIfStateChanged(File nativesDir, String loaderState) throws IOException, JoltNativeException {
+        final File stateFile = new File(nativesDir, STATE_FILE_NAME);
+        if (!stateFile.exists()) {
+            return;
+        }
+
+        final String previousState = Files.readString(stateFile.toPath(), StandardCharsets.UTF_8);
+        if (previousState.equals(loaderState)) {
+            return;
+        }
+
+        final File[] files = nativesDir.listFiles();
+        if (files == null) {
+            throw new JoltNativeException("Failed to list native directory for cleanup: " + nativesDir.getAbsolutePath());
+        }
+
+        for (File file : files) {
+            final String fileName = file.getName();
+            if (!file.isFile()) {
+                continue;
+            }
+            if (!fileName.startsWith("jolt-jni-") && !fileName.startsWith("libjolt-jni-")) {
+                continue;
+            }
+            if (!file.delete()) {
+                throw new JoltNativeException("Failed to delete stale native file: " + file.getAbsolutePath());
+            }
+        }
+        throw exception;
+    }
+
+    private void persistLoaderState(File nativesDir, String loaderState) throws IOException {
+        final File stateFile = new File(nativesDir, STATE_FILE_NAME);
+        Files.writeString(stateFile.toPath(), loaderState, StandardCharsets.UTF_8);
     }
 
     private List<String> resolveFileNames(Precision precision, NativeLibrarySettings settings) throws JoltNativeException {
@@ -204,20 +256,14 @@ public final class LibraryLoader {
     }
 
     public static final class NativeLibrarySettings {
-        private final String releaseTag;
         private final boolean preferWindowsAvx2;
         private final boolean preferLinuxFma;
         private final boolean allowLegacyCpuFallback;
 
-        public NativeLibrarySettings(String releaseTag, boolean preferWindowsAvx2, boolean preferLinuxFma, boolean allowLegacyCpuFallback) {
-            this.releaseTag = Objects.requireNonNull(releaseTag, "releaseTag");
+        public NativeLibrarySettings(boolean preferWindowsAvx2, boolean preferLinuxFma, boolean allowLegacyCpuFallback) {
             this.preferWindowsAvx2 = preferWindowsAvx2;
             this.preferLinuxFma = preferLinuxFma;
             this.allowLegacyCpuFallback = allowLegacyCpuFallback;
-        }
-
-        public String releaseTag() {
-            return releaseTag;
         }
 
         public boolean preferWindowsAvx2() {
