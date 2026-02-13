@@ -15,6 +15,13 @@ general:
 physics:
   # Точность вычислений: DP (double precision) или SP (single precision).
   precision: DP
+  native-library:
+    # Для Windows x64 сначала пробовать AVX2-сборки.
+    prefer-windows-avx2: true
+    # Для Linux x64 сначала пробовать FMA-сборки.
+    prefer-linux-fma: true
+    # При ошибке загрузки ускоренной сборки переключаться на совместимую.
+    allow-legacy-cpu-fallback: true
   # Количество потоков для генерации/обработки физики.
   worker-threads: 3
   # Режим буфера снапшотов физики: LATEST (только последний кадр) или FIFO (совместимый режим).

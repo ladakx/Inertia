@@ -9,112 +9,208 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
-/**
- * Утилітарний клас для завантаження нативних бібліотек Jolt з GitHub Releases.
- */
 public final class LibraryLoader {
 
     private static final String GITHUB_BASE_URL = "https://github.com/ladakx/jolt-jni/releases/download/";
-    private static final String VERSION_TAG = "3.6.0";
+    private static final String RELEASE_TAG = "3.6.0";
+    private static final String STATE_FILE_NAME = ".native-loader-state";
 
     private boolean initialized = false;
 
-    /**
-     * Завантажує бібліотеку з GitHub (або локального кешу) та ініціалізує Jolt.
-     */
-    public void init(JavaPlugin plugin, Precision precision) throws JoltNativeException {
+    public void init(JavaPlugin plugin, Precision precision, NativeLibrarySettings settings) throws JoltNativeException {
+        Objects.requireNonNull(plugin, "plugin");
+        Objects.requireNonNull(precision, "precision");
+        Objects.requireNonNull(settings, "settings");
+
         if (initialized) {
             InertiaLogger.info("Jolt natives are already loaded.");
             return;
         }
 
-        try {
-            // 1. Визначення імені файлу та URL
-            String fileName = resolveFileName(precision);
-            File dataFolder = plugin.getDataFolder();
-            File nativesDir = new File(dataFolder, "natives");
-            File nativeLibFile = new File(nativesDir, fileName);
+        final List<String> candidates = resolveFileNames(precision, settings);
+        final File dataFolder = plugin.getDataFolder();
+        final File nativesDir = new File(dataFolder, "natives");
 
-            // 2. Перевірка наявності або завантаження
-            if (!nativeLibFile.exists()) {
-                InertiaLogger.info("Native library not found locally. Downloading from GitHub...");
-                InertiaLogger.info("Target: " + fileName);
+        if (!nativesDir.exists() && !nativesDir.mkdirs()) {
+            throw new JoltNativeException("Failed to create directory: " + nativesDir.getAbsolutePath());
+        }
 
-                if (!nativesDir.exists() && !nativesDir.mkdirs()) {
-                    throw new IOException("Failed to create directory: " + nativesDir.getAbsolutePath());
-                }
+        final String loaderState = buildLoaderState(precision, settings);
+        cleanupNativesIfStateChanged(nativesDir, loaderState);
 
-                String downloadUrl = GITHUB_BASE_URL + VERSION_TAG + "/" + fileName;
-                downloadFile(downloadUrl, nativeLibFile);
-
-                InertiaLogger.info("Download complete: " + nativeLibFile.getAbsolutePath());
-            } else {
-                InertiaLogger.info("Found local native library: " + nativeLibFile.getAbsolutePath());
-            }
-
-            // 3. Завантаження бібліотеки в пам'ять (System.load)
+        final List<Throwable> errors = new ArrayList<>();
+        for (String candidate : candidates) {
+            final File nativeLibFile = new File(nativesDir, candidate);
             try {
+                ensureLibraryPresent(nativeLibFile, candidate);
                 System.load(nativeLibFile.getAbsolutePath());
-                InertiaLogger.info("Native library loaded successfully.");
-            } catch (UnsatisfiedLinkError e) {
-                // Спроба видалити пошкоджений файл, щоб наступного разу завантажити заново
-                InertiaLogger.error("Failed to load library. It might be corrupted. Deleting file...");
-                nativeLibFile.delete();
-                throw e;
+                InertiaLogger.info("Native library loaded successfully: " + candidate);
+                initializeJoltRuntime();
+                persistLoaderState(nativesDir, loaderState);
+                initialized = true;
+                return;
+            } catch (Throwable throwable) {
+                errors.add(throwable);
+                InertiaLogger.warn("Failed to load native candidate: " + candidate + ". Trying next candidate if available.");
+            }
+        }
+
+        JoltNativeException exception = new JoltNativeException("Unable to load any native library candidate: " + String.join(", ", candidates));
+        for (Throwable error : errors) {
+            exception.addSuppressed(error);
+        }
+        throw exception;
+    }
+
+    private void ensureLibraryPresent(File nativeLibFile, String fileName) throws IOException {
+        if (nativeLibFile.exists()) {
+            InertiaLogger.info("Found local native library: " + nativeLibFile.getAbsolutePath());
+            return;
+        }
+
+        InertiaLogger.info("Native library not found locally. Downloading from GitHub...");
+        InertiaLogger.info("Target: " + fileName);
+
+        String downloadUrl = GITHUB_BASE_URL + RELEASE_TAG + "/" + fileName;
+        downloadFile(downloadUrl, nativeLibFile);
+        InertiaLogger.info("Download complete: " + nativeLibFile.getAbsolutePath());
+    }
+
+    private String buildLoaderState(Precision precision, NativeLibrarySettings settings) {
+        return "release=" + RELEASE_TAG
+                + ";precision=" + precision.name()
+                + ";preferWindowsAvx2=" + settings.preferWindowsAvx2()
+                + ";preferLinuxFma=" + settings.preferLinuxFma()
+                + ";allowLegacyCpuFallback=" + settings.allowLegacyCpuFallback();
+    }
+
+    private void cleanupNativesIfStateChanged(File nativesDir, String loaderState) throws IOException, JoltNativeException {
+        final File stateFile = new File(nativesDir, STATE_FILE_NAME);
+        if (!stateFile.exists()) {
+            return;
+        }
+
+        final String previousState = Files.readString(stateFile.toPath(), StandardCharsets.UTF_8);
+        if (previousState.equals(loaderState)) {
+            return;
+        }
+
+        final File[] files = nativesDir.listFiles();
+        if (files == null) {
+            throw new JoltNativeException("Failed to list native directory for cleanup: " + nativesDir.getAbsolutePath());
+        }
+
+        for (File file : files) {
+            final String fileName = file.getName();
+            if (!file.isFile()) {
+                continue;
+            }
+            if (!fileName.startsWith("jolt-jni-") && !fileName.startsWith("libjolt-jni-")) {
+                continue;
+            }
+            if (!file.delete()) {
+                throw new JoltNativeException("Failed to delete stale native file: " + file.getAbsolutePath());
+            }
+        }
+    }
+
+    private void persistLoaderState(File nativesDir, String loaderState) throws IOException {
+        final File stateFile = new File(nativesDir, STATE_FILE_NAME);
+        Files.writeString(stateFile.toPath(), loaderState, StandardCharsets.UTF_8);
+    }
+
+    private List<String> resolveFileNames(Precision precision, NativeLibrarySettings settings) throws JoltNativeException {
+        final String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        final String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
+        final String precisionSuffix = precision == Precision.DP ? "Dp" : "Sp";
+        final List<String> candidates = new ArrayList<>();
+
+        if (os.contains("win")) {
+            if (settings.preferWindowsAvx2()) {
+                candidates.add("jolt-jni-Windows64_avx2-" + precisionSuffix + ".dll");
+            }
+            if (!settings.preferWindowsAvx2() || settings.allowLegacyCpuFallback()) {
+                candidates.add("jolt-jni-Windows64-" + precisionSuffix + ".dll");
+            }
+            return deduplicate(candidates);
+        }
+
+        if (os.contains("nix") || os.contains("nux") || os.contains("aix") || os.contains("linux")) {
+            if (isLinuxX64(arch)) {
+                if (settings.preferLinuxFma()) {
+                    candidates.add("libjolt-jni-Linux64_fma-" + precisionSuffix + ".so");
+                }
+                if (!settings.preferLinuxFma() || settings.allowLegacyCpuFallback()) {
+                    candidates.add("libjolt-jni-Linux64-" + precisionSuffix + ".so");
+                }
+                return deduplicate(candidates);
             }
 
-            // 4. Ініціалізація Jolt (стандартна процедура)
-            initializeJoltRuntime();
+            if (isLinuxArm32(arch)) {
+                candidates.add("libjolt-jni-Linux_ARM32hf-" + precisionSuffix + ".so");
+                return candidates;
+            }
 
-            initialized = true;
+            if (isLinuxArm64(arch)) {
+                candidates.add("libjolt-jni-Linux_ARM64-" + precisionSuffix + ".so");
+                return candidates;
+            }
 
-        } catch (Exception e) {
-            throw new JoltNativeException(e);
+            if (isLinuxLoongArch64(arch)) {
+                candidates.add("libjolt-jni-Linux_LoongArch64-" + precisionSuffix + ".so");
+                return candidates;
+            }
+
+            throw new JoltNativeException("Unsupported Linux architecture: " + arch);
         }
+
+        if (os.contains("mac")) {
+            if (arch.equals("aarch64") || arch.contains("arm64")) {
+                candidates.add("libjolt-jni-MacOSX_ARM64-" + precisionSuffix + ".dylib");
+            } else {
+                candidates.add("libjolt-jni-MacOSX64-" + precisionSuffix + ".dylib");
+            }
+            return candidates;
+        }
+
+        throw new JoltNativeException("Unsupported OS: " + os);
     }
 
-    /**
-     * Формує назву файлу на основі списку активів у вашому релізі.
-     * Логіка складна через різницю в іменуванні для Mac та Win/Linux.
-     */
-    private String resolveFileName(Precision precision) throws JoltNativeException {
-        String os = System.getProperty("os.name").toLowerCase();
-        String arch = System.getProperty("os.arch").toLowerCase();
-
-        String precString = (precision == Precision.DP) ? "dp" : "sp";
-
-        // Windows
-        if (os.contains("win")) {
-            // Формат: jolt-jni-windows-{dp|sp}-release.dll
-            // Примітка: Ми беремо 'release' версію, не debug
-            return String.format("jolt-jni-windows-%s-release.dll", precString);
+    private List<String> deduplicate(List<String> source) {
+        List<String> unique = new ArrayList<>();
+        for (String entry : source) {
+            if (!unique.contains(entry)) {
+                unique.add(entry);
+            }
         }
-
-        // Linux
-        else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-            // Формат: libjolt-jni-linux-{dp|sp}-release.so
-            return String.format("libjolt-jni-linux-%s-release.so", precString);
-        }
-
-        // MacOS
-        else if (os.contains("mac")) {
-            // Формат: libjolt-jni-macos-{arch}-{dp|sp}.dylib
-            // У вашому списку немає суфікса "-release" для Mac
-            String macArch = arch.equals("aarch64") || arch.contains("arm") ? "arm64" : "intel";
-            return String.format("libjolt-jni-macos-%s-%s.dylib", macArch, precString);
-        }
-
-        else {
-            throw new JoltNativeException("Unsupported OS: " + os);
-        }
+        return unique;
     }
 
-    /**
-     * Завантажує файл за URL і зберігає його на диск.
-     */
+    private boolean isLinuxX64(String arch) {
+        return arch.equals("x86_64") || arch.equals("amd64") || arch.equals("x64");
+    }
+
+    private boolean isLinuxArm32(String arch) {
+        return arch.equals("arm") || arch.equals("armv7l") || arch.equals("arm32") || arch.equals("armhf");
+    }
+
+    private boolean isLinuxArm64(String arch) {
+        return arch.equals("aarch64") || arch.equals("arm64");
+    }
+
+    private boolean isLinuxLoongArch64(String arch) {
+        return arch.equals("loongarch64");
+    }
+
     private void downloadFile(String fileUrl, File destination) throws IOException {
         URL url = new URL(fileUrl);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -122,7 +218,6 @@ public final class LibraryLoader {
         connection.setConnectTimeout(5000);
         connection.setReadTimeout(10000);
 
-        // Обробка редіректів (GitHub Release часто робить редірект на AWS)
         int status = connection.getResponseCode();
         if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == HttpURLConnection.HTTP_SEE_OTHER) {
             String newUrl = connection.getHeaderField("Location");
@@ -157,5 +252,29 @@ public final class LibraryLoader {
     public static class JoltNativeException extends Exception {
         public JoltNativeException(String message) { super(message); }
         public JoltNativeException(Throwable cause) { super(cause); }
+    }
+
+    public static final class NativeLibrarySettings {
+        private final boolean preferWindowsAvx2;
+        private final boolean preferLinuxFma;
+        private final boolean allowLegacyCpuFallback;
+
+        public NativeLibrarySettings(boolean preferWindowsAvx2, boolean preferLinuxFma, boolean allowLegacyCpuFallback) {
+            this.preferWindowsAvx2 = preferWindowsAvx2;
+            this.preferLinuxFma = preferLinuxFma;
+            this.allowLegacyCpuFallback = allowLegacyCpuFallback;
+        }
+
+        public boolean preferWindowsAvx2() {
+            return preferWindowsAvx2;
+        }
+
+        public boolean preferLinuxFma() {
+            return preferLinuxFma;
+        }
+
+        public boolean allowLegacyCpuFallback() {
+            return allowLegacyCpuFallback;
+        }
     }
 }

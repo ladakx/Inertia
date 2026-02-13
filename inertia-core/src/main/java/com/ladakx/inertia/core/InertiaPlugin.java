@@ -216,8 +216,16 @@ public final class InertiaPlugin extends JavaPlugin {
             this.libraryLoader = new LibraryLoader();
             String precisionStr = this.getConfig().getString("physics.precision", "SP");
             Precision precision = "DP".equalsIgnoreCase(precisionStr) ? Precision.DP : Precision.SP;
+            boolean preferWindowsAvx2 = this.getConfig().getBoolean("physics.native-library.prefer-windows-avx2", true);
+            boolean preferLinuxFma = this.getConfig().getBoolean("physics.native-library.prefer-linux-fma", true);
+            boolean allowLegacyCpuFallback = this.getConfig().getBoolean("physics.native-library.allow-legacy-cpu-fallback", true);
+            LibraryLoader.NativeLibrarySettings nativeLibrarySettings = new LibraryLoader.NativeLibrarySettings(
+                    preferWindowsAvx2,
+                    preferLinuxFma,
+                    allowLegacyCpuFallback
+            );
             InertiaLogger.info("Jolt Precision set to: " + precision);
-            this.libraryLoader.init(this, precision);
+            this.libraryLoader.init(this, precision, nativeLibrarySettings);
             return true;
         } catch (LibraryLoader.JoltNativeException e) {
             InertiaLogger.error("Critical error loading Jolt Natives", e);
