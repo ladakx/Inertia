@@ -14,6 +14,8 @@ import java.util.UUID;
  */
 public final class RenderNetworkBudgetScheduler {
 
+    private final Object mutex = new Object();
+
     private final ArrayDeque<ScheduledTask> spawnQueue = new ArrayDeque<>();
     private final ArrayDeque<ScheduledTask> visibilityQueue = new ArrayDeque<>();
     private final ArrayDeque<ScheduledTask> metadataQueue = new ArrayDeque<>();
@@ -54,11 +56,15 @@ public final class RenderNetworkBudgetScheduler {
     }
 
     public void enqueueSpawn(Runnable task, Integer visualId, long tokenVersion) {
-        spawnQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), visualId, tokenVersion));
+        synchronized (mutex) {
+            spawnQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), visualId, tokenVersion));
+        }
     }
 
     public void enqueueVisibility(Runnable task) {
-        visibilityQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
+        synchronized (mutex) {
+            visibilityQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime()));
+        }
     }
 
     public void enqueueMetadata(Runnable task) {
@@ -66,33 +72,41 @@ public final class RenderNetworkBudgetScheduler {
     }
 
     public void enqueueMetadata(Runnable task, Integer visualId, long tokenVersion) {
-        metadataQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), visualId, tokenVersion));
+        synchronized (mutex) {
+            metadataQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), visualId, tokenVersion));
+        }
     }
 
     public void enqueueDestroy(Runnable task) {
-        destroyQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), null, -1L));
+        synchronized (mutex) {
+            destroyQueue.addLast(new ScheduledTask(Objects.requireNonNull(task, "task"), System.nanoTime(), null, -1L));
+        }
     }
 
     public void enqueueMetadataCoalesced(UUID playerId, int visualId, Runnable task) {
         Objects.requireNonNull(task, "task");
         CoalescingKey coalescingKey = new CoalescingKey(Objects.requireNonNull(playerId, "playerId"), visualId);
 
-        Iterator<ScheduledTask> iterator = metadataQueue.descendingIterator();
-        while (iterator.hasNext()) {
-            ScheduledTask queued = iterator.next();
-            if (coalescingKey.equals(queued.coalescingKey)) {
-                iterator.remove();
-                coalescedTaskCount++;
-                break;
+        synchronized (mutex) {
+            Iterator<ScheduledTask> iterator = metadataQueue.descendingIterator();
+            while (iterator.hasNext()) {
+                ScheduledTask queued = iterator.next();
+                if (coalescingKey.equals(queued.coalescingKey)) {
+                    iterator.remove();
+                    coalescedTaskCount++;
+                    break;
+                }
             }
-        }
 
-        metadataQueue.addLast(new ScheduledTask(task, System.nanoTime(), visualId, -1L, coalescingKey));
+            metadataQueue.addLast(new ScheduledTask(task, System.nanoTime(), visualId, -1L, coalescingKey));
+        }
     }
 
     public void invalidateVisual(int visualId, long activeTokenVersion) {
-        removeStaleForVisual(spawnQueue, visualId, activeTokenVersion);
-        removeStaleForVisual(metadataQueue, visualId, activeTokenVersion);
+        synchronized (mutex) {
+            removeStaleForVisual(spawnQueue, visualId, activeTokenVersion);
+            removeStaleForVisual(metadataQueue, visualId, activeTokenVersion);
+        }
     }
 
     public void invalidateVisuals(int[] visualIds, java.util.function.IntToLongFunction activeTokenProvider) {
@@ -144,13 +158,16 @@ public final class RenderNetworkBudgetScheduler {
         }
 
         long used = 0L;
-        while (!queue.isEmpty()) {
+        while (true) {
             long elapsedGlobal = System.nanoTime() - tickStart;
             if (elapsedGlobal >= tickBudget || used >= queueBudget) {
                 break;
             }
 
-            ScheduledTask task = queue.pollFirst();
+            ScheduledTask task;
+            synchronized (mutex) {
+                task = queue.pollFirst();
+            }
             if (task == null) {
                 break;
             }
@@ -228,36 +245,50 @@ public final class RenderNetworkBudgetScheduler {
     }
 
     public int getSpawnQueueDepth() {
-        return spawnQueue.size();
+        synchronized (mutex) {
+            return spawnQueue.size();
+        }
     }
 
     public int getVisibilityQueueDepth() {
-        return visibilityQueue.size();
+        synchronized (mutex) {
+            return visibilityQueue.size();
+        }
     }
 
     public int getMetadataQueueDepth() {
-        return metadataQueue.size();
+        synchronized (mutex) {
+            return metadataQueue.size();
+        }
     }
 
     public int getDestroyQueueDepth() {
-        return destroyQueue.size();
+        synchronized (mutex) {
+            return destroyQueue.size();
+        }
     }
 
     public int queueDepth() {
-        return spawnQueue.size() + visibilityQueue.size() + metadataQueue.size() + destroyQueue.size();
+        synchronized (mutex) {
+            return spawnQueue.size() + visibilityQueue.size() + metadataQueue.size() + destroyQueue.size();
+        }
     }
 
     public long getOldestQueueAgeMillis() {
         long now = System.nanoTime();
-        long oldestNanos = oldestTaskNanos(now, spawnQueue);
-        oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, visibilityQueue));
-        oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, metadataQueue));
-        oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, destroyQueue));
-        return oldestNanos / 1_000_000L;
+        synchronized (mutex) {
+            long oldestNanos = oldestTaskNanos(now, spawnQueue);
+            oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, visibilityQueue));
+            oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, metadataQueue));
+            oldestNanos = Math.max(oldestNanos, oldestTaskNanos(now, destroyQueue));
+            return oldestNanos / 1_000_000L;
+        }
     }
 
     public long getDestroyQueueOldestAgeMillis() {
-        return oldestTaskNanos(System.nanoTime(), destroyQueue) / 1_000_000L;
+        synchronized (mutex) {
+            return oldestTaskNanos(System.nanoTime(), destroyQueue) / 1_000_000L;
+        }
     }
 
     public long getCoalescedTaskCount() {
@@ -290,11 +321,13 @@ public final class RenderNetworkBudgetScheduler {
     }
 
     public void clear() {
-        spawnQueue.clear();
-        visibilityQueue.clear();
-        metadataQueue.clear();
-        destroyQueue.clear();
-        lastTickDeferredTasks = 0L;
+        synchronized (mutex) {
+            spawnQueue.clear();
+            visibilityQueue.clear();
+            metadataQueue.clear();
+            destroyQueue.clear();
+            lastTickDeferredTasks = 0L;
+        }
     }
 
     private static final class ScheduledTask {
