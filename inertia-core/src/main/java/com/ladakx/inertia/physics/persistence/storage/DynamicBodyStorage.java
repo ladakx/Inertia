@@ -1,6 +1,7 @@
 package com.ladakx.inertia.physics.persistence.storage;
 
 import com.ladakx.inertia.api.body.MotionType;
+import com.github.stephengold.joltjni.Quat;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -34,6 +35,9 @@ public final class DynamicBodyStorage {
                     continue;
                 }
                 Location location = body.getLocation();
+                Quat rotation = abstractPhysicsBody.getBody().getRotation();
+                org.bukkit.util.Vector linearVelocity = body.getLinearVelocity();
+                org.bukkit.util.Vector angularVelocity = body.getAngularVelocity();
                 int chunkX = location.getBlockX() >> 4;
                 int chunkZ = location.getBlockZ() >> 4;
                 records.add(new DynamicBodyStorageRecord(
@@ -43,6 +47,20 @@ public final class DynamicBodyStorage {
                         location.getX(),
                         location.getY(),
                         location.getZ(),
+                        rotation.getX(),
+                        rotation.getY(),
+                        rotation.getZ(),
+                        rotation.getW(),
+                        linearVelocity.getX(),
+                        linearVelocity.getY(),
+                        linearVelocity.getZ(),
+                        angularVelocity.getX(),
+                        angularVelocity.getY(),
+                        angularVelocity.getZ(),
+                        body.getFriction(),
+                        body.getRestitution(),
+                        body.getGravityFactor(),
+                        body.getMotionType(),
                         chunkX,
                         chunkZ,
                         now

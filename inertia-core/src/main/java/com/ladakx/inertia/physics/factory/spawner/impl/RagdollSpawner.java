@@ -10,6 +10,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.impl.RagdollPhysicsBody;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -47,7 +48,7 @@ public class RagdollSpawner implements BodySpawner {
     }
 
     @Override
-    public boolean spawn(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
+    public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsBodyRegistry registry = configService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(context.bodyId());
 
@@ -62,7 +63,7 @@ public class RagdollSpawner implements BodySpawner {
         if (!space.canSpawnBodies(partsCount)) {
             if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.SPAWN_LIMIT_REACHED,
                     "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
-            return false;
+            return null;
         }
 
         float yaw = -spawnLoc.getYaw() + 180;
@@ -77,7 +78,7 @@ public class RagdollSpawner implements BodySpawner {
 
         if (rootPart == null) {
             if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.INVALID_RAGDOLL_BODY, "{id}", context.bodyId());
-            return false;
+            return null;
         }
 
         RVec3 rootPos = space.toJolt(spawnLoc);
@@ -104,7 +105,7 @@ public class RagdollSpawner implements BodySpawner {
                                 : MessageKey.SPAWN_FAIL_OBSTRUCTED;
                         configService.getMessageManager().send(context.player(), key);
                     }
-                    return false;
+                    return null;
                 }
             } finally {
                 shapeRef.close();
@@ -122,7 +123,7 @@ public class RagdollSpawner implements BodySpawner {
         String skinNickname = context.getParam("skinNickname", String.class, null);
 
         RagdollPrecalc rootCalc = precalculatedParts.get(rootPart);
-        createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos, rootCalc.rot, spawnedParts, groupFilter, partIndices.get(rootPart), skinNickname);
+        RagdollPhysicsBody rootBody = createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos, rootCalc.rot, spawnedParts, groupFilter, partIndices.get(rootPart), skinNickname);
         spawnRagdollChildren(space, context.bodyId(), rootPart, def, spawnedParts, groupFilter, partIndices, precalculatedParts, skinNickname);
 
         boolean applyImpulse = context.getParam("impulse", Boolean.class, false);
@@ -137,7 +138,7 @@ public class RagdollSpawner implements BodySpawner {
             );
             rootBody.addImpulse(new Vec3((float)dir.getX(), (float)dir.getY(), (float)dir.getZ()), impulsePos);
         }
-        return true;
+        return rootBody;
     }
 
     private record RagdollPrecalc(RVec3 pos, Quat rot, RagdollDefinition.RagdollPartDefinition def) {}
@@ -185,7 +186,7 @@ public class RagdollSpawner implements BodySpawner {
         });
     }
 
-    private void createRagdollPart(PhysicsWorld space, String bodyId, String partName, RVec3 pos, Quat rot,
+    private RagdollPhysicsBody createRagdollPart(PhysicsWorld space, String bodyId, String partName, RVec3 pos, Quat rot,
                                    Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex,
                                    String skinNickname) {
         RagdollPhysicsBody obj = new RagdollPhysicsBody(
@@ -200,5 +201,6 @@ public class RagdollSpawner implements BodySpawner {
         Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
             Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
         });
+        return obj;
     }
 }

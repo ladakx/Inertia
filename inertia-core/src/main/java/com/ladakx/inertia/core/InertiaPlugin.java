@@ -243,15 +243,14 @@ public final class InertiaPlugin extends JavaPlugin {
         }
 
         if (networkEntityTracker != null) {
-            networkEntityTracker.clear();
             networkEntityTracker.applySettings(configurationService.getInertiaConfig().RENDERING.NETWORK_ENTITY_TRACKER);
             networkEntityTracker.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING.network);
         }
 
         if (physicsWorldRegistry != null) {
+            reconcileBodies(previousModels, currentModels);
             physicsWorldRegistry.reload();
             physicsWorldRegistry.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING);
-            reconcileBodies(previousModels, currentModels);
         }
     }
 
@@ -283,9 +282,23 @@ public final class InertiaPlugin extends JavaPlugin {
                 }
                 if (changedBodyIds.contains(bodyId)) {
                     org.bukkit.Location location = body.getLocation().clone();
+                    org.bukkit.util.Vector linearVelocity = body.getLinearVelocity().clone();
+                    org.bukkit.util.Vector angularVelocity = body.getAngularVelocity().clone();
+                    float friction = body.getFriction();
+                    float restitution = body.getRestitution();
+                    float gravityFactor = body.getGravityFactor();
+                    com.ladakx.inertia.api.body.MotionType motionType = body.getMotionType();
                     body.destroy();
                     if (location.getWorld() != null) {
-                        bodyFactory.spawnBody(location, bodyId);
+                        com.ladakx.inertia.physics.body.InertiaPhysicsBody respawned = bodyFactory.spawnBodyWithResult(location, bodyId, null, java.util.Map.of());
+                        if (respawned != null) {
+                            respawned.setLinearVelocity(linearVelocity);
+                            respawned.setAngularVelocity(angularVelocity);
+                            respawned.setFriction(friction);
+                            respawned.setRestitution(restitution);
+                            respawned.setGravityFactor(gravityFactor);
+                            respawned.setMotionType(motionType);
+                        }
                     }
                 }
             }
