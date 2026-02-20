@@ -19,6 +19,11 @@ import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.listeners.BlockChangeListener;
 import com.ladakx.inertia.physics.listeners.WorldLoadListener;
+import com.ladakx.inertia.physics.persistence.DynamicBodyPersistenceCoordinator;
+import com.ladakx.inertia.physics.persistence.runtime.DynamicBodyChunkListener;
+import com.ladakx.inertia.physics.persistence.runtime.DynamicBodyRuntimeLoader;
+import com.ladakx.inertia.physics.persistence.storage.DynamicBodyStorage;
+import com.ladakx.inertia.physics.persistence.validation.DynamicBodyValidator;
 import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
 import com.ladakx.inertia.infrastructure.nativelib.LibraryLoader;
 import com.ladakx.inertia.infrastructure.nativelib.Precision;
@@ -40,6 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
 public final class InertiaPlugin extends JavaPlugin {
@@ -70,6 +76,7 @@ public final class InertiaPlugin extends JavaPlugin {
 
     private NetworkEntityTracker networkEntityTracker;
     private NetworkManager networkManager;
+    private DynamicBodyPersistenceCoordinator dynamicBodyPersistenceCoordinator;
 
     private BukkitTask globalNetworkTask;
 
@@ -119,6 +126,11 @@ public final class InertiaPlugin extends JavaPlugin {
         this.manipulationService = new PhysicsManipulationService();
         this.toolDataManager = new ToolDataManager(this);
         this.bodyFactory = new BodyFactory(this, physicsWorldRegistry, configurationService, shapeFactory);
+        DynamicBodyStorage dynamicBodyStorage = new DynamicBodyStorage(physicsWorldRegistry);
+        DynamicBodyValidator dynamicBodyValidator = new DynamicBodyValidator(configurationService);
+        Path dynamicStoragePath = getDataFolder().toPath().resolve("data").resolve("dynamic-bodies.bin");
+        DynamicBodyRuntimeLoader dynamicBodyRuntimeLoader = new DynamicBodyRuntimeLoader(this, bodyFactory, dynamicBodyValidator, dynamicStoragePath);
+        this.dynamicBodyPersistenceCoordinator = new DynamicBodyPersistenceCoordinator(dynamicBodyStorage, dynamicBodyRuntimeLoader, dynamicStoragePath);
 
         this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, manipulationService, toolDataManager);
 
@@ -133,6 +145,7 @@ public final class InertiaPlugin extends JavaPlugin {
         new com.ladakx.inertia.features.integrations.WorldEditIntegration().init();
         registerCommands();
         registerListeners();
+        dynamicBodyPersistenceCoordinator.loadAsync();
 
         InertiaLogger.info("Inertia has been enabled successfully!");
     }
@@ -163,7 +176,7 @@ public final class InertiaPlugin extends JavaPlugin {
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new WorldLoadListener(physicsWorldRegistry), this);
         Bukkit.getPluginManager().registerEvents(new BlockChangeListener(physicsWorldRegistry), this);
-        // Added network listener if not already there
+        Bukkit.getPluginManager().registerEvents(new DynamicBodyChunkListener(dynamicBodyPersistenceCoordinator), this);
         Bukkit.getPluginManager().registerEvents(new com.ladakx.inertia.features.listeners.NetworkListener(networkManager, networkEntityTracker), this);
     }
 
@@ -181,6 +194,11 @@ public final class InertiaPlugin extends JavaPlugin {
             for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
                 networkManager.uninject(p);
             }
+        }
+
+        if (dynamicBodyPersistenceCoordinator != null) {
+            dynamicBodyPersistenceCoordinator.saveNow();
+            dynamicBodyPersistenceCoordinator.shutdown();
         }
 
         if (physicsWorldRegistry != null) physicsWorldRegistry.shutdown();
