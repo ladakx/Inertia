@@ -36,7 +36,7 @@ public class BlockSpawner implements BodySpawner {
     }
 
     @Override
-    public boolean spawn(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
+    public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsBodyRegistry.BodyModel model = configService.getPhysicsBodyRegistry().require(context.bodyId());
         BodyDefinition def = model.bodyDefinition();
 
@@ -58,22 +58,20 @@ public class BlockSpawner implements BodySpawner {
                                 : MessageKey.SPAWN_FAIL_OBSTRUCTED;
                         configService.getMessageManager().send(context.player(), key);
                     }
-                    return false;
+                    return null;
                 }
             } finally {
                 shapeRef.close();
             }
         }
 
-        // TODO: In Step 3, InertiaAPI should delegate back to a factory/spawner instead of implementing logic itself.
-        // For now, we rely on the existing API implementation to create the object after validation.
         InertiaPhysicsBody obj = InertiaAPI.get().createBody(context.location(), context.bodyId());
         if (obj != null) {
             Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
                 Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
             });
-            return true;
+            return obj;
         }
-        return false;
+        return null;
     }
 }

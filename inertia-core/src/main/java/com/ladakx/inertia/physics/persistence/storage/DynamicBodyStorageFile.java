@@ -1,6 +1,7 @@
 package com.ladakx.inertia.physics.persistence.storage;
 
 import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.api.body.MotionType;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -18,7 +19,7 @@ import java.util.UUID;
 
 public final class DynamicBodyStorageFile {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final int MAGIC = 0x494E4459;
 
     private final Path storageFile;
@@ -44,6 +45,20 @@ public final class DynamicBodyStorageFile {
                     out.writeDouble(record.x());
                     out.writeDouble(record.y());
                     out.writeDouble(record.z());
+                    out.writeFloat(record.rotationX());
+                    out.writeFloat(record.rotationY());
+                    out.writeFloat(record.rotationZ());
+                    out.writeFloat(record.rotationW());
+                    out.writeDouble(record.linearVelocityX());
+                    out.writeDouble(record.linearVelocityY());
+                    out.writeDouble(record.linearVelocityZ());
+                    out.writeDouble(record.angularVelocityX());
+                    out.writeDouble(record.angularVelocityY());
+                    out.writeDouble(record.angularVelocityZ());
+                    out.writeFloat(record.friction());
+                    out.writeFloat(record.restitution());
+                    out.writeFloat(record.gravityFactor());
+                    out.writeByte(record.motionType().ordinal());
                     out.writeInt(record.chunkX());
                     out.writeInt(record.chunkZ());
                     out.writeLong(record.savedAtEpochMillis());
@@ -78,10 +93,49 @@ public final class DynamicBodyStorageFile {
                     double x = in.readDouble();
                     double y = in.readDouble();
                     double z = in.readDouble();
+                    float rotationX = in.readFloat();
+                    float rotationY = in.readFloat();
+                    float rotationZ = in.readFloat();
+                    float rotationW = in.readFloat();
+                    double linearVelocityX = in.readDouble();
+                    double linearVelocityY = in.readDouble();
+                    double linearVelocityZ = in.readDouble();
+                    double angularVelocityX = in.readDouble();
+                    double angularVelocityY = in.readDouble();
+                    double angularVelocityZ = in.readDouble();
+                    float friction = in.readFloat();
+                    float restitution = in.readFloat();
+                    float gravityFactor = in.readFloat();
+                    byte motionTypeOrdinal = in.readByte();
+                    MotionType motionType = MotionType.values()[Math.max(0, Math.min(MotionType.values().length - 1, motionTypeOrdinal))];
                     int chunkX = in.readInt();
                     int chunkZ = in.readInt();
                     long savedAt = in.readLong();
-                    result.add(new DynamicBodyStorageRecord(id, world, bodyId, x, y, z, chunkX, chunkZ, savedAt));
+                    result.add(new DynamicBodyStorageRecord(
+                            id,
+                            world,
+                            bodyId,
+                            x,
+                            y,
+                            z,
+                            rotationX,
+                            rotationY,
+                            rotationZ,
+                            rotationW,
+                            linearVelocityX,
+                            linearVelocityY,
+                            linearVelocityZ,
+                            angularVelocityX,
+                            angularVelocityY,
+                            angularVelocityZ,
+                            friction,
+                            restitution,
+                            gravityFactor,
+                            motionType,
+                            chunkX,
+                            chunkZ,
+                            savedAt
+                    ));
                 } catch (EOFException eofException) {
                     InertiaLogger.warn("Dynamic body persistence file is partially truncated");
                     break;

@@ -1,7 +1,10 @@
 package com.ladakx.inertia.physics.persistence.runtime;
 
+import com.github.stephengold.joltjni.Quat;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.persistence.storage.DynamicBodyStorageFile;
 import com.ladakx.inertia.physics.persistence.storage.DynamicBodyStorageRecord;
@@ -10,6 +13,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -23,6 +27,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.lang.reflect.Method;
 
 public final class DynamicBodyRuntimeLoader {
 
@@ -146,7 +151,18 @@ public final class DynamicBodyRuntimeLoader {
             while (remaining > 0 && (record = queue.poll()) != null) {
                 if (loadedObjectIds.add(record.objectId())) {
                     Location location = new Location(world, record.x(), record.y(), record.z());
-                    bodyFactory.spawnBody(location, record.bodyId());
+                    InertiaPhysicsBody body = bodyFactory.spawnBodyWithResult(location, record.bodyId(), null, Map.of());
+                    if (body != null) {
+                        body.setLinearVelocity(new Vector(record.linearVelocityX(), record.linearVelocityY(), record.linearVelocityZ()));
+                        body.setAngularVelocity(new Vector(record.angularVelocityX(), record.angularVelocityY(), record.angularVelocityZ()));
+                        body.setFriction(record.friction());
+                        body.setRestitution(record.restitution());
+                        body.setGravityFactor(record.gravityFactor());
+                        body.setMotionType(record.motionType());
+                        if (body instanceof AbstractPhysicsBody abstractBody) {
+                            applyRotation(abstractBody, new Quat(record.rotationX(), record.rotationY(), record.rotationZ(), record.rotationW()));
+                        }
+                    }
                 }
                 remaining--;
             }
@@ -168,6 +184,18 @@ public final class DynamicBodyRuntimeLoader {
                 task.cancel();
             }
             flushTask = null;
+        }
+    }
+
+    private void applyRotation(AbstractPhysicsBody body, Quat rotation) {
+        Objects.requireNonNull(body, "body");
+        Objects.requireNonNull(rotation, "rotation");
+        try {
+            Object bodyInterface = body.getSpace().getBodyInterface();
+            Method method = bodyInterface.getClass().getMethod("setRotation", int.class, Quat.class, com.github.stephengold.joltjni.enumerate.EActivation.class);
+            method.invoke(bodyInterface, body.getBody().getId(), rotation, com.github.stephengold.joltjni.enumerate.EActivation.Activate);
+        } catch (Exception exception) {
+            InertiaLogger.warn("Failed to restore dynamic body rotation");
         }
     }
 }

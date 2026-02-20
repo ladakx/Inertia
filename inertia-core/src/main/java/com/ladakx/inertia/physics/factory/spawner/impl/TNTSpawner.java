@@ -7,6 +7,7 @@ import com.ladakx.inertia.api.events.PhysicsBodySpawnEvent;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.body.impl.TNTPhysicsBody;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -39,7 +40,7 @@ public class TNTSpawner implements BodySpawner {
     }
 
     @Override
-    public boolean spawn(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
+    public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsWorld space = context.world();
         if (!space.isInsideWorld(context.location())) {
              throw new IllegalArgumentException("Cannot spawn TNT outside world bounds");
@@ -97,6 +98,6 @@ public class TNTSpawner implements BodySpawner {
             Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(tnt));
         });
 
-        return true;
+        return tnt;
     }
 }
