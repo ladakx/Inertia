@@ -8,6 +8,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawnContext;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawner;
@@ -86,25 +87,32 @@ public class BodyFactory {
     }
 
     public boolean spawnBody(Location location, String bodyId, @Nullable Player player) {
-        if (location.getWorld() == null) return false;
+        return spawnBodyWithResult(location, bodyId, player, Map.of()) != null;
+    }
+
+    public @Nullable InertiaPhysicsBody spawnBodyWithResult(Location location,
+                                                            String bodyId,
+                                                            @Nullable Player player,
+                                                            Map<String, Object> params) {
+        if (location.getWorld() == null) return null;
         PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
-        if (space == null) return false;
+        if (space == null) return null;
 
         PhysicsBodyType type;
         try {
             type = configurationService.getPhysicsBodyRegistry().require(bodyId).bodyDefinition().type();
         } catch (IllegalArgumentException e) {
             InertiaLogger.warn("Cannot spawn body: " + e.getMessage());
-            return false;
+            return null;
         }
 
         BodySpawner spawner = spawners.get(type);
         if (spawner == null) {
             InertiaLogger.warn("No spawner found for type: " + type);
-            return false;
+            return null;
         }
 
-        return spawner.spawn(new BodySpawnContext(space, location, bodyId, player, Map.of()));
+        return spawner.spawnBody(new BodySpawnContext(space, location, bodyId, player, params));
     }
 
     public void spawnChain(Player player, String bodyId, int size) {

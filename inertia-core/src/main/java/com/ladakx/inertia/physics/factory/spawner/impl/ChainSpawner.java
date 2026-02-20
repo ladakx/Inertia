@@ -13,6 +13,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.config.BodyPhysicsSettings;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.impl.ChainPhysicsBody;
@@ -48,7 +49,7 @@ public class ChainSpawner implements BodySpawner {
     }
 
     @Override
-    public boolean spawn(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
+    public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsBodyRegistry registry = configService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(context.bodyId());
 
@@ -65,7 +66,7 @@ public class ChainSpawner implements BodySpawner {
 
         if (!context.world().isInsideWorld(startLoc)) {
             if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.ERROR_OCCURRED, "{error}", "Outside of world bounds!");
-            return false;
+            return null;
         }
 
         double spacing = def.creation().spacing();
@@ -75,7 +76,7 @@ public class ChainSpawner implements BodySpawner {
         if (endLoc != null) {
             if (!startLoc.getWorld().equals(endLoc.getWorld())) {
                 if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.ERROR_OCCURRED, "{error}", "Start/end world mismatch!");
-                return false;
+                return null;
             }
             Vector delta = endLoc.toVector().subtract(startLoc.toVector());
             double dist = delta.length();
@@ -99,7 +100,7 @@ public class ChainSpawner implements BodySpawner {
         if (!context.world().canSpawnBodies(size)) {
             if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.SPAWN_LIMIT_REACHED,
                     "{limit}", String.valueOf(context.world().getSettings().performance().maxBodies()));
-            return false;
+            return null;
         }
 
         Quaternionf jomlQuat;
@@ -117,7 +118,7 @@ public class ChainSpawner implements BodySpawner {
                 Location linkLoc = startLoc.clone().add(direction.clone().multiply(i * step));
                 if (!context.world().isInsideWorld(linkLoc)) {
                     if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.SPAWN_FAIL_OUT_OF_BOUNDS);
-                    return false;
+                    return null;
                 }
                 RVec3 pos = context.world().toJolt(linkLoc);
                 if (endLoc == null) {
@@ -129,7 +130,7 @@ public class ChainSpawner implements BodySpawner {
                                     : MessageKey.SPAWN_FAIL_OBSTRUCTED;
                             configService.getMessageManager().send(context.player(), key);
                         }
-                        return false;
+                        return null;
                     }
                 }
             }
@@ -188,7 +189,7 @@ public class ChainSpawner implements BodySpawner {
             anchorToWorld(context.world(), lastLink, endAnchor, def);
         }
 
-        return true;
+        return lastLink;
     }
 
     private void anchorToWorld(com.ladakx.inertia.physics.world.PhysicsWorld world,

@@ -1,0 +1,72 @@
+package com.ladakx.inertia.physics.persistence.storage;
+
+import com.ladakx.inertia.api.body.MotionType;
+import com.github.stephengold.joltjni.Quat;
+import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
+import com.ladakx.inertia.physics.world.PhysicsWorld;
+import com.ladakx.inertia.physics.world.PhysicsWorldRegistry;
+import org.bukkit.Location;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+
+public final class DynamicBodyStorage {
+
+    private final PhysicsWorldRegistry physicsWorldRegistry;
+
+    public DynamicBodyStorage(PhysicsWorldRegistry physicsWorldRegistry) {
+        this.physicsWorldRegistry = Objects.requireNonNull(physicsWorldRegistry, "physicsWorldRegistry");
+    }
+
+    public List<DynamicBodyStorageRecord> snapshot() {
+        Collection<PhysicsWorld> spaces = physicsWorldRegistry.getAllSpaces();
+        List<DynamicBodyStorageRecord> records = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (PhysicsWorld space : spaces) {
+            String worldName = space.getBukkitWorld().getName();
+            for (InertiaPhysicsBody body : space.getBodies()) {
+                if (body.getMotionType() == MotionType.STATIC || !body.isValid()) {
+                    continue;
+                }
+                if (!(body instanceof AbstractPhysicsBody abstractPhysicsBody)) {
+                    continue;
+                }
+                Location location = body.getLocation();
+                Quat rotation = abstractPhysicsBody.getBody().getRotation();
+                org.bukkit.util.Vector linearVelocity = body.getLinearVelocity();
+                org.bukkit.util.Vector angularVelocity = body.getAngularVelocity();
+                int chunkX = location.getBlockX() >> 4;
+                int chunkZ = location.getBlockZ() >> 4;
+                records.add(new DynamicBodyStorageRecord(
+                        abstractPhysicsBody.getUuid(),
+                        worldName,
+                        body.getBodyId(),
+                        location.getX(),
+                        location.getY(),
+                        location.getZ(),
+                        rotation.getX(),
+                        rotation.getY(),
+                        rotation.getZ(),
+                        rotation.getW(),
+                        linearVelocity.getX(),
+                        linearVelocity.getY(),
+                        linearVelocity.getZ(),
+                        angularVelocity.getX(),
+                        angularVelocity.getY(),
+                        angularVelocity.getZ(),
+                        body.getFriction(),
+                        body.getRestitution(),
+                        body.getGravityFactor(),
+                        body.getMotionType(),
+                        chunkX,
+                        chunkZ,
+                        now
+                ));
+            }
+        }
+        return records;
+    }
+}
