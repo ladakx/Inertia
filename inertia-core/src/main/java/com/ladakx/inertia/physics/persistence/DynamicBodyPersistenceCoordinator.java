@@ -37,4 +37,8 @@ public final class DynamicBodyPersistenceCoordinator {
     public void shutdown() {
         runtimeLoader.clear();
     }
+
+    public void clearStorage() {
+        storageFile.clear();
+    }
 }

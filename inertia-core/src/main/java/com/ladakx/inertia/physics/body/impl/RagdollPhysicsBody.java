@@ -36,10 +36,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
     private final @Nullable String skinNickname;
     private boolean removed = false;
     private final CollisionGroup collisionGroup;
-
-    // Ссылка на констрейнт для возможности отрыва части тела
     private TwoBodyConstraintRef parentJointRef;
-    // ID тела родителя в Jolt (для поиска через API)
     private Integer parentBodyId = null;
 
     public RagdollPhysicsBody(@NotNull PhysicsWorld space,
@@ -74,6 +71,11 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         this.displayComposite = recreateDisplay();
     }
 
+    public @Nullable String getSkinNickname() { return skinNickname; }
+
+    @Override
+    public String getPartKey() { return partName; }
+
     @Override
     protected PhysicsDisplayComposite recreateDisplay() {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
@@ -88,6 +90,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         World world = getSpace().getWorldBukkit();
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
+
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
         for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
             String entityKey = entry.getKey();
@@ -95,6 +98,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
             NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
             parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
+
         var plugin = InertiaPlugin.getInstance();
         return new PhysicsDisplayComposite(
                 this,
@@ -158,6 +162,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
 
         RVec3 parentPos = parentBody.getPosition();
         Quat parentRot = parentBody.getRotation();
+
         RVec3 childPos = childBody.getPosition();
         Quat childRot = childBody.getRotation();
 
@@ -170,7 +175,6 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         pivot2.addInPlace(childPos.xx(), childPos.yy(), childPos.zz());
 
         SixDofConstraintSettings settings = new SixDofConstraintSettings();
-
         for (String axis : joint.fixedAxes()) {
             try {
                 settings.makeFixedAxis(EAxis.valueOf(axis));
@@ -196,13 +200,11 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         TwoBodyConstraint constraint = settings.create(parentBody, childBody);
         constraint.setNumVelocityStepsOverride(15);
         constraint.setNumPositionStepsOverride(5);
-
         getSpace().addConstraint(constraint);
+
         this.parentJointRef = constraint.toRef();
         addRelatedConstraint(parentJointRef);
     }
-
-    // --- IRagdoll Implementation ---
 
     @Override
     public @NotNull String getPartName() {
@@ -212,15 +214,6 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
     @Override
     public @Nullable InertiaPhysicsBody getParentPart() {
         if (parentBodyId == null) return null;
-        // Jolt ID уникален в рамках PhysicsSystem, но getObjectByVa требует address (va).
-        // Мы можем получить тело по ID из интерфейса блокировки и взять его адрес.
-        // Или, так как AbstractPhysicsBody не хранит мапу ID->Object, мы должны обратиться к Space.
-
-        // Оптимальный путь через PhysicsWorld:
-        // У нас есть ID родителя. Нужно найти объект Java, которому он принадлежит.
-        // PhysicsObjectManager хранит Map<Long (VA), AbstractPhysicsBody>.
-        // Нам нужно получить VA из ID.
-
         com.github.stephengold.joltjni.readonly.ConstBody body = getSpace().getBodyById(parentBodyId);
         if (body != null) {
             return getSpace().getObjectByVa(body.targetVa());

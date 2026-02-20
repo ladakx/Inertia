@@ -21,6 +21,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.util.Vector;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public class TNTSpawner implements BodySpawner {
 
@@ -42,8 +43,11 @@ public class TNTSpawner implements BodySpawner {
     @Override
     public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsWorld space = context.world();
-        if (!space.isInsideWorld(context.location())) {
-             throw new IllegalArgumentException("Cannot spawn TNT outside world bounds");
+        boolean bypassValidation = context.getParam("bypass_validation", Boolean.class, false);
+        UUID clusterId = context.getParam("cluster_id", UUID.class, UUID.randomUUID());
+
+        if (!bypassValidation && !space.isInsideWorld(context.location())) {
+            throw new IllegalArgumentException("Cannot spawn TNT outside world bounds");
         }
         if (!space.canSpawnBodies(1)) {
             throw new IllegalStateException("World body limit reached");
@@ -53,7 +57,7 @@ public class TNTSpawner implements BodySpawner {
         RVec3 pos = space.toJolt(context.location());
         Quat rot = new Quat(0, 0, 0, 1);
 
-        if (model.bodyDefinition() instanceof BlockBodyDefinition blockDef) {
+        if (!bypassValidation && model.bodyDefinition() instanceof BlockBodyDefinition blockDef) {
             ShapeRefC shapeRef = shapeFactory.createShape(blockDef.shapeLines());
             try {
                 ValidationUtils.ValidationResult result = ValidationUtils.canSpawnAt(space, shapeRef, pos, rot);
@@ -84,6 +88,7 @@ public class TNTSpawner implements BodySpawner {
                 force,
                 fuse
         );
+        tnt.setClusterId(clusterId);
 
         if (velocity != null) {
             com.github.stephengold.joltjni.Vec3 linearVel = new com.github.stephengold.joltjni.Vec3(

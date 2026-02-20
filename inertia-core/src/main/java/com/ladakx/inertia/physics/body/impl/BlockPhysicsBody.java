@@ -24,7 +24,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 public class BlockPhysicsBody extends DisplayedPhysicsBody {
-
     private final String bodyId;
     private boolean removed = false;
 
@@ -41,10 +40,12 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
     }
 
     @Override
+    public String getPartKey() { return "root"; }
+
+    @Override
     protected PhysicsDisplayComposite recreateDisplay() {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(getBodyId());
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
-
         if (renderOpt.isPresent()) {
             RenderModelDefinition renderDef = renderOpt.get();
             World world = getSpace().getWorldBukkit();
@@ -58,7 +59,6 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
                 parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
             }
 
-            // Передаем 'this' вместо getBody()
             var plugin = com.ladakx.inertia.core.InertiaPlugin.getInstance();
             return new PhysicsDisplayComposite(
                     this,
@@ -80,6 +80,7 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(bodyId);
         BlockBodyDefinition def = (BlockBodyDefinition) model.bodyDefinition();
         BodyPhysicsSettings phys = def.physicsSettings();
+
         List<String> shapeLines = def.shapeLines();
         ConstShape shape = shapeFactory.createShape(shapeLines);
 
@@ -98,6 +99,7 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
         settings.setFriction(phys.friction());
         settings.setRestitution(phys.restitution());
         settings.setGravityFactor(phys.gravityFactor());
+
         settings.setPosition(initialPosition);
         settings.setRotation(initialRotation);
 

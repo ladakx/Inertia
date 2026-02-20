@@ -33,9 +33,8 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
     private final int calculatedIterations;
     private final int linkIndex;
     private final int totalChainLength;
-
-    // Храним ссылку на констрейнт, соединяющий с родителем, для возможности разрыва
     private TwoBodyConstraintRef parentConstraintRef;
+    private boolean anchored = false;
 
     public ChainPhysicsBody(@NotNull PhysicsWorld space,
                             @NotNull String bodyId,
@@ -52,6 +51,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         this.bodyId = bodyId;
         this.linkIndex = chainIndex;
         this.totalChainLength = totalChainLength;
+
         this.calculatedIterations = calculateIterations(modelRegistry.require(bodyId), totalChainLength);
 
         if (parentBody != null) {
@@ -61,11 +61,16 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         this.displayComposite = recreateDisplay();
     }
 
+    public boolean isAnchored() { return anchored; }
+    public void setAnchored(boolean anchored) { this.anchored = anchored; }
+
+    @Override
+    public String getPartKey() { return String.valueOf(linkIndex); }
+
     @Override
     protected PhysicsDisplayComposite recreateDisplay() {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(getBodyId());
         Optional<RenderModelDefinition> renderOpt = model.renderModel();
-
         if (renderOpt.isEmpty()) return null;
 
         RenderModelDefinition renderDef = renderOpt.get();
@@ -80,7 +85,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
             parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
 
-        // Передаем 'this'
         var plugin = com.ladakx.inertia.core.InertiaPlugin.getInstance();
         return new PhysicsDisplayComposite(
                 this,
@@ -106,6 +110,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         if (!def.adaptive().enabled()) {
             return def.stabilization().positionIterations();
         }
+
         ChainBodyDefinition.AdaptiveSettings adapt = def.adaptive();
         double factor = getLerpFactor(length, adapt.minLength(), adapt.maxLength());
         return (int) MiscUtils.lerp(adapt.minIterations(), adapt.maxIterations(), factor);
@@ -128,6 +133,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition def)) {
             throw new IllegalArgumentException("Body '" + bodyId + "' is not a CHAIN definition.");
         }
+
         BodyPhysicsSettings phys = def.physicsSettings();
         ConstShape shape = shapeFactory.createShape(def.shapeLines());
 
@@ -152,8 +158,8 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         if (phys.motionType() == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {
             settings.setMotionQuality(EMotionQuality.LinearCast);
         }
-        settings.setAllowSleeping(true);
 
+        settings.setAllowSleeping(true);
         return settings;
     }
 
@@ -162,14 +168,14 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         if (!(model.bodyDefinition() instanceof ChainBodyDefinition chainDef)) return;
 
         double jointOffset = chainDef.creation().jointOffset();
+
         RVec3 currentPos = getBody().getPosition();
         RVec3 parentPos = parentBody.getPosition();
-
         double dx = parentPos.xx() - currentPos.xx();
         double dy = parentPos.yy() - currentPos.yy();
         double dz = parentPos.zz() - currentPos.zz();
-        double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
+        double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (len < 1.0e-6) {
             dx = 0.0;
             dy = 1.0;
@@ -180,6 +186,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         double nx = dx / len;
         double ny = dy / len;
         double nz = dz / len;
+
         RVec3 pivotPoint = new RVec3(
                 currentPos.xx() + nx * jointOffset,
                 currentPos.yy() + ny * jointOffset,
@@ -190,7 +197,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         settings.setSpace(EConstraintSpace.WorldSpace);
         settings.setPosition1(pivotPoint);
         settings.setPosition2(pivotPoint);
-
         settings.makeFixedAxis(EAxis.TranslationX);
         settings.makeFixedAxis(EAxis.TranslationY);
         settings.makeFixedAxis(EAxis.TranslationZ);
@@ -206,7 +212,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         }
 
         TwoBodyConstraint constraint = settings.create(parentBody, getBody());
-
         if (calculatedIterations > 0) {
             constraint.setNumPositionStepsOverride(calculatedIterations);
             int velIter = chainDef.stabilization().velocityIterations();
@@ -217,8 +222,6 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         this.parentConstraintRef = constraint.toRef();
         addRelatedConstraint(parentConstraintRef);
     }
-
-    // --- IChain Implementation ---
 
     @Override
     public int getLinkIndex() {

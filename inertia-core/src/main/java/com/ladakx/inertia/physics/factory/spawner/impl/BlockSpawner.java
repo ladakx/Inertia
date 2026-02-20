@@ -20,8 +20,9 @@ import com.ladakx.inertia.physics.factory.spawner.BodySpawner;
 import org.bukkit.Bukkit;
 import org.joml.Quaternionf;
 
-public class BlockSpawner implements BodySpawner {
+import java.util.UUID;
 
+public class BlockSpawner implements BodySpawner {
     private final ConfigurationService configService;
     private final JShapeFactory shapeFactory;
 
@@ -39,8 +40,10 @@ public class BlockSpawner implements BodySpawner {
     public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsBodyRegistry.BodyModel model = configService.getPhysicsBodyRegistry().require(context.bodyId());
         BodyDefinition def = model.bodyDefinition();
+        boolean bypassValidation = context.getParam("bypass_validation", Boolean.class, false);
+        UUID clusterId = context.getParam("cluster_id", UUID.class, UUID.randomUUID());
 
-        if (def instanceof BlockBodyDefinition blockDef) {
+        if (!bypassValidation && def instanceof BlockBodyDefinition blockDef) {
             ShapeRefC shapeRef = shapeFactory.createShape(blockDef.shapeLines());
             try {
                 RVec3 pos = context.world().toJolt(context.location());
@@ -50,7 +53,6 @@ public class BlockSpawner implements BodySpawner {
                 Quat rot = new Quat(jomlQuat.x, jomlQuat.y, jomlQuat.z, jomlQuat.w);
 
                 ValidationUtils.ValidationResult result = ValidationUtils.canSpawnAt(context.world(), shapeRef, pos, rot);
-
                 if (result != ValidationUtils.ValidationResult.SUCCESS) {
                     if (context.player() != null) {
                         MessageKey key = (result == ValidationUtils.ValidationResult.OUT_OF_BOUNDS)
@@ -67,6 +69,9 @@ public class BlockSpawner implements BodySpawner {
 
         InertiaPhysicsBody obj = InertiaAPI.get().createBody(context.location(), context.bodyId());
         if (obj != null) {
+            if (obj instanceof com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody ab) {
+                ab.setClusterId(clusterId);
+            }
             Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
                 Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
             });

@@ -51,15 +51,16 @@ public class RagdollSpawner implements BodySpawner {
     public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsBodyRegistry registry = configService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(context.bodyId());
-
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {
             throw new IllegalArgumentException("Ragdoll body not found or invalid type: " + context.bodyId());
         }
 
         PhysicsWorld space = context.world();
         Location spawnLoc = context.location();
-
         int partsCount = def.parts().size();
+        boolean bypassValidation = context.getParam("bypass_validation", Boolean.class, false);
+        UUID clusterId = context.getParam("cluster_id", UUID.class, UUID.randomUUID());
+
         if (!space.canSpawnBodies(partsCount)) {
             if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.SPAWN_LIMIT_REACHED,
                     "{limit}", String.valueOf(space.getSettings().performance().maxBodies()));
@@ -81,34 +82,36 @@ public class RagdollSpawner implements BodySpawner {
             return null;
         }
 
+        // ВАЖНО: Мы сохраняем идеальные позиции "T-позы" для правильного создания constraints
         RVec3 rootPos = space.toJolt(spawnLoc);
         Map<String, RagdollPrecalc> precalculatedParts = new HashMap<>();
         collectRagdollTransforms(rootPart, rootPos, rotation, def, yawRad, precalculatedParts);
 
-        for (RagdollPrecalc part : precalculatedParts.values()) {
-            RagdollDefinition.RagdollPartDefinition partDef = part.def;
-            List<String> shapeLines = partDef.shapeString() != null ? List.of(partDef.shapeString()) : null;
-            ShapeRefC shapeRef;
-            if (shapeLines != null) {
-                shapeRef = shapeFactory.createShape(shapeLines);
-            } else {
-                Vector size = partDef.size();
-                shapeRef = new BoxShape(new Vec3((float) size.getX() / 2f, (float) size.getY() / 2f, (float) size.getZ() / 2f)).toRefC();
-            }
-
-            try {
-                ValidationUtils.ValidationResult result = ValidationUtils.canSpawnAt(space, shapeRef, part.pos, part.rot);
-                if (result != ValidationUtils.ValidationResult.SUCCESS) {
-                    if (context.player() != null) {
-                        MessageKey key = (result == ValidationUtils.ValidationResult.OUT_OF_BOUNDS)
-                                ? MessageKey.SPAWN_FAIL_OUT_OF_BOUNDS
-                                : MessageKey.SPAWN_FAIL_OBSTRUCTED;
-                        configService.getMessageManager().send(context.player(), key);
-                    }
-                    return null;
+        if (!bypassValidation) {
+            for (RagdollPrecalc part : precalculatedParts.values()) {
+                RagdollDefinition.RagdollPartDefinition partDef = part.def();
+                List<String> shapeLines = partDef.shapeString() != null ? List.of(partDef.shapeString()) : null;
+                ShapeRefC shapeRef;
+                if (shapeLines != null) {
+                    shapeRef = shapeFactory.createShape(shapeLines);
+                } else {
+                    Vector size = partDef.size();
+                    shapeRef = new BoxShape(new Vec3((float) size.getX() / 2f, (float) size.getY() / 2f, (float) size.getZ() / 2f)).toRefC();
                 }
-            } finally {
-                shapeRef.close();
+                try {
+                    ValidationUtils.ValidationResult result = ValidationUtils.canSpawnAt(space, shapeRef, part.pos(), part.rot());
+                    if (result != ValidationUtils.ValidationResult.SUCCESS) {
+                        if (context.player() != null) {
+                            MessageKey key = (result == ValidationUtils.ValidationResult.OUT_OF_BOUNDS)
+                                    ? MessageKey.SPAWN_FAIL_OUT_OF_BOUNDS
+                                    : MessageKey.SPAWN_FAIL_OBSTRUCTED;
+                            configService.getMessageManager().send(context.player(), key);
+                        }
+                        return null;
+                    }
+                } finally {
+                    shapeRef.close();
+                }
             }
         }
 
@@ -121,23 +124,24 @@ public class RagdollSpawner implements BodySpawner {
         }
 
         String skinNickname = context.getParam("skinNickname", String.class, null);
-
         RagdollPrecalc rootCalc = precalculatedParts.get(rootPart);
-        RagdollPhysicsBody rootBody = createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos, rootCalc.rot, spawnedParts, groupFilter, partIndices.get(rootPart), skinNickname);
-        spawnRagdollChildren(space, context.bodyId(), rootPart, def, spawnedParts, groupFilter, partIndices, precalculatedParts, skinNickname);
+        RagdollPhysicsBody rootBody = createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos(), rootCalc.rot(), spawnedParts, groupFilter, partIndices.get(rootPart), skinNickname, clusterId);
+
+        spawnRagdollChildren(space, context.bodyId(), rootPart, def, spawnedParts, groupFilter, partIndices, precalculatedParts, skinNickname, clusterId);
 
         boolean applyImpulse = context.getParam("impulse", Boolean.class, false);
         if (applyImpulse && spawnedParts.containsKey(rootPart)) {
-            Body rootBody = spawnedParts.get(rootPart);
+            Body rootBodyImpl = spawnedParts.get(rootPart);
             Vector dir = spawnLoc.getDirection().multiply(1500.0);
             ThreadLocalRandom rand = ThreadLocalRandom.current();
             RVec3 impulsePos = new RVec3(
-                    rootCalc.pos.xx() + rand.nextDouble(-0.3, 0.3),
-                    rootCalc.pos.yy() + rand.nextDouble(-0.3, 0.3),
-                    rootCalc.pos.zz() + rand.nextDouble(-0.3, 0.3)
+                    rootCalc.pos().xx() + rand.nextDouble(-0.3, 0.3),
+                    rootCalc.pos().yy() + rand.nextDouble(-0.3, 0.3),
+                    rootCalc.pos().zz() + rand.nextDouble(-0.3, 0.3)
             );
-            rootBody.addImpulse(new Vec3((float)dir.getX(), (float)dir.getY(), (float)dir.getZ()), impulsePos);
+            rootBodyImpl.addImpulse(new Vec3((float)dir.getX(), (float)dir.getY(), (float)dir.getZ()), impulsePos);
         }
+
         return rootBody;
     }
 
@@ -155,7 +159,6 @@ public class RagdollSpawner implements BodySpawner {
                 if (joint != null) {
                     Vector pOffset = joint.pivotOnParent();
                     Vector cOffset = joint.pivotOnChild();
-
                     Vector3d parentPivotWorld = new Vector3d(pOffset.getX(), pOffset.getY(), pOffset.getZ()).rotateY(yawRad);
                     Vector3d childPivotWorld = new Vector3d(cOffset.getX(), cOffset.getY(), cOffset.getZ()).rotateY(yawRad);
 
@@ -173,22 +176,22 @@ public class RagdollSpawner implements BodySpawner {
                                       RagdollDefinition def, Map<String, Body> spawnedBodies,
                                       GroupFilterTable groupFilter, Map<String, Integer> partIndices,
                                       Map<String, RagdollPrecalc> precalc,
-                                      String skinNickname) {
+                                      String skinNickname, UUID clusterId) {
         def.parts().forEach((partName, partDef) -> {
             if (parentName.equals(partDef.parentName())) {
                 RagdollPrecalc calc = precalc.get(partName);
                 if (calc != null) {
-                    createRagdollPart(space, bodyId, partName, calc.pos, calc.rot, spawnedBodies,
-                            groupFilter, partIndices.get(partName), skinNickname);
-                    spawnRagdollChildren(space, bodyId, partName, def, spawnedBodies, groupFilter, partIndices, precalc, skinNickname);
+                    createRagdollPart(space, bodyId, partName, calc.pos(), calc.rot(), spawnedBodies,
+                            groupFilter, partIndices.get(partName), skinNickname, clusterId);
+                    spawnRagdollChildren(space, bodyId, partName, def, spawnedBodies, groupFilter, partIndices, precalc, skinNickname, clusterId);
                 }
             }
         });
     }
 
     private RagdollPhysicsBody createRagdollPart(PhysicsWorld space, String bodyId, String partName, RVec3 pos, Quat rot,
-                                   Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex,
-                                   String skinNickname) {
+                                                 Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex,
+                                                 String skinNickname, UUID clusterId) {
         RagdollPhysicsBody obj = new RagdollPhysicsBody(
                 space, bodyId, partName, configService.getPhysicsBodyRegistry(),
                 renderFactory,
@@ -197,6 +200,7 @@ public class RagdollSpawner implements BodySpawner {
                 groupFilter, partIndex,
                 skinNickname
         );
+        obj.setClusterId(clusterId);
         spawnedBodies.put(partName, obj.getBody());
         Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
             Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));

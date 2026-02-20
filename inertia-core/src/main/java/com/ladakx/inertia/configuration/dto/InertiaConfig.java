@@ -5,12 +5,7 @@ import com.ladakx.inertia.physics.world.loop.PhysicsLoop;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
-/**
- * Immutable Data Object representing the config.yml file.
- * Updated to match the new YAML structure (kebab-case) and include default fallback logic.
- */
 public class InertiaConfig {
-
     public final GeneralSettings GENERAL;
     public final PhysicsSettings PHYSICS;
     public final RenderingSettings RENDERING;
@@ -40,7 +35,6 @@ public class InertiaConfig {
             ConfigurationSection physicsSection = section != null ? section.getConfigurationSection("physics") : null;
             ConfigurationSection networkSection = section != null ? section.getConfigurationSection("network") : null;
             ConfigurationSection terrainSection = section != null ? section.getConfigurationSection("terrain") : null;
-
             this.physics = new PhysicsThreadingSettings(physicsSection, physicsSettings);
             this.network = new NetworkThreadingSettings(networkSection);
             this.terrain = new TerrainThreadingSettings(terrainSection, physicsSettings);
@@ -56,12 +50,10 @@ public class InertiaConfig {
             int available = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
             int fallbackWorldThreads = physicsSettings != null ? physicsSettings.workerThreads : 2;
             this.worldThreads = clamp(section != null ? section.getInt("world-threads", fallbackWorldThreads) : fallbackWorldThreads, 1, Math.max(1, available * 2));
-
             long oneTimeBudget = physicsSettings != null ? physicsSettings.TASK_MANAGER.oneTimeTaskBudgetNanos : 4_000_000L;
             long recurringBudget = physicsSettings != null ? physicsSettings.TASK_MANAGER.recurringTaskBudgetNanos : 3_000_000L;
             int fallbackBudgetMs = (int) Math.max(1L, (oneTimeBudget + recurringBudget) / 1_000_000L);
             this.taskBudgetMs = clamp(section != null ? section.getInt("task-budget-ms", fallbackBudgetMs) : fallbackBudgetMs, 1, 100);
-
             String fallbackMode = physicsSettings != null ? physicsSettings.snapshotMode.name() : PhysicsLoop.SnapshotMode.LATEST.name();
             String modeValue = section != null ? section.getString("snapshot-queue-mode", fallbackMode) : fallbackMode;
             PhysicsLoop.SnapshotMode parsedMode;
@@ -96,7 +88,6 @@ public class InertiaConfig {
             int fallbackCaptureBudgetMs = 2;
             int fallbackWorkers = physicsSettings != null ? physicsSettings.workerThreads : 2;
             int fallbackInFlight = physicsSettings != null ? physicsSettings.TERRAIN_GENERATION.maxGenerateJobsInFlight : 3;
-
             this.captureBudgetMs = clamp(section != null ? section.getInt("capture-budget-ms", fallbackCaptureBudgetMs) : fallbackCaptureBudgetMs, 0, 25);
             this.generateWorkers = clamp(section != null ? section.getInt("generate-workers", fallbackWorkers) : fallbackWorkers, 1, 16);
             this.maxInFlight = clamp(section != null ? section.getInt("max-in-flight", fallbackInFlight) : fallbackInFlight, 1, 64);
@@ -111,9 +102,6 @@ public class InertiaConfig {
         return Math.max(min, Math.min(max, value));
     }
 
-    // ==========================================
-    // General Settings
-    // ==========================================
     public static class GeneralSettings {
         public final String lang;
         public final DebugSettings DEBUG;
@@ -129,7 +117,6 @@ public class InertiaConfig {
         }
 
         public static class DebugSettings {
-
             public boolean consoleDebug = true;
             public final int hitboxDefaultRange;
             public final int hitboxMaxRange;
@@ -142,7 +129,6 @@ public class InertiaConfig {
                     this.hitboxRenderIntervalTicks = 2;
                     return;
                 }
-
                 this.consoleDebug = section.getBoolean("console", true);
                 ConfigurationSection hitboxes = section.getConfigurationSection("hitboxes");
                 this.hitboxDefaultRange = hitboxes != null ? hitboxes.getInt("default-range", 20) : 20;
@@ -152,9 +138,6 @@ public class InertiaConfig {
         }
     }
 
-    // ==========================================
-    // Physics Settings
-    // ==========================================
     public static class PhysicsSettings {
         public final Precision precision;
         public final int workerThreads;
@@ -162,6 +145,7 @@ public class InertiaConfig {
         public final TerrainGenerationSettings TERRAIN_GENERATION;
         public final MassSpawnSettings MASS_SPAWN;
         public final TaskManagerSettings TASK_MANAGER;
+        public final PersistenceSettings PERSISTENCE;
         public final PhysicsLoop.SnapshotMode snapshotMode;
 
         public PhysicsSettings(ConfigurationSection section, FileConfiguration root) {
@@ -172,20 +156,18 @@ public class InertiaConfig {
                 this.TERRAIN_GENERATION = new TerrainGenerationSettings(null, root);
                 this.MASS_SPAWN = new MassSpawnSettings(null, root);
                 this.TASK_MANAGER = new TaskManagerSettings(null, root);
+                this.PERSISTENCE = new PersistenceSettings(null, root);
                 this.snapshotMode = PhysicsLoop.SnapshotMode.LATEST;
                 return;
             }
-
-            // Parse Precision from String "DP" or "SP"
             String precStr = section.getString("precision", "SP");
             this.precision = "DP".equalsIgnoreCase(precStr) ? Precision.DP : Precision.SP;
-
             this.workerThreads = section.getInt("worker-threads", 2);
             this.CHUNK_CACHE = new ChunkCacheSettings(section.getConfigurationSection("chunk-cache"), root);
             this.TERRAIN_GENERATION = new TerrainGenerationSettings(section.getConfigurationSection("terrain-generation"), root);
             this.MASS_SPAWN = new MassSpawnSettings(section.getConfigurationSection("mass-spawn"), root);
             this.TASK_MANAGER = new TaskManagerSettings(section.getConfigurationSection("task-manager"), root);
-
+            this.PERSISTENCE = new PersistenceSettings(section.getConfigurationSection("persistence"), root);
             String modeValue = section.getString("snapshot-mode", "LATEST");
             PhysicsLoop.SnapshotMode parsedMode;
             try {
@@ -194,6 +176,14 @@ public class InertiaConfig {
                 parsedMode = PhysicsLoop.SnapshotMode.LATEST;
             }
             this.snapshotMode = parsedMode;
+        }
+
+        public static class PersistenceSettings {
+            public final boolean saveDynamicBodiesOnReload;
+
+            public PersistenceSettings(ConfigurationSection section, FileConfiguration root) {
+                this.saveDynamicBodiesOnReload = section != null ? section.getBoolean("save-dynamic-bodies-on-reload", true) : true;
+            }
         }
 
         public static class TaskManagerSettings {
@@ -205,12 +195,10 @@ public class InertiaConfig {
                 this.maxOneTimeTasksPerTick = section != null
                         ? Math.max(1, section.getInt("max-one-time-tasks-per-tick", 50))
                         : 50;
-
                 long oneTimeBudget = section != null
                         ? section.getLong("one-time-budget-nanos", 4_000_000L)
                         : 4_000_000L;
                 this.oneTimeTaskBudgetNanos = Math.max(100_000L, oneTimeBudget);
-
                 long recurringBudget = section != null
                         ? section.getLong("recurring-budget-nanos", 3_000_000L)
                         : 3_000_000L;
@@ -244,7 +232,6 @@ public class InertiaConfig {
                     this.diskTtlSeconds = 7200;
                     return;
                 }
-
                 this.maxEntries = section.getInt("max-entries", 4096);
                 int legacyTtl = section.getInt("ttl-seconds", 900);
                 this.memoryTtlSeconds = section.getInt("memory-ttl-seconds", legacyTtl);
@@ -283,9 +270,6 @@ public class InertiaConfig {
         }
     }
 
-    // ==========================================
-    // Rendering Settings
-    // ==========================================
     public static class RenderingSettings {
         public final NetworkEntityTrackerSettings NETWORK_ENTITY_TRACKER;
 
@@ -326,9 +310,8 @@ public class InertiaConfig {
             public final int adaptivePingHardThresholdMs;
 
             public NetworkEntityTrackerSettings(ConfigurationSection section, FileConfiguration root) {
-                // Keep defaults aligned with inertia-core/src/main/resources/config.yml (smooth visuals by default)
-                double defaultPosThreshold = 0.0; // blocks
-                double defaultRotThresholdDot = 1.0; // quaternion dot (abs)
+                double defaultPosThreshold = 0.0;
+                double defaultRotThresholdDot = 1.0;
 
                 double posThreshold = section != null ? section.getDouble("pos-threshold", defaultPosThreshold) : defaultPosThreshold;
                 if (posThreshold < 0) posThreshold = 0;
