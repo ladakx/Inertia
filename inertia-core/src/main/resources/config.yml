@@ -28,6 +28,8 @@ physics:
   worker-threads: 3
   # Режим буфера снапшотов физики: LATEST (только последний кадр) или FIFO (совместимый режим).
   snapshot-mode: FIFO
+  persistence:
+    save-dynamic-bodies-on-reload: true
   terrain-generation:
     # Максимальное количество chunk capture на main-thread за один тик.
     max-capture-per-tick: 4

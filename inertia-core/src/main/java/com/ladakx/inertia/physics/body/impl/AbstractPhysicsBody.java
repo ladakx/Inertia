@@ -20,7 +20,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
-
     private final List<Integer> relatedBodies = new CopyOnWriteArrayList<>();
     private final List<TwoBodyConstraintRef> constraints = new CopyOnWriteArrayList<>();
     private final @NotNull PhysicsWorld space;
@@ -28,6 +27,8 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     private final @NotNull Body body;
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
     private final java.util.UUID uuid = java.util.UUID.randomUUID();
+    private java.util.UUID clusterId = uuid;
+    private RVec3 worldAnchor = null;
 
     public AbstractPhysicsBody(@NotNull PhysicsWorld space,
                                @NotNull BodyCreationSettings bodySettings) {
@@ -37,6 +38,14 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         space.getBodyInterface().addBody(body, EActivation.Activate);
         space.addObject(this);
     }
+
+    public java.util.UUID getClusterId() { return clusterId; }
+    public void setClusterId(java.util.UUID clusterId) { this.clusterId = clusterId; }
+
+    public RVec3 getWorldAnchor() { return worldAnchor; }
+    public void setWorldAnchor(RVec3 worldAnchor) { this.worldAnchor = worldAnchor; }
+
+    public String getPartKey() { return "root"; }
 
     public void addRelated(@NotNull Body related) {
         if (related == null) {
@@ -50,6 +59,7 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         if (related == null) return;
         TwoBodyConstraint newConstraint = related.getPtr();
         if (newConstraint == null) return;
+
         long newVa = newConstraint.va();
         for (TwoBodyConstraintRef existing : constraints) {
             TwoBodyConstraint existingConstraint = existing.getPtr();
@@ -64,6 +74,7 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         if (related == null) return;
         TwoBodyConstraint target = related.getPtr();
         if (target == null) return;
+
         long targetVa = target.va();
         constraints.removeIf(existing -> {
             TwoBodyConstraint constraint = existing.getPtr();
@@ -97,6 +108,7 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         if (!destroyed.compareAndSet(false, true)) {
             return;
         }
+
         InertiaPlugin plugin = InertiaPlugin.getInstance();
         if (plugin != null && plugin.isEnabled()) {
             Bukkit.getScheduler().runTask(plugin, () -> {
@@ -109,7 +121,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         BodyInterface bodyInterface = space.getBodyInterface();
         String worldName = space.getWorldBukkit().getName();
 
-        // 1. Constraints
         List<TwoBodyConstraintRef> constraintSnapshot = new ArrayList<>(constraints);
         for (TwoBodyConstraintRef ref : constraintSnapshot) {
             if (ref == null) continue;
@@ -124,7 +135,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         }
         constraints.clear();
 
-        // 2. Related Bodies
         List<Integer> relatedSnapshot = new ArrayList<>(relatedBodies);
         for (int relatedId : relatedSnapshot) {
             try {
@@ -140,7 +150,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
         }
         relatedBodies.clear();
 
-        // 3. Main Body
         int mainBodyId = body.getId();
         try {
             bodyInterface.removeBody(mainBodyId);
@@ -160,13 +169,13 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     public @NotNull Location getLocation() {
         if (!isValid()) return new Location(space.getWorldBukkit(), 0, 0, 0);
         RVec3 pos = body.getPosition();
-        return space.toBukkit(pos); // Use Space conversion
+        return space.toBukkit(pos);
     }
 
     @Override
     public void teleport(@NotNull Location location) {
         if (!isValid()) return;
-        RVec3 pos = space.toJolt(location); // Use Space conversion
+        RVec3 pos = space.toJolt(location);
         space.getBodyInterface().setPosition(body.getId(), pos, EActivation.Activate);
     }
 
@@ -174,7 +183,6 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     public void move(@NotNull Vector offset) {
         if (!isValid()) return;
         RVec3 current = body.getPosition();
-        // Offset is relative, no origin shift needed for addition
         RVec3 newPos = new RVec3(current.xx() + offset.getX(), current.yy() + offset.getY(), current.zz() + offset.getZ());
         space.getBodyInterface().setPosition(body.getId(), newPos, EActivation.Activate);
     }

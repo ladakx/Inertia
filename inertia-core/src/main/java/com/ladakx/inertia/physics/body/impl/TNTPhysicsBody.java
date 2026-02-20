@@ -17,10 +17,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
-/**
- * Represents a physics-based TNT entity.
- * Handles the fuse timer and triggers the Jolt explosion.
- */
 public class TNTPhysicsBody extends BlockPhysicsBody {
 
     private final float explosionForce;
@@ -40,18 +36,16 @@ public class TNTPhysicsBody extends BlockPhysicsBody {
         super(space, bodyId, modelRegistry, renderFactory, shapeFactory, initialPosition, initialRotation);
         this.explosionForce = explosionForce;
         this.fuseTicks = fuseTicks;
-        // Radius typically scales with force, or can be fixed. 
-        // For Minecraft-like feel, force 4.0 has radius ~4-5 blocks. 
-        // We'll estimate radius based on force.
         this.explosionRadius = Math.max(4.0f, explosionForce / 2.0f);
-
-        // Schedule physics logic
         this.tickTaskUuid = space.addTickTask(this::onPhysicsTick);
     }
 
-    /**
-     * Executed on the Physics Thread every simulation step.
-     */
+    public float getExplosionForce() { return explosionForce; }
+    public int getFuseTicks() { return fuseTicks; }
+
+    @Override
+    public String getPartKey() { return "root"; }
+
     private void onPhysicsTick() {
         if (!isValid()) {
             getSpace().removeTickTask(tickTaskUuid);
@@ -59,37 +53,26 @@ public class TNTPhysicsBody extends BlockPhysicsBody {
         }
 
         fuseTicks--;
-
         if (fuseTicks <= 0) {
             detonate();
         }
     }
 
     private void detonate() {
-        // 1. Remove tick task to stop counting
         getSpace().removeTickTask(tickTaskUuid);
-
-        // 2. Perform Physics Explosion (Thread-safe Jolt calls)
-        // Convert current RVec3 (Double) to Vec3 (Float) for calculation
         RVec3 currentPosR = getBody().getPosition();
         com.github.stephengold.joltjni.Vec3 origin = new com.github.stephengold.joltjni.Vec3(
                 (float) currentPosR.xx(),
                 (float) currentPosR.yy(),
                 (float) currentPosR.zz()
         );
-
         getSpace().createExplosion(origin, explosionForce, explosionRadius);
 
-        // 3. Schedule Visuals & Cleanup on Main Thread
-        // We capture location data before destroying the body wrapper logic
         Location explodeLoc = ConvertUtils.toBukkitLoc(currentPosR, getSpace().getWorldBukkit());
 
         Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-            // Visual Effects
             explodeLoc.getWorld().spawnParticle(Particle.EXPLOSION_HUGE, explodeLoc, 1);
             explodeLoc.getWorld().playSound(explodeLoc, Sound.ENTITY_GENERIC_EXPLODE, SoundCategory.BLOCKS, 1.0f, 1.0f);
-
-            // Destroy the object (removes Jolt body and Display entity)
             this.destroy();
         });
     }

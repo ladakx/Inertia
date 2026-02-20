@@ -58,7 +58,6 @@ public final class InertiaPlugin extends JavaPlugin {
     private ToolRegistry toolRegistry;
     private ItemRegistry itemRegistry;
     private LibraryLoader libraryLoader;
-
     private PlayerTools playerTools;
     private JoltTools joltTools;
     private RenderFactory renderFactory;
@@ -70,12 +69,13 @@ public final class InertiaPlugin extends JavaPlugin {
     private PhysicsMetricsService metricsService;
     private DebugRenderService debugRenderService;
     private BossBarPerformanceMonitor perfMonitor;
-
     private ToolDataManager toolDataManager;
+
     private InertiaCommandManager commandManager;
 
     private NetworkEntityTracker networkEntityTracker;
     private NetworkManager networkManager;
+
     private DynamicBodyPersistenceCoordinator dynamicBodyPersistenceCoordinator;
 
     private BukkitTask globalNetworkTask;
@@ -83,6 +83,7 @@ public final class InertiaPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+
         InertiaLogger.init(this);
         InertiaLogger.info("Starting Inertia initialization...");
 
@@ -94,16 +95,15 @@ public final class InertiaPlugin extends JavaPlugin {
 
         this.meshProvider = new BlockBenchMeshProvider(this);
         this.configurationService = new ConfigurationService(this, meshProvider);
+
         this.itemRegistry = new ItemRegistry(configurationService);
         this.itemRegistry.reload();
-
         this.shapeFactory = new JShapeFactory(meshProvider);
 
         setupNMSTools();
 
         this.networkManager = NetworkManagerInit.get();
 
-        // Инициализация сетевого слоя
         com.ladakx.inertia.infrastructure.nms.packet.PacketFactory packetFactory =
                 com.ladakx.inertia.infrastructure.nms.packet.PacketFactoryInit.get();
 
@@ -117,19 +117,22 @@ public final class InertiaPlugin extends JavaPlugin {
                 configurationService.getInertiaConfig().PERFORMANCE.THREADING.network
         );
 
-        // Global network tick task (Replaces local tasks in PhysicsWorld)
         this.globalNetworkTask = Bukkit.getScheduler().runTaskTimer(this, this::runGlobalNetworkTick, 1L, 1L);
 
         this.metricsService = new PhysicsMetricsService();
+
         this.physicsEngine = new PhysicsEngine(this, configurationService);
         this.physicsWorldRegistry = new PhysicsWorldRegistry(this, configurationService, physicsEngine, metricsService);
+
         this.manipulationService = new PhysicsManipulationService();
         this.toolDataManager = new ToolDataManager(this);
         this.bodyFactory = new BodyFactory(this, physicsWorldRegistry, configurationService, shapeFactory);
+
         DynamicBodyStorage dynamicBodyStorage = new DynamicBodyStorage(physicsWorldRegistry);
         DynamicBodyValidator dynamicBodyValidator = new DynamicBodyValidator(configurationService);
         Path dynamicStoragePath = getDataFolder().toPath().resolve("data").resolve("dynamic-bodies.bin");
         DynamicBodyRuntimeLoader dynamicBodyRuntimeLoader = new DynamicBodyRuntimeLoader(this, bodyFactory, dynamicBodyValidator, dynamicStoragePath);
+
         this.dynamicBodyPersistenceCoordinator = new DynamicBodyPersistenceCoordinator(dynamicBodyStorage, dynamicBodyRuntimeLoader, dynamicStoragePath);
 
         this.toolRegistry = new ToolRegistry(this, configurationService, physicsWorldRegistry, shapeFactory, bodyFactory, manipulationService, toolDataManager);
@@ -143,17 +146,21 @@ public final class InertiaPlugin extends JavaPlugin {
         InertiaLogger.info("Inertia API registered.");
 
         new com.ladakx.inertia.features.integrations.WorldEditIntegration().init();
+
         registerCommands();
         registerListeners();
-        dynamicBodyPersistenceCoordinator.loadAsync();
+
+        if (configurationService.getInertiaConfig().PHYSICS.PERSISTENCE.saveDynamicBodiesOnReload) {
+            dynamicBodyPersistenceCoordinator.loadAsync();
+        } else {
+            dynamicBodyPersistenceCoordinator.clearStorage();
+        }
 
         InertiaLogger.info("Inertia has been enabled successfully!");
     }
 
     private void runGlobalNetworkTick() {
         if (networkEntityTracker != null) {
-            // View distance calculation is simplified here for global scope.
-            // In a real scenario, this might need per-world settings, but usually server view distance is uniform or handled by tracker per player.
             int viewDistanceBlocks = Bukkit.getViewDistance() * 16;
             double viewDistanceSquared = (double) viewDistanceBlocks * viewDistanceBlocks;
             networkEntityTracker.tick(Bukkit.getOnlinePlayers(), viewDistanceSquared);
@@ -197,14 +204,17 @@ public final class InertiaPlugin extends JavaPlugin {
         }
 
         if (dynamicBodyPersistenceCoordinator != null) {
-            dynamicBodyPersistenceCoordinator.saveNow();
+            if (configurationService.getInertiaConfig().PHYSICS.PERSISTENCE.saveDynamicBodiesOnReload) {
+                dynamicBodyPersistenceCoordinator.saveNow();
+            } else {
+                dynamicBodyPersistenceCoordinator.clearStorage();
+            }
             dynamicBodyPersistenceCoordinator.shutdown();
         }
 
         if (physicsWorldRegistry != null) physicsWorldRegistry.shutdown();
         if (physicsEngine != null) physicsEngine.shutdown();
         if (bodyFactory != null) bodyFactory.shutdown();
-
         if (networkEntityTracker != null) networkEntityTracker.clear();
 
         InertiaLogger.info("Inertia has been disabled.");
@@ -218,11 +228,45 @@ public final class InertiaPlugin extends JavaPlugin {
         Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> beforeReload =
                 configurationService.getPhysicsBodyRegistry().snapshot();
 
+        if (dynamicBodyPersistenceCoordinator != null) {
+            if (configurationService.getInertiaConfig().PHYSICS.PERSISTENCE.saveDynamicBodiesOnReload) {
+                dynamicBodyPersistenceCoordinator.saveNow();
+            } else {
+                dynamicBodyPersistenceCoordinator.clearStorage();
+            }
+            dynamicBodyPersistenceCoordinator.shutdown();
+        }
+
+        if (physicsWorldRegistry != null) {
+            for (com.ladakx.inertia.physics.world.PhysicsWorld space : physicsWorldRegistry.getAllSpaces()) {
+                for (com.ladakx.inertia.physics.body.InertiaPhysicsBody body : new ArrayList<>(space.getBodies())) {
+                    if (body.getMotionType() != com.ladakx.inertia.api.body.MotionType.STATIC) {
+                        body.destroy();
+                    }
+                }
+            }
+        }
+
         configurationService.reloadAsync()
                 .thenRun(() -> Bukkit.getScheduler().runTask(this, () -> {
                     Map<String, com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry.BodyModel> afterReload =
                             configurationService.getPhysicsBodyRegistry().snapshot();
+
                     applyRuntimeReload(beforeReload, afterReload);
+
+                    if (dynamicBodyPersistenceCoordinator != null) {
+                        if (configurationService.getInertiaConfig().PHYSICS.PERSISTENCE.saveDynamicBodiesOnReload) {
+                            dynamicBodyPersistenceCoordinator.loadAsync();
+                            for (org.bukkit.World world : Bukkit.getWorlds()) {
+                                for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
+                                    dynamicBodyPersistenceCoordinator.onChunkLoad(world.getName(), chunk.getX(), chunk.getZ());
+                                }
+                            }
+                        } else {
+                            dynamicBodyPersistenceCoordinator.clearStorage();
+                        }
+                    }
+
                     InertiaLogger.info("Inertia systems reloaded.");
                 }))
                 .exceptionally(ex -> {
@@ -276,10 +320,12 @@ public final class InertiaPlugin extends JavaPlugin {
         for (com.ladakx.inertia.physics.world.PhysicsWorld space : physicsWorldRegistry.getAllSpaces()) {
             for (com.ladakx.inertia.physics.body.InertiaPhysicsBody body : new ArrayList<>(space.getBodies())) {
                 String bodyId = body.getBodyId();
+
                 if (removedBodyIds.contains(bodyId)) {
                     body.destroy();
                     continue;
                 }
+
                 if (changedBodyIds.contains(bodyId)) {
                     org.bukkit.Location location = body.getLocation().clone();
                     org.bukkit.util.Vector linearVelocity = body.getLinearVelocity().clone();
@@ -288,7 +334,9 @@ public final class InertiaPlugin extends JavaPlugin {
                     float restitution = body.getRestitution();
                     float gravityFactor = body.getGravityFactor();
                     com.ladakx.inertia.api.body.MotionType motionType = body.getMotionType();
+
                     body.destroy();
+
                     if (location.getWorld() != null) {
                         com.ladakx.inertia.physics.body.InertiaPhysicsBody respawned = bodyFactory.spawnBodyWithResult(location, bodyId, null, java.util.Map.of());
                         if (respawned != null) {
@@ -310,14 +358,17 @@ public final class InertiaPlugin extends JavaPlugin {
             this.libraryLoader = new LibraryLoader();
             String precisionStr = this.getConfig().getString("physics.precision", "SP");
             Precision precision = "DP".equalsIgnoreCase(precisionStr) ? Precision.DP : Precision.SP;
+
             boolean preferWindowsAvx2 = this.getConfig().getBoolean("physics.native-library.prefer-windows-avx2", true);
             boolean preferLinuxFma = this.getConfig().getBoolean("physics.native-library.prefer-linux-fma", true);
             boolean allowLegacyCpuFallback = this.getConfig().getBoolean("physics.native-library.allow-legacy-cpu-fallback", true);
+
             LibraryLoader.NativeLibrarySettings nativeLibrarySettings = new LibraryLoader.NativeLibrarySettings(
                     preferWindowsAvx2,
                     preferLinuxFma,
                     allowLegacyCpuFallback
             );
+
             InertiaLogger.info("Jolt Precision set to: " + precision);
             this.libraryLoader.init(this, precision, nativeLibrarySettings);
             return true;
@@ -336,7 +387,6 @@ public final class InertiaPlugin extends JavaPlugin {
     }
 
     public static InertiaPlugin getInstance() { return instance; }
-
     public PlayerTools getPlayerTools() { return playerTools; }
     public JoltTools getJoltTools() { return joltTools; }
     public RenderFactory getRenderFactory() { return renderFactory; }

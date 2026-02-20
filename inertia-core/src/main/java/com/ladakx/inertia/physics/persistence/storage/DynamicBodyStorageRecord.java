@@ -2,38 +2,36 @@ package com.ladakx.inertia.physics.persistence.storage;
 
 import com.ladakx.inertia.api.body.MotionType;
 
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
 public record DynamicBodyStorageRecord(
-        UUID objectId,
+        UUID clusterId,
         String world,
         String bodyId,
-        double x,
-        double y,
-        double z,
-        float rotationX,
-        float rotationY,
-        float rotationZ,
-        float rotationW,
-        double linearVelocityX,
-        double linearVelocityY,
-        double linearVelocityZ,
-        double angularVelocityX,
-        double angularVelocityY,
-        double angularVelocityZ,
+        MotionType motionType,
         float friction,
         float restitution,
         float gravityFactor,
-        MotionType motionType,
         int chunkX,
         int chunkZ,
-        long savedAtEpochMillis
-) {
+        long savedAtEpochMillis,
+        Map<String, String> customData,
+        List<PartState> parts
+) implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 3L;
+
     public DynamicBodyStorageRecord {
-        Objects.requireNonNull(objectId, "objectId");
+        Objects.requireNonNull(clusterId, "clusterId");
         Objects.requireNonNull(world, "world");
         Objects.requireNonNull(bodyId, "bodyId");
         Objects.requireNonNull(motionType, "motionType");
+        Objects.requireNonNull(customData, "customData");
+        Objects.requireNonNull(parts, "parts");
     }
 }
