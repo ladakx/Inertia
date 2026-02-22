@@ -191,6 +191,10 @@ debug-perf-format: "Server: <aqua>{srv}ms <dark_gray>| <gray>Phys: <aqua>{phys}m
 debug-hitbox-toggle:
   - "{prefix} <gray>Hitbox Debugging: {state}"
 
+null_version_string: "{prefix} Warning: Provided version string cannot be null."
+unknown_version: "{prefix} Warning: Provided version string has an unknown format."
+unknown_protocol: "{prefix} Warning: Attempted to fetch a version by an unknown network protocol."
+
 help-index-1:
   - "<gradient:#00c6ff:#8a2be2><bold>INERTIA</bold></gradient> <dark_gray>•</dark_gray> <gray>Help</gray> <dark_gray>(Page {page}/{max})</dark_gray>"
   - "<dark_gray><st>────────────────────────────</st></dark_gray>"

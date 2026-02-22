@@ -418,6 +418,57 @@ ragdoll_left_leg:
 #      show-when:
 #        active: true
 #        sleeping: true
+
+##############################
+# Extra entity kinds (1.19+) #
+##############################
+# These entity kinds are rendered network-side (no real server entity by default),
+# and can be customized via the `settings:` section.
+#
+# interaction_hitbox:
+#   sync:
+#     position: true
+#     rotation: true
+#   entities:
+#     hitbox:
+#       type: INTERACTION
+#       invisible: true
+#       settings:
+#         no-gravity: true
+#         silent: true
+#         interaction:
+#           width: 1.0
+#           height: 1.0
+#           responsive: true
+#
+# boat_oak:
+#   sync:
+#     position: true
+#     rotation: true
+#   entities:
+#     boat:
+#       type: BOAT
+#       invisible: false
+#       settings:
+#         no-gravity: true
+#         silent: true
+#         boat:
+#           type: OAK
+#
+# shulker_purple:
+#   sync:
+#     position: true
+#     rotation: true
+#   entities:
+#     shulker:
+#       type: SHULKER
+#       invisible: false
+#       settings:
+#         no-gravity: true
+#         silent: true
+#         shulker:
+#           color: PURPLE
+#           peek: 0
 #    example2:
 #      type: ARMOR_STAND
 #      item-model: items:example2

@@ -3,6 +3,7 @@ package com.ladakx.inertia.configuration.dto;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
+import com.ladakx.inertia.rendering.config.RenderEntitySettingsValidator;
 import com.ladakx.inertia.rendering.config.enums.InertiaBillboard;
 import com.ladakx.inertia.rendering.config.enums.InertiaDisplayMode;
 import org.bukkit.Material;
@@ -109,6 +110,9 @@ public final class RenderConfig {
 
         boolean rotateTranslation = section.getBoolean("rotate-translation", true);
 
+        Map<String, Object> settings = parseSettings(section.getConfigurationSection("settings"));
+        RenderEntitySettingsValidator.validate(modelId, key, kind, settings);
+
         return new RenderEntityDefinition(
                 key, kind, itemModelKey, blockType, displayMode,
                 localOffset, localRotation, scale, translation,
@@ -116,8 +120,45 @@ public final class RenderConfig {
                 interpolationDuration, teleportDuration, billboard, brightnessBlock, brightnessSky,
                 section.getBoolean("small", false), section.getBoolean("invisible", true),
                 section.getBoolean("marker", true), section.getBoolean("base-plate", false),
-                section.getBoolean("arms", false)
+                section.getBoolean("arms", false),
+                settings
         );
+    }
+
+    private Map<String, Object> parseSettings(ConfigurationSection section) {
+        if (section == null) return Collections.emptyMap();
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (String key : section.getKeys(false)) {
+            Object value = section.get(key);
+            out.put(key, deepConvert(value));
+        }
+        return out;
+    }
+
+    private Object deepConvert(Object value) {
+        if (value == null) return null;
+        if (value instanceof ConfigurationSection cs) {
+            Map<String, Object> nested = new LinkedHashMap<>();
+            for (String k : cs.getKeys(false)) {
+                nested.put(k, deepConvert(cs.get(k)));
+            }
+            return nested;
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> nested = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                Object k = e.getKey();
+                if (k == null) continue;
+                nested.put(String.valueOf(k), deepConvert(e.getValue()));
+            }
+            return nested;
+        }
+        if (value instanceof List<?> list) {
+            List<Object> copy = new ArrayList<>(list.size());
+            for (Object v : list) copy.add(deepConvert(v));
+            return copy;
+        }
+        return value;
     }
 
     private Vector parseVector(String raw, Vector def) {

@@ -4,6 +4,8 @@ import com.ladakx.inertia.common.logging.InertiaLogger;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Interaction;
+import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Quaternionf;
@@ -13,6 +15,8 @@ import java.lang.reflect.Field;
 
 public class MetadataAccessors {
     public static EntityDataAccessor<Byte> ENTITY_FLAGS;
+    public static EntityDataAccessor<Boolean> ENTITY_SILENT;
+    public static EntityDataAccessor<Boolean> ENTITY_NO_GRAVITY;
 
     // Display (Base)
     public static EntityDataAccessor<Integer> DISPLAY_INTERPOLATION_DURATION;
@@ -34,11 +38,19 @@ public class MetadataAccessors {
     public static EntityDataAccessor<ItemStack> ITEM_DISPLAY_ITEM;
     public static EntityDataAccessor<Byte> ITEM_DISPLAY_CONTEXT;
 
+    public static EntityDataAccessor<Byte> SHULKER_PEEK;
+    public static EntityDataAccessor<Byte> SHULKER_COLOR;
+    public static EntityDataAccessor<Float> INTERACTION_WIDTH;
+    public static EntityDataAccessor<Float> INTERACTION_HEIGHT;
+    public static EntityDataAccessor<Boolean> INTERACTION_RESPONSIVE;
+
     static {
         try {
             // Entity
             // public static final EntityDataAccessor<Byte> DATA_SHARED_FLAGS_ID;
             ENTITY_FLAGS = getField(Entity.class, "DATA_SHARED_FLAGS_ID");
+            ENTITY_SILENT = getFieldOrNull(Entity.class, "DATA_SILENT");
+            ENTITY_NO_GRAVITY = getFieldOrNull(Entity.class, "DATA_NO_GRAVITY");
 
             // Display (Base)
             // private static final EntityDataAccessor<Integer> DATA_TRANSFORMATION_INTERPOLATION_DURATION_ID;
@@ -88,6 +100,12 @@ public class MetadataAccessors {
         } catch (Exception e) {
             InertiaLogger.error("Failed to initialize NMS Metadata Accessors via Reflection!", e);
         }
+
+        SHULKER_PEEK = getFieldOrNull(Shulker.class, "DATA_PEEK_ID", "DATA_PEEK");
+        SHULKER_COLOR = getFieldOrNull(Shulker.class, "DATA_COLOR_ID", "DATA_COLOR");
+        INTERACTION_WIDTH = getFieldOrNull(Interaction.class, "DATA_WIDTH_ID", "DATA_WIDTH");
+        INTERACTION_HEIGHT = getFieldOrNull(Interaction.class, "DATA_HEIGHT_ID", "DATA_HEIGHT");
+        INTERACTION_RESPONSIVE = getFieldOrNull(Interaction.class, "DATA_RESPONSE_ID", "DATA_RESPONSIVE", "DATA_RESPONSE");
     }
 
     @SuppressWarnings("unchecked")
@@ -95,5 +113,17 @@ public class MetadataAccessors {
         Field field = clazz.getDeclaredField(fieldName);
         field.setAccessible(true);
         return (EntityDataAccessor<T>) field.get(null);
+    }
+
+    private static <T> EntityDataAccessor<T> getFieldOrNull(Class<?> clazz, String... fieldNames) {
+        if (clazz == null || fieldNames == null) return null;
+        for (String name : fieldNames) {
+            if (name == null || name.isBlank()) continue;
+            try {
+                return getField(clazz, name);
+            } catch (Throwable ignored) {
+            }
+        }
+        return null;
     }
 }

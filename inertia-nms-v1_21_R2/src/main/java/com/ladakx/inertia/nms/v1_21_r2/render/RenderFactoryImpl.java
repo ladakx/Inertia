@@ -29,6 +29,12 @@ public class RenderFactoryImpl implements RenderFactory {
             case ARMOR_STAND:
                 // Fallback implementation or TODO: ArmorStandVisual
                 return new ItemDisplayVisual(definition, packetFactory, itemResolver); 
+            case BOAT:
+                return new BoatVisual(definition, packetFactory);
+            case SHULKER:
+                return new ShulkerVisual(definition, packetFactory);
+            case INTERACTION:
+                return new InteractionVisual(definition, packetFactory);
             default:
                 throw new IllegalArgumentException("Unsupported visual kind: " + definition.kind());
         }

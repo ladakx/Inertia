@@ -144,7 +144,8 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
                 def.invisible(),
                 def.marker(),
                 def.basePlate(),
-                def.arms()
+                def.arms(),
+                def.settings()
         );
     }
 

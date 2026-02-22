@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.lang.reflect.Field;
 
 public class PacketFactoryImpl implements PacketFactory {
 
@@ -32,6 +33,9 @@ public class PacketFactoryImpl implements PacketFactory {
         EntityType<?> type = switch (kind) {
             case BLOCK_DISPLAY -> EntityType.BLOCK_DISPLAY;
             case ITEM_DISPLAY -> EntityType.ITEM_DISPLAY;
+            case BOAT -> resolveEntityType("OAK_BOAT");
+            case SHULKER -> EntityType.SHULKER;
+            case INTERACTION -> resolveEntityType("INTERACTION");
             default -> EntityType.ARMOR_STAND;
         };
 
@@ -167,5 +171,16 @@ public class PacketFactoryImpl implements PacketFactory {
         if (packet instanceof Packet<?> nmsPacket) {
             sink.add((Packet<? super ClientGamePacketListener>) nmsPacket);
         }
+    }
+
+    private EntityType<?> resolveEntityType(String staticFieldName) {
+        if (staticFieldName == null || staticFieldName.isBlank()) return EntityType.ARMOR_STAND;
+        try {
+            Field f = EntityType.class.getField(staticFieldName);
+            Object v = f.get(null);
+            if (v instanceof EntityType<?> t) return t;
+        } catch (Throwable ignored) {
+        }
+        return EntityType.ARMOR_STAND;
     }
 }

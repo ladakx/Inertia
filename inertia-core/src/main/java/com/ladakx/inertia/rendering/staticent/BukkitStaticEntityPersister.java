@@ -4,11 +4,14 @@ import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.pdc.InertiaPDCKeys;
 import com.ladakx.inertia.features.items.ItemRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
+import com.ladakx.inertia.rendering.config.RenderSettings;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Shulker;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -19,6 +22,7 @@ import org.joml.Vector3f;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.Locale;
 
 public final class BukkitStaticEntityPersister implements StaticEntityPersister {
 
@@ -63,6 +67,7 @@ public final class BukkitStaticEntityPersister implements StaticEntityPersister 
             case BLOCK_DISPLAY -> {
                 Entity display = trySpawnByTypeName(location, "BLOCK_DISPLAY");
                 if (display != null && applyBlockDisplaySettings(display, def, leftRotation)) {
+                    applyCommonSettings(display, def);
                     yield display;
                 }
                 yield spawnArmorStandFallback(location, def, true);
@@ -70,12 +75,61 @@ public final class BukkitStaticEntityPersister implements StaticEntityPersister 
             case ITEM_DISPLAY -> {
                 Entity display = trySpawnByTypeName(location, "ITEM_DISPLAY");
                 if (display != null && applyItemDisplaySettings(display, def, leftRotation)) {
+                    applyCommonSettings(display, def);
                     yield display;
                 }
                 yield spawnArmorStandFallback(location, def, false);
             }
             case ARMOR_STAND -> spawnArmorStandFallback(location, def, false);
+            case BOAT -> {
+                Entity boat = spawnBoat(location, def);
+                if (boat != null) {
+                    applyBoatSettings(boat, def);
+                    applyCommonSettings(boat, def);
+                }
+                yield boat;
+            }
+            case SHULKER -> {
+                Entity shulker = trySpawnByTypeName(location, "SHULKER");
+                if (shulker != null) {
+                    applyShulkerSettings(shulker, def);
+                    applyCommonSettings(shulker, def);
+                }
+                yield shulker;
+            }
+            case INTERACTION -> {
+                Entity interaction = trySpawnByTypeName(location, "INTERACTION");
+                if (interaction != null) {
+                    applyInteractionSettings(interaction, def);
+                    applyCommonSettings(interaction, def);
+                    yield interaction;
+                }
+                // Fallback for older versions without Interaction entity
+                yield spawnArmorStandFallback(location, def, false);
+            }
         };
+    }
+
+    private @Nullable Entity spawnBoat(Location location, RenderEntityDefinition def) {
+        // Modern versions use per-wood entity types: OAK_BOAT / OAK_CHEST_BOAT etc.
+        String wood = RenderSettings.getString(def.settings(), "boat.type");
+        if (wood == null) wood = RenderSettings.getString(def.settings(), "type");
+        if (wood == null || wood.isBlank()) wood = "OAK";
+
+        Boolean chest = RenderSettings.getBoolean(def.settings(), "boat.chest");
+        if (chest == null) chest = RenderSettings.getBoolean(def.settings(), "chest");
+        boolean isChest = chest != null && chest;
+
+        String resolved = wood.trim().toUpperCase(Locale.ROOT) + (isChest ? "_CHEST_BOAT" : "_BOAT");
+
+        Entity boat = trySpawnByTypeName(location, resolved);
+        if (boat != null) return boat;
+
+        // Fallbacks for older versions / alternative enums.
+        boat = trySpawnByTypeName(location, "BOAT");
+        if (boat != null) return boat;
+
+        return trySpawnByTypeName(location, "OAK_BOAT");
     }
 
     private @Nullable Entity trySpawnByTypeName(Location location, String entityTypeName) {
@@ -106,6 +160,7 @@ public final class BukkitStaticEntityPersister implements StaticEntityPersister 
             }
 
             stand.setRemoveWhenFarAway(false);
+            applyCommonSettings(stand, def);
             return stand;
         } catch (Throwable ex) {
             InertiaLogger.warn("Failed to spawn ArmorStand fallback for static render part " + def.key(), ex);
@@ -270,5 +325,143 @@ public final class BukkitStaticEntityPersister implements StaticEntityPersister 
         } catch (Throwable ignored) {
         }
     }
-}
 
+    private void applyCommonSettings(Entity entity, RenderEntityDefinition def) {
+        if (entity == null) return;
+        var settings = def.settings();
+        if (settings == null || settings.isEmpty()) return;
+
+        Boolean silent = RenderSettings.getBoolean(settings, "silent");
+        if (silent != null) applyOptionalBoolean(entity, "setSilent", silent);
+
+        Boolean gravity = RenderSettings.getBoolean(settings, "gravity");
+        if (gravity != null) applyOptionalBoolean(entity, "setGravity", gravity);
+
+        Boolean invulnerable = RenderSettings.getBoolean(settings, "invulnerable");
+        if (invulnerable != null) applyOptionalBoolean(entity, "setInvulnerable", invulnerable);
+
+        Boolean glowing = RenderSettings.getBoolean(settings, "glowing");
+        if (glowing != null) applyOptionalBoolean(entity, "setGlowing", glowing);
+
+        Boolean collidable = RenderSettings.getBoolean(settings, "collidable");
+        if (collidable != null) applyOptionalBoolean(entity, "setCollidable", collidable);
+
+        Boolean persistent = RenderSettings.getBoolean(settings, "persistent");
+        if (persistent != null) {
+            // Available on Mob (not on base Entity in 1.16 API), so use reflection.
+            try {
+                Method m = entity.getClass().getMethod("setRemoveWhenFarAway", boolean.class);
+                m.invoke(entity, !persistent);
+            } catch (Throwable ignored) {
+            }
+        }
+
+        String name = RenderSettings.getString(settings, "custom-name");
+        if (name != null && !name.isBlank()) {
+            try {
+                Method m = Entity.class.getMethod("setCustomName", String.class);
+                m.invoke(entity, name);
+            } catch (Throwable ignored) {
+            }
+        }
+        Boolean visible = RenderSettings.getBoolean(settings, "custom-name-visible");
+        if (visible != null) applyOptionalBoolean(entity, "setCustomNameVisible", visible);
+    }
+
+    private void applyOptionalBoolean(Object target, String methodName, boolean value) {
+        try {
+            Method m = target.getClass().getMethod(methodName, boolean.class);
+            m.invoke(target, value);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void applyBoatSettings(Entity entity, RenderEntityDefinition def) {
+        if (!(entity instanceof Boat boat)) return;
+        String typeRaw = RenderSettings.getString(def.settings(), "boat.type");
+        if (typeRaw == null) typeRaw = RenderSettings.getString(def.settings(), "type");
+        if (typeRaw != null && !typeRaw.isBlank()) {
+            applyBoatTypeReflectively(boat, typeRaw);
+        }
+    }
+
+    private void applyBoatTypeReflectively(Boat boat, String typeRaw) {
+        String normalized = typeRaw.trim().toUpperCase(Locale.ROOT);
+
+        // Prefer modern API: setBoatType(Boat.Type)
+        if (trySetEnumParam(boat, "setBoatType", normalized)) return;
+
+        // Legacy API: setWoodType(TreeSpecies) (very old versions)
+        trySetEnumParam(boat, "setWoodType", normalized);
+    }
+
+    private boolean trySetEnumParam(Object target, String methodName, String enumConstantName) {
+        try {
+            for (Method method : target.getClass().getMethods()) {
+                if (!method.getName().equals(methodName) || method.getParameterCount() != 1) continue;
+                Class<?> paramType = method.getParameterTypes()[0];
+                if (!paramType.isEnum()) continue;
+
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                Object enumValue = Enum.valueOf((Class<? extends Enum>) paramType, enumConstantName);
+                method.invoke(target, enumValue);
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    private void applyShulkerSettings(Entity entity, RenderEntityDefinition def) {
+        if (!(entity instanceof Shulker shulker)) return;
+        String colorRaw = RenderSettings.getString(def.settings(), "shulker.color");
+        if (colorRaw == null) colorRaw = RenderSettings.getString(def.settings(), "color");
+        if (colorRaw != null && !colorRaw.isBlank()) {
+            try {
+                // DyeColor exists on 1.16 API
+                org.bukkit.DyeColor color = org.bukkit.DyeColor.valueOf(colorRaw.trim().toUpperCase(Locale.ROOT));
+                shulker.setColor(color);
+            } catch (Throwable ignored) {
+            }
+        }
+        Float peekRaw = RenderSettings.getFloat(def.settings(), "shulker.peek");
+        if (peekRaw == null) peekRaw = RenderSettings.getFloat(def.settings(), "peek");
+        if (peekRaw != null) {
+            try {
+                Method m = shulker.getClass().getMethod("setPeek", float.class);
+                m.invoke(shulker, peekRaw);
+            } catch (Throwable ignored) {
+            }
+        }
+        Boolean aiRaw = RenderSettings.getBoolean(def.settings(), "shulker.ai");
+        if (aiRaw == null) aiRaw = RenderSettings.getBoolean(def.settings(), "ai");
+        if (aiRaw != null) {
+            try {
+                Method m = shulker.getClass().getMethod("setAI", boolean.class);
+                m.invoke(shulker, aiRaw);
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private void applyInteractionSettings(Entity entity, RenderEntityDefinition def) {
+        // org.bukkit.entity.Interaction is not present on 1.16 API, so use reflection.
+        try {
+            Class<?> interactionClass = Class.forName("org.bukkit.entity.Interaction");
+            if (!interactionClass.isInstance(entity)) return;
+
+            Float width = RenderSettings.getFloat(def.settings(), "interaction.width");
+            if (width == null) width = RenderSettings.getFloat(def.settings(), "width");
+            if (width != null) invokeIfPresent(interactionClass, entity, "setInteractionWidth", float.class, width);
+
+            Float height = RenderSettings.getFloat(def.settings(), "interaction.height");
+            if (height == null) height = RenderSettings.getFloat(def.settings(), "height");
+            if (height != null) invokeIfPresent(interactionClass, entity, "setInteractionHeight", float.class, height);
+
+            Boolean responsive = RenderSettings.getBoolean(def.settings(), "interaction.responsive");
+            if (responsive == null) responsive = RenderSettings.getBoolean(def.settings(), "responsive");
+            if (responsive != null) invokeIfPresent(interactionClass, entity, "setResponsive", boolean.class, responsive);
+        } catch (Throwable ignored) {
+        }
+    }
+}

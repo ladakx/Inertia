@@ -8,6 +8,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.entity.Interaction;
 import org.joml.Quaternionfc;
 import org.joml.Vector3fc;
 
@@ -46,6 +48,13 @@ public final class MetadataAccessors {
     public static EntityDataAccessor<ItemStack> ITEM_DISPLAY_ITEM;
     public static EntityDataAccessor<Byte> ITEM_DISPLAY_CONTEXT;
 
+    public static EntityDataAccessor<Byte> SHULKER_PEEK;
+    public static EntityDataAccessor<Byte> SHULKER_COLOR;
+
+    public static EntityDataAccessor<Float> INTERACTION_WIDTH;
+    public static EntityDataAccessor<Float> INTERACTION_HEIGHT;
+    public static EntityDataAccessor<Boolean> INTERACTION_RESPONSIVE;
+
     static {
         try {
             ENTITY_FLAGS = getField(Entity.class, "DATA_SHARED_FLAGS_ID");
@@ -81,6 +90,14 @@ public final class MetadataAccessors {
         } catch (Exception exception) {
             InertiaLogger.error("CRITICAL: Failed to access NMS MetadataAccessors for 1.21.4 (v1_21_r8)!", exception);
         }
+
+        // Optional accessors for additional entity kinds. Must not break core rendering if missing.
+        SHULKER_PEEK = getFieldOrNull(Shulker.class, "DATA_PEEK_ID", "DATA_PEEK");
+        SHULKER_COLOR = getFieldOrNull(Shulker.class, "DATA_COLOR_ID", "DATA_COLOR");
+
+        INTERACTION_WIDTH = getFieldOrNull(Interaction.class, "DATA_WIDTH_ID", "DATA_WIDTH");
+        INTERACTION_HEIGHT = getFieldOrNull(Interaction.class, "DATA_HEIGHT_ID", "DATA_HEIGHT");
+        INTERACTION_RESPONSIVE = getFieldOrNull(Interaction.class, "DATA_RESPONSE_ID", "DATA_RESPONSIVE", "DATA_RESPONSE");
     }
 
     private MetadataAccessors() {
@@ -99,5 +116,17 @@ public final class MetadataAccessors {
             throw new IllegalStateException("Field " + fieldName + " in " + targetClass.getName() + " is null");
         }
         return (EntityDataAccessor<T>) value;
+    }
+
+    private static <T> EntityDataAccessor<T> getFieldOrNull(Class<?> targetClass, String... fieldNames) {
+        if (targetClass == null || fieldNames == null || fieldNames.length == 0) return null;
+        for (String fieldName : fieldNames) {
+            if (fieldName == null || fieldName.isBlank()) continue;
+            try {
+                return getField(targetClass, fieldName);
+            } catch (Throwable ignored) {
+            }
+        }
+        return null;
     }
 }
