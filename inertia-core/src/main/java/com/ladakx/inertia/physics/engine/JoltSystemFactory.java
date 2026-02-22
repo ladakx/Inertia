@@ -10,11 +10,15 @@ public class JoltSystemFactory {
         ObjectLayerPairFilterTable ovoFilter = new ObjectLayerPairFilterTable(PhysicsLayers.NUM_OBJ_LAYERS);
         ovoFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_MOVING);
         ovoFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_STATIC);
+        ovoFilter.enableCollision(PhysicsLayers.OBJ_MOVING, PhysicsLayers.OBJ_ENTITY);
         ovoFilter.disableCollision(PhysicsLayers.OBJ_STATIC, PhysicsLayers.OBJ_STATIC);
+        ovoFilter.disableCollision(PhysicsLayers.OBJ_STATIC, PhysicsLayers.OBJ_ENTITY);
+        ovoFilter.disableCollision(PhysicsLayers.OBJ_ENTITY, PhysicsLayers.OBJ_ENTITY);
 
         BroadPhaseLayerInterfaceTable layerMap = new BroadPhaseLayerInterfaceTable(PhysicsLayers.NUM_OBJ_LAYERS, PhysicsLayers.NUM_BP_LAYERS);
-        layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_MOVING, 0);
-        layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_STATIC, 0);
+        layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_MOVING, PhysicsLayers.BP_MOVING);
+        layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_STATIC, PhysicsLayers.BP_STATIC);
+        layerMap.mapObjectToBroadPhaseLayer(PhysicsLayers.OBJ_ENTITY, PhysicsLayers.BP_ENTITY);
 
         ObjectVsBroadPhaseLayerFilter ovbFilter = new ObjectVsBroadPhaseLayerFilterTable(layerMap, PhysicsLayers.NUM_BP_LAYERS, ovoFilter, PhysicsLayers.NUM_OBJ_LAYERS);
 
