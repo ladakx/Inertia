@@ -97,7 +97,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
         for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
             String entityKey = entry.getKey();
-            RenderEntityDefinition entityDef = entry.getValue();
+            RenderEntityDefinition entityDef = withSkin(entry.getValue());
             NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
             parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
         }
@@ -110,6 +110,41 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
                 parts,
                 plugin != null ? plugin.getNetworkEntityTracker() : null,
                 new BukkitStaticEntityPersister(plugin != null ? plugin.getItemRegistry() : null)
+        );
+    }
+
+    private RenderEntityDefinition withSkin(RenderEntityDefinition def) {
+        if (skinNickname == null || skinNickname.isBlank()) return def;
+        if (def.itemModelKey() == null || def.itemModelKey().isBlank()) return def;
+        if (def.itemModelKey().contains("@skin=")) return def;
+
+        String itemKeyWithSkin = def.itemModelKey() + "@skin=" + skinNickname;
+        return new RenderEntityDefinition(
+                def.key(),
+                def.kind(),
+                itemKeyWithSkin,
+                def.blockType(),
+                def.displayMode(),
+                def.localOffset(),
+                def.localRotation(),
+                def.scale(),
+                def.translation(),
+                def.showWhenActive(),
+                def.showWhenSleeping(),
+                def.rotTranslation(),
+                def.viewRange(),
+                def.shadowRadius(),
+                def.shadowStrength(),
+                def.interpolationDuration(),
+                def.teleportDuration(),
+                def.billboard(),
+                def.brightnessBlock(),
+                def.brightnessSky(),
+                def.small(),
+                def.invisible(),
+                def.marker(),
+                def.basePlate(),
+                def.arms()
         );
     }
 

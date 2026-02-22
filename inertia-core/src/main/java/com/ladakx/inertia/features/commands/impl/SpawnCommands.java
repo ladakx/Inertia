@@ -9,6 +9,7 @@ import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.physics.factory.BodyFactory;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.incendo.cloud.CommandManager;
@@ -81,15 +82,16 @@ public class SpawnCommands extends CloudModule {
         manager.command(spawnRoot
                 .literal("ragdoll")
                 .required("id", BodyIdByTypeParser.bodyIdByTypeParser(config, PhysicsBodyType.RAGDOLL))
-                .optional("nickname", StringParser.stringParser(),
-                        Description.of("Skin nickname (Minecraft username)"))
+                .optional("skin", StringParser.stringParser(),
+                        Description.of("Skin (Minecraft username)"),
+                        SuggestionProvider.blockingStrings((c, i) -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList()))
                 .handler(ctx -> {
                     if (!validatePlayer(ctx.sender())) return;
                     Player player = (Player) ctx.sender();
                     if (!validateWorld(player)) return;
 
                     String id = ctx.get("id");
-                    String nickname = ctx.getOrDefault("nickname", null);
+                    String nickname = ctx.getOrDefault("skin", null);
 
                     try {
                         bodyFactory.spawnRagdollAt(player, id, nickname, false, player.getEyeLocation());
