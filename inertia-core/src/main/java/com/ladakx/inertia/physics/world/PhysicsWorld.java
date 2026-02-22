@@ -18,6 +18,7 @@ import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
 import com.ladakx.inertia.physics.world.loop.PhysicsLoop;
+import com.ladakx.inertia.physics.entity.EntityPhysicsManager;
 import com.ladakx.inertia.physics.world.managers.*;
 import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
@@ -64,6 +65,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final TerrainAdapter terrainAdapter;
 
     private final PhysicsContactListener contactListener;
+    private final EntityPhysicsManager entityPhysicsManager;
     private final WorldBoundaryManager boundaryManager;
 
     private final List<Body> staticBodies = new ArrayList<>();
@@ -119,7 +121,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.buoyancyManager = new BuoyancyManager(this);
         this.fluidPhysicsEnabled = inertiaConfig.PHYSICS.FLUIDS.enabled;
 
-        this.contactListener = new PhysicsContactListener(objectManager);
+        this.entityPhysicsManager = new EntityPhysicsManager(this, taskManager);
+        this.contactListener = new PhysicsContactListener(objectManager, physicsSystem, entityPhysicsManager);
         this.physicsSystem.setContactListener(contactListener);
 
         this.bodyActivationListener = new InertiaBodyActivationListener(objectManager);
@@ -310,6 +313,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     private void applySnapshot(PhysicsSnapshot snapshot) {
+        entityPhysicsManager.syncFromBukkit();
+        entityPhysicsManager.drainFeedback();
         for (AbstractPhysicsBody body : snapshot.bodiesToDestroy()) {
             if (body.isValid()) {
                 schedulePhysicsTask(body::destroy);

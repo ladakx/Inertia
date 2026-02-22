@@ -1,13 +1,13 @@
 package com.ladakx.inertia.physics.engine;
 
 public interface PhysicsLayers {
-    // Object Layers (Типи об'єктів)
     int OBJ_MOVING = 0;
     int OBJ_STATIC = 1;
-    int NUM_OBJ_LAYERS = 2;
+    int OBJ_ENTITY = 2;
+    int NUM_OBJ_LAYERS = 3;
 
-    // Broadphase Layers
     int BP_MOVING = 0;
     int BP_STATIC = 1;
-    int NUM_BP_LAYERS = 1;
+    int BP_ENTITY = 2;
+    int NUM_BP_LAYERS = 3;
 }
