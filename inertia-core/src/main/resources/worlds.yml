@@ -3,6 +3,65 @@ world:
   tick-rate: 20
   collision-steps: 4
 
+  # Сталкивания живых сущностей (в т.ч. игрока) с физическими объектами
+  entity-collisions:
+    # Глобальный выключатель системы прокси-капсул для LivingEntity
+    enabled: true
+
+    # В каких режимах игры игрок должен сталкиваться с физическими объектами
+    # Если список пустой/не задан — по умолчанию: SURVIVAL, ADVENTURE
+    enabled-gamemodes:
+      - SURVIVAL
+      - ADVENTURE
+
+    # Удар/нокбэк/урон, когда физический объект летит в игрока
+    impact:
+      enabled: true
+      min-impulse-threshold: 6.0
+      impulse-scale: 0.5
+      knockback-per-impulse: 0.006
+      max-knockback: 1.25
+      damage-per-impulse: 0.02
+      max-damage: 10.0
+
+    # Параметры толкания динамических объектов кинокапсулой игрока
+    pushing:
+      enabled: true
+      player-proxy-friction: 0.2
+      player-proxy-restitution: 0.0
+      # При контакте игрока с динамическим телом dt умножается на это значение.
+      # Больше = слабее толкает (мягче). Меньше = сильнее толкает.
+      kinematic-contact-dt-multiplier: 1.15
+
+    # Если игрок "внутри" динамического тела — переводить прокси в sensor до выхода
+    stuck:
+      enabled: true
+      sensor-enable-ticks: 6
+      sensor-disable-ticks: 3
+
+    # Размеры капсул прокси (half-height и radius — в блоках)
+    capsules:
+      standing:
+        half-height: 0.9
+        radius: 0.3
+      sneaking:
+        half-height: 0.75
+        radius: 0.3
+      horizontal:
+        half-height: 0.75
+        radius: 0.3
+
+      # Капсулы для детекта "глубокого" проникновения внутрь динамического тела
+      inside-standing:
+        half-height: 0.65
+        radius: 0.18
+      inside-sneaking:
+        half-height: 0.55
+        radius: 0.18
+      inside-horizontal:
+        half-height: 0.55
+        radius: 0.18
+
   # Управление жизненным циклом физических чанков
   chunk-management:
     # Генерировать физику автоматически при загрузке чанка

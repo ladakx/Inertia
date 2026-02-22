@@ -2,6 +2,7 @@ package com.ladakx.inertia.physics.entity;
 
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
+import com.github.stephengold.joltjni.enumerate.EActiveEdgeMode;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.api.entity.IEntityPhysicsManager;
 import com.ladakx.inertia.common.utils.ConvertUtils;
@@ -13,6 +14,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -20,7 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public final class EntityPhysicsManager implements IEntityPhysicsManager {
-    private static final float MIN_IMPULSE_THRESHOLD = 4.0f;
 
     private final PhysicsWorld world;
     private final PhysicsTaskManager taskManager;
@@ -32,14 +33,27 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
     private final Shape sneakingShape;
     private final Shape horizontalShape;
 
+    private final Shape standingInsideShape;
+    private final Shape sneakingInsideShape;
+    private final Shape horizontalInsideShape;
+
     public EntityPhysicsManager(PhysicsWorld world, PhysicsTaskManager taskManager) {
         this.world = Objects.requireNonNull(world);
         this.taskManager = Objects.requireNonNull(taskManager);
-        this.standingShape = new CapsuleShape(0.9f, 0.3f);
-        this.sneakingShape = new CapsuleShape(0.75f, 0.3f);
-        CapsuleShape base = new CapsuleShape(0.75f, 0.3f);
+        var entityCollisions = world.getSettings().entityCollisions();
+        var capsules = entityCollisions.capsules();
+
+        this.standingShape = new CapsuleShape(capsules.standing().halfHeight(), capsules.standing().radius());
+        this.sneakingShape = new CapsuleShape(capsules.sneaking().halfHeight(), capsules.sneaking().radius());
+        CapsuleShape base = new CapsuleShape(capsules.horizontal().halfHeight(), capsules.horizontal().radius());
         Quat rotation = ConvertUtils.toJolt(new org.joml.Quaternionf().rotationXYZ(0f, 0f, (float) (Math.PI * 0.5d)));
         this.horizontalShape = new RotatedTranslatedShape(new Vec3(0f, 0f, 0f), rotation, base);
+
+        // Smaller shapes used to detect "deep" penetration into dynamic bodies (vs. normal touching contact).
+        this.standingInsideShape = new CapsuleShape(capsules.insideStanding().halfHeight(), capsules.insideStanding().radius());
+        this.sneakingInsideShape = new CapsuleShape(capsules.insideSneaking().halfHeight(), capsules.insideSneaking().radius());
+        CapsuleShape insideBase = new CapsuleShape(capsules.insideHorizontal().halfHeight(), capsules.insideHorizontal().radius());
+        this.horizontalInsideShape = new RotatedTranslatedShape(new Vec3(0f, 0f, 0f), rotation, insideBase);
     }
 
     @Override
@@ -68,6 +82,12 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
     }
 
     public void syncFromBukkit() {
+        if (!world.getSettings().entityCollisions().enabled()) {
+            for (UUID entityId : new ArrayList<>(proxies.keySet())) {
+                untrack(entityId);
+            }
+            return;
+        }
         for (LivingEntity entity : world.getWorldBukkit().getLivingEntities()) {
             if (!entity.isValid() || entity.isDead()) {
                 continue;
@@ -91,36 +111,81 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
                 continue;
             }
             living.setVelocity(dto.knockback());
-            double damage = Math.min(20.0d, dto.impulse() * 0.05d);
+            var impact = world.getSettings().entityCollisions().impact();
+            double damage = Math.min(impact.maxDamage(), dto.impulse() * impact.damagePerImpulse());
             if (damage > 0.0d) {
                 living.damage(damage);
             }
         }
     }
 
-    public void handleDynamicContact(int bodyA, int bodyB, Vec3 velocityA, Vec3 velocityB, float massA, float massB) {
-        process(bodyA, bodyB, velocityA, velocityB, massA, massB);
-        process(bodyB, bodyA, velocityB, velocityA, massB, massA);
+    public void handleDynamicContact(int bodyA,
+                                     int bodyB,
+                                     Vec3 velocityA,
+                                     Vec3 velocityB,
+                                     float massA,
+                                     float massB,
+                                     boolean bodyASensor,
+                                     boolean bodyBSensor) {
+        process(bodyA, bodyB, velocityA, velocityB, massA, massB, bodyASensor);
+        process(bodyB, bodyA, velocityB, velocityA, massB, massA, bodyBSensor);
     }
 
-    private void process(int entityBodyId, int otherBodyId, Vec3 entityVelocity, Vec3 otherVelocity, float entityMass, float otherMass) {
+    private void process(int entityBodyId,
+                         int otherBodyId,
+                         Vec3 entityVelocity,
+                         Vec3 otherVelocity,
+                         float entityMass,
+                         float otherMass,
+                         boolean entitySensor) {
+        if (entitySensor) {
+            return;
+        }
         UUID entityId = bodyToEntity.get(entityBodyId);
         if (entityId == null) {
             return;
         }
+        var impact = world.getSettings().entityCollisions().impact();
+        if (!impact.enabled()) {
+            return;
+        }
+
         float relX = otherVelocity.getX() - entityVelocity.getX();
         float relY = otherVelocity.getY() - entityVelocity.getY();
         float relZ = otherVelocity.getZ() - entityVelocity.getZ();
-        float speed = (float) Math.sqrt(relX * relX + relY * relY + relZ * relZ);
-        float impulse = Math.max(entityMass, otherMass) * speed;
-        if (impulse < MIN_IMPULSE_THRESHOLD) {
+
+        float otherX = otherVelocity.getX();
+        float otherY = otherVelocity.getY();
+        float otherZ = otherVelocity.getZ();
+        float otherSpeed = (float) Math.sqrt(otherX * otherX + otherY * otherY + otherZ * otherZ);
+
+        // "Push" case: the entity moves into a mostly-stationary dynamic body.
+        // We only want feedback (knockback/damage) when the *other* body is actually moving into the entity.
+        if (otherSpeed < 1.0e-3f) {
             return;
         }
-        double length = Math.sqrt(relX * relX + relY * relY + relZ * relZ);
-        org.bukkit.util.Vector direction = length > 0.0001d
-                ? new org.bukkit.util.Vector(relX / length, Math.max(0.2d, relY / length), relZ / length)
-                : new org.bukkit.util.Vector(0d, 0.2d, 0d);
-        org.bukkit.util.Vector knockback = direction.multiply(Math.min(2.5d, impulse * 0.01d));
+        float approachDot = otherX * relX + otherY * relY + otherZ * relZ;
+        if (approachDot <= 0f) {
+            return;
+        }
+
+        float closingSpeed = approachDot / otherSpeed;
+        float impulse = otherMass * closingSpeed * impact.impulseScale();
+        if (impulse < impact.minImpulseThreshold()) {
+            return;
+        }
+
+        org.bukkit.util.Vector direction = new org.bukkit.util.Vector(otherX / otherSpeed, otherY / otherSpeed, otherZ / otherSpeed);
+        direction.setY(Math.max(0.2d, direction.getY()));
+        if (direction.lengthSquared() > 1.0e-8d) {
+            direction.normalize();
+        } else {
+            direction.setX(0d);
+            direction.setY(0.2d);
+            direction.setZ(0d);
+        }
+
+        org.bukkit.util.Vector knockback = direction.multiply(Math.min(impact.maxKnockback(), impulse * impact.knockbackPerImpulse()));
         feedbackQueue.offer(new CollisionFeedbackDTO(entityId, knockback, impulse));
     }
 
@@ -136,6 +201,8 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
 
         taskManager.schedule(() -> {
             BodyInterface bodyInterface = world.getBodyInterface();
+            boolean isPlayer = entity instanceof Player;
+            var entityCollisions = world.getSettings().entityCollisions();
             if (state.bodyId < 0) {
                 BodyCreationSettings settings = new BodyCreationSettings();
                 settings.setObjectLayer(PhysicsLayers.OBJ_ENTITY);
@@ -143,6 +210,8 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
                 settings.setShape(shapeFor(poseState));
                 settings.setPosition(targetPosition);
                 settings.setRotation(targetRotation);
+                settings.setFriction(entityCollisions.pushing().playerProxyFriction());
+                settings.setRestitution(entityCollisions.pushing().playerProxyRestitution());
                 Body body = bodyInterface.createBody(settings);
                 if (body == null) {
                     return;
@@ -157,7 +226,59 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
                     bodyInterface.setShape(state.bodyId, shapeFor(poseState), true, EActivation.Activate);
                     state.poseState = poseState;
                 }
-                bodyInterface.moveKinematic(state.bodyId, targetPosition, targetRotation, 1.0f / Math.max(1, world.getSettings().tickRate()));
+                if (isPlayer) {
+                    boolean collisionsAllowed = entityCollisions.enabled()
+                            && entityCollisions.enabledGamemodes().contains(((Player) entity).getGameMode().name());
+
+                    if (!collisionsAllowed) {
+                        state.insideTicks = 0;
+                        state.outsideTicks = 0;
+                        if (!state.physicsDisabled) {
+                            bodyInterface.setIsSensor(state.bodyId, true);
+                            state.physicsDisabled = true;
+                        }
+                        bodyInterface.moveKinematic(state.bodyId, targetPosition, targetRotation, 1.0f / Math.max(1, world.getSettings().tickRate()));
+                        return;
+                    }
+
+                    if (state.physicsDisabled && !entityCollisions.stuck().enabled()) {
+                        bodyInterface.setIsSensor(state.bodyId, false);
+                        state.physicsDisabled = false;
+                    }
+
+                    boolean deepInside = hasMovingOverlap(insideShapeFor(poseState), targetPosition, targetRotation);
+                    if (deepInside) {
+                        state.insideTicks++;
+                        state.outsideTicks = 0;
+                    } else {
+                        state.outsideTicks++;
+                        state.insideTicks = 0;
+                    }
+
+                    if (entityCollisions.stuck().enabled()) {
+                        if (!state.physicsDisabled && state.insideTicks >= entityCollisions.stuck().sensorEnableTicks()) {
+                            bodyInterface.setIsSensor(state.bodyId, true);
+                            state.physicsDisabled = true;
+                        } else if (state.physicsDisabled && state.outsideTicks >= entityCollisions.stuck().sensorDisableTicks()) {
+                            bodyInterface.setIsSensor(state.bodyId, false);
+                            state.physicsDisabled = false;
+                        }
+                    }
+
+                    float baseDt = 1.0f / Math.max(1, world.getSettings().tickRate());
+                    float dt = baseDt;
+                    if (!state.physicsDisabled) {
+                        if (entityCollisions.pushing().enabled()) {
+                            boolean touchingDynamic = hasMovingOverlap(shapeFor(poseState), targetPosition, targetRotation);
+                            if (touchingDynamic) {
+                                dt = baseDt * entityCollisions.pushing().kinematicContactDtMultiplier();
+                            }
+                        }
+                    }
+                    bodyInterface.moveKinematic(state.bodyId, targetPosition, targetRotation, dt);
+                } else {
+                    bodyInterface.moveKinematic(state.bodyId, targetPosition, targetRotation, 1.0f / Math.max(1, world.getSettings().tickRate()));
+                }
             }
         });
     }
@@ -170,6 +291,40 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
             return horizontalShape;
         }
         return standingShape;
+    }
+
+    private Shape insideShapeFor(PoseState poseState) {
+        if (poseState == PoseState.SNEAKING) {
+            return sneakingInsideShape;
+        }
+        if (poseState == PoseState.HORIZONTAL) {
+            return horizontalInsideShape;
+        }
+        return standingInsideShape;
+    }
+
+    private boolean hasMovingOverlap(Shape shape, RVec3 position, Quat rotation) {
+        CollideShapeSettings settings = new CollideShapeSettings();
+        settings.setActiveEdgeMode(EActiveEdgeMode.CollideOnlyWithActive);
+
+        PhysicsSystem physicsSystem = world.getPhysicsSystem();
+        try (AnyHitCollideShapeCollector collector = new AnyHitCollideShapeCollector();
+             SpecifiedBroadPhaseLayerFilter bpFilter = new SpecifiedBroadPhaseLayerFilter(PhysicsLayers.BP_MOVING);
+             SpecifiedObjectLayerFilter objFilter = new SpecifiedObjectLayerFilter(PhysicsLayers.OBJ_MOVING)) {
+
+            physicsSystem.getNarrowPhaseQuery().collideShape(
+                    shape,
+                    Vec3.sReplicate(1.0f),
+                    RMat44.sRotationTranslation(rotation, position),
+                    settings,
+                    RVec3.sZero(),
+                    collector,
+                    bpFilter,
+                    objFilter
+            );
+
+            return collector.hadHit();
+        }
     }
 
     private PoseState resolvePose(LivingEntity entity) {
@@ -196,11 +351,17 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
         private final UUID entityId;
         private volatile int bodyId;
         private volatile PoseState poseState;
+        private volatile boolean physicsDisabled;
+        private volatile int insideTicks;
+        private volatile int outsideTicks;
 
         private ProxyState(UUID entityId) {
             this.entityId = entityId;
             this.bodyId = -1;
             this.poseState = PoseState.STANDING;
+            this.physicsDisabled = false;
+            this.insideTicks = 0;
+            this.outsideTicks = 0;
         }
     }
 
