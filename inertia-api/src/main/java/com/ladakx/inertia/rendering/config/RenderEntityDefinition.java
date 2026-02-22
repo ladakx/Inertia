@@ -6,6 +6,9 @@ import org.bukkit.Material;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -36,13 +39,17 @@ public record RenderEntityDefinition(
         boolean invisible,
         boolean marker,
         boolean basePlate,
-        boolean arms
+        boolean arms,
+        Map<String, Object> settings
 ) {
 
     public enum EntityKind {
         ARMOR_STAND,
         ITEM_DISPLAY,
-        BLOCK_DISPLAY
+        BLOCK_DISPLAY,
+        BOAT,
+        SHULKER,
+        INTERACTION
     }
 
     public RenderEntityDefinition {
@@ -52,5 +59,10 @@ public record RenderEntityDefinition(
         Objects.requireNonNull(localRotation, "localRotation");
         Objects.requireNonNull(scale, "scale");
         Objects.requireNonNull(translation, "translation");
+        if (settings == null || settings.isEmpty()) {
+            settings = Collections.emptyMap();
+        } else {
+            settings = Collections.unmodifiableMap(new LinkedHashMap<>(settings));
+        }
     }
 }

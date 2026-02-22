@@ -5,6 +5,7 @@ subprojects {
         mavenCentral()
         mavenLocal()
         maven("https://repo.papermc.io/repository/maven-public/") // paper
+        maven("https://repo.viaversion.com") // viaversion
         ivy {
             url = uri("https://github.com/ladakx/jolt-jni/releases/download/")
 

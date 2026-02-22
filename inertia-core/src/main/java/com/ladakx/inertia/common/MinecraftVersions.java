@@ -1,124 +1,84 @@
-/**
- * This class was taken from the GitHub repository:
- * https://github.com/WeaponMechanics/MechanicsMain
- *
- * Original author: [CJCrafter]
- *
- * License: MIT License
- * You are free to use, modify, and distribute this code as long as this license notice is retained.
- *
- * The original license file can be found in the repository or at:
- * https://opensource.org/licenses/MIT
- *
- * Copyright (c) [2025] [CJCrafter]
- */
-
 package com.ladakx.inertia.common;
 
+import com.ladakx.inertia.common.logging.InertiaLogger;
+import com.ladakx.inertia.configuration.message.MessageKey;
 import org.bukkit.Bukkit;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * https://www.spigotmc.org/wiki/spigot-nms-and-minecraft-versions-1-16/
- */
-public class MinecraftVersions {
-    private static final LinkedHashMap<String, Update> allUpdates = new LinkedHashMap<>();
-    private static final LinkedHashMap<String, Version> allVersions = new LinkedHashMap<>();
+public final class MinecraftVersions {
+
+    private static final LinkedHashMap<String, Update> ALL_UPDATES = new LinkedHashMap<>();
+    private static final LinkedHashMap<String, Version> ALL_VERSIONS = new LinkedHashMap<>();
+    private static final LinkedHashMap<Integer, List<Version>> PROTOCOL_VERSIONS = new LinkedHashMap<>();
 
     public static Map<String, Update> updates() {
-        return allUpdates;
+        return Collections.unmodifiableMap(ALL_UPDATES);
     }
 
     public static Map<String, Version> versions() {
-        return allVersions;
+        return Collections.unmodifiableMap(ALL_VERSIONS);
     }
 
-    public static final Update WORLD_OF_COLOR = new Update(1, 12, update -> {
-        update.add(new Version(update, 0, 1)); // 1.12
-        update.add(new Version(update, 1, 1)); // 1.12.1
-        update.add(new Version(update, 2, 1)); // 1.12.2
-    });
-
-    public static final Update UPDATE_AQUATIC = new Update(1, 13, update -> {
-        update.add(new Version(update, 0, 1)); // 1.13
-        update.add(new Version(update, 1, 2)); // 1.13.1
-        update.add(new Version(update, 2, 2)); // 1.13.2
-    });
-
-    public static final Update VILLAGE_AND_PILLAGE = new Update(1, 14, update -> {
-        update.add(new Version(update, 0, 1)); // 1.14
-        update.add(new Version(update, 1, 1)); // 1.14.1
-        update.add(new Version(update, 2, 1)); // 1.14.2
-        update.add(new Version(update, 3, 1)); // 1.14.3
-        update.add(new Version(update, 4, 1)); // 1.14.4
-    });
-
-    public static final Update BUZZY_BEES = new Update(1, 15, update -> {
-        update.add(new Version(update, 0, 1)); // 1.15
-        update.add(new Version(update, 1, 1)); // 1.15.1
-        update.add(new Version(update, 2, 1)); // 1.15.2
-    });
-
     public static final Update NETHER_UPDATE = new Update(1, 16, update -> {
-        update.add(new Version(update, 0, 1)); // 1.16
-        update.add(new Version(update, 1, 1)); // 1.16.1
-        update.add(new Version(update, 2, 2)); // 1.16.2
-        update.add(new Version(update, 3, 2)); // 1.16.3
-        update.add(new Version(update, 4, 3)); // 1.16.4
-        update.add(new Version(update, 5, 3)); // 1.16.5
+        update.add(new Version(update, 0, 1, 735));
+        update.add(new Version(update, 1, 1, 736));
+        update.add(new Version(update, 2, 2, 751));
+        update.add(new Version(update, 3, 2, 753));
+        update.add(new Version(update, 4, 3, 754));
+        update.add(new Version(update, 5, 3, 754));
     });
 
     public static final Update CAVES_AND_CLIFFS_1 = new Update(1, 17, update -> {
-        update.add(new Version(update, 0, 1)); // 1.17
-        update.add(new Version(update, 1, 1)); // 1.17.1
+        update.add(new Version(update, 0, 1, 755));
+        update.add(new Version(update, 1, 1, 756));
     });
 
     public static final Update CAVES_AND_CLIFFS_2 = new Update(1, 18, update -> {
-        update.add(new Version(update, 0, 1)); // 1.18
-        update.add(new Version(update, 1, 1)); // 1.18.1
-        update.add(new Version(update, 2, 2)); // 1.18.2
+        update.add(new Version(update, 0, 1, 757));
+        update.add(new Version(update, 1, 1, 757));
+        update.add(new Version(update, 2, 2, 758));
     });
 
     public static final Update WILD_UPDATE = new Update(1, 19, update -> {
-        update.add(new Version(update, 0, 1)); // 1.19
-        update.add(new Version(update, 1, 1)); // 1.19.1
-        update.add(new Version(update, 2, 1)); // 1.19.2
-        update.add(new Version(update, 3, 2)); // 1.19.3
-        update.add(new Version(update, 4, 3)); // 1.19.4
+        update.add(new Version(update, 0, 1, 759));
+        update.add(new Version(update, 1, 1, 760));
+        update.add(new Version(update, 2, 1, 760));
+        update.add(new Version(update, 3, 2, 761));
+        update.add(new Version(update, 4, 3, 762));
     });
 
     public static final Update TRAILS_AND_TAILS = new Update(1, 20, update -> {
-        update.add(new Version(update, 0, 1)); // 1.20
-        update.add(new Version(update, 1, 1)); // 1.20.1
-        update.add(new Version(update, 2, 2)); // 1.20.2
-        update.add(new Version(update, 3, 3)); // 1.20.3
-        update.add(new Version(update, 4, 3)); // 1.20.4
-        update.add(new Version(update, 5, 4)); // 1.20.5
-        update.add(new Version(update, 6, 4)); // 1.20.6
+        update.add(new Version(update, 0, 1, 763));
+        update.add(new Version(update, 1, 1, 763));
+        update.add(new Version(update, 2, 2, 764));
+        update.add(new Version(update, 3, 3, 765));
+        update.add(new Version(update, 4, 3, 765));
+        update.add(new Version(update, 5, 4, 766));
+        update.add(new Version(update, 6, 4, 766));
     });
 
     public static final Update TRICKY_TRIALS = new Update(1, 21, update -> {
-        update.add(new Version(update, 0, 1)); // 1.21
-        update.add(new Version(update, 1, 1)); // 1.21.1
-        update.add(new Version(update, 2, 2)); // 1.21.2
-        update.add(new Version(update, 3, 2)); // 1.21.3
-        update.add(new Version(update, 4, 3)); // 1.21.4
-        update.add(new Version(update, 5, 4)); // 1.21.5
-        update.add(new Version(update, 6, 5)); // 1.21.6
-        update.add(new Version(update, 7, 6)); // 1.21.7
-        update.add(new Version(update, 8, 6)); // 1.21.8
-        update.add(new Version(update, 9, 7)); // 1.21.9
-        update.add(new Version(update, 10, 7)); // 1.21.10
-        update.add(new Version(update, 11, 8)); // 1.21.11
+        update.add(new Version(update, 0, 1, 767));
+        update.add(new Version(update, 1, 1, 767));
+        update.add(new Version(update, 2, 2, 768));
+        update.add(new Version(update, 3, 2, 768));
+        update.add(new Version(update, 4, 3, 769));
+        update.add(new Version(update, 5, 4, 770));
+        update.add(new Version(update, 6, 5, 771));
+        update.add(new Version(update, 7, 6, 772));
+        update.add(new Version(update, 8, 6, 772));
+        update.add(new Version(update, 9, 7, 773));
+        update.add(new Version(update, 10, 7, 773));
+        update.add(new Version(update, 11, 8, 774));
     });
 
-    // Lazy initialization for CURRENT in a static block
     public static final Version CURRENT = parseCurrentVersion();
 
     public static Version parseCurrentVersion() {
@@ -126,9 +86,15 @@ public class MinecraftVersions {
     }
 
     public static Version parseCurrentVersion(String versionString) {
+        if (versionString == null) {
+            InertiaLogger.warn("Warning: Provided version string cannot be null.");
+            return null;
+        }
+
         String currentVersion = null;
         Pattern pattern = Pattern.compile("\\d+\\.\\d+\\.\\d+");
         Matcher matcher = pattern.matcher(versionString);
+
         if (matcher.find()) {
             currentVersion = matcher.group();
         } else {
@@ -139,24 +105,46 @@ public class MinecraftVersions {
             }
         }
 
-        if (currentVersion == null || !allVersions.containsKey(currentVersion)) {
-            throw new IllegalStateException("Invalid version: " + currentVersion);
+        if (currentVersion == null || !ALL_VERSIONS.containsKey(currentVersion)) {
+            InertiaLogger.warn("Warning: Provided version string has an unknown format.");
+            return null;
         }
-        return allVersions.get(currentVersion);
+
+        return ALL_VERSIONS.get(currentVersion);
     }
 
-    /** Check minecraft server version */
+    public static Version getLatestByProtocol(int networkProtocol) {
+        List<Version> matchingVersions = PROTOCOL_VERSIONS.get(networkProtocol);
+        if (matchingVersions == null || matchingVersions.isEmpty()) {
+            InertiaLogger.warn("Warning: Attempted to fetch a version by an unknown network protocol.");
+            return null;
+        }
+        return matchingVersions.get(matchingVersions.size() - 1);
+    }
+
+    public static List<Version> getAllByProtocol(int networkProtocol) {
+        List<Version> matchingVersions = PROTOCOL_VERSIONS.get(networkProtocol);
+        if (matchingVersions == null || matchingVersions.isEmpty()) {
+            InertiaLogger.warn("Warning: Attempted to fetch a version by an unknown network protocol.");
+            return Collections.emptyList();
+        }
+        return Collections.unmodifiableList(matchingVersions);
+    }
+
     public static boolean isCoreVersionAboveOrEqual(String version) {
+        if (version == null) {
+            InertiaLogger.warn("Warning: Provided version string cannot be null.");
+            return false;
+        }
         String coreVersion = Bukkit.getBukkitVersion().split("-")[0];
-
-        int comprison = compareVersions(coreVersion, version);
-        return comprison >= 0;
+        return compareVersions(coreVersion, version) >= 0;
     }
 
-
-
-    /** Compare versions */
     private static int compareVersions(String version1, String version2) {
+        if (version1 == null || version2 == null) {
+            return 0;
+        }
+
         String[] parts1 = version1.split("\\.");
         String[] parts2 = version2.split("\\.");
 
@@ -174,7 +162,7 @@ public class MinecraftVersions {
         return 0;
     }
 
-    public static class Update implements Comparable<Update> {
+    public static final class Update implements Comparable<Update> {
         public final int major;
         public final int minor;
         public final List<Version> versions;
@@ -185,24 +173,34 @@ public class MinecraftVersions {
             this.versions = new ArrayList<>();
 
             versionAdder.addVersions(this);
-            allUpdates.put(toString(), this);
+            ALL_UPDATES.put(toString(), this);
 
             for (Version version : versions) {
-                allVersions.put(version.toString(), version);
+                ALL_VERSIONS.put(version.toString(), version);
+                PROTOCOL_VERSIONS.computeIfAbsent(version.networkProtocol, k -> new ArrayList<>()).add(version);
             }
         }
 
         public boolean isAtLeast() {
             Version current = CURRENT;
+            if (current == null) {
+                return false;
+            }
             return current.major > major || (current.major == major && current.minor >= minor);
         }
 
         public Version get(int patch) {
+            if (patch < 0 || patch >= versions.size()) {
+                return null;
+            }
             return versions.get(patch);
         }
 
         @Override
         public int compareTo(Update other) {
+            if (other == null) {
+                return 1;
+            }
             return Integer.compare(minor, other.minor);
         }
 
@@ -211,44 +209,54 @@ public class MinecraftVersions {
             return major + "." + minor;
         }
 
+        public void add(Version version) {
+            if (version != null) {
+                versions.add(version);
+            }
+        }
+
         @FunctionalInterface
         public interface VersionAdder {
             void addVersions(Update update);
         }
-
-        public void add(Version version) {
-            versions.add(version);
-        }
     }
 
-    public static class Version implements Comparable<Version> {
+    public static final class Version implements Comparable<Version> {
         public final Update update;
         public final int patch;
-        public final int protocol;
+        public final int nmsRevision;
+        public final int networkProtocol;
         public final int major;
         public final int minor;
 
-        public Version(Update update, int patch, int protocol) {
+        public Version(Update update, int patch, int nmsRevision, int networkProtocol) {
             this.update = update;
             this.patch = patch;
-            this.protocol = protocol;
-            this.major = update.major;
-            this.minor = update.minor;
+            this.nmsRevision = nmsRevision;
+            this.networkProtocol = networkProtocol;
+            this.major = update != null ? update.major : 0;
+            this.minor = update != null ? update.minor : 0;
         }
 
         public boolean isAtLeast() {
             Version current = CURRENT;
+            if (current == null) {
+                return false;
+            }
             return current.major > major ||
                     (current.major == major && current.minor > minor) ||
                     (current.major == major && current.minor == minor && current.patch >= patch);
         }
 
         public String toProtocolString() {
-            return "v" + major + "_" + minor + "_R" + protocol;
+            return "v" + major + "_" + minor + "_R" + nmsRevision;
         }
 
         @Override
         public int compareTo(Version other) {
+            if (other == null) {
+                return 1;
+            }
             if (minor != other.minor) {
                 return Integer.compare(minor, other.minor);
             }
@@ -261,4 +269,3 @@ public class MinecraftVersions {
         }
     }
 }
-
