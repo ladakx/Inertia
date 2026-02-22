@@ -42,6 +42,272 @@ slab:
       interpolation-duration: 1
       teleport-duration: 1
 
+########
+# Test #
+########
+test_light_cube:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: BLOCK_DISPLAY
+      block: WHITE_CONCRETE
+      scale: "1.0 1.0 1.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+
+test_heavy_cube:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: BLOCK_DISPLAY
+      block: OBSIDIAN
+      scale: "1.0 1.0 1.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+
+test_slippery_puck:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    core:
+      type: BLOCK_DISPLAY
+      block: PACKED_ICE
+      # Approximation of cylinder(radius=0.45, height=0.2)
+      scale: "0.9 0.2 0.9"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    rim_x_pos:
+      type: BLOCK_DISPLAY
+      block: PACKED_ICE
+      scale: "0.2 0.2 0.6"
+      translation: "0.25 0.0 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    rim_x_neg:
+      type: BLOCK_DISPLAY
+      block: PACKED_ICE
+      scale: "0.2 0.2 0.6"
+      translation: "-0.25 0.0 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    rim_z_pos:
+      type: BLOCK_DISPLAY
+      block: PACKED_ICE
+      scale: "0.6 0.2 0.2"
+      translation: "0.0 0.0 0.25"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    rim_z_neg:
+      type: BLOCK_DISPLAY
+      block: PACKED_ICE
+      scale: "0.6 0.2 0.2"
+      translation: "0.0 0.0 -0.25"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+
+test_bouncy_ball:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    # Approximation of sphere(radius=0.4) by small cubes
+    c:
+      type: BLOCK_DISPLAY
+      block: SLIME_BLOCK
+      scale: "0.35 0.35 0.35"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    x_pos:
+      type: BLOCK_DISPLAY
+      block: SLIME_BLOCK
+      scale: "0.25 0.25 0.25"
+      translation: "0.23 0.0 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    x_neg:
+      type: BLOCK_DISPLAY
+      block: SLIME_BLOCK
+      scale: "0.25 0.25 0.25"
+      translation: "-0.23 0.0 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    y_pos:
+      type: BLOCK_DISPLAY
+      block: SLIME_BLOCK
+      scale: "0.25 0.25 0.25"
+      translation: "0.0 0.23 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    y_neg:
+      type: BLOCK_DISPLAY
+      block: SLIME_BLOCK
+      scale: "0.25 0.25 0.25"
+      translation: "0.0 -0.23 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    z_pos:
+      type: BLOCK_DISPLAY
+      block: SLIME_BLOCK
+      scale: "0.25 0.25 0.25"
+      translation: "0.0 0.0 0.23"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    z_neg:
+      type: BLOCK_DISPLAY
+      block: SLIME_BLOCK
+      scale: "0.25 0.25 0.25"
+      translation: "0.0 0.0 -0.23"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+
+test_capsule:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    # Approximation of capsule(height=1.6, radius=0.25):
+    # middle cylinder + 2 "sphere" caps.
+    mid:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.5 1.6 0.5"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_top_c:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.28 0.28 0.28"
+      translation: "0.0 0.8 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_top_x_pos:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "0.14 0.8 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_top_x_neg:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "-0.14 0.8 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_top_z_pos:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "0.0 0.8 0.14"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_top_z_neg:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "0.0 0.8 -0.14"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_bot_c:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.28 0.28 0.28"
+      translation: "0.0 -0.8 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_bot_x_pos:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "0.14 -0.8 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_bot_x_neg:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "-0.14 -0.8 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_bot_z_pos:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "0.0 -0.8 0.14"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    cap_bot_z_neg:
+      type: BLOCK_DISPLAY
+      block: SMOOTH_QUARTZ
+      scale: "0.20 0.20 0.20"
+      translation: "0.0 -0.8 -0.14"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+
+test_compound_hammer:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    handle:
+      type: BLOCK_DISPLAY
+      block: OAK_LOG
+      scale: "0.16 0.9 0.16"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+    head:
+      type: BLOCK_DISPLAY
+      block: IRON_BLOCK
+      scale: "0.64 0.2 0.24"
+      translation: "0.0 0.5 0.0"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+
+test_static_wall:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    wall:
+      type: BLOCK_DISPLAY
+      block: STONE
+      scale: "1.0 2.0 0.3"
+      rotate-translation: true
+      interpolation-duration: 1
+      teleport-duration: 1
+
 ##########
 # Chains #
 ##########

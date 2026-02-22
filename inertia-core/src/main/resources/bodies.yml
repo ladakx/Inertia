@@ -60,7 +60,7 @@ blocks:
   #########################
   test_light_cube:
     render:
-      model: stone
+      model: test_light_cube
     physics:
       mass: 2.0
       friction: 0.6
@@ -74,7 +74,7 @@ blocks:
 
   test_heavy_cube:
     render:
-      model: stone
+      model: test_heavy_cube
     physics:
       mass: 250.0
       friction: 0.9
@@ -88,7 +88,7 @@ blocks:
 
   test_slippery_puck:
     render:
-      model: grass
+      model: test_slippery_puck
     physics:
       mass: 12.0
       friction: 0.02
@@ -102,7 +102,7 @@ blocks:
 
   test_bouncy_ball:
     render:
-      model: tnt
+      model: test_bouncy_ball
     physics:
       mass: 6.0
       friction: 0.15
@@ -116,7 +116,7 @@ blocks:
 
   test_capsule:
     render:
-      model: slab
+      model: test_capsule
     physics:
       mass: 18.0
       friction: 0.4
@@ -130,7 +130,7 @@ blocks:
 
   test_compound_hammer:
     render:
-      model: stone
+      model: test_compound_hammer
     physics:
       mass: 35.0
       friction: 0.7
@@ -144,6 +144,18 @@ blocks:
         - "type=box x=0.08 y=0.45 z=0.08 px=0.0 py=0.0 pz=0.0"
         # head
         - "type=box x=0.32 y=0.10 z=0.12 px=0.0 py=0.50 pz=0.0"
+
+  test_static_wall:
+    render:
+      model: test_static_wall
+    physics:
+      mass: 1.0
+      friction: 0.9
+      restitution: 0.0
+      motion-type: Static
+      object-layer: 0
+      shape:
+        - "type=box x=0.5 y=1.0 z=0.15"
 
 ########################
 # Chains Configuration #
