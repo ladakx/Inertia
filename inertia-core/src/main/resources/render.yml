@@ -469,6 +469,62 @@ ragdoll_left_leg:
 #         shulker:
 #           color: PURPLE
 #           peek: 0
+#
+# #########################
+# # Per-client variants   #
+# #########################
+# # One render-model id can have multiple client-version variants.
+# # The key format is "min-max" where max can be "latest".
+# #
+# # crate:
+# #   variants:
+# #     "1.16.5-1.19.3":
+# #       sync:
+# #         position: true
+# #         rotation: true
+# #       entities:
+# #         legacy:
+# #           type: ARMOR_STAND
+# #           item-model: items:crate
+# #           invisible: true
+# #           marker: true
+# #     "1.19.4-latest":
+# #       sync:
+# #         position: true
+# #         rotation: true
+# #       entities:
+# #         modern:
+# #           type: BLOCK_DISPLAY
+# #           block: BARREL
+#
+# #########################
+# # Hide tags             #
+# #########################
+# # Hide parts depending on body state and LOD.
+# # hide-tags supports: ACTIVE, SLEEPING, LOD_NEAR, LOD_MID, LOD_FAR
+# # show-tags supports (whitelist): ACTIVE, SLEEPING, LOD_NEAR, LOD_MID, LOD_FAR
+# #
+# # example_hide:
+# #   sync:
+# #     position: true
+# #     rotation: true
+# #   entities:
+# #     only_near_when_active:
+# #       type: BLOCK_DISPLAY
+# #       block: STONE
+# #       hide-tags: [SLEEPING, LOD_MID, LOD_FAR]
+#
+# # Whitelist LOD example (show only when NEAR):
+# #     only_near:
+# #       type: BLOCK_DISPLAY
+# #       block: STONE
+# #       show-tags: [LOD_NEAR]
+#
+# # Whitelist state example (show only while ACTIVE):
+# #     only_active:
+# #       type: BLOCK_DISPLAY
+# #       block: STONE
+# #       show-tags: [ACTIVE]
 #    example2:
 #      type: ARMOR_STAND
 #      item-model: items:example2

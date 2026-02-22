@@ -1,6 +1,8 @@
 package com.ladakx.inertia.rendering.tracker.state;
 
 import com.ladakx.inertia.rendering.NetworkVisual;
+import com.ladakx.inertia.rendering.version.ClientVersionRange;
+import org.jetbrains.annotations.Nullable;
 import org.bukkit.Location;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -9,6 +11,9 @@ public final class TrackedVisual {
     private final NetworkVisual visual;
     private final Location location;
     private final Quaternionf rotation;
+    private final @Nullable ClientVersionRange clientRange;
+    private final int allowedLodMask;
+    private volatile boolean enabled;
 
     private final SyncState nearSyncState = new SyncState();
     private final SyncState midSyncState = new SyncState();
@@ -24,16 +29,41 @@ public final class TrackedVisual {
     private boolean criticalMetaDirty = false;
     private boolean forceTransformResyncDirty = false;
 
-    public TrackedVisual(NetworkVisual visual, Location location, Quaternionf rotation) {
+    public TrackedVisual(NetworkVisual visual,
+                         Location location,
+                         Quaternionf rotation,
+                         @Nullable ClientVersionRange clientRange,
+                         int allowedLodMask,
+                         boolean enabled) {
         this.visual = visual;
         this.location = location;
         this.rotation = rotation;
+        this.clientRange = clientRange;
+        this.allowedLodMask = allowedLodMask & 0x07;
+        this.enabled = enabled;
         syncAll();
     }
 
     public NetworkVisual visual() { return visual; }
     public Location location() { return location; }
     public Quaternionf rotation() { return rotation; }
+    public @Nullable ClientVersionRange clientRange() { return clientRange; }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isAllowedForProtocol(int protocol) {
+        return clientRange == null || clientRange.containsProtocol(protocol);
+    }
+
+    public boolean isAllowedForLod(LodLevel lodLevel) {
+        if (lodLevel == null) return true;
+        int bit = switch (lodLevel) {
+            case NEAR -> 0x01;
+            case MID -> 0x02;
+            case FAR -> 0x04;
+        };
+        return (allowedLodMask & bit) != 0;
+    }
 
     public void update(Location newLoc, Quaternionf newRot) {
         this.location.setWorld(newLoc.getWorld());

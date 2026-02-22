@@ -5,6 +5,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -26,6 +27,8 @@ public final class MetadataAccessors {
     public static EntityDataAccessor<Boolean> ENTITY_NO_GRAVITY;
     public static EntityDataAccessor<Pose> ENTITY_POSE;
     public static EntityDataAccessor<Integer> ENTITY_TICKS_FROZEN;
+
+    public static EntityDataAccessor<Byte> ARMOR_STAND_CLIENT_FLAGS;
 
     public static EntityDataAccessor<Integer> DISPLAY_INTERPOLATION_START_DELTA;
     public static EntityDataAccessor<Integer> DISPLAY_INTERPOLATION_DURATION;
@@ -92,6 +95,8 @@ public final class MetadataAccessors {
         }
 
         // Optional accessors for additional entity kinds. Must not break core rendering if missing.
+        ARMOR_STAND_CLIENT_FLAGS = getFieldOrNull(ArmorStand.class, "DATA_CLIENT_FLAGS", "DATA_CLIENT_FLAGS_ID");
+
         SHULKER_PEEK = getFieldOrNull(Shulker.class, "DATA_PEEK_ID", "DATA_PEEK");
         SHULKER_COLOR = getFieldOrNull(Shulker.class, "DATA_COLOR_ID", "DATA_COLOR");
 

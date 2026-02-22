@@ -10,15 +10,15 @@ public class VisualState {
     private final Quaternionf rotation = new Quaternionf();
     private final Vector3f centerOffset = new Vector3f();
     private boolean rotateTranslation;
-    private boolean visible;
+    private boolean enabled;
 
-    public void set(NetworkVisual visual, Vector3f position, Quaternionf rotation, Vector3f centerOffset, boolean rotateTranslation, boolean visible) {
+    public void set(NetworkVisual visual, Vector3f position, Quaternionf rotation, Vector3f centerOffset, boolean rotateTranslation, boolean enabled) {
         this.visual = visual;
         this.position.set(position);
         this.rotation.set(rotation);
         this.centerOffset.set(centerOffset);
         this.rotateTranslation = rotateTranslation;
-        this.visible = visible;
+        this.enabled = enabled;
     }
 
     public NetworkVisual getVisual() {
@@ -41,8 +41,8 @@ public class VisualState {
         return rotateTranslation;
     }
 
-    public boolean isVisible() {
-        return visible;
+    public boolean isEnabled() {
+        return enabled;
     }
 
     public void clear() {

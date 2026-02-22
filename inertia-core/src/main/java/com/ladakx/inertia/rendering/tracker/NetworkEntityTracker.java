@@ -24,6 +24,9 @@ import com.ladakx.inertia.rendering.tracker.state.PlayerFrame;
 import com.ladakx.inertia.rendering.tracker.state.PlayerTrackingState;
 import com.ladakx.inertia.rendering.tracker.state.PendingDestroyState;
 import com.ladakx.inertia.rendering.tracker.state.TrackedVisual;
+import com.ladakx.inertia.common.MinecraftVersions;
+import com.ladakx.inertia.common.viaversion.ViaVersionProtocolResolver;
+import com.ladakx.inertia.rendering.version.ClientVersionRange;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -136,7 +139,8 @@ public class NetworkEntityTracker {
                 networkScheduler,
                 this::bufferPacket,
                 this::currentVisualToken,
-                playerFrames::get
+                playerFrames::get,
+                this::resolveLodLevel
         );
         this.transformSliceProcessor = new TransformSliceProcessor(
                 visualsById,
@@ -206,7 +210,12 @@ public class NetworkEntityTracker {
         }
     }
 
-    public record VisualRegistration(NetworkVisual visual, Location location, Quaternionf rotation) {
+    public record VisualRegistration(NetworkVisual visual,
+                                     Location location,
+                                     Quaternionf rotation,
+                                     ClientVersionRange clientRange,
+                                     int allowedLodMask,
+                                     boolean enabled) {
         public VisualRegistration {
             Objects.requireNonNull(visual, "visual");
             Objects.requireNonNull(location, "location");
@@ -220,7 +229,12 @@ public class NetworkEntityTracker {
 
         for (VisualRegistration registration : registrations) {
             if (registration == null) continue;
-            register(registration.visual(), registration.location(), registration.rotation());
+            register(registration.visual(),
+                    registration.location(),
+                    registration.rotation(),
+                    registration.clientRange(),
+                    registration.allowedLodMask(),
+                    registration.enabled());
         }
 
         java.util.Set<Long> affectedChunks = new java.util.HashSet<>();
@@ -258,7 +272,23 @@ public class NetworkEntityTracker {
     }
 
     public void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
-        visualRegistry.register(visual, location, rotation);
+        register(visual, location, rotation, null);
+    }
+
+    public void register(@NotNull NetworkVisual visual,
+                         @NotNull Location location,
+                         @NotNull Quaternionf rotation,
+                         ClientVersionRange clientRange,
+                         int allowedLodMask,
+                         boolean enabled) {
+        visualRegistry.register(visual, location, rotation, clientRange, allowedLodMask, enabled);
+    }
+
+    public void register(@NotNull NetworkVisual visual,
+                         @NotNull Location location,
+                         @NotNull Quaternionf rotation,
+                         ClientVersionRange clientRange) {
+        register(visual, location, rotation, clientRange, 0x07, true);
     }
 
     public void unregister(@NotNull NetworkVisual visual) {
@@ -278,7 +308,20 @@ public class NetworkEntityTracker {
     }
 
     public void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
-        visualRegistry.updateState(visual, location, rotation, tickCounter);
+        visualRegistry.updateState(visual, location, rotation, true, tickCounter);
+    }
+
+    public void updateState(@NotNull NetworkVisual visual,
+                            @NotNull Location location,
+                            @NotNull Quaternionf rotation,
+                            boolean enabled) {
+        boolean enabledChanged = visualRegistry.updateState(visual, location, rotation, enabled, tickCounter);
+        if (enabledChanged) {
+            int cx = location.getBlockX() >> 4;
+            int cz = location.getBlockZ() >> 4;
+            java.util.Set<Long> affected = java.util.Set.of(com.ladakx.inertia.common.chunk.ChunkUtils.getChunkKey(cx, cz));
+            notifyPlayersOfChanges(affected);
+        }
     }
 
     public boolean isVisualClosed(int visualId) {
@@ -345,6 +388,13 @@ public class NetworkEntityTracker {
                 continue;
             }
             UUID playerId = player.getUniqueId();
+            int protocol = ViaVersionProtocolResolver.getPlayerProtocol(player);
+            if (protocol <= 0) {
+                MinecraftVersions.Version current = MinecraftVersions.CURRENT;
+                protocol = current != null ? current.networkProtocol : Integer.MAX_VALUE;
+            }
+            MinecraftVersions.Version clientVersion = MinecraftVersions.getLatestByProtocol(protocol);
+            String clientVersionString = clientVersion != null ? clientVersion.toString() : "unknown";
             PlayerFrame frame = new PlayerFrame(
                     playerId,
                     world.getUID(),
@@ -352,7 +402,9 @@ public class NetworkEntityTracker {
                     location.getY(),
                     location.getZ(),
                     location.getBlockX() >> 4,
-                    location.getBlockZ() >> 4
+                    location.getBlockZ() >> 4,
+                    protocol,
+                    clientVersionString
             );
             snapshot.add(frame);
             alive.add(playerId);

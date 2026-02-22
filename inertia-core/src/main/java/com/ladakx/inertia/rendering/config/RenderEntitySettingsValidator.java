@@ -21,7 +21,8 @@ public final class RenderEntitySettingsValidator {
             "collidable",
             "persistent",
             "custom-name",
-            "custom-name-visible"
+            "custom-name-visible",
+            "armorstand.fallback-barrier"
     );
 
     private static final Set<String> COMMON_SECTIONS = Set.of(
@@ -279,4 +280,3 @@ public final class RenderEntitySettingsValidator {
         InertiaLogger.warn("Expected string for settings key '" + key + "' in " + ctx + ", got: " + raw + " (" + raw.getClass().getSimpleName() + ")");
     }
 }
-

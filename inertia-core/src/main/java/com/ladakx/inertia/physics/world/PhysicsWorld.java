@@ -345,7 +345,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 networkEntityTracker.updateState(
                         state.getVisual(),
                         mutableLoc,
-                        state.getRotation()
+                        state.getRotation(),
+                        state.isEnabled()
                 );
             }
         }
