@@ -116,7 +116,14 @@ public class RagdollSpawner implements BodySpawner {
         }
 
         Map<String, Body> spawnedParts = new HashMap<>();
-        GroupFilterTable groupFilter = new GroupFilterTable(partsCount);
+        int groupId = (clusterId.hashCode() & 0x7fffffff) + 1;
+        GroupFilterTable table = new GroupFilterTable(partsCount);
+        for (int a = 0; a < partsCount; a++) {
+            for (int b = a + 1; b < partsCount; b++) {
+                table.enableCollision(a, b);
+            }
+        }
+        GroupFilterTableRef groupFilter = table.toRef();
         Map<String, Integer> partIndices = new HashMap<>();
         int indexCounter = 0;
         for (String key : def.parts().keySet()) {
@@ -125,9 +132,9 @@ public class RagdollSpawner implements BodySpawner {
 
         String skinNickname = context.getParam("skinNickname", String.class, null);
         RagdollPrecalc rootCalc = precalculatedParts.get(rootPart);
-        RagdollPhysicsBody rootBody = createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos(), rootCalc.rot(), spawnedParts, groupFilter, partIndices.get(rootPart), skinNickname, clusterId);
+        RagdollPhysicsBody rootBody = createRagdollPart(space, context.bodyId(), rootPart, rootCalc.pos(), rootCalc.rot(), spawnedParts, groupFilter, groupId, partIndices.get(rootPart), skinNickname, clusterId);
 
-        spawnRagdollChildren(space, context.bodyId(), rootPart, def, spawnedParts, groupFilter, partIndices, precalculatedParts, skinNickname, clusterId);
+        spawnRagdollChildren(space, context.bodyId(), rootPart, def, spawnedParts, groupFilter, groupId, partIndices, precalculatedParts, skinNickname, clusterId);
 
         boolean applyImpulse = context.getParam("impulse", Boolean.class, false);
         if (applyImpulse && spawnedParts.containsKey(rootPart)) {
@@ -174,7 +181,7 @@ public class RagdollSpawner implements BodySpawner {
 
     private void spawnRagdollChildren(PhysicsWorld space, String bodyId, String parentName,
                                       RagdollDefinition def, Map<String, Body> spawnedBodies,
-                                      GroupFilterTable groupFilter, Map<String, Integer> partIndices,
+                                      GroupFilterTableRef groupFilter, int groupId, Map<String, Integer> partIndices,
                                       Map<String, RagdollPrecalc> precalc,
                                       String skinNickname, UUID clusterId) {
         def.parts().forEach((partName, partDef) -> {
@@ -182,22 +189,22 @@ public class RagdollSpawner implements BodySpawner {
                 RagdollPrecalc calc = precalc.get(partName);
                 if (calc != null) {
                     createRagdollPart(space, bodyId, partName, calc.pos(), calc.rot(), spawnedBodies,
-                            groupFilter, partIndices.get(partName), skinNickname, clusterId);
-                    spawnRagdollChildren(space, bodyId, partName, def, spawnedBodies, groupFilter, partIndices, precalc, skinNickname, clusterId);
+                            groupFilter, groupId, partIndices.get(partName), skinNickname, clusterId);
+                    spawnRagdollChildren(space, bodyId, partName, def, spawnedBodies, groupFilter, groupId, partIndices, precalc, skinNickname, clusterId);
                 }
             }
         });
     }
 
     private RagdollPhysicsBody createRagdollPart(PhysicsWorld space, String bodyId, String partName, RVec3 pos, Quat rot,
-                                                 Map<String, Body> spawnedBodies, GroupFilterTable groupFilter, int partIndex,
+                                                 Map<String, Body> spawnedBodies, GroupFilterTableRef groupFilter, int groupId, int partIndex,
                                                  String skinNickname, UUID clusterId) {
         RagdollPhysicsBody obj = new RagdollPhysicsBody(
                 space, bodyId, partName, configService.getPhysicsBodyRegistry(),
                 renderFactory,
                 shapeFactory,
                 pos, rot, spawnedBodies,
-                groupFilter, partIndex,
+                groupFilter, groupId, partIndex,
                 skinNickname
         );
         obj.setClusterId(clusterId);
