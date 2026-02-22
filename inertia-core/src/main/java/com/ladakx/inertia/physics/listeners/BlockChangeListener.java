@@ -175,7 +175,7 @@ public class BlockChangeListener implements Listener {
     // --- Вспомогательные методы ---
 
     private void handleUpdate(Block block, Material oldMaterial, Material newMaterial) {
-        PhysicsWorld space = physicsWorldRegistry.getSpace(block.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(block.getWorld());
         if (space != null) {
             space.onBlockChange(block.getX(), block.getY(), block.getZ(), oldMaterial, newMaterial);
         }

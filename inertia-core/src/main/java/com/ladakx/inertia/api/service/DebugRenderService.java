@@ -69,7 +69,7 @@ public class DebugRenderService {
                 debugPlayers.remove(uuid);
                 continue;
             }
-            PhysicsWorld space = worldRegistry.getSpace(p.getWorld());
+            PhysicsWorld space = worldRegistry.getWorld(p.getWorld());
             if (space != null) {
                 worldPlayers.computeIfAbsent(space, k -> new ArrayList<>()).add(p);
             }

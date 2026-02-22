@@ -61,7 +61,7 @@ public class GrabberTool extends Tool implements NetworkInteractTool {
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         GrabSession session = sessions.get(player.getUniqueId());
@@ -89,7 +89,7 @@ public class GrabberTool extends Tool implements NetworkInteractTool {
         GrabSession session = sessions.get(player.getUniqueId());
         if (session == null) return;
 
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         // Create static joint
@@ -105,7 +105,7 @@ public class GrabberTool extends Tool implements NetworkInteractTool {
 
     @Override
     public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         GrabSession session = sessions.get(player.getUniqueId());
@@ -160,7 +160,7 @@ public class GrabberTool extends Tool implements NetworkInteractTool {
     }
 
     public void release(Player player) {
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         GrabSession session = sessions.get(player.getUniqueId());
         if (session != null && space != null) {
             release(player, session, space);

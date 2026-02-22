@@ -28,7 +28,7 @@ public class PhysicsWorldRegistry {
     private final PhysicsEngine physicsEngine;
     private final JoltSystemFactory systemFactory;
     private final PhysicsMetricsService metricsService;
-    private final Map<UUID, PhysicsWorld> spaces = new ConcurrentHashMap<>();
+    private final Map<UUID, PhysicsWorld> worlds = new ConcurrentHashMap<>();
 
     public PhysicsWorldRegistry(InertiaPlugin plugin,
                                 ConfigurationService configurationService,
@@ -43,17 +43,17 @@ public class PhysicsWorldRegistry {
         Bukkit.getScheduler().runTask(plugin, () -> {
             InertiaLogger.info("Loading existing worlds into Inertia Jolt...");
             for (World world : Bukkit.getWorlds()) {
-                createSpace(world);
+                createWorld(world);
             }
         });
     }
 
-    public PhysicsWorld getSpace(World world) {
-        return spaces.get(world.getUID());
+    public PhysicsWorld getWorld(World world) {
+        return worlds.get(world.getUID());
     }
 
-    public PhysicsWorld getSpace(UUID worldId) {
-        return spaces.get(worldId);
+    public PhysicsWorld getWorld(UUID worldId) {
+        return worlds.get(worldId);
     }
 
     private PhysicsWorld createSpaceInternal(World world) {
@@ -82,12 +82,12 @@ public class PhysicsWorldRegistry {
         );
     }
 
-    public void createSpace(World world) {
-        if (!spaces.containsKey(world.getUID())) {
+    public void createWorld(World world) {
+        if (!worlds.containsKey(world.getUID())) {
             if (configurationService.getWorldsConfig().getAllWorlds().containsKey(world.getName())) {
                 try {
-                    PhysicsWorld space = createSpaceInternal(world);
-                    spaces.put(world.getUID(), space);
+                    PhysicsWorld physicsWorld = createSpaceInternal(world);
+                    worlds.put(world.getUID(), physicsWorld);
                 } catch (Exception e) {
                     InertiaLogger.error("Failed to initialize physics world: " + world.getName(), e);
                 }
@@ -95,20 +95,20 @@ public class PhysicsWorldRegistry {
         }
     }
 
-    public void removeSpace(World world) {
-        PhysicsWorld space = spaces.remove(world.getUID());
-        if (space != null) {
-            space.close();
+    public void removeWorld(World world) {
+        PhysicsWorld physicsWorld = worlds.remove(world.getUID());
+        if (physicsWorld != null) {
+            physicsWorld.close();
         }
     }
 
 
     public void applyThreadingSettings(com.ladakx.inertia.configuration.dto.InertiaConfig.ThreadingSettings threadingSettings) {
-        for (PhysicsWorld space : spaces.values()) {
+        for (PhysicsWorld physicsWorld : worlds.values()) {
             try {
-                space.applyThreadingSettings(threadingSettings);
+                physicsWorld.applyThreadingSettings(threadingSettings);
             } catch (Exception e) {
-                InertiaLogger.error("Failed to apply threading settings for world: " + space.getBukkitWorld().getName(), e);
+                InertiaLogger.error("Failed to apply threading settings for world: " + physicsWorld.getBukkitWorld().getName(), e);
             }
         }
     }
@@ -118,32 +118,32 @@ public class PhysicsWorldRegistry {
 
         Map<String, WorldsConfig.WorldProfile> configuredWorlds = configurationService.getWorldsConfig().getAllWorlds();
 
-        for (Map.Entry<UUID, PhysicsWorld> entry : new java.util.ArrayList<>(spaces.entrySet())) {
-            PhysicsWorld space = entry.getValue();
-            World world = space.getBukkitWorld();
+        for (Map.Entry<UUID, PhysicsWorld> entry : new java.util.ArrayList<>(worlds.entrySet())) {
+            PhysicsWorld physicsWorld = entry.getValue();
+            World world = physicsWorld.getBukkitWorld();
             WorldsConfig.WorldProfile updatedProfile = configuredWorlds.get(world.getName());
 
             if (updatedProfile == null) {
                 try {
-                    space.close();
+                    physicsWorld.close();
                 } catch (Exception e) {
                     InertiaLogger.error("Error closing removed world during reload: " + world.getName(), e);
                 }
-                spaces.remove(entry.getKey());
+                worlds.remove(entry.getKey());
                 continue;
             }
 
-            if (!space.getSettings().equals(updatedProfile)) {
+            if (!physicsWorld.getSettings().equals(updatedProfile)) {
                 try {
-                    space.close();
+                    physicsWorld.close();
                 } catch (Exception e) {
                     InertiaLogger.error("Error closing changed world during reload: " + world.getName(), e);
                 }
                 try {
                     PhysicsWorld recreated = createSpaceInternal(world);
-                    spaces.put(entry.getKey(), recreated);
+                    worlds.put(entry.getKey(), recreated);
                 } catch (Exception e) {
-                    spaces.remove(entry.getKey());
+                    worlds.remove(entry.getKey());
                     InertiaLogger.error("Failed to recreate physics world during reload: " + world.getName(), e);
                 }
             }
@@ -153,7 +153,7 @@ public class PhysicsWorldRegistry {
             if (!configuredWorlds.containsKey(world.getName())) {
                 continue;
             }
-            spaces.computeIfAbsent(world.getUID(), ignored -> {
+            worlds.computeIfAbsent(world.getUID(), ignored -> {
                 try {
                     return createSpaceInternal(world);
                 } catch (Exception e) {
@@ -167,14 +167,44 @@ public class PhysicsWorldRegistry {
     }
 
     public void shutdown() {
-        InertiaLogger.info("Shutting down SpaceManager...");
-        for (PhysicsWorld space : spaces.values()) {
-            space.close();
+        InertiaLogger.info("Shutting down PhysicsWorldRegistry...");
+        for (PhysicsWorld physicsWorld : worlds.values()) {
+            physicsWorld.close();
         }
-        spaces.clear();
+        worlds.clear();
     }
 
+    public Collection<PhysicsWorld> getAllWorlds() {
+        return Collections.unmodifiableCollection(worlds.values());
+    }
+
+    /** @deprecated Use {@link #getWorld(World)}. */
+    @Deprecated
+    public PhysicsWorld getSpace(World world) {
+        return getWorld(world);
+    }
+
+    /** @deprecated Use {@link #getWorld(UUID)}. */
+    @Deprecated
+    public PhysicsWorld getSpace(UUID worldId) {
+        return getWorld(worldId);
+    }
+
+    /** @deprecated Use {@link #createWorld(World)}. */
+    @Deprecated
+    public void createSpace(World world) {
+        createWorld(world);
+    }
+
+    /** @deprecated Use {@link #removeWorld(World)}. */
+    @Deprecated
+    public void removeSpace(World world) {
+        removeWorld(world);
+    }
+
+    /** @deprecated Use {@link #getAllWorlds()}. */
+    @Deprecated
     public Collection<PhysicsWorld> getAllSpaces() {
-        return Collections.unmodifiableCollection(spaces.values());
+        return getAllWorlds();
     }
 }

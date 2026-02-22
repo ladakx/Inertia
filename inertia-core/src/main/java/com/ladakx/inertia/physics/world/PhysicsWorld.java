@@ -23,6 +23,7 @@ import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
+import com.ladakx.inertia.physics.world.buoyancy.BuoyancyManager;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import org.bukkit.Bukkit;
@@ -73,7 +74,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final InertiaBodyActivationListener bodyActivationListener;
     private final NetworkEntityTracker networkEntityTracker;
     private final @Nullable PhysicsMetricsService metricsService;
-    private final InertiaBuoyancyManager buoyancyManager;
+    private final BuoyancyManager buoyancyManager;
     private final ThreadLocal<ByteBuffer> batchTransformBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(7 * Float.BYTES).order(ByteOrder.nativeOrder()));
     private final @Nullable BukkitTask buoyancyScanTask;
 
@@ -114,7 +115,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.networkEntityTracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
-        this.buoyancyManager = new InertiaBuoyancyManager(this);
+        this.buoyancyManager = new BuoyancyManager(this);
 
         this.contactListener = new PhysicsContactListener(objectManager);
         this.physicsSystem.setContactListener(contactListener);

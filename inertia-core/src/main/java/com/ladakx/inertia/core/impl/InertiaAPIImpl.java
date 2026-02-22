@@ -57,7 +57,7 @@ public class InertiaAPIImpl extends InertiaAPI {
             return null;
         }
 
-        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(location.getWorld());
         if (space == null) {
             return null;
         }
@@ -112,12 +112,12 @@ public class InertiaAPIImpl extends InertiaAPI {
 
     @Override
     public @Nullable IPhysicsWorld getPhysicsWorld(@NotNull World world) {
-        return physicsWorldRegistry.getSpace(world);
+        return physicsWorldRegistry.getWorld(world);
     }
 
     @Override
     public @NotNull Collection<IPhysicsWorld> getAllPhysicsWorlds() {
-        return new ArrayList<>(physicsWorldRegistry.getAllSpaces());
+        return new ArrayList<>(physicsWorldRegistry.getAllWorlds());
     }
 
     @Override

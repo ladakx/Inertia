@@ -95,7 +95,7 @@ public class BodyFactory {
                                                             @Nullable Player player,
                                                             Map<String, Object> params) {
         if (location.getWorld() == null) return null;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(location.getWorld());
         if (space == null) return null;
 
         PhysicsBodyType type;
@@ -117,7 +117,7 @@ public class BodyFactory {
 
     public void spawnChain(Player player, String bodyId, int size) {
         if (locationIsInvalid(player.getLocation(), player)) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         Location spawnLoc = getSpawnLocation(player, 3.0);
 
         BodySpawner spawner = spawners.get(PhysicsBodyType.CHAIN);
@@ -128,7 +128,7 @@ public class BodyFactory {
 
     public void spawnChainAt(Player player, String bodyId, int size, Location location) {
         if (location.getWorld() == null) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(location.getWorld());
         if (space == null) return;
 
         BodySpawner spawner = spawners.get(PhysicsBodyType.CHAIN);
@@ -141,7 +141,7 @@ public class BodyFactory {
         if (start.getWorld() == null || end.getWorld() == null) return;
         if (!start.getWorld().equals(end.getWorld())) return;
 
-        PhysicsWorld space = physicsWorldRegistry.getSpace(start.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(start.getWorld());
         if (space == null) return;
 
         BodySpawner spawner = spawners.get(PhysicsBodyType.CHAIN);
@@ -156,7 +156,7 @@ public class BodyFactory {
 
     public void spawnRagdoll(Player player, String bodyId, @Nullable String skinNickname, boolean applyImpulse) {
         if (locationIsInvalid(player.getLocation(), player)) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         Location spawnLoc = getSpawnLocation(player, 3.0);
 
         BodySpawner spawner = spawners.get(PhysicsBodyType.RAGDOLL);
@@ -172,7 +172,7 @@ public class BodyFactory {
 
     public void spawnRagdollAt(Player player, String bodyId, @Nullable String skinNickname, boolean applyImpulse, Location location) {
         if (location.getWorld() == null) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(location.getWorld());
         if (space == null) return;
 
         BodySpawner spawner = spawners.get(PhysicsBodyType.RAGDOLL);
@@ -192,7 +192,7 @@ public class BodyFactory {
 
     public void spawnTNT(Location location, String bodyId, float explosionForce, @Nullable Vector velocity) {
         if (location.getWorld() == null) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(location.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(location.getWorld());
         if (space == null) return;
 
         BodySpawner spawner = spawners.get(PhysicsBodyType.TNT);
@@ -211,7 +211,7 @@ public class BodyFactory {
     }
 
     public SpawnShapeJobResult spawnShapeAt(Player player, DebugShapeGenerator generator, String bodyId, Location center, double... params) {
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return SpawnShapeJobResult.rejected("No physics world");
 
         if (!space.isInsideWorld(center)) {

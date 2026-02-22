@@ -49,7 +49,7 @@ public class StaticTool extends Tool implements NetworkInteractTool {
     @Override
     public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
         if (!validateWorld(player)) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
         int frozenCount = manipulationService.freezeCluster(space, body);
         if (frozenCount > 0) {
@@ -62,7 +62,7 @@ public class StaticTool extends Tool implements NetworkInteractTool {
 
     private void applyFreeze(Player player) {
         if (!validateWorld(player)) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         var eye = player.getEyeLocation();

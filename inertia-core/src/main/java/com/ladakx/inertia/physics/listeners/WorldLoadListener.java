@@ -20,17 +20,17 @@ public class WorldLoadListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onWorldLoad(WorldLoadEvent event) {
-        physicsWorldRegistry.createSpace(event.getWorld());
+        physicsWorldRegistry.createWorld(event.getWorld());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onWorldUnload(WorldUnloadEvent event) {
-        physicsWorldRegistry.removeSpace(event.getWorld());
+        physicsWorldRegistry.removeWorld(event.getWorld());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkLoad(ChunkLoadEvent event) {
-        PhysicsWorld space = physicsWorldRegistry.getSpace(event.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(event.getWorld());
         if (space != null) {
             space.onChunkLoad(event.getChunk().getX(), event.getChunk().getZ());
         }
@@ -38,7 +38,7 @@ public class WorldLoadListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onChunkUnload(ChunkUnloadEvent event) {
-        PhysicsWorld space = physicsWorldRegistry.getSpace(event.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(event.getWorld());
         if (space != null) {
             space.onChunkUnload(event.getChunk().getX(), event.getChunk().getZ());
         }
