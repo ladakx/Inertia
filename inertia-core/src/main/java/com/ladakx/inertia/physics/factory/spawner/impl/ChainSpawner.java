@@ -22,6 +22,7 @@ import com.ladakx.inertia.physics.factory.ValidationUtils;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawnContext;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawner;
+import com.ladakx.inertia.physics.persistence.storage.PartState;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
 import org.bukkit.Bukkit;
@@ -31,6 +32,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -67,6 +69,12 @@ public class ChainSpawner implements BodySpawner {
         Location endLoc = context.getParam("end", Location.class, null);
         boolean bypassValidation = context.getParam("bypass_validation", Boolean.class, false);
         UUID clusterId = context.getParam("cluster_id", UUID.class, UUID.randomUUID());
+        @SuppressWarnings("unchecked")
+        List<PartState> restorePartsRaw = context.getParam("restore_parts", List.class, null);
+        List<PartState> restoreParts = null;
+        if (restorePartsRaw != null && !restorePartsRaw.isEmpty() && restorePartsRaw.get(0) instanceof PartState) {
+            restoreParts = restorePartsRaw;
+        }
 
         if (!bypassValidation && !context.world().isInsideWorld(startLoc)) {
             if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.ERROR_OCCURRED, "{error}", "Outside of world bounds!");
@@ -77,7 +85,13 @@ public class ChainSpawner implements BodySpawner {
         Vector direction;
         double step;
 
-        if (endLoc != null) {
+        // Restore mode: if we have saved PartState list, spawn links directly at saved positions.
+        // This is important because constraints are created in world-space using current link positions.
+        if (restoreParts != null) {
+            if (size <= 0) size = restoreParts.size();
+            direction = new Vector(0, -1, 0);
+            step = spacing;
+        } else if (endLoc != null) {
             if (!startLoc.getWorld().equals(endLoc.getWorld())) {
                 if (context.player() != null) configService.getMessageManager().send(context.player(), MessageKey.ERROR_OCCURRED, "{error}", "Start/end world mismatch!");
                 return null;
@@ -156,14 +170,39 @@ public class ChainSpawner implements BodySpawner {
         ChainPhysicsBody firstLink = null;
         ChainPhysicsBody lastLink = null;
 
+        Map<String, PartState> restoreByKey = null;
+        if (restoreParts != null) {
+            restoreByKey = new java.util.HashMap<>(restoreParts.size());
+            for (PartState ps : restoreParts) {
+                if (ps != null && ps.partKey() != null) {
+                    restoreByKey.put(ps.partKey(), ps);
+                }
+            }
+        }
+
         for (int i = 0; i < size; i++) {
             if (i > 0) {
                 groupFilter.disableCollision(i, i - 1);
             }
 
             // ВАЖНО: Мы спавним звенья идеально ровно, чтобы правильно рассчитать суставы
-            Location linkLoc = startLoc.clone().add(direction.clone().multiply(i * step));
-            RVec3 pos = context.world().toJolt(linkLoc);
+            RVec3 pos;
+            Quat rotation;
+            if (restoreByKey != null) {
+                PartState ps = restoreByKey.get(String.valueOf(i));
+                if (ps != null) {
+                    pos = new RVec3(ps.x(), ps.y(), ps.z());
+                    rotation = new Quat(ps.rX(), ps.rY(), ps.rZ(), ps.rW());
+                } else {
+                    Location linkLoc = startLoc.clone().add(direction.clone().multiply(i * step));
+                    pos = context.world().toJolt(linkLoc);
+                    rotation = baseRotation;
+                }
+            } else {
+                Location linkLoc = startLoc.clone().add(direction.clone().multiply(i * step));
+                pos = context.world().toJolt(linkLoc);
+                rotation = baseRotation;
+            }
 
             ChainPhysicsBody link = new ChainPhysicsBody(
                     context.world(),
@@ -172,7 +211,7 @@ public class ChainSpawner implements BodySpawner {
                     renderFactory,
                     shapeFactory,
                     pos,
-                    baseRotation,
+                    rotation,
                     parentBody,
                     groupFilter,
                     groupId,
