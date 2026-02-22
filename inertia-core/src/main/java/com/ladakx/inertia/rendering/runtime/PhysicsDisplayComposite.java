@@ -9,7 +9,6 @@ import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
-import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.staticent.StaticEntityMetadata;
 import com.ladakx.inertia.rendering.staticent.StaticEntityPersister;
 import org.bukkit.Location;
@@ -28,10 +27,15 @@ import java.util.UUID;
 public final class PhysicsDisplayComposite {
 
     public record DisplayPart(
+            String modelId,
+            boolean syncPosition,
+            boolean syncRotation,
+            @Nullable com.ladakx.inertia.rendering.version.ClientVersionRange clientRange,
             RenderEntityDefinition definition,
             NetworkVisual visual
     ) {
         public DisplayPart {
+            Objects.requireNonNull(modelId, "modelId");
             Objects.requireNonNull(definition);
             Objects.requireNonNull(visual);
         }
@@ -39,7 +43,6 @@ public final class PhysicsDisplayComposite {
 
     private final AbstractPhysicsBody owner;
     private final Body body;
-    private final RenderModelDefinition model;
     private final List<DisplayPart> parts;
     private final World world;
     private final @Nullable NetworkEntityTracker tracker;
@@ -53,14 +56,12 @@ public final class PhysicsDisplayComposite {
     private final Quaternionf cacheFinalRot = new Quaternionf();
 
     public PhysicsDisplayComposite(AbstractPhysicsBody owner,
-                                   RenderModelDefinition model,
                                    World world,
                                    List<DisplayPart> parts,
                                    @Nullable NetworkEntityTracker tracker,
                                    StaticEntityPersister staticEntityPersister) {
         this.owner = Objects.requireNonNull(owner);
         this.body = owner.getBody();
-        this.model = Objects.requireNonNull(model);
         this.world = Objects.requireNonNull(world);
         this.parts = Collections.unmodifiableList(parts);
         this.tracker = tracker;
@@ -78,16 +79,31 @@ public final class PhysicsDisplayComposite {
         Location baseLoc = new Location(world, pos.xx() + origin.xx(), pos.yy() + origin.yy(), pos.zz() + origin.zz());
         Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
 
+        boolean sleepingNow = !body.isActive();
         List<NetworkEntityTracker.VisualRegistration> registrations = new ArrayList<>(parts.size());
         for (DisplayPart part : parts) {
             int visualId = part.visual().getId();
-            registrations.add(new NetworkEntityTracker.VisualRegistration(part.visual(), baseLoc, baseRot));
+            RenderEntityDefinition def = part.definition();
+            int allowedLodMask = computeAllowedLodMask(def);
+            boolean enabled = computeEnabled(def, sleepingNow);
+            registrations.add(new NetworkEntityTracker.VisualRegistration(
+                    part.visual(),
+                    baseLoc,
+                    baseRot,
+                    part.clientRange(),
+                    allowedLodMask,
+                    enabled
+            ));
             owner.getSpace().registerNetworkEntityId(owner, visualId);
         }
         tracker.registerBatch(registrations);
     }
 
     public void capture(boolean sleeping, RVec3 origin, List<VisualState> accumulator, SnapshotPool pool) {
+        capture(sleeping, origin, accumulator, pool, false);
+    }
+
+    public void capture(boolean sleeping, RVec3 origin, List<VisualState> accumulator, SnapshotPool pool, boolean forceVisibilitySync) {
         Objects.requireNonNull(origin, "origin");
         Objects.requireNonNull(accumulator, "accumulator");
         Objects.requireNonNull(pool, "pool");
@@ -104,7 +120,8 @@ public final class PhysicsDisplayComposite {
                 bodyRotJolt.getX(),
                 bodyRotJolt.getY(),
                 bodyRotJolt.getZ(),
-                bodyRotJolt.getW()
+                bodyRotJolt.getW(),
+                forceVisibilitySync
         );
     }
 
@@ -119,7 +136,8 @@ public final class PhysicsDisplayComposite {
                                      float rotationX,
                                      float rotationY,
                                      float rotationZ,
-                                     float rotationW) {
+                                     float rotationW,
+                                     boolean forceVisibilitySync) {
         Objects.requireNonNull(origin, "origin");
         Objects.requireNonNull(accumulator, "accumulator");
         Objects.requireNonNull(pool, "pool");
@@ -137,19 +155,19 @@ public final class PhysicsDisplayComposite {
             RenderEntityDefinition def = part.definition();
             NetworkVisual visual = part.visual();
 
-            boolean visible = sleeping ? def.showWhenSleeping() : def.showWhenActive();
-            if (!visible) continue;
+            boolean enabled = computeEnabled(def, sleeping);
+            if (!enabled && !forceVisibilitySync) continue;
 
             cacheFinalPos.set(cacheBodyPos);
 
-            if (model.syncPosition()) {
+            if (part.syncPosition()) {
                 Vector offset = def.localOffset();
                 cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
                 cacheBodyRot.transform(cacheLocalOffset);
                 cacheFinalPos.add(cacheLocalOffset);
             }
 
-            if (model.syncRotation()) {
+            if (part.syncRotation()) {
                 cacheFinalRot.set(cacheBodyRot).mul(def.localRotation());
             } else {
                 cacheFinalRot.set(def.localRotation());
@@ -162,7 +180,7 @@ public final class PhysicsDisplayComposite {
                     cacheFinalRot,
                     cacheCenterOffset,
                     def.rotTranslation(),
-                    visible
+                    enabled
             );
             accumulator.add(state);
         }
@@ -198,22 +216,22 @@ public final class PhysicsDisplayComposite {
             RenderEntityDefinition def = part.definition();
             NetworkVisual visual = part.visual();
 
-            boolean visible = sleeping ? def.showWhenSleeping() : def.showWhenActive();
-            if (!visible) {
+            boolean enabled = computeEnabled(def, sleeping);
+            if (!enabled) {
                 cleanupNetworkVisual(visual);
                 continue;
             }
 
             cacheFinalPos.set(cacheBodyPos);
 
-            if (model.syncPosition()) {
+            if (part.syncPosition()) {
                 Vector offset = def.localOffset();
                 cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
                 cacheBodyRot.transform(cacheLocalOffset);
                 cacheFinalPos.add(cacheLocalOffset);
             }
 
-            if (model.syncRotation()) {
+            if (part.syncRotation()) {
                 cacheFinalRot.set(cacheBodyRot).mul(def.localRotation());
             } else {
                 cacheFinalRot.set(def.localRotation());
@@ -227,15 +245,38 @@ public final class PhysicsDisplayComposite {
                 StaticEntityMetadata metadata = new StaticEntityMetadata(
                         owner.getBodyId(),
                         owner.getUuid(),
-                        model.id(),
+                        part.modelId(),
                         def.key(),
                         clusterId
                 );
-                staticEntityPersister.persist(spawnLoc, def, cacheFinalRot, metadata);
+                // Static entities exist on server only; persist only variants compatible with server version.
+                com.ladakx.inertia.rendering.version.ClientVersionRange range = part.clientRange();
+                int serverProtocol = com.ladakx.inertia.common.MinecraftVersions.CURRENT != null
+                        ? com.ladakx.inertia.common.MinecraftVersions.CURRENT.networkProtocol
+                        : Integer.MAX_VALUE;
+                if (range == null || range.containsProtocol(serverProtocol)) {
+                    staticEntityPersister.persist(spawnLoc, def, cacheFinalRot, metadata);
+                }
             } finally {
                 cleanupNetworkVisual(visual);
             }
         }
+    }
+
+    private boolean computeEnabled(RenderEntityDefinition def, boolean sleeping) {
+        boolean show = sleeping ? def.showWhenSleeping() : def.showWhenActive();
+        boolean hide = sleeping ? def.hideWhenSleeping() : def.hideWhenActive();
+        return show && !hide;
+    }
+
+    private int computeAllowedLodMask(RenderEntityDefinition def) {
+        int all = 0x07;
+        int show = def.showLodMask() & 0x07;
+        if (show == 0) {
+            show = all;
+        }
+        int hidden = def.hideLodMask() & 0x07;
+        return (show & ~hidden) & 0x07;
     }
 
     public boolean isValid() {

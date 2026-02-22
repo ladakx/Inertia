@@ -33,17 +33,20 @@ public final class VisibilitySliceProcessor {
     private final PacketBuffer packetBuffer;
     private final java.util.function.IntToLongFunction tokenProvider;
     private final Function<UUID, PlayerFrame> playerFrameProvider;
+    private final TransformSliceProcessor.LodResolver lodResolver;
 
     public VisibilitySliceProcessor(Map<Integer, TrackedVisual> visualsById,
                              RenderNetworkBudgetScheduler scheduler,
                              PacketBuffer packetBuffer,
                              java.util.function.IntToLongFunction tokenProvider,
-                             Function<UUID, PlayerFrame> playerFrameProvider) {
+                             Function<UUID, PlayerFrame> playerFrameProvider,
+                             TransformSliceProcessor.LodResolver lodResolver) {
         this.visualsById = Objects.requireNonNull(visualsById, "visualsById");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.packetBuffer = Objects.requireNonNull(packetBuffer, "packetBuffer");
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider");
         this.playerFrameProvider = Objects.requireNonNull(playerFrameProvider, "playerFrameProvider");
+        this.lodResolver = Objects.requireNonNull(lodResolver, "lodResolver");
     }
 
     public void runSlice(UUID playerId,
@@ -88,6 +91,31 @@ public final class VisibilitySliceProcessor {
                 boolean inRange = sameWorld && distSq <= viewDistanceSquared;
 
                 if (inRange) {
+                    if (!tracked.isEnabled()) {
+                        if (trackingState.removeVisible(id)) {
+                            scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
+                                    null, false, false, -1L, -1L));
+                        }
+                        processed++;
+                        continue;
+                    }
+                    if (!tracked.isAllowedForProtocol(playerFrame.clientProtocol())) {
+                        if (trackingState.removeVisible(id)) {
+                            scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
+                                    null, false, false, -1L, -1L));
+                        }
+                        processed++;
+                        continue;
+                    }
+                    com.ladakx.inertia.rendering.tracker.state.LodLevel lod = lodResolver.resolve(distSq);
+                    if (!tracked.isAllowedForLod(lod)) {
+                        if (trackingState.removeVisible(id)) {
+                            scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
+                                    null, false, false, -1L, -1L));
+                        }
+                        processed++;
+                        continue;
+                    }
                     if (trackingState.addVisible(id)) {
                         Location spawnLoc = tracked.location().clone();
                         Quaternionf spawnRot = new Quaternionf(tracked.rotation());

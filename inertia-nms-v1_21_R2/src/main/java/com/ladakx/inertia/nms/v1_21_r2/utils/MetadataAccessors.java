@@ -5,6 +5,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Interaction;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -17,6 +18,7 @@ public class MetadataAccessors {
     public static EntityDataAccessor<Byte> ENTITY_FLAGS;
     public static EntityDataAccessor<Boolean> ENTITY_SILENT;
     public static EntityDataAccessor<Boolean> ENTITY_NO_GRAVITY;
+    public static EntityDataAccessor<Byte> ARMOR_STAND_CLIENT_FLAGS;
 
     // Display (Base)
     public static EntityDataAccessor<Integer> DISPLAY_INTERPOLATION_DURATION;
@@ -51,6 +53,7 @@ public class MetadataAccessors {
             ENTITY_FLAGS = getField(Entity.class, "DATA_SHARED_FLAGS_ID");
             ENTITY_SILENT = getFieldOrNull(Entity.class, "DATA_SILENT");
             ENTITY_NO_GRAVITY = getFieldOrNull(Entity.class, "DATA_NO_GRAVITY");
+            ARMOR_STAND_CLIENT_FLAGS = getFieldOrNull(ArmorStand.class, "DATA_CLIENT_FLAGS", "DATA_CLIENT_FLAGS_ID");
 
             // Display (Base)
             // private static final EntityDataAccessor<Integer> DATA_TRANSFORMATION_INTERPOLATION_DURATION_ID;

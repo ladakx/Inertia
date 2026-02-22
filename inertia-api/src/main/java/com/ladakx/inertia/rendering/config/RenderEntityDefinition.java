@@ -26,6 +26,10 @@ public record RenderEntityDefinition(
         Vector translation,
         boolean showWhenActive,
         boolean showWhenSleeping,
+        boolean hideWhenActive,
+        boolean hideWhenSleeping,
+        int showLodMask,
+        int hideLodMask,
         boolean rotTranslation,
         Float viewRange,
         Float shadowRadius,
@@ -59,6 +63,12 @@ public record RenderEntityDefinition(
         Objects.requireNonNull(localRotation, "localRotation");
         Objects.requireNonNull(scale, "scale");
         Objects.requireNonNull(translation, "translation");
+        if (showLodMask < 0 || showLodMask > 7) {
+            throw new IllegalArgumentException("showLodMask must be in [0..7]");
+        }
+        if (hideLodMask < 0 || hideLodMask > 7) {
+            throw new IllegalArgumentException("hideLodMask must be in [0..7]");
+        }
         if (settings == null || settings.isEmpty()) {
             settings = Collections.emptyMap();
         } else {

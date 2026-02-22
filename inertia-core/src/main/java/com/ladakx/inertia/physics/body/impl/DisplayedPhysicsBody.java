@@ -65,6 +65,7 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
         java.util.Objects.requireNonNull(accumulator, "accumulator");
         java.util.Objects.requireNonNull(pool, "pool");
         java.util.Objects.requireNonNull(origin, "origin");
+        boolean wokeUp = !wasActive;
         displayComposite.captureWithTransform(
                 false,
                 origin,
@@ -76,7 +77,8 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
                 rotationX,
                 rotationY,
                 rotationZ,
-                rotationW
+                rotationW,
+                wokeUp
         );
         wasActive = true;
     }
@@ -90,7 +92,7 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
         java.util.Objects.requireNonNull(accumulator, "accumulator");
         java.util.Objects.requireNonNull(pool, "pool");
         java.util.Objects.requireNonNull(origin, "origin");
-        displayComposite.capture(true, origin, accumulator, pool);
+        displayComposite.capture(true, origin, accumulator, pool, true);
         wasActive = false;
     }
 

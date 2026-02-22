@@ -15,7 +15,8 @@ import com.ladakx.inertia.physics.body.config.BodyPhysicsSettings;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
-import com.ladakx.inertia.rendering.config.RenderModelDefinition;
+import com.ladakx.inertia.rendering.config.RenderModelSelector;
+import com.ladakx.inertia.rendering.config.RenderModelVariant;
 import com.ladakx.inertia.rendering.staticent.BukkitStaticEntityPersister;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import com.ladakx.inertia.common.utils.MiscUtils;
@@ -73,25 +74,34 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
     @Override
     protected PhysicsDisplayComposite recreateDisplay() {
         PhysicsBodyRegistry.BodyModel model = modelRegistry.require(getBodyId());
-        Optional<RenderModelDefinition> renderOpt = model.renderModel();
+        Optional<RenderModelSelector> renderOpt = model.renderModel();
         if (renderOpt.isEmpty()) return null;
 
-        RenderModelDefinition renderDef = renderOpt.get();
         World world = getSpace().getWorldBukkit();
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
 
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-        for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
-            RenderEntityDefinition entityDef = entry.getValue();
-            NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
-            parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
+        for (RenderModelVariant variant : renderOpt.get().variants()) {
+            if (variant == null) continue;
+            var renderDef = variant.model();
+            for (Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
+                RenderEntityDefinition entityDef = entry.getValue();
+                NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
+                parts.add(new PhysicsDisplayComposite.DisplayPart(
+                        renderDef.id(),
+                        renderDef.syncPosition(),
+                        renderDef.syncRotation(),
+                        variant.clientRange(),
+                        entityDef,
+                        visual
+                ));
+            }
         }
 
         var plugin = com.ladakx.inertia.core.InertiaPlugin.getInstance();
         return new PhysicsDisplayComposite(
                 this,
-                renderDef,
                 world,
                 parts,
                 plugin != null ? plugin.getNetworkEntityTracker() : null,

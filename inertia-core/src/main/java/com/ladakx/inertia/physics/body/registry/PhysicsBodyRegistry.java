@@ -7,7 +7,7 @@ import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.body.config.BodyDefinition;
 import com.ladakx.inertia.physics.body.config.ChainBodyDefinition;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
-import com.ladakx.inertia.rendering.config.RenderModelDefinition;
+import com.ladakx.inertia.rendering.config.RenderModelSelector;
 
 import java.util.*;
 
@@ -23,9 +23,9 @@ public final class PhysicsBodyRegistry {
     public record BodyModel(
             BodyDefinition bodyDefinition,
             // Для простих об'єктів (BLOCK, CHAIN) - одна модель
-            Optional<RenderModelDefinition> renderModel,
+            Optional<RenderModelSelector> renderModel,
             // Для складених об'єктів (RAGDOLL) - мапа частин (назва частини -> модель)
-            Map<String, RenderModelDefinition> parts
+            Map<String, RenderModelSelector> parts
     ) {
         public BodyModel {
             Objects.requireNonNull(bodyDefinition, "bodyDefinition cannot be null");
@@ -36,7 +36,7 @@ public final class PhysicsBodyRegistry {
         /**
          * Зручний конструктор для простих тіл.
          */
-        public BodyModel(BodyDefinition bodyDefinition, Optional<RenderModelDefinition> renderModel) {
+        public BodyModel(BodyDefinition bodyDefinition, Optional<RenderModelSelector> renderModel) {
             this(bodyDefinition, renderModel, Map.of());
         }
     }
@@ -50,8 +50,8 @@ public final class PhysicsBodyRegistry {
         Map<String, BodyModel> newMap = new LinkedHashMap<>();
 
         for (BodyDefinition body : bodiesConfig.all()) {
-            Optional<RenderModelDefinition> renderOpt = Optional.empty();
-            Map<String, RenderModelDefinition> partsMap = new HashMap<>();
+            Optional<RenderModelSelector> renderOpt = Optional.empty();
+            Map<String, RenderModelSelector> partsMap = new HashMap<>();
 
             // Логіка резолвінгу рендер-моделі залежить від типу тіла
             if (body instanceof BlockBodyDefinition blockDef) {
@@ -64,7 +64,7 @@ public final class PhysicsBodyRegistry {
                     String partName = entry.getKey();
                     String renderModelId = entry.getValue().renderModelId();
 
-                    Optional<RenderModelDefinition> partRender = renderConfig.find(renderModelId);
+                    Optional<RenderModelSelector> partRender = renderConfig.findSelector(renderModelId);
                     if (partRender.isPresent()) {
                         partsMap.put(partName, partRender.get());
                     } else {
@@ -81,11 +81,11 @@ public final class PhysicsBodyRegistry {
         InertiaLogger.info("PhysicsModelRegistry reloaded: " + models.size() + " body definitions");
     }
 
-    private Optional<RenderModelDefinition> resolveRender(String bodyId, String renderId, RenderConfig renderConfig) {
+    private Optional<RenderModelSelector> resolveRender(String bodyId, String renderId, RenderConfig renderConfig) {
         if (renderId == null || renderId.isEmpty()) {
             return Optional.empty();
         }
-        Optional<RenderModelDefinition> opt = renderConfig.find(renderId);
+        Optional<RenderModelSelector> opt = renderConfig.findSelector(renderId);
         if (opt.isEmpty()) {
             InertiaLogger.warn("Body '" + bodyId + "' references missing render model '" + renderId + "'");
         }

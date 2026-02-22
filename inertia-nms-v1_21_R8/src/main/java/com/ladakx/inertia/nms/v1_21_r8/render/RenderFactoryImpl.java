@@ -27,7 +27,7 @@ public class RenderFactoryImpl implements RenderFactory {
             case ITEM_DISPLAY:
                 return new ItemDisplayVisual(definition, packetFactory, itemResolver);
             case ARMOR_STAND:
-                return new ItemDisplayVisual(definition, packetFactory, itemResolver); 
+                return new ArmorStandVisual(definition, packetFactory, itemResolver);
             case BOAT:
                 return new BoatVisual(definition, packetFactory);
             case SHULKER:

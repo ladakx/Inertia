@@ -17,6 +17,8 @@ import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
+import com.ladakx.inertia.rendering.config.RenderModelSelector;
+import com.ladakx.inertia.rendering.config.RenderModelVariant;
 import com.ladakx.inertia.rendering.staticent.BukkitStaticEntityPersister;
 import com.ladakx.inertia.rendering.runtime.PhysicsDisplayComposite;
 import org.bukkit.Location;
@@ -28,6 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll {
 
@@ -86,26 +89,34 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         if (renderModelId == null) return null;
 
         var renderConfig = InertiaPlugin.getInstance().getConfigManager().getRenderConfig();
-        var renderDefOpt = renderConfig.find(renderModelId);
-        if (renderDefOpt.isEmpty()) return null;
-
-        RenderModelDefinition renderDef = renderDefOpt.get();
         World world = getSpace().getWorldBukkit();
         RVec3 currentPos = getBody().getPosition();
         Location spawnLoc = new Location(world, currentPos.xx(), currentPos.yy(), currentPos.zz());
 
+        Optional<RenderModelSelector> selectorOpt = renderConfig.findSelector(renderModelId);
+        if (selectorOpt.isEmpty()) return null;
+
         List<PhysicsDisplayComposite.DisplayPart> parts = new ArrayList<>();
-        for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
-            String entityKey = entry.getKey();
-            RenderEntityDefinition entityDef = withSkin(entry.getValue());
-            NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
-            parts.add(new PhysicsDisplayComposite.DisplayPart(entityDef, visual));
+        for (RenderModelVariant variant : selectorOpt.get().variants()) {
+            if (variant == null) continue;
+            RenderModelDefinition renderDef = variant.model();
+            for (java.util.Map.Entry<String, RenderEntityDefinition> entry : renderDef.entities().entrySet()) {
+                RenderEntityDefinition entityDef = withSkin(entry.getValue());
+                NetworkVisual visual = renderFactory.create(world, spawnLoc, entityDef);
+                parts.add(new PhysicsDisplayComposite.DisplayPart(
+                        renderDef.id(),
+                        renderDef.syncPosition(),
+                        renderDef.syncRotation(),
+                        variant.clientRange(),
+                        entityDef,
+                        visual
+                ));
+            }
         }
 
         var plugin = InertiaPlugin.getInstance();
         return new PhysicsDisplayComposite(
                 this,
-                renderDef,
                 world,
                 parts,
                 plugin != null ? plugin.getNetworkEntityTracker() : null,
@@ -131,6 +142,10 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
                 def.translation(),
                 def.showWhenActive(),
                 def.showWhenSleeping(),
+                def.hideWhenActive(),
+                def.hideWhenSleeping(),
+                def.showLodMask(),
+                def.hideLodMask(),
                 def.rotTranslation(),
                 def.viewRange(),
                 def.shadowRadius(),

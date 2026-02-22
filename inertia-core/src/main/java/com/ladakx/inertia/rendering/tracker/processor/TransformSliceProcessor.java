@@ -104,7 +104,8 @@ public final class TransformSliceProcessor {
                 double distSq = dx * dx + dy * dy + dz * dz;
 
                 boolean inRange = sameWorld && distSq <= viewDistanceSquared;
-                if (!inRange) {
+                boolean allowed = tracked.isAllowedForProtocol(playerFrame.clientProtocol());
+                if (!inRange || !allowed) {
                     if (trackingState.removeVisible(id)) {
                         scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
                                 null, false, false, -1L, -1L));
@@ -114,6 +115,14 @@ public final class TransformSliceProcessor {
                 }
 
                 LodLevel lodLevel = lodResolver.resolve(distSq);
+                if (!tracked.isEnabled() || !tracked.isAllowedForLod(lodLevel)) {
+                    if (trackingState.removeVisible(id)) {
+                        scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
+                                null, false, false, -1L, -1L));
+                    }
+                    checked++;
+                    continue;
+                }
                 int midInterval = midUpdateIntervalTicks * sheddingState.midTeleportIntervalMultiplier();
                 int farInterval = farUpdateIntervalTicks * sheddingState.farTeleportIntervalMultiplier();
                 UpdateDecision updateDecision = tracked.prepareUpdate(
