@@ -4,6 +4,8 @@ import com.ladakx.inertia.infrastructure.nms.jolt.JoltTools;
 import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Slab;
 
 import java.util.Objects;
 
@@ -37,6 +39,14 @@ public final class ChunkSnapshotData {
     }
 
     public static ChunkSnapshotData capture(Chunk chunk, JoltTools joltTools, short[] materialToProfileId) {
+        return capture(chunk, joltTools, materialToProfileId, null, null);
+    }
+
+    public static ChunkSnapshotData capture(Chunk chunk,
+                                            JoltTools joltTools,
+                                            short[] materialToProfileId,
+                                            short[] materialToSlabTopProfileId,
+                                            short[] materialToSlabDoubleProfileId) {
         Objects.requireNonNull(chunk, "chunk");
         Objects.requireNonNull(joltTools, "joltTools");
         int minSectionY = joltTools.getMinSectionY(chunk);
@@ -55,6 +65,23 @@ public final class ChunkSnapshotData {
                 for (int x = 0; x < 16; x++) {
                     Material material = snapshot.getBlockType(x, worldY, z);
                     short profileId = toProfileId(material, materialToProfileId);
+                    if (profileId != 0
+                            && materialToSlabTopProfileId != null
+                            && materialToSlabDoubleProfileId != null
+                            && material != null
+                            && material.name().endsWith("_SLAB")) {
+                        try {
+                            BlockData data = snapshot.getBlockData(x, worldY, z);
+                            if (data instanceof Slab slab) {
+                                if (slab.getType() == Slab.Type.TOP) {
+                                    profileId = materialToSlabTopProfileId[material.ordinal()];
+                                } else if (slab.getType() == Slab.Type.DOUBLE) {
+                                    profileId = materialToSlabDoubleProfileId[material.ordinal()];
+                                }
+                            }
+                        } catch (Throwable ignored) {
+                        }
+                    }
                     profileIds[flattenIndex(x, localY, z)] = profileId;
                     if (profileId != 0) {
                         sectionHasBlocks[sectionIndex] = true;
@@ -78,6 +105,14 @@ public final class ChunkSnapshotData {
     }
 
     public static ChunkSnapshotData captureFast(Chunk chunk, JoltTools joltTools, short[] materialToProfileId) {
+        return captureFast(chunk, joltTools, materialToProfileId, null, null);
+    }
+
+    public static ChunkSnapshotData captureFast(Chunk chunk,
+                                                JoltTools joltTools,
+                                                short[] materialToProfileId,
+                                                short[] materialToSlabTopProfileId,
+                                                short[] materialToSlabDoubleProfileId) {
         Objects.requireNonNull(chunk, "chunk");
         Objects.requireNonNull(joltTools, "joltTools");
         int minSectionY = joltTools.getMinSectionY(chunk);
@@ -101,6 +136,18 @@ public final class ChunkSnapshotData {
                     for (int x = 0; x < 16; x++) {
                         Material material = joltTools.getMaterial(chunk, sectionY, x, yInSection, z);
                         short profileId = toProfileId(material, materialToProfileId);
+                        if (profileId != 0
+                                && materialToSlabTopProfileId != null
+                                && materialToSlabDoubleProfileId != null
+                                && material != null
+                                && material.name().endsWith("_SLAB")) {
+                            byte slabType = joltTools.getSlabType(chunk, sectionY, x, yInSection, z);
+                            if (slabType == 1) {
+                                profileId = materialToSlabTopProfileId[material.ordinal()];
+                            } else if (slabType == 2) {
+                                profileId = materialToSlabDoubleProfileId[material.ordinal()];
+                            }
+                        }
                         profileIds[flattenIndex(x, localY, z)] = profileId;
                         if (profileId != 0) {
                             sectionHasBlocks[sectionIndex] = true;

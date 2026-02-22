@@ -21,7 +21,7 @@ import java.util.Set;
 
 public class ChunkPhysicsCache {
 
-    private static final int CACHE_FORMAT_VERSION = 2;
+    private static final int CACHE_FORMAT_VERSION = 3;
 
     private final File baseDir;
     private final Map<CacheKey, CacheEntry> memoryCache;

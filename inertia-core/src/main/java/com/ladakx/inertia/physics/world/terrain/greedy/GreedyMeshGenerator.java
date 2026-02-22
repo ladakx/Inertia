@@ -29,6 +29,8 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
     private final JoltTools joltTools;
     private final WorldsConfig.GreedyMeshingSettings settings;
     private final short[] materialToProfileId;
+    private final short[] materialToSlabTopProfileId;
+    private final short[] materialToSlabDoubleProfileId;
     private final PhysicalProfile[] profilesById;
 
     // Используем ThreadLocal для буферов, чтобы не аллоцировать память каждый раз
@@ -42,6 +44,8 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         this.settings = Objects.requireNonNull(settings, "settings");
         ProfileMappings mappings = buildProfileMappings();
         this.materialToProfileId = mappings.materialToProfileId();
+        this.materialToSlabTopProfileId = mappings.materialToSlabTopProfileId();
+        this.materialToSlabDoubleProfileId = mappings.materialToSlabDoubleProfileId();
         this.profilesById = mappings.profilesById();
     }
 
@@ -49,9 +53,19 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         return materialToProfileId;
     }
 
+    public short[] materialToSlabTopProfileId() {
+        return materialToSlabTopProfileId;
+    }
+
+    public short[] materialToSlabDoubleProfileId() {
+        return materialToSlabDoubleProfileId;
+    }
+
     private ProfileMappings buildProfileMappings() {
         Material[] materials = Material.values();
         short[] materialIds = new short[materials.length];
+        short[] slabTopIds = new short[materials.length];
+        short[] slabDoubleIds = new short[materials.length];
         List<PhysicalProfile> profileList = new ArrayList<>();
 
         for (Material material : materials) {
@@ -65,9 +79,44 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
             short profileId = (short) (profileList.size() + 1);
             materialIds[material.ordinal()] = profileId;
             profileList.add(profile);
+
+            boolean isSlab = material.name().endsWith("_SLAB");
+            if (isSlab && profile.boundingBoxes().size() == 1) {
+                if (profileList.size() >= Short.MAX_VALUE - 2) {
+                    throw new IllegalStateException("Too many physical profiles for slab variants");
+                }
+
+                PhysicalProfile topProfile = profile.withBoundingBoxes(shiftBoxesY(profile.boundingBoxes(), 0.5f));
+                short topId = (short) (profileList.size() + 1);
+                slabTopIds[material.ordinal()] = topId;
+                profileList.add(topProfile);
+
+                PhysicalProfile doubleProfile = profile.withBoundingBoxes(List.of(
+                        new AaBox(new Vec3(0f, 0f, 0f), new Vec3(1f, 1f, 1f))
+                ));
+                short doubleId = (short) (profileList.size() + 1);
+                slabDoubleIds[material.ordinal()] = doubleId;
+                profileList.add(doubleProfile);
+            } else {
+                slabTopIds[material.ordinal()] = profileId;
+                slabDoubleIds[material.ordinal()] = profileId;
+            }
         }
 
-        return new ProfileMappings(materialIds, profileList.toArray(new PhysicalProfile[0]));
+        return new ProfileMappings(materialIds, slabTopIds, slabDoubleIds, profileList.toArray(new PhysicalProfile[0]));
+    }
+
+    private List<AaBox> shiftBoxesY(List<AaBox> boxes, float deltaY) {
+        List<AaBox> shifted = new ArrayList<>(boxes.size());
+        for (AaBox box : boxes) {
+            Vec3 min = box.getMin();
+            Vec3 max = box.getMax();
+            shifted.add(new AaBox(
+                    new Vec3(min.getX(), min.getY() + deltaY, min.getZ()),
+                    new Vec3(max.getX(), max.getY() + deltaY, max.getZ())
+            ));
+        }
+        return shifted;
     }
 
     private PhysicalProfile resolvePhysicalProfile(Material material) {
@@ -174,9 +223,40 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
 
             float[] triangles = toTriangles(profile.boundingBoxes(), x, worldY, z);
 
+            float minX = Float.POSITIVE_INFINITY;
+            float minY = Float.POSITIVE_INFINITY;
+            float minZ = Float.POSITIVE_INFINITY;
+            float maxX = Float.NEGATIVE_INFINITY;
+            float maxY = Float.NEGATIVE_INFINITY;
+            float maxZ = Float.NEGATIVE_INFINITY;
+            for (AaBox box : profile.boundingBoxes()) {
+                Vec3 min = box.getMin();
+                Vec3 max = box.getMax();
+                float x1 = x + min.getX();
+                float y1 = worldY + min.getY();
+                float z1 = z + min.getZ();
+                float x2 = x + max.getX();
+                float y2 = worldY + max.getY();
+                float z2 = z + max.getZ();
+                if (x1 < minX) minX = x1;
+                if (y1 < minY) minY = y1;
+                if (z1 < minZ) minZ = z1;
+                if (x2 > maxX) maxX = x2;
+                if (y2 > maxY) maxY = y2;
+                if (z2 > maxZ) maxZ = z2;
+            }
+            if (!Float.isFinite(minX)) {
+                minX = x;
+                minY = worldY;
+                minZ = z;
+                maxX = x + 1;
+                maxY = worldY + 1;
+                maxZ = z + 1;
+            }
+
             shapes.add(new GreedyMeshShape(
                     profile.id(), profile.density(), profile.friction(), profile.restitution(),
-                    triangles, x, worldY, z, x + 1, worldY + 1, z + 1
+                    triangles, minX, minY, minZ, maxX, maxY, maxZ
             ));
             visited[index] = true;
         }
@@ -386,20 +466,23 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         if (profile == null) return;
 
         int worldY = minHeight + rect.startY;
-        int maxX = rect.x + rect.width;
-        int maxY = worldY + rect.height;
-        int maxZ = rect.z + rect.depth;
 
         // Генерируем треугольники для этого объема
-        float[] triangles = generateBoxTriangles(
-                profile.boundingBoxes().get(0), // Для мержинга берем первую коробку (она должна быть одна)
-                rect.x, worldY, rect.z,
-                rect.width, rect.height, rect.depth
-        );
+        AaBox baseBox = profile.boundingBoxes().get(0); // Для мержинга берем первую коробку (она должна быть одна)
+        float[] triangles = generateBoxTriangles(baseBox, rect.x, worldY, rect.z, rect.width, rect.height, rect.depth);
+
+        Vec3 min = baseBox.getMin();
+        Vec3 max = baseBox.getMax();
+        float minX = rect.x + min.getX();
+        float minY = worldY + min.getY();
+        float minZ = rect.z + min.getZ();
+        float maxX = rect.x + (rect.width - 1) + max.getX();
+        float maxY = worldY + (rect.height - 1) + max.getY();
+        float maxZ = rect.z + (rect.depth - 1) + max.getZ();
 
         shapes.add(new GreedyMeshShape(
                 profile.id(), profile.density(), profile.friction(), profile.restitution(),
-                triangles, rect.x, worldY, rect.z, maxX, maxY, maxZ
+                triangles, minX, minY, minZ, maxX, maxY, maxZ
         ));
     }
 
@@ -579,7 +662,10 @@ public class GreedyMeshGenerator implements PhysicsGenerator<GreedyMeshData> {
         }
     }
 
-    private record ProfileMappings(short[] materialToProfileId, PhysicalProfile[] profilesById) {
+    private record ProfileMappings(short[] materialToProfileId,
+                                   short[] materialToSlabTopProfileId,
+                                   short[] materialToSlabDoubleProfileId,
+                                   PhysicalProfile[] profilesById) {
     }
 
     private record GenerationRange(int startSectionIndex,
