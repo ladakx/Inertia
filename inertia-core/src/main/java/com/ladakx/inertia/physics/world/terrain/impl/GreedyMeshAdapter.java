@@ -409,9 +409,11 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         Chunk chunk = world.getWorldBukkit().getChunkAt(x, z);
 //        long startedNanos = System.nanoTime();
         short[] profileMap = generator != null ? generator.materialToProfileId() : null;
+        short[] slabTopProfileMap = generator != null ? generator.materialToSlabTopProfileId() : null;
+        short[] slabDoubleProfileMap = generator != null ? generator.materialToSlabDoubleProfileId() : null;
         ChunkSnapshotData snapshotData = useFastChunkCapture
-                ? ChunkSnapshotData.captureFast(chunk, joltTools, profileMap)
-                : ChunkSnapshotData.capture(chunk, joltTools, profileMap);
+                ? ChunkSnapshotData.captureFast(chunk, joltTools, profileMap, slabTopProfileMap, slabDoubleProfileMap)
+                : ChunkSnapshotData.capture(chunk, joltTools, profileMap, slabTopProfileMap, slabDoubleProfileMap);
 //        long elapsedNanos = System.nanoTime() - startedNanos;
 //        double elapsedMillis = elapsedNanos / 1_000_000.0;
 //        InertiaLogger.debug("Chunk capture [" + (useFastChunkCapture ? "fast" : "legacy") + "] "
@@ -590,7 +592,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         for (GreedyMeshShape shapeData : data.shapes()) {
             if (shapeData.vertices().length == 0) continue;
-            int sectionY = shapeData.minY() >> 4;
+            int sectionY = ((int) Math.floor(shapeData.minY())) >> 4;
             String groupKey = shapeData.materialId() + '#' + sectionY;
             MeshGroup group = groupedVertices.computeIfAbsent(
                     groupKey,

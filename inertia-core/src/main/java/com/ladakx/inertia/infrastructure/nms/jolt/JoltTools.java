@@ -15,6 +15,14 @@ import java.util.List;
  * for working with block states and bounding boxes in a custom NMS context.
  */
 public interface JoltTools {
+    /**
+     * Slab state discriminator for placed blocks.
+     * 0 = bottom, 1 = top, 2 = double/full.
+     * Default implementation returns bottom.
+     */
+    default byte getSlabType(Chunk chunk, int sectionY, int x, int yInSection, int z) {
+        return 0;
+    }
 
     /**
      * Gets the unique integer identifier for the given block state.

@@ -211,6 +211,34 @@ public class JoltTools implements com.ladakx.inertia.infrastructure.nms.jolt.Jol
         return CraftMagicNumbers.getMaterial(nmsState.getBlock());
     }
 
+    @Override
+    public byte getSlabType(Chunk chunk, int sectionY, int x, int yInSection, int z) {
+        try {
+            ChunkAccess nmsChunk = ((CraftChunk) chunk).getHandle(ChunkStatus.FULL);
+            LevelChunkSection[] sections = nmsChunk.getSections();
+            int idx = sectionY - nmsChunk.getMinSectionY();
+            if (idx < 0 || idx >= sections.length) return 0;
+
+            LevelChunkSection section = sections[idx];
+            if (section == null || section.hasOnlyAir()) return 0;
+
+            net.minecraft.world.level.block.state.BlockState nmsState = section.getBlockState(x, yInSection, z);
+            if (!(nmsState.getBlock() instanceof net.minecraft.world.level.block.SlabBlock)) {
+                return 0;
+            }
+
+            net.minecraft.world.level.block.state.properties.SlabType type =
+                    nmsState.getValue(net.minecraft.world.level.block.SlabBlock.TYPE);
+            return switch (type) {
+                case TOP -> (byte) 1;
+                case DOUBLE -> (byte) 2;
+                case BOTTOM -> (byte) 0;
+            };
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
     /**
      * Создает CraftBlockState. Относительно тяжелая операция, используйте getMaterial, если нужен только тип.
      */
