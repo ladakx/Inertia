@@ -50,7 +50,7 @@ public class TNTSpawnTool extends Tool {
 
     private void spawnTNT(Player player, ItemStack item, boolean isThrow) {
         if (!validateWorld(player)) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         if (!space.canSpawnBodies(1)) {

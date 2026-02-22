@@ -40,7 +40,7 @@ public class DeleteTool extends Tool implements NetworkInteractTool {
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
 
         if (space != null && tryRemoveActiveBody(player, space)) {
             return;
@@ -59,7 +59,7 @@ public class DeleteTool extends Tool implements NetworkInteractTool {
     @Override
     public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
         if (!validateWorld(player)) return;
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
         int removed = manipulationService.removeCluster(space, body);
         if (removed > 0) {

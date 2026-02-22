@@ -54,7 +54,7 @@ public class AdminCommands extends CloudModule {
                     // Реализуем логику: если не указано, то тогл, если указано - сет.
                     
                     // Для простоты возьмем состояние первого мира, чтобы определить текущий тогл
-                    boolean isAnyPaused = worldRegistry.getAllSpaces().stream()
+                    boolean isAnyPaused = worldRegistry.getAllWorlds().stream()
                             .anyMatch(IPhysicsWorld::isSimulationPaused);
                     
                     if (ctx.contains("state")) {
@@ -64,7 +64,7 @@ public class AdminCommands extends CloudModule {
                     }
 
                     int count = 0;
-                    for (IPhysicsWorld world : worldRegistry.getAllSpaces()) {
+                    for (IPhysicsWorld world : worldRegistry.getAllWorlds()) {
                         world.setSimulationPaused(state);
                         count++;
                     }
@@ -106,7 +106,7 @@ public class AdminCommands extends CloudModule {
                 .literal("pregen")
                 .permission("inertia.admin.terrain-cache")
                 .required("world", StringParser.stringParser(), org.incendo.cloud.suggestion.SuggestionProvider.blockingStrings((c, i) ->
-                        worldRegistry.getAllSpaces().stream().map(space -> space.getWorldBukkit().getName()).toList()))
+                        worldRegistry.getAllWorlds().stream().map(space -> space.getWorldBukkit().getName()).toList()))
                 .optional("radius", IntegerParser.integerParser(0))
                 .optional("all", BooleanParser.booleanParser())
                 .optional("centerX", IntegerParser.integerParser())
@@ -114,7 +114,7 @@ public class AdminCommands extends CloudModule {
                 .optional("force", BooleanParser.booleanParser())
                 .handler(ctx -> {
                     String worldName = ctx.get("world");
-                    PhysicsWorld targetWorld = worldRegistry.getAllSpaces().stream()
+                    PhysicsWorld targetWorld = worldRegistry.getAllWorlds().stream()
                             .filter(space -> space.getWorldBukkit().getName().equalsIgnoreCase(worldName))
                             .findFirst()
                             .orElse(null);
@@ -244,7 +244,7 @@ public class AdminCommands extends CloudModule {
 
     private void executeTerrainRegenerateRadius(Player player, int radius) {
         Objects.requireNonNull(player, "player");
-        PhysicsWorld physicsWorld = worldRegistry.getSpace(player.getWorld());
+        PhysicsWorld physicsWorld = worldRegistry.getWorld(player.getWorld());
         if (physicsWorld == null) {
             return;
         }

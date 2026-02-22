@@ -57,7 +57,7 @@ public class WeldTool extends Tool implements NetworkInteractTool {
     @Override
     public void onRightClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         var eye = player.getEyeLocation();
@@ -94,7 +94,7 @@ public class WeldTool extends Tool implements NetworkInteractTool {
             return;
         }
 
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         if (firstObject != null) {

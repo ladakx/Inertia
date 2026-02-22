@@ -125,7 +125,7 @@ public class ManageCommands extends CloudModule {
     }
 
     private void executeClear(Player player, Integer radius, PhysicsBodyType targetType, String targetId) {
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         Location playerLoc = player.getLocation();
@@ -229,7 +229,7 @@ public class ManageCommands extends CloudModule {
     private void executeEntityClear(Player player, int radius, boolean active, boolean removeStatic, String filter) {
         // Logic from original ManageCommands.onEntityClear
         // Simplified for brevity, assume copy-paste of logic but using arguments
-        PhysicsWorld space = physicsWorldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         PhysicsBodyType targetType = null;

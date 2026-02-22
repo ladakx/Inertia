@@ -146,7 +146,7 @@ public final class DynamicBodyRuntimeLoader {
                 continue;
             }
 
-            com.ladakx.inertia.physics.world.PhysicsWorld space = plugin.getSpaceManager().getSpace(world);
+            com.ladakx.inertia.physics.world.PhysicsWorld space = plugin.getWorldRegistry().getWorld(world);
             if (space == null) continue;
 
             ConcurrentLinkedQueue<DynamicBodyStorageRecord> queue = entry.getValue();

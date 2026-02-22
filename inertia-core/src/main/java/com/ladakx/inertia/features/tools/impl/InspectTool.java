@@ -57,7 +57,7 @@ public class InspectTool extends Tool implements NetworkInteractTool {
 
     private void inspect(Player player, AbstractPhysicsBody target) {
         if (!validateWorld(player)) return;
-        PhysicsWorld space = worldRegistry.getSpace(player.getWorld());
+        PhysicsWorld space = worldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
         AbstractPhysicsBody object = target;

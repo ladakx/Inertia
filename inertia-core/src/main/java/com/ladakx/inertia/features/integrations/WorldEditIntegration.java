@@ -48,7 +48,7 @@ public class WorldEditIntegration {
 
         // Перебираем накопленные изменения
         for (WorldChunkKey key : dirtyChunks) {
-            PhysicsWorld space = InertiaPlugin.getInstance().getSpaceManager().getSpace(key.world);
+            PhysicsWorld space = InertiaPlugin.getInstance().getWorldRegistry().getWorld(key.world);
             if (space != null) {
                 // Вызываем обновление всего чанка в физическом мире
                 space.onChunkChange(key.x, key.z);

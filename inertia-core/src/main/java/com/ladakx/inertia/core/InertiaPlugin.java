@@ -238,7 +238,7 @@ public final class InertiaPlugin extends JavaPlugin {
         }
 
         if (physicsWorldRegistry != null) {
-            for (com.ladakx.inertia.physics.world.PhysicsWorld space : physicsWorldRegistry.getAllSpaces()) {
+            for (com.ladakx.inertia.physics.world.PhysicsWorld space : physicsWorldRegistry.getAllWorlds()) {
                 for (com.ladakx.inertia.physics.body.InertiaPhysicsBody body : new ArrayList<>(space.getBodies())) {
                     if (body.getMotionType() != com.ladakx.inertia.api.body.MotionType.STATIC) {
                         body.destroy();
@@ -317,7 +317,7 @@ public final class InertiaPlugin extends JavaPlugin {
             return;
         }
 
-        for (com.ladakx.inertia.physics.world.PhysicsWorld space : physicsWorldRegistry.getAllSpaces()) {
+        for (com.ladakx.inertia.physics.world.PhysicsWorld space : physicsWorldRegistry.getAllWorlds()) {
             for (com.ladakx.inertia.physics.body.InertiaPhysicsBody body : new ArrayList<>(space.getBodies())) {
                 String bodyId = body.getBodyId();
 
@@ -395,7 +395,10 @@ public final class InertiaPlugin extends JavaPlugin {
     public BodyFactory getBodyFactory() { return bodyFactory; }
     public BlockBenchMeshProvider getMeshProvider() { return meshProvider; }
     public ConfigurationService getConfigManager() { return configurationService; }
+    /** @deprecated Use {@link #getWorldRegistry()}. */
+    @Deprecated
     public PhysicsWorldRegistry getSpaceManager() { return physicsWorldRegistry; }
+    public PhysicsWorldRegistry getWorldRegistry() { return physicsWorldRegistry; }
     public ToolRegistry getToolManager() { return toolRegistry; }
     public PhysicsEngine getJoltManager() { return physicsEngine; }
     public PhysicsManipulationService getManipulationService() { return manipulationService; }

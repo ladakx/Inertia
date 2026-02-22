@@ -25,7 +25,7 @@ public final class DynamicBodyStorage {
     }
 
     public List<DynamicBodyStorageRecord> snapshot() {
-        Collection<PhysicsWorld> spaces = physicsWorldRegistry.getAllSpaces();
+        Collection<PhysicsWorld> spaces = physicsWorldRegistry.getAllWorlds();
         List<DynamicBodyStorageRecord> records = new ArrayList<>();
         long now = System.currentTimeMillis();
 
