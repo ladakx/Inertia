@@ -25,12 +25,14 @@ public abstract class AbstractSimpleEntityVisual implements NetworkVisual {
     protected final RenderEntityDefinition definition;
     protected final PacketFactory packetFactory;
     protected boolean isGlowing = false;
+    protected boolean invisibleFlag;
 
     protected AbstractSimpleEntityVisual(RenderEntityDefinition definition, PacketFactory packetFactory) {
         this.entityId = EntityIdProvider.getInstance().getNextId();
         this.uuid = UUID.randomUUID();
         this.definition = definition;
         this.packetFactory = packetFactory;
+        this.invisibleFlag = definition.invisible();
     }
 
     @Override
@@ -41,6 +43,11 @@ public abstract class AbstractSimpleEntityVisual implements NetworkVisual {
     @Override
     public void setGlowing(boolean glowing) {
         this.isGlowing = glowing;
+    }
+
+    @Override
+    public void setInvisible(boolean invisible) {
+        this.invisibleFlag = invisible;
     }
 
     @Override
@@ -100,7 +107,7 @@ public abstract class AbstractSimpleEntityVisual implements NetworkVisual {
 
     protected void addBaseMetadata(List<SynchedEntityData.DataValue<?>> data) {
         byte flags = 0;
-        if (definition.invisible()) flags |= 0x20;
+        if (invisibleFlag) flags |= 0x20;
         if (isGlowing) flags |= 0x40;
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.ENTITY_FLAGS, flags));
 
@@ -137,4 +144,3 @@ public abstract class AbstractSimpleEntityVisual implements NetworkVisual {
         return (float) Math.toDegrees(pitch);
     }
 }
-

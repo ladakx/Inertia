@@ -6,6 +6,7 @@ import com.github.stephengold.joltjni.readonly.ConstBody;
 import com.ladakx.inertia.api.body.MotionType;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
+import com.ladakx.inertia.api.physics.PhysicsBodySpec;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.common.chunk.ChunkTicketManager;
@@ -14,6 +15,7 @@ import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.physics.body.impl.CustomPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
@@ -27,6 +29,7 @@ import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
 import com.ladakx.inertia.physics.world.buoyancy.BuoyancyManager;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
+import com.ladakx.inertia.physics.factory.shape.ApiShapeConverter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -34,11 +37,13 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Quaternionf;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.nio.ByteBuffer;
@@ -80,6 +85,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final ThreadLocal<ByteBuffer> batchTransformBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(7 * Float.BYTES).order(ByteOrder.nativeOrder()));
     private volatile boolean fluidPhysicsEnabled;
     private @Nullable BukkitTask buoyancyScanTask;
+    private final ApiShapeConverter apiShapeConverter = new ApiShapeConverter();
 
     // Removed: private @Nullable BukkitTask networkTickTask;
 
@@ -577,5 +583,65 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     @Override public @NotNull Vector getGravity() { Vec3 g = physicsSystem.getGravity(); return ConvertUtils.toBukkit(g); }
     @Override public @NotNull Collection<InertiaPhysicsBody> getBodies() { return Collections.unmodifiableCollection(objectManager.getAll()); }
     @Override public @NotNull PhysicsInteraction getInteraction() { return queryEngine; }
+
+    @Override
+    public @Nullable InertiaPhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
+        Objects.requireNonNull(spec, "spec");
+        Location spawnLocation = spec.location();
+        if (spawnLocation.getWorld() == null) {
+            InertiaLogger.warn("Cannot create API body: location.world is null");
+            return null;
+        }
+        if (!spawnLocation.getWorld().getUID().equals(worldBukkit.getUID())) {
+            InertiaLogger.warn("Cannot create API body: location world does not match PhysicsWorld");
+            return null;
+        }
+        if (!isInsideWorld(spawnLocation)) {
+            InertiaLogger.debug("Attempted to spawn API body outside world boundaries at " + spawnLocation);
+            return null;
+        }
+
+        try {
+            ShapeRefC shape = apiShapeConverter.toJolt(spec.shape());
+            RVec3 initialPos = toJolt(spawnLocation);
+            Quaternionf rot = spec.rotation();
+            Quat initialRot = new Quat(rot.x, rot.y, rot.z, rot.w);
+
+            com.github.stephengold.joltjni.enumerate.EMotionType motionType = switch (spec.motionType()) {
+                case STATIC -> com.github.stephengold.joltjni.enumerate.EMotionType.Static;
+                case KINEMATIC -> com.github.stephengold.joltjni.enumerate.EMotionType.Kinematic;
+                case DYNAMIC -> com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic;
+            };
+
+            int defaultLayer = (motionType == com.github.stephengold.joltjni.enumerate.EMotionType.Static)
+                    ? PhysicsLayers.OBJ_STATIC
+                    : PhysicsLayers.OBJ_MOVING;
+            int layer = (spec.objectLayer() != null) ? spec.objectLayer() : defaultLayer;
+
+            BodyCreationSettings settings = new BodyCreationSettings()
+                    .setShape(shape)
+                    .setMotionType(motionType)
+                    .setObjectLayer(layer)
+                    .setLinearDamping(spec.linearDamping())
+                    .setAngularDamping(spec.angularDamping());
+
+            if (motionType == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {
+                settings.setMotionQuality(com.github.stephengold.joltjni.enumerate.EMotionQuality.LinearCast);
+                settings.getMassProperties().setMass(spec.mass());
+            }
+
+            settings.setFriction(spec.friction());
+            settings.setRestitution(spec.restitution());
+            settings.setGravityFactor(spec.gravityFactor());
+            settings.setPosition(initialPos);
+            settings.setRotation(initialRot);
+
+            return new CustomPhysicsBody(this, settings, spec.bodyId());
+        } catch (Exception e) {
+            InertiaLogger.error("Failed to spawn API body in world " + worldName, e);
+            return null;
+        }
+    }
+
     public record RaycastResult(Long va, RVec3 hitPos) {}
 }

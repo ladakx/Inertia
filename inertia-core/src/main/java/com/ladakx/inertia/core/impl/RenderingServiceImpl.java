@@ -2,6 +2,8 @@ package com.ladakx.inertia.core.impl;
 
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.rendering.VisualTracker;
+import com.ladakx.inertia.api.rendering.entity.RenderEntityService;
+import com.ladakx.inertia.core.impl.rendering.RenderEntityServiceImpl;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +14,7 @@ public final class RenderingServiceImpl implements RenderingService {
 
     private final RenderFactory renderFactory;
     private final VisualTracker visualTracker;
+    private final RenderEntityService entityService;
 
     public RenderingServiceImpl(@NotNull RenderFactory renderFactory, @NotNull NetworkEntityTracker tracker) {
         this.renderFactory = Objects.requireNonNull(renderFactory, "renderFactory");
@@ -25,10 +28,26 @@ public final class RenderingServiceImpl implements RenderingService {
             }
 
             @Override
+            public void register(@NotNull com.ladakx.inertia.rendering.NetworkVisual visual,
+                                 @NotNull org.bukkit.Location location,
+                                 @NotNull org.joml.Quaternionf rotation,
+                                 boolean enabled) {
+                tracker.register(visual, location, rotation, null, 0x07, enabled);
+            }
+
+            @Override
             public void updateState(@NotNull com.ladakx.inertia.rendering.NetworkVisual visual,
                                     @NotNull org.bukkit.Location location,
                                     @NotNull org.joml.Quaternionf rotation) {
                 tracker.updateState(visual, location, rotation);
+            }
+
+            @Override
+            public void updateState(@NotNull com.ladakx.inertia.rendering.NetworkVisual visual,
+                                    @NotNull org.bukkit.Location location,
+                                    @NotNull org.joml.Quaternionf rotation,
+                                    boolean enabled) {
+                tracker.updateState(visual, location, rotation, enabled);
             }
 
             @Override
@@ -56,6 +75,7 @@ public final class RenderingServiceImpl implements RenderingService {
                 return tracker.isVisualClosed(visualId);
             }
         };
+        this.entityService = new RenderEntityServiceImpl(renderFactory, tracker);
     }
 
     @Override
@@ -66,5 +86,10 @@ public final class RenderingServiceImpl implements RenderingService {
     @Override
     public @NotNull VisualTracker visualTracker() {
         return visualTracker;
+    }
+
+    @Override
+    public @NotNull RenderEntityService entities() {
+        return entityService;
     }
 }

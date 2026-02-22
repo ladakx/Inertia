@@ -17,7 +17,30 @@ public interface VisualTracker {
 
     void register(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation);
 
+    /**
+     * Registers a visual with an initial enabled state.
+     * <p>
+     * Enabled=false means the visual is kept tracked but not visible to players until enabled again.
+     */
+    default void register(@NotNull NetworkVisual visual,
+                          @NotNull Location location,
+                          @NotNull Quaternionf rotation,
+                          boolean enabled) {
+        register(visual, location, rotation);
+        updateState(visual, location, rotation, enabled);
+    }
+
     void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation);
+
+    /**
+     * Updates position/rotation and toggles the enabled state (hide/show without unregistering).
+     */
+    default void updateState(@NotNull NetworkVisual visual,
+                             @NotNull Location location,
+                             @NotNull Quaternionf rotation,
+                             boolean enabled) {
+        updateState(visual, location, rotation);
+    }
 
     void updateMetadata(@NotNull NetworkVisual visual, boolean critical);
 
@@ -29,4 +52,3 @@ public interface VisualTracker {
 
     boolean isVisualClosed(int visualId);
 }
-
