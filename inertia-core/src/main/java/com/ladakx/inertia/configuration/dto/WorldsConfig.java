@@ -11,6 +11,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.Set;
 
 public class WorldsConfig {
@@ -40,6 +42,8 @@ public class WorldsConfig {
         Vec3 gravity = Vec3Serializer.serialize(section.getString("gravity", "0.0 -17.18 0.0"));
         int tickRate = Math.max(1, section.getInt("tick-rate", 20));
         int collisionSteps = section.getInt("collision-steps", 4);
+
+        EntityCollisionSettings entityCollisions = parseEntityCollisions(section.getConfigurationSection("entity-collisions"));
 
         // Chunk Management
         ConfigurationSection chunkSec = section.getConfigurationSection("chunk-management");
@@ -183,7 +187,76 @@ public class WorldsConfig {
         ConfigurationSection sizeSec = section.getConfigurationSection("size");
         WorldSizeSettings sizeSettings = parseWorldSize(sizeSec);
 
-        return new WorldProfile(gravity, tickRate, collisionSteps, solverSettings, perfSettings, sleepSettings, simulation, sizeSettings, chunkSettings);
+        return new WorldProfile(gravity, tickRate, collisionSteps, solverSettings, perfSettings, sleepSettings, simulation, sizeSettings, chunkSettings, entityCollisions);
+    }
+
+    private EntityCollisionSettings parseEntityCollisions(ConfigurationSection section) {
+        boolean enabled = section == null || section.getBoolean("enabled", true);
+
+        Set<String> enabledGamemodes;
+        if (section == null) {
+            enabledGamemodes = Set.of("SURVIVAL", "ADVENTURE");
+        } else {
+            var list = section.getStringList("enabled-gamemodes");
+            if (list == null || list.isEmpty()) {
+                enabledGamemodes = Set.of("SURVIVAL", "ADVENTURE");
+            } else {
+                enabledGamemodes = list.stream()
+                        .filter(Objects::nonNull)
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .map(s -> s.toUpperCase(java.util.Locale.ROOT))
+                        .collect(Collectors.toUnmodifiableSet());
+            }
+        }
+
+        ConfigurationSection impactSec = section != null ? section.getConfigurationSection("impact") : null;
+        ImpactSettings impact = new ImpactSettings(
+                impactSec == null || impactSec.getBoolean("enabled", true),
+                (float) (impactSec != null ? impactSec.getDouble("min-impulse-threshold", 6.0d) : 6.0d),
+                (float) (impactSec != null ? impactSec.getDouble("impulse-scale", 0.5d) : 0.5d),
+                impactSec != null ? impactSec.getDouble("knockback-per-impulse", 0.006d) : 0.006d,
+                impactSec != null ? impactSec.getDouble("max-knockback", 1.25d) : 1.25d,
+                impactSec != null ? impactSec.getDouble("damage-per-impulse", 0.02d) : 0.02d,
+                impactSec != null ? impactSec.getDouble("max-damage", 10.0d) : 10.0d
+        );
+
+        ConfigurationSection pushSec = section != null ? section.getConfigurationSection("pushing") : null;
+        PushingSettings pushing = new PushingSettings(
+                pushSec == null || pushSec.getBoolean("enabled", true),
+                (float) (pushSec != null ? pushSec.getDouble("player-proxy-friction", 0.2d) : 0.2d),
+                (float) (pushSec != null ? pushSec.getDouble("player-proxy-restitution", 0.0d) : 0.0d),
+                (float) (pushSec != null ? pushSec.getDouble("kinematic-contact-dt-multiplier", 1.15d) : 1.15d)
+        );
+
+        ConfigurationSection stuckSec = section != null ? section.getConfigurationSection("stuck") : null;
+        StuckSettings stuck = new StuckSettings(
+                stuckSec == null || stuckSec.getBoolean("enabled", true),
+                stuckSec != null ? stuckSec.getInt("sensor-enable-ticks", 6) : 6,
+                stuckSec != null ? stuckSec.getInt("sensor-disable-ticks", 3) : 3
+        );
+
+        ConfigurationSection capsuleSec = section != null ? section.getConfigurationSection("capsules") : null;
+        ProxyCapsules capsules = new ProxyCapsules(
+                readCapsule(capsuleSec != null ? capsuleSec.getConfigurationSection("standing") : null, 0.9f, 0.3f),
+                readCapsule(capsuleSec != null ? capsuleSec.getConfigurationSection("sneaking") : null, 0.75f, 0.3f),
+                readCapsule(capsuleSec != null ? capsuleSec.getConfigurationSection("horizontal") : null, 0.75f, 0.3f),
+                readCapsule(capsuleSec != null ? capsuleSec.getConfigurationSection("inside-standing") : null, 0.65f, 0.18f),
+                readCapsule(capsuleSec != null ? capsuleSec.getConfigurationSection("inside-sneaking") : null, 0.55f, 0.18f),
+                readCapsule(capsuleSec != null ? capsuleSec.getConfigurationSection("inside-horizontal") : null, 0.55f, 0.18f)
+        );
+
+        return new EntityCollisionSettings(enabled, enabledGamemodes, impact, pushing, stuck, capsules);
+    }
+
+    private CapsuleSettings readCapsule(ConfigurationSection section, float halfHeight, float radius) {
+        if (section == null) {
+            return new CapsuleSettings(halfHeight, radius);
+        }
+        return new CapsuleSettings(
+                (float) section.getDouble("half-height", halfHeight),
+                (float) section.getDouble("radius", radius)
+        );
     }
 
     private WorldSizeSettings parseWorldSize(ConfigurationSection sizeSec) {
@@ -319,8 +392,52 @@ public class WorldsConfig {
             SleepSettings sleeping,
             SimulationSettings simulation,
             WorldSizeSettings size,
-            ChunkManagementSettings chunkManagement
+            ChunkManagementSettings chunkManagement,
+            EntityCollisionSettings entityCollisions
     ) {}
+
+    public record EntityCollisionSettings(
+            boolean enabled,
+            Set<String> enabledGamemodes,
+            ImpactSettings impact,
+            PushingSettings pushing,
+            StuckSettings stuck,
+            ProxyCapsules capsules
+    ) {}
+
+    public record ImpactSettings(
+            boolean enabled,
+            float minImpulseThreshold,
+            float impulseScale,
+            double knockbackPerImpulse,
+            double maxKnockback,
+            double damagePerImpulse,
+            double maxDamage
+    ) {}
+
+    public record PushingSettings(
+            boolean enabled,
+            float playerProxyFriction,
+            float playerProxyRestitution,
+            float kinematicContactDtMultiplier
+    ) {}
+
+    public record StuckSettings(
+            boolean enabled,
+            int sensorEnableTicks,
+            int sensorDisableTicks
+    ) {}
+
+    public record ProxyCapsules(
+            CapsuleSettings standing,
+            CapsuleSettings sneaking,
+            CapsuleSettings horizontal,
+            CapsuleSettings insideStanding,
+            CapsuleSettings insideSneaking,
+            CapsuleSettings insideHorizontal
+    ) {}
+
+    public record CapsuleSettings(float halfHeight, float radius) {}
 
     public record SolverSettings(
             int velocityIterations,

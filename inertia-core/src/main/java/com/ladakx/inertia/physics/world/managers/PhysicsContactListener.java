@@ -38,13 +38,17 @@ public final class PhysicsContactListener extends CustomContactListener {
         }
 
         var bi = physicsSystem.getBodyInterfaceNoLock();
+        boolean body1Sensor = body1Entity && bi.isSensor(body1Id);
+        boolean body2Sensor = body2Entity && bi.isSensor(body2Id);
         entityPhysicsManager.handleDynamicContact(
                 body1Id,
                 body2Id,
                 bi.getLinearVelocity(body1Id),
                 bi.getLinearVelocity(body2Id),
                 body1.getMotionProperties().getInverseMass() <= 0f ? 0f : 1f / body1.getMotionProperties().getInverseMass(),
-                body2.getMotionProperties().getInverseMass() <= 0f ? 0f : 1f / body2.getMotionProperties().getInverseMass()
+                body2.getMotionProperties().getInverseMass() <= 0f ? 0f : 1f / body2.getMotionProperties().getInverseMass(),
+                body1Sensor,
+                body2Sensor
         );
     }
 }
