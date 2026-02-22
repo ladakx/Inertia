@@ -15,6 +15,9 @@ general:
 physics:
   # Точность вычислений: DP (double precision) или SP (single precision).
   precision: DP
+  fluids:
+    # Включить/выключить физику жидкостей (буйность/drag в воде и лаве).
+    enabled: true
   native-library:
     # Версия релиза нативных библиотек в GitHub Releases (например: 3.6.0).
     release-tag: "3.6.0"

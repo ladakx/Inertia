@@ -294,6 +294,7 @@ public final class InertiaPlugin extends JavaPlugin {
         if (physicsWorldRegistry != null) {
             reconcileBodies(previousModels, currentModels);
             physicsWorldRegistry.reload();
+            physicsWorldRegistry.applyFluidPhysicsEnabled(configurationService.getInertiaConfig().PHYSICS.FLUIDS.enabled);
             physicsWorldRegistry.applyThreadingSettings(configurationService.getInertiaConfig().PERFORMANCE.THREADING);
         }
     }
