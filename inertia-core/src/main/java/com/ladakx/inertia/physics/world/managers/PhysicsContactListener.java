@@ -31,25 +31,20 @@ public final class PhysicsContactListener extends CustomContactListener {
         int body1Id = body1.getId();
         int body2Id = body2.getId();
 
-        if (!entityPhysicsManager.isEntityProxy(body1Id) && !entityPhysicsManager.isEntityProxy(body2Id)) {
+        boolean body1Entity = entityPhysicsManager.isEntityProxy(body1Id);
+        boolean body2Entity = entityPhysicsManager.isEntityProxy(body2Id);
+        if (!body1Entity && !body2Entity) {
             return;
         }
 
-        var bodyInterface = physicsSystem.getBodyInterfaceNoLock();
-        float invMass1 = bodyInterface.getInverseMass(body1Id);
-        float invMass2 = bodyInterface.getInverseMass(body2Id);
-        float mass1 = invMass1 <= 0f ? 0f : 1f / invMass1;
-        float mass2 = invMass2 <= 0f ? 0f : 1f / invMass2;
-
+        var bi = physicsSystem.getBodyInterfaceNoLock();
         entityPhysicsManager.handleDynamicContact(
                 body1Id,
                 body2Id,
-                bodyInterface.getCenterOfMassPosition(body1Id),
-                bodyInterface.getCenterOfMassPosition(body2Id),
-                bodyInterface.getLinearVelocity(body1Id),
-                bodyInterface.getLinearVelocity(body2Id),
-                mass1,
-                mass2
+                bi.getLinearVelocity(body1Id),
+                bi.getLinearVelocity(body2Id),
+                body1.getMotionProperties().getInverseMass() <= 0f ? 0f : 1f / body1.getMotionProperties().getInverseMass(),
+                body2.getMotionProperties().getInverseMass() <= 0f ? 0f : 1f / body2.getMotionProperties().getInverseMass()
         );
     }
 }
