@@ -73,7 +73,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final InertiaBodyActivationListener bodyActivationListener;
     private final NetworkEntityTracker networkEntityTracker;
     private final @Nullable PhysicsMetricsService metricsService;
+    private final InertiaBuoyancyManager buoyancyManager;
     private final ThreadLocal<ByteBuffer> batchTransformBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(7 * Float.BYTES).order(ByteOrder.nativeOrder()));
+    private final @Nullable BukkitTask buoyancyScanTask;
 
     // Removed: private @Nullable BukkitTask networkTickTask;
 
@@ -112,6 +114,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.networkEntityTracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
+        this.buoyancyManager = new InertiaBuoyancyManager(this);
 
         this.contactListener = new PhysicsContactListener(objectManager);
         this.physicsSystem.setContactListener(contactListener);
@@ -147,6 +150,14 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             this.physicsLoop.addListener(metricsService);
         }
 
+        InertiaPlugin plugin = InertiaPlugin.getInstance();
+        if (plugin != null && plugin.isEnabled()) {
+            this.buoyancyScanTask = Bukkit.getScheduler().runTaskTimer(plugin, () ->
+                    buoyancyManager.updateFluidStates(objectManager.getActive()), 1L, 1L);
+        } else {
+            this.buoyancyScanTask = null;
+        }
+
         // Removed: networkTickTask scheduling.
         // The global tracker tick is now handled by InertiaPlugin main class.
     }
@@ -156,6 +167,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             return;
         }
         float deltaTime = 1.0f / settings.tickRate();
+        buoyancyManager.applyBuoyancyForces(deltaTime);
         int errors = physicsSystem.update(deltaTime, settings.collisionSteps(), tempAllocator, jobSystem);
         if (errors != EPhysicsUpdateError.None) {
             InertiaLogger.warn("Physics error in world " + worldName + ": " + errors);
@@ -468,7 +480,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     public void close() {
         InertiaLogger.info("Closing world: " + worldName);
 
-        // Removed networkTickTask cancellation logic as it's no longer used here.
+        if (buoyancyScanTask != null) {
+            buoyancyScanTask.cancel();
+        }
 
         physicsLoop.stop();
         objectManager.clearAll();
