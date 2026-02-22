@@ -33,6 +33,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
     private final int calculatedIterations;
     private final int linkIndex;
     private final int totalChainLength;
+    private final GroupFilterTableRef groupFilterRef;
     private TwoBodyConstraintRef parentConstraintRef;
     private boolean anchored = false;
 
@@ -44,13 +45,15 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
                             @NotNull RVec3 initialPosition,
                             @NotNull Quat initialRotation,
                             @Nullable Body parentBody,
-                            @NotNull GroupFilterTable groupFilter,
+                            @NotNull GroupFilterTableRef groupFilter,
+                            int groupId,
                             int chainIndex,
                             int totalChainLength) {
-        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, chainIndex, totalChainLength), renderFactory, modelRegistry);
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, groupId, chainIndex, totalChainLength), renderFactory, modelRegistry);
         this.bodyId = bodyId;
         this.linkIndex = chainIndex;
         this.totalChainLength = totalChainLength;
+        this.groupFilterRef = groupFilter;
 
         this.calculatedIterations = calculateIterations(modelRegistry.require(bodyId), totalChainLength);
 
@@ -126,7 +129,8 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
                                                            PhysicsBodyRegistry registry,
                                                            JShapeFactory shapeFactory,
                                                            RVec3 pos, Quat rot,
-                                                           GroupFilterTable groupFilter,
+                                                           GroupFilterTableRef groupFilter,
+                                                           int groupId,
                                                            int chainIndex,
                                                            int totalLength) {
         PhysicsBodyRegistry.BodyModel model = registry.require(bodyId);
@@ -152,7 +156,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
         float adaptiveGravity = calculateGravity(model, totalLength);
         settings.setGravityFactor(adaptiveGravity);
 
-        CollisionGroup group = new CollisionGroup(groupFilter, 0, chainIndex);
+        CollisionGroup group = new CollisionGroup(groupFilter, groupId, chainIndex);
         settings.setCollisionGroup(group);
 
         if (phys.motionType() == com.github.stephengold.joltjni.enumerate.EMotionType.Dynamic) {

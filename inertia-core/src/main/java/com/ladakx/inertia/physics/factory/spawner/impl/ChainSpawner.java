@@ -145,7 +145,14 @@ public class ChainSpawner implements BodySpawner {
         }
 
         Body parentBody = null;
-        GroupFilterTable groupFilter = new GroupFilterTable(size);
+        int groupId = (clusterId.hashCode() & 0x7fffffff) + 1;
+        GroupFilterTable table = new GroupFilterTable(size);
+        for (int a = 0; a < size; a++) {
+            for (int b = a + 1; b < size; b++) {
+                table.enableCollision(a, b);
+            }
+        }
+        GroupFilterTableRef groupFilter = table.toRef();
         ChainPhysicsBody firstLink = null;
         ChainPhysicsBody lastLink = null;
 
@@ -168,6 +175,7 @@ public class ChainSpawner implements BodySpawner {
                     baseRotation,
                     parentBody,
                     groupFilter,
+                    groupId,
                     i,
                     size
             );

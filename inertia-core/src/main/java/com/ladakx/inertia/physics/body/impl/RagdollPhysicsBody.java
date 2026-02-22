@@ -36,6 +36,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
     private final @Nullable String skinNickname;
     private boolean removed = false;
     private final CollisionGroup collisionGroup;
+    private final GroupFilterTableRef groupFilterRef;
     private TwoBodyConstraintRef parentJointRef;
     private Integer parentBodyId = null;
 
@@ -48,14 +49,16 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
                               @NotNull RVec3 initialPosition,
                               @NotNull Quat initialRotation,
                               @NotNull Map<String, Body> spawnedParts,
-                              @NotNull GroupFilterTable groupFilter,
+                              @NotNull GroupFilterTableRef groupFilter,
+                              int groupId,
                               int partIndex,
                               @Nullable String skinNickname) {
-        super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, partIndex), renderFactory, modelRegistry);
+        super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, groupId, partIndex), renderFactory, modelRegistry);
         this.bodyId = bodyId;
         this.partName = partName;
         this.skinNickname = (skinNickname == null || skinNickname.isBlank()) ? null : skinNickname;
         this.collisionGroup = getBody().getCollisionGroup();
+        this.groupFilterRef = groupFilter;
 
         RagdollDefinition def = (RagdollDefinition) modelRegistry.require(bodyId).bodyDefinition();
         RagdollDefinition.RagdollPartDefinition partDef = def.parts().get(partName);
@@ -114,7 +117,8 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
                                                            PhysicsBodyRegistry registry,
                                                            JShapeFactory shapeFactory,
                                                            RVec3 pos, Quat rot,
-                                                           GroupFilterTable groupFilter,
+                                                           GroupFilterTableRef groupFilter,
+                                                           int groupId,
                                                            int partIndex) {
         RagdollDefinition def = (RagdollDefinition) registry.require(bodyId).bodyDefinition();
         RagdollDefinition.RagdollPartDefinition partDef = def.parts().get(partName);
@@ -134,7 +138,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         settings.setMotionType(EMotionType.Dynamic);
         settings.setObjectLayer(0);
 
-        CollisionGroup group = new CollisionGroup(groupFilter, 0, partIndex);
+        CollisionGroup group = new CollisionGroup(groupFilter, groupId, partIndex);
         settings.setCollisionGroup(group);
 
         settings.getMassProperties().setMass(partDef.mass());
@@ -150,7 +154,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
         return settings;
     }
 
-    private void createConstraint(RagdollDefinition.RagdollPartDefinition partDef, Body parentBody, Body childBody, GroupFilterTable groupFilter) {
+    private void createConstraint(RagdollDefinition.RagdollPartDefinition partDef, Body parentBody, Body childBody, GroupFilterTableRef groupFilter) {
         RagdollDefinition.JointSettings joint = partDef.joint();
         if (joint == null) return;
 
