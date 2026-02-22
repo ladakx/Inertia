@@ -141,6 +141,7 @@ public class InertiaConfig {
     public static class PhysicsSettings {
         public final Precision precision;
         public final int workerThreads;
+        public final FluidsSettings FLUIDS;
         public final ChunkCacheSettings CHUNK_CACHE;
         public final TerrainGenerationSettings TERRAIN_GENERATION;
         public final MassSpawnSettings MASS_SPAWN;
@@ -152,6 +153,7 @@ public class InertiaConfig {
             if (section == null) {
                 this.precision = Precision.SP;
                 this.workerThreads = 2;
+                this.FLUIDS = new FluidsSettings(null);
                 this.CHUNK_CACHE = new ChunkCacheSettings(null, root);
                 this.TERRAIN_GENERATION = new TerrainGenerationSettings(null, root);
                 this.MASS_SPAWN = new MassSpawnSettings(null, root);
@@ -163,6 +165,7 @@ public class InertiaConfig {
             String precStr = section.getString("precision", "SP");
             this.precision = "DP".equalsIgnoreCase(precStr) ? Precision.DP : Precision.SP;
             this.workerThreads = section.getInt("worker-threads", 2);
+            this.FLUIDS = new FluidsSettings(section.getConfigurationSection("fluids"));
             this.CHUNK_CACHE = new ChunkCacheSettings(section.getConfigurationSection("chunk-cache"), root);
             this.TERRAIN_GENERATION = new TerrainGenerationSettings(section.getConfigurationSection("terrain-generation"), root);
             this.MASS_SPAWN = new MassSpawnSettings(section.getConfigurationSection("mass-spawn"), root);
@@ -176,6 +179,14 @@ public class InertiaConfig {
                 parsedMode = PhysicsLoop.SnapshotMode.LATEST;
             }
             this.snapshotMode = parsedMode;
+        }
+
+        public static class FluidsSettings {
+            public final boolean enabled;
+
+            public FluidsSettings(ConfigurationSection section) {
+                this.enabled = section == null || section.getBoolean("enabled", true);
+            }
         }
 
         public static class PersistenceSettings {

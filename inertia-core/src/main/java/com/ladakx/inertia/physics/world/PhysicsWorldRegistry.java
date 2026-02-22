@@ -113,6 +113,16 @@ public class PhysicsWorldRegistry {
         }
     }
 
+    public void applyFluidPhysicsEnabled(boolean enabled) {
+        for (PhysicsWorld physicsWorld : worlds.values()) {
+            try {
+                physicsWorld.setFluidPhysicsEnabled(enabled);
+            } catch (Exception e) {
+                InertiaLogger.error("Failed to apply fluid physics setting for world: " + physicsWorld.getBukkitWorld().getName(), e);
+            }
+        }
+    }
+
     public void reload() {
         InertiaLogger.info("Reloading Physics World Registry...");
 
