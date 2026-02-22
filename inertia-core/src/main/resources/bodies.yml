@@ -11,7 +11,7 @@ blocks:
       friction: 1.0
       restitution: 0.025
       mass: 100.0
-      motion-type: Dynamic
+      motion-type:  Dynamic
       object-layer: 0
       shape:
         - "type=box x=0.5 y=0.5 z=0.5"
@@ -28,7 +28,7 @@ blocks:
       object-layer: 0
       shape:
         - "type=box x=0.5 y=0.5 z=0.5"
-  tnt_physics:
+  tnt:
     render:
       model: tnt
     physics:
@@ -55,11 +55,101 @@ blocks:
       shape:
         - "type=box x=0.5 y=0.25 z=0.5"
 
+  #########################
+  # Test / Sandbox bodies #
+  #########################
+  test_light_cube:
+    render:
+      model: stone
+    physics:
+      mass: 2.0
+      friction: 0.6
+      restitution: 0.05
+      linear-damping: 0.02
+      angular-damping: 0.02
+      motion-type: Dynamic
+      object-layer: 0
+      shape:
+        - "type=box x=0.5 y=0.5 z=0.5"
+
+  test_heavy_cube:
+    render:
+      model: stone
+    physics:
+      mass: 250.0
+      friction: 0.9
+      restitution: 0.0
+      linear-damping: 0.05
+      angular-damping: 0.05
+      motion-type: Dynamic
+      object-layer: 0
+      shape:
+        - "type=box x=0.5 y=0.5 z=0.5"
+
+  test_slippery_puck:
+    render:
+      model: grass
+    physics:
+      mass: 12.0
+      friction: 0.02
+      restitution: 0.02
+      linear-damping: 0.01
+      angular-damping: 0.01
+      motion-type: Dynamic
+      object-layer: 0
+      shape:
+        - "type=cylinder radius=0.45 height=0.2"
+
+  test_bouncy_ball:
+    render:
+      model: tnt
+    physics:
+      mass: 6.0
+      friction: 0.15
+      restitution: 0.9
+      linear-damping: 0.01
+      angular-damping: 0.01
+      motion-type: Dynamic
+      object-layer: 0
+      shape:
+        - "type=sphere radius=0.4"
+
+  test_capsule:
+    render:
+      model: slab
+    physics:
+      mass: 18.0
+      friction: 0.4
+      restitution: 0.05
+      linear-damping: 0.02
+      angular-damping: 0.02
+      motion-type: Dynamic
+      object-layer: 0
+      shape:
+        - "type=capsule height=1.6 radius=0.25"
+
+  test_compound_hammer:
+    render:
+      model: stone
+    physics:
+      mass: 35.0
+      friction: 0.7
+      restitution: 0.02
+      linear-damping: 0.03
+      angular-damping: 0.03
+      motion-type: Dynamic
+      object-layer: 0
+      shape:
+        # handle
+        - "type=box x=0.08 y=0.45 z=0.08 px=0.0 py=0.0 pz=0.0"
+        # head
+        - "type=box x=0.32 y=0.10 z=0.12 px=0.0 py=0.50 pz=0.0"
+
 ########################
 # Chains Configuration #
 ########################
 chains:
-  vhv_chain:
+  test_heavy_chain:
     render:
       model: iron_chain
     physics:
@@ -99,6 +189,31 @@ chains:
     limits:
       angular-movement:
         swing-limit-angle: 45.0
+        twist-mode: FREE
+
+  test_light_chain:
+    render:
+      model: iron_chain
+    physics:
+      mass: 15.0
+      friction: 0.4
+      restitution: 0.0
+      linear-damping: 1.2
+      angular-damping: 1.2
+      motion-type: Dynamic
+      object-layer: 0
+      shape: "type=box x=0.08 y=0.35 z=0.08"
+    creation:
+      spacing: 0.8
+      joint-offset: 0.35
+    stabilization:
+      position-iterations: 2
+      velocity-iterations: 2
+    adaptive:
+      enable: false
+    limits:
+      angular-movement:
+        swing-limit-angle: 65.0
         twist-mode: FREE
 
 ##########################
