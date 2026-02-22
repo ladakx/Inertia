@@ -1,6 +1,14 @@
 package com.ladakx.inertia.physics.entity;
 
-import com.github.stephengold.joltjni.*;
+import com.github.stephengold.joltjni.Body;
+import com.github.stephengold.joltjni.BodyCreationSettings;
+import com.github.stephengold.joltjni.BodyInterface;
+import com.github.stephengold.joltjni.CapsuleShape;
+import com.github.stephengold.joltjni.Quat;
+import com.github.stephengold.joltjni.RVec3;
+import com.github.stephengold.joltjni.RotatedTranslatedShape;
+import com.github.stephengold.joltjni.Shape;
+import com.github.stephengold.joltjni.Vec3;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.api.entity.IEntityPhysicsManager;
@@ -11,6 +19,7 @@ import com.ladakx.inertia.physics.world.managers.PhysicsTaskManager;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.util.Vector;
 
 import java.util.Map;
 import java.util.Objects;
@@ -19,14 +28,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public final class EntityPhysicsManager implements IEntityPhysicsManager {
-    private static final float MIN_IMPULSE_THRESHOLD = 4.0f;
+    private static final float MIN_APPROACH_SPEED = 0.45f;
+    private static final float MIN_SOURCE_SPEED = 0.35f;
+    private static final float MIN_IMPULSE_THRESHOLD = 2.5f;
+    private static final float MAX_EFFECTIVE_IMPULSE = 18.0f;
+    private static final double MAX_KNOCKBACK = 0.95d;
+    private static final double MIN_VERTICAL_PUSH = 0.08d;
 
     private final PhysicsWorld world;
     private final PhysicsTaskManager taskManager;
-    private final Map<UUID, ProxyState> proxies = new ConcurrentHashMap<>();
-    private final Map<Integer, UUID> bodyToEntity = new ConcurrentHashMap<>();
-    private final ConcurrentLinkedQueue<CollisionFeedbackDTO> feedbackQueue = new ConcurrentLinkedQueue<>();
-
+    private final Map<UUID, ProxyState> proxies;
+    private final Map<Integer, UUID> bodyToEntity;
+    private final ConcurrentLinkedQueue<CollisionFeedbackDTO> feedbackQueue;
     private final Shape standingShape;
     private final Shape sneakingShape;
     private final Shape horizontalShape;
@@ -34,6 +47,9 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
     public EntityPhysicsManager(PhysicsWorld world, PhysicsTaskManager taskManager) {
         this.world = Objects.requireNonNull(world);
         this.taskManager = Objects.requireNonNull(taskManager);
+        this.proxies = new ConcurrentHashMap<>();
+        this.bodyToEntity = new ConcurrentHashMap<>();
+        this.feedbackQueue = new ConcurrentLinkedQueue<>();
         this.standingShape = new CapsuleShape(0.9f, 0.3f);
         this.sneakingShape = new CapsuleShape(0.75f, 0.3f);
         CapsuleShape base = new CapsuleShape(0.75f, 0.3f);
@@ -90,40 +106,85 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
                 continue;
             }
             living.setVelocity(dto.knockback());
-            double damage = Math.min(20.0d, dto.impulse() * 0.05d);
+            double damage = Math.min(8.0d, dto.impulse() * 0.025d);
             if (damage > 0.0d) {
                 living.damage(damage);
             }
         }
     }
 
-    public void handleDynamicContact(int bodyA, int bodyB, Vec3 velocityA, Vec3 velocityB, float massA, float massB) {
-        process(bodyA, bodyB, velocityA, velocityB, massA, massB);
-        process(bodyB, bodyA, velocityB, velocityA, massB, massA);
+    public void handleDynamicContact(int bodyA,
+                                     int bodyB,
+                                     RVec3 positionA,
+                                     RVec3 positionB,
+                                     Vec3 velocityA,
+                                     Vec3 velocityB,
+                                     float massA,
+                                     float massB) {
+        Objects.requireNonNull(positionA);
+        Objects.requireNonNull(positionB);
+        Objects.requireNonNull(velocityA);
+        Objects.requireNonNull(velocityB);
+        process(bodyA, bodyB, positionA, positionB, velocityA, velocityB, massB);
+        process(bodyB, bodyA, positionB, positionA, velocityB, velocityA, massA);
     }
 
-    private void process(int entityBodyId, int otherBodyId, Vec3 entityVelocity, Vec3 otherVelocity, float entityMass, float otherMass) {
+    private void process(int entityBodyId,
+                         int otherBodyId,
+                         RVec3 entityPosition,
+                         RVec3 otherPosition,
+                         Vec3 entityVelocity,
+                         Vec3 otherVelocity,
+                         float otherMass) {
         UUID entityId = bodyToEntity.get(entityBodyId);
         if (entityId == null) {
             return;
         }
+        float sourceSpeed = length(otherVelocity);
+        if (sourceSpeed < MIN_SOURCE_SPEED) {
+            return;
+        }
+        float dirX = (float) (entityPosition.xx() - otherPosition.xx());
+        float dirY = (float) (entityPosition.yy() - otherPosition.yy());
+        float dirZ = (float) (entityPosition.zz() - otherPosition.zz());
+        float dirLen = (float) Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+        if (dirLen <= 0.0001f) {
+            return;
+        }
+        float nx = dirX / dirLen;
+        float ny = dirY / dirLen;
+        float nz = dirZ / dirLen;
+
         float relX = otherVelocity.getX() - entityVelocity.getX();
         float relY = otherVelocity.getY() - entityVelocity.getY();
         float relZ = otherVelocity.getZ() - entityVelocity.getZ();
-        float speed = (float) Math.sqrt(relX * relX + relY * relY + relZ * relZ);
-        float impulse = Math.max(entityMass, otherMass) * speed;
+        float approachSpeed = relX * nx + relY * ny + relZ * nz;
+        if (approachSpeed < MIN_APPROACH_SPEED) {
+            return;
+        }
+
+        float impulse = otherMass * approachSpeed;
         if (impulse < MIN_IMPULSE_THRESHOLD) {
             return;
         }
-        double length = Math.sqrt(relX * relX + relY * relY + relZ * relZ);
-        org.bukkit.util.Vector direction = length > 0.0001d
-                ? new org.bukkit.util.Vector(relX / length, Math.max(0.2d, relY / length), relZ / length)
-                : new org.bukkit.util.Vector(0d, 0.2d, 0d);
-        org.bukkit.util.Vector knockback = direction.multiply(Math.min(2.5d, impulse * 0.01d));
-        feedbackQueue.offer(new CollisionFeedbackDTO(entityId, knockback, impulse));
+        float effectiveImpulse = Math.min(MAX_EFFECTIVE_IMPULSE, impulse);
+        Vector knockbackDirection = new Vector(nx, Math.max(MIN_VERTICAL_PUSH, ny), nz).normalize();
+        double knockbackPower = Math.min(MAX_KNOCKBACK, 0.06d + effectiveImpulse * 0.028d);
+        Vector knockback = knockbackDirection.multiply(knockbackPower);
+
+        feedbackQueue.offer(new CollisionFeedbackDTO(entityId, knockback, effectiveImpulse));
+    }
+
+    private float length(Vec3 velocity) {
+        return (float) Math.sqrt(
+                velocity.getX() * velocity.getX()
+                        + velocity.getY() * velocity.getY()
+                        + velocity.getZ() * velocity.getZ()
+        );
     }
 
     private void scheduleSync(LivingEntity entity) {
+        Objects.requireNonNull(entity);
         ProxyState state = proxies.get(entity.getUniqueId());
         if (state == null) {
             return;
@@ -172,6 +233,7 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
     }
 
     private PoseState resolvePose(LivingEntity entity) {
+        Objects.requireNonNull(entity);
         if (entity.isGliding() || entity.isSwimming()) {
             return PoseState.HORIZONTAL;
         }
@@ -203,6 +265,6 @@ public final class EntityPhysicsManager implements IEntityPhysicsManager {
         }
     }
 
-    public record CollisionFeedbackDTO(UUID entityId, org.bukkit.util.Vector knockback, float impulse) {
+    public record CollisionFeedbackDTO(UUID entityId, Vector knockback, float impulse) {
     }
 }
