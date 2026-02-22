@@ -3,10 +3,12 @@ package com.ladakx.inertia.core.impl;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
+import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.core.impl.config.ConfigServiceImpl;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.physics.body.impl.BlockPhysicsBody;
@@ -36,6 +38,7 @@ public class InertiaAPIImpl extends InertiaAPI {
     private final RenderFactory renderFactory;
     private final JShapeFactory shapeFactory;
     private final RenderingService renderingService;
+    private final ConfigService configService;
 
     public InertiaAPIImpl(InertiaPlugin plugin,
                           PhysicsWorldRegistry physicsWorldRegistry,
@@ -48,6 +51,7 @@ public class InertiaAPIImpl extends InertiaAPI {
         this.renderFactory = plugin.getRenderFactory();
         this.shapeFactory = shapeFactory;
         this.renderingService = new RenderingServiceImpl(renderFactory, networkEntityTracker);
+        this.configService = new ConfigServiceImpl();
     }
 
     @Override
@@ -123,5 +127,10 @@ public class InertiaAPIImpl extends InertiaAPI {
     @Override
     public @NotNull RenderingService rendering() {
         return renderingService;
+    }
+
+    @Override
+    public @NotNull ConfigService configs() {
+        return configService;
     }
 }

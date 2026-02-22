@@ -4,5 +4,6 @@ public enum PhysicsBodyType {
     BLOCK,
     TNT,
     CHAIN,
-    RAGDOLL
+    RAGDOLL,
+    CUSTOM
 }

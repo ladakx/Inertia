@@ -33,17 +33,9 @@ public class BlockDisplayVisual extends AbstractNetworkVisual {
     protected Vector3f calculateTranslation(Vector3f scale, Quaternionf rotation) {
         Vector3f center = new Vector3f(-0.5f, -0.5f, -0.5f).mul(scale);
 
-        Vector3f originalTrans = new Vector3f(
-                (float) definition.translation().getX(),
-                (float) definition.translation().getY(),
-                (float) definition.translation().getZ()
-        ).add(
-                (float) definition.localOffset().getX(),
-                (float) definition.localOffset().getY(),
-                (float) definition.localOffset().getZ()
-        );
+        Vector3f originalTrans = new Vector3f(translation()).add(localOffset());
 
-        if (definition.rotTranslation()) {
+        if (rotateTranslation()) {
             return center.add(originalTrans).rotate(rotation);
         } else {
             return new Vector3f(center).rotate(rotation).add(originalTrans);

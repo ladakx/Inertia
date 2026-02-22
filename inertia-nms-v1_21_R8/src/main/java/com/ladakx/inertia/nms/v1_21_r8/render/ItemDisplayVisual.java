@@ -44,11 +44,7 @@ public class ItemDisplayVisual extends AbstractNetworkVisual {
 
     @Override
     protected Vector3f calculateTranslation(Vector3f scale, Quaternionf rotation) {
-        return new Vector3f(
-                (float) definition.translation().getX(),
-                (float) definition.translation().getY(),
-                (float) definition.translation().getZ()
-        );
+        return new Vector3f(translation());
     }
 
     private ItemDisplayContext convertDisplayMode(InertiaDisplayMode mode) {

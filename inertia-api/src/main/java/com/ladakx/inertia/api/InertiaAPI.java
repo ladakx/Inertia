@@ -1,6 +1,7 @@
 package com.ladakx.inertia.api;
 
 import com.ladakx.inertia.api.world.IPhysicsWorld;
+import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import org.bukkit.Location;
@@ -40,4 +41,10 @@ public abstract class InertiaAPI {
 
     @NotNull
     public abstract RenderingService rendering();
+
+    /**
+     * Config loading + validation helpers (including cross-plugin config sources).
+     */
+    @NotNull
+    public abstract ConfigService configs();
 }

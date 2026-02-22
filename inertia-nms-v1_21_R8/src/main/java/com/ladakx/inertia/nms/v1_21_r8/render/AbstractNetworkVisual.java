@@ -5,10 +5,13 @@ import com.ladakx.inertia.nms.v1_21_r8.utils.MetadataAccessors;
 import com.ladakx.inertia.rendering.EntityIdProvider;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
+import com.ladakx.inertia.rendering.config.enums.InertiaBillboard;
 import net.minecraft.network.syncher.SynchedEntityData;
 import org.bukkit.Location;
+import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,11 +25,43 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
     protected final PacketFactory packetFactory;
     protected boolean isGlowing = false;
 
+    // Mutable (runtime) overrides. Defaults are initialized from the definition.
+    protected boolean invisibleFlag;
+    protected @Nullable InertiaBillboard billboardMode;
+    protected @Nullable Float viewRange;
+    protected @Nullable Float shadowRadius;
+    protected @Nullable Float shadowStrength;
+    protected @Nullable Integer interpolationDuration;
+    protected @Nullable Integer teleportDuration;
+
+    protected final Vector3f scale = new Vector3f();
+    protected final Vector3f translation = new Vector3f();
+    protected final Vector3f localOffset = new Vector3f();
+    protected final Quaternionf rightRotation = new Quaternionf();
+    protected boolean rotateTranslation;
+
     protected AbstractNetworkVisual(RenderEntityDefinition definition, PacketFactory packetFactory) {
         this.entityId = EntityIdProvider.getInstance().getNextId();
         this.uuid = UUID.randomUUID();
         this.definition = definition;
         this.packetFactory = packetFactory;
+
+        this.invisibleFlag = definition.invisible();
+        this.billboardMode = definition.billboard();
+        this.viewRange = definition.viewRange();
+        this.shadowRadius = definition.shadowRadius();
+        this.shadowStrength = definition.shadowStrength();
+        this.interpolationDuration = definition.interpolationDuration();
+        this.teleportDuration = definition.teleportDuration();
+
+        org.bukkit.util.Vector defScale = definition.scale();
+        this.scale.set((float) defScale.getX(), (float) defScale.getY(), (float) defScale.getZ());
+        org.bukkit.util.Vector defTranslation = definition.translation();
+        this.translation.set((float) defTranslation.getX(), (float) defTranslation.getY(), (float) defTranslation.getZ());
+        org.bukkit.util.Vector defLocalOffset = definition.localOffset();
+        this.localOffset.set((float) defLocalOffset.getX(), (float) defLocalOffset.getY(), (float) defLocalOffset.getZ());
+        this.rightRotation.set(definition.localRotation());
+        this.rotateTranslation = definition.rotTranslation();
     }
 
     @Override
@@ -37,6 +72,59 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
     @Override
     public void setGlowing(boolean glowing) {
         this.isGlowing = glowing;
+    }
+
+    @Override
+    public void setInvisible(boolean invisible) {
+        this.invisibleFlag = invisible;
+    }
+
+    @Override
+    public void setScale(@Nullable Vector scale) {
+        Vector v = (scale != null) ? scale : definition.scale();
+        this.scale.set((float) v.getX(), (float) v.getY(), (float) v.getZ());
+    }
+
+    @Override
+    public void setTranslation(@Nullable Vector translation) {
+        Vector v = (translation != null) ? translation : definition.translation();
+        this.translation.set((float) v.getX(), (float) v.getY(), (float) v.getZ());
+    }
+
+    @Override
+    public void setRightRotation(@Nullable Quaternionf rotation) {
+        Quaternionf q = (rotation != null) ? rotation : definition.localRotation();
+        this.rightRotation.set(q);
+    }
+
+    @Override
+    public void setBillboard(@Nullable InertiaBillboard billboard) {
+        this.billboardMode = billboard;
+    }
+
+    @Override
+    public void setViewRange(@Nullable Float viewRange) {
+        this.viewRange = viewRange;
+    }
+
+    @Override
+    public void setShadowRadius(@Nullable Float shadowRadius) {
+        this.shadowRadius = shadowRadius;
+    }
+
+    @Override
+    public void setShadowStrength(@Nullable Float shadowStrength) {
+        this.shadowStrength = shadowStrength;
+    }
+
+    @Override
+    public void setInterpolationDuration(@Nullable Integer interpolationDuration) {
+        this.interpolationDuration = interpolationDuration;
+    }
+
+    @Override
+    public void setTeleportDuration(@Nullable Integer teleportDuration) {
+        this.teleportDuration = teleportDuration;
     }
 
     @Override
@@ -112,46 +200,55 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
 
     protected abstract Vector3f calculateTranslation(Vector3f scale, Quaternionf rotation);
 
+    protected Vector3f translation() {
+        return translation;
+    }
+
+    protected Vector3f localOffset() {
+        return localOffset;
+    }
+
+    protected boolean rotateTranslation() {
+        return rotateTranslation;
+    }
+
     protected void addBaseMetadata(List<SynchedEntityData.DataValue<?>> data) {
         byte flags = 0;
-        if (definition.invisible()) flags |= 0x20;
+        if (invisibleFlag) flags |= 0x20;
         if (isGlowing) flags |= 0x40;
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.ENTITY_FLAGS, flags));
 
         byte billboard = 0;
-        if (definition.billboard() != null) {
-            billboard = (byte) definition.billboard().ordinal();
+        if (billboardMode != null) {
+            billboard = (byte) billboardMode.ordinal();
         }
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_BILLBOARD, billboard));
 
-        if (definition.viewRange() != null) {
-            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_VIEW_RANGE, definition.viewRange()));
+        if (viewRange != null) {
+            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_VIEW_RANGE, viewRange));
         }
-        if (definition.shadowRadius() != null) {
-            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SHADOW_RADIUS, definition.shadowRadius()));
+        if (shadowRadius != null) {
+            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SHADOW_RADIUS, shadowRadius));
         }
-        if (definition.shadowStrength() != null) {
-            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SHADOW_STRENGTH, definition.shadowStrength()));
+        if (shadowStrength != null) {
+            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SHADOW_STRENGTH, shadowStrength));
         }
     }
 
     protected void addTransformationMetadata(List<SynchedEntityData.DataValue<?>> data, Quaternionf rotation) {
-        org.bukkit.util.Vector scale = definition.scale();
-        Vector3f scaleVec = new Vector3f((float)scale.getX(), (float)scale.getY(), (float)scale.getZ());
-
-        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SCALE, scaleVec));
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SCALE, new Vector3f(scale)));
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_LEFT_ROTATION, rotation));
 
-        Vector3f translation = calculateTranslation(scaleVec, rotation);
+        Vector3f translation = calculateTranslation(scale, rotation);
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_TRANSLATION, translation));
 
-        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_RIGHT_ROTATION, definition.localRotation()));
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_RIGHT_ROTATION, new Quaternionf(rightRotation)));
 
-        if (definition.interpolationDuration() != null && definition.interpolationDuration() > 0) {
-            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_INTERPOLATION_DURATION, definition.interpolationDuration()));
+        if (interpolationDuration != null && interpolationDuration > 0) {
+            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_INTERPOLATION_DURATION, interpolationDuration));
         }
-        if (definition.teleportDuration() != null) {
-            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_TELEPORT_DURATION, definition.teleportDuration()));
+        if (teleportDuration != null) {
+            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_TELEPORT_DURATION, teleportDuration));
         }
     }
 }
