@@ -1,13 +1,13 @@
 package com.ladakx.inertia.api.body.type;
 
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Представляет собой часть тела (конечность) рэгдолла.
  */
-public interface IRagdoll extends InertiaPhysicsBody {
+public interface IRagdoll extends PhysicsBody {
 
     /**
      * Возвращает название части тела, определенное в конфигурации (например, "head", "left_arm").
@@ -20,7 +20,7 @@ public interface IRagdoll extends InertiaPhysicsBody {
      * @return Родительское тело или null, если это корневая часть.
      */
     @Nullable
-    InertiaPhysicsBody getParentPart();
+    PhysicsBody getParentPart();
 
     /**
      * Разрывает сустав (joint), соединяющий эту часть с родительской.

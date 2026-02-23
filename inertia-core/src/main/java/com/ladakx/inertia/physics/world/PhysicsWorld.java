@@ -14,7 +14,7 @@ import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.core.InertiaPlugin;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.physics.body.impl.CustomPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
@@ -30,6 +30,7 @@ import com.ladakx.inertia.physics.world.buoyancy.BuoyancyManager;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import com.ladakx.inertia.physics.factory.shape.ApiShapeConverter;
+import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -86,6 +87,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private volatile boolean fluidPhysicsEnabled;
     private @Nullable BukkitTask buoyancyScanTask;
     private final ApiShapeConverter apiShapeConverter = new ApiShapeConverter();
+    private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
 
     // Removed: private @Nullable BukkitTask networkTickTask;
 
@@ -122,7 +124,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         );
         this.snapshotPool = new SnapshotPool();
 
-        this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
+        this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager, apiPhysicsBodyAdapter);
         this.networkEntityTracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
         this.buoyancyManager = new BuoyancyManager(this);
         this.fluidPhysicsEnabled = inertiaConfig.PHYSICS.FLUIDS.enabled;
@@ -581,11 +583,11 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     @Override public boolean isSimulationPaused() { return isPaused.get(); }
     @Override public void setGravity(@NotNull Vector gravity) { if (gravity == null) return; physicsSystem.setGravity(ConvertUtils.toVec3(gravity)); }
     @Override public @NotNull Vector getGravity() { Vec3 g = physicsSystem.getGravity(); return ConvertUtils.toBukkit(g); }
-    @Override public @NotNull Collection<InertiaPhysicsBody> getBodies() { return Collections.unmodifiableCollection(objectManager.getAll()); }
+    @Override public @NotNull Collection<PhysicsBody> getBodies() { return objectManager.getAll().stream().map(apiPhysicsBodyAdapter::adapt).collect(java.util.stream.Collectors.toUnmodifiableSet()); }
     @Override public @NotNull PhysicsInteraction getInteraction() { return queryEngine; }
 
     @Override
-    public @Nullable InertiaPhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
+    public @Nullable PhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
         Objects.requireNonNull(spec, "spec");
         Location spawnLocation = spec.location();
         if (spawnLocation.getWorld() == null) {
@@ -636,7 +638,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             settings.setPosition(initialPos);
             settings.setRotation(initialRot);
 
-            return new CustomPhysicsBody(this, settings, spec.bodyId());
+            return apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId()));
         } catch (Exception e) {
             InertiaLogger.error("Failed to spawn API body in world " + worldName, e);
             return null;

@@ -2,7 +2,7 @@ package com.ladakx.inertia.api.world;
 
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.physics.PhysicsBodySpec;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -24,7 +24,7 @@ public interface PhysicsWorld {
     Vector getGravity();
 
     @NotNull
-    Collection<InertiaPhysicsBody> getBodies();
+    Collection<PhysicsBody> getBodies();
 
     @NotNull
     PhysicsInteraction getInteraction();
@@ -34,7 +34,7 @@ public interface PhysicsWorld {
      * <p>
      * Implementations may return {@code null} if the world is not simulated or inputs are invalid.
      */
-    default @Nullable InertiaPhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
+    default @Nullable PhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
         throw new UnsupportedOperationException("createBody(spec) is not supported by this implementation");
     }
 }

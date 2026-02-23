@@ -4,7 +4,7 @@ import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.factory.BodyFactory;
 import com.ladakx.inertia.physics.persistence.storage.DynamicBodyStorageFile;
@@ -168,9 +168,9 @@ public final class DynamicBodyRuntimeLoader {
 
                     Location spawnLoc = new Location(world, rootPart.x() + space.getOrigin().xx(), rootPart.y() + space.getOrigin().yy(), rootPart.z() + space.getOrigin().zz());
 
-                    InertiaPhysicsBody rootBody = bodyFactory.spawnBodyWithResult(spawnLoc, record.bodyId(), null, params);
+                    PhysicsBody rootBody = bodyFactory.spawnBodyWithResult(spawnLoc, record.bodyId(), null, params);
                     if (rootBody != null) {
-                        for (InertiaPhysicsBody b : space.getBodies()) {
+                        for (PhysicsBody b : space.getBodies()) {
                             if (b instanceof AbstractPhysicsBody ab && record.clusterId().equals(ab.getClusterId())) {
                                 ab.setFriction(record.friction());
                                 ab.setRestitution(record.restitution());
