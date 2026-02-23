@@ -31,6 +31,9 @@ import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
 import com.ladakx.inertia.physics.world.loop.PhysicsLoop;
 import com.ladakx.inertia.physics.entity.EntityPhysicsManager;
+import com.ladakx.inertia.physics.events.BukkitEventPublisher;
+import com.ladakx.inertia.physics.events.BukkitMainThreadExecutor;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.world.managers.*;
 import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
@@ -98,6 +101,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private @Nullable BukkitTask buoyancyScanTask;
     private final ApiShapeConverter apiShapeConverter = new ApiShapeConverter();
     private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
+    private final PhysicsEventDispatcher eventDispatcher;
 
     // Removed: private @Nullable BukkitTask networkTickTask;
 
@@ -140,7 +144,11 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.fluidPhysicsEnabled = inertiaConfig.PHYSICS.FLUIDS.enabled;
 
         this.entityPhysicsManager = new EntityPhysicsManager(this, taskManager);
-        this.contactListener = new PhysicsContactListener(objectManager, physicsSystem, entityPhysicsManager);
+        this.eventDispatcher = new PhysicsEventDispatcher(
+                new BukkitMainThreadExecutor(InertiaPlugin.getInstance()),
+                new BukkitEventPublisher()
+        );
+        this.contactListener = new PhysicsContactListener(objectManager, physicsSystem, entityPhysicsManager, apiPhysicsBodyAdapter, eventDispatcher);
         this.physicsSystem.setContactListener(contactListener);
 
         this.bodyActivationListener = new InertiaBodyActivationListener(objectManager);
@@ -188,9 +196,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 isPaused.get(),
                 settings.tickRate()
         );
-        Bukkit.getPluginManager().callEvent(new PhysicsWorldTickStartEvent(tickPayload));
+        eventDispatcher.dispatchAsync(new PhysicsWorldTickStartEvent(tickPayload), tickPayload);
         if (isPaused.get()) {
-            Bukkit.getPluginManager().callEvent(new PhysicsWorldTickEndEvent(tickPayload));
+            eventDispatcher.dispatchAsync(new PhysicsWorldTickEndEvent(tickPayload), tickPayload);
             return;
         }
         float deltaTime = 1.0f / settings.tickRate();
@@ -205,7 +213,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (metricsService != null) {
             metricsService.updateTaskManagerMetrics(taskManagerMetrics);
         }
-        Bukkit.getPluginManager().callEvent(new PhysicsWorldTickEndEvent(tickPayload));
+        eventDispatcher.dispatchAsync(new PhysicsWorldTickEndEvent(tickPayload), tickPayload);
     }
 
     public boolean isFluidPhysicsEnabled() {
@@ -238,7 +246,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             return;
         }
 
-        buoyancyScanTask = Bukkit.getScheduler().runTaskTimer(plugin, () ->
+        buoyancyScanTask = org.bukkit.Bukkit.getScheduler().runTaskTimer(plugin, () ->
                 buoyancyManager.updateFluidStates(objectManager.getActive()), 1L, 1L);
     }
 
@@ -605,7 +613,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (previous == paused) {
             return;
         }
-        Bukkit.getPluginManager().callEvent(new PhysicsWorldPauseChangedEvent(
+        eventDispatcher.dispatchSync(new PhysicsWorldPauseChangedEvent(
                 new PhysicsWorldPauseChangedPayload(
                         PhysicsEventPayload.SCHEMA_VERSION_V1,
                         worldBukkit.getUID(),
@@ -672,14 +680,14 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             settings.setPosition(initialPos);
             settings.setRotation(initialRot);
 
-            PhysicsBody spawnedBody = apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId()));
+            PhysicsBody spawnedBody = apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId(), eventDispatcher));
             PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(spawnedBody);
-            Bukkit.getPluginManager().callEvent(preSpawnEvent);
+            eventDispatcher.dispatchSync(preSpawnEvent);
             if (preSpawnEvent.isCancelled()) {
                 spawnedBody.destroy();
                 return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "spawn-cancelled");
             }
-            Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(spawnedBody));
+            eventDispatcher.dispatchSync(new PhysicsBodyPostSpawnEvent(spawnedBody));
             return ApiResult.success(spawnedBody);
         } catch (Exception e) {
             InertiaLogger.error("Failed to spawn API body in world " + worldName, e);
@@ -687,5 +695,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         }
     }
 
+
+    public PhysicsEventDispatcher getEventDispatcher() {
+        return eventDispatcher;
+    }
     public record RaycastResult(Long va, RVec3 hitPos) {}
 }

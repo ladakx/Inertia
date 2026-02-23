@@ -2,6 +2,7 @@ package com.ladakx.inertia.physics.body.impl;
 
 import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -22,8 +23,9 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
     public DisplayedPhysicsBody(@NotNull PhysicsWorld space,
                                 @NotNull BodyCreationSettings bodySettings,
                                 @NotNull RenderFactory renderFactory,
-                                @NotNull PhysicsBodyRegistry modelRegistry) {
-        super(space, bodySettings);
+                                @NotNull PhysicsBodyRegistry modelRegistry,
+                                @NotNull PhysicsEventDispatcher eventDispatcher) {
+        super(space, bodySettings, eventDispatcher);
         this.renderFactory = renderFactory;
         this.modelRegistry = modelRegistry;
     }

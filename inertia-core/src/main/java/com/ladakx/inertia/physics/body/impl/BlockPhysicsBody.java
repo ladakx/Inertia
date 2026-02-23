@@ -7,6 +7,7 @@ import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.rendering.NetworkVisual;
@@ -34,8 +35,9 @@ public class BlockPhysicsBody extends DisplayedPhysicsBody {
                             @NotNull RenderFactory renderFactory,
                             @NotNull JShapeFactory shapeFactory,
                             @NotNull RVec3 initialPosition,
-                            @NotNull Quat initialRotation) {
-        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation), renderFactory, modelRegistry);
+                            @NotNull Quat initialRotation,
+                            @NotNull PhysicsEventDispatcher eventDispatcher) {
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation), renderFactory, modelRegistry, eventDispatcher);
         this.bodyId = bodyId;
         this.displayComposite = recreateDisplay();
     }

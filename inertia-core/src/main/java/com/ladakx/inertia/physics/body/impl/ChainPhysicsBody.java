@@ -8,6 +8,7 @@ import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.api.body.type.IChain;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.rendering.NetworkVisual;
@@ -49,8 +50,9 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
                             @NotNull GroupFilterTableRef groupFilter,
                             int groupId,
                             int chainIndex,
-                            int totalChainLength) {
-        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, groupId, chainIndex, totalChainLength), renderFactory, modelRegistry);
+                            int totalChainLength,
+                            @NotNull PhysicsEventDispatcher eventDispatcher) {
+        super(space, createBodySettings(bodyId, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, groupId, chainIndex, totalChainLength), renderFactory, modelRegistry, eventDispatcher);
         this.bodyId = bodyId;
         this.linkIndex = chainIndex;
         this.totalChainLength = totalChainLength;

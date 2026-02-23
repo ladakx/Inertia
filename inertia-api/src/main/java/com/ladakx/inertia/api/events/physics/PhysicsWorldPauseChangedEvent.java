@@ -1,16 +1,14 @@
 package com.ladakx.inertia.api.events.physics;
 
+import com.ladakx.inertia.api.ExecutionContext;
+import com.ladakx.inertia.api.ThreadingPolicy;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 
-/**
- * Sync event emitted when physics-world pause state changes.
- * Payload is read-only and versioned.
- * Bukkit API calls are allowed as for main-thread sync events.
- */
+@ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
 public class PhysicsWorldPauseChangedEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
     private final PhysicsWorldPauseChangedPayload payload;
@@ -20,15 +18,18 @@ public class PhysicsWorldPauseChangedEvent extends Event {
         this.payload = Objects.requireNonNull(payload, "payload");
     }
 
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public @NotNull PhysicsWorldPauseChangedPayload getPayload() {
         return payload;
     }
 
     @Override
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public @NotNull HandlerList getHandlers() {
         return HANDLERS;
     }
 
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public static @NotNull HandlerList getHandlerList() {
         return HANDLERS;
     }

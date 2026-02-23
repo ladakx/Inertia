@@ -110,7 +110,8 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
                         renderFactory,
                         shapeFactory,
                         initialPos,
-                        initialRot
+                        initialRot,
+                        space.getEventDispatcher()
                 )));
             } else {
                 InertiaLogger.warn("Cannot create body: Unsupported body type for ID '" + bodyId + "'.");

@@ -1,5 +1,7 @@
 package com.ladakx.inertia.api.events.physics;
 
+import com.ladakx.inertia.api.ExecutionContext;
+import com.ladakx.inertia.api.ThreadingPolicy;
 import com.ladakx.inertia.api.body.PhysicsBody;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
@@ -7,11 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 
-/**
- * Sync event emitted after a physics body has been spawned.
- * Payload contains the spawned body and versioned metadata.
- * Bukkit API calls are allowed as for main-thread sync events.
- */
+@ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
 public class PhysicsBodyPostSpawnEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
     private final PhysicsBodyLifecyclePayload payload;
@@ -27,19 +25,23 @@ public class PhysicsBodyPostSpawnEvent extends Event {
         );
     }
 
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public @NotNull PhysicsBody getBody() {
         return payload.body();
     }
 
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public @NotNull PhysicsBodyLifecyclePayload getPayload() {
         return payload;
     }
 
     @Override
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public @NotNull HandlerList getHandlers() {
         return HANDLERS;
     }
 
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public static @NotNull HandlerList getHandlerList() {
         return HANDLERS;
     }
