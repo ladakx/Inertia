@@ -1,11 +1,11 @@
 package com.ladakx.inertia.api.body.type;
 
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 
 /**
  * Представляет собой отдельное звено цепи.
  */
-public interface IChain extends InertiaPhysicsBody {
+public interface IChain extends PhysicsBody {
 
     /**
      * Возвращает индекс этого звена в цепи (0 - начало).

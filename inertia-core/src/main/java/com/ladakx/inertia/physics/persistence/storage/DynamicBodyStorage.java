@@ -5,7 +5,7 @@ import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.api.body.MotionType;
 import com.ladakx.inertia.api.body.type.IChain;
 import com.ladakx.inertia.api.body.type.IRagdoll;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.ChainPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.RagdollPhysicsBody;
@@ -33,7 +33,7 @@ public final class DynamicBodyStorage {
             String worldName = space.getBukkitWorld().getName();
             Set<UUID> processedClusters = new HashSet<>();
 
-            for (InertiaPhysicsBody body : space.getBodies()) {
+            for (PhysicsBody body : space.getBodies()) {
                 if (body.getMotionType() == MotionType.STATIC || !body.isValid()) continue;
                 if (!(body instanceof AbstractPhysicsBody absBody)) continue;
 
@@ -42,7 +42,7 @@ public final class DynamicBodyStorage {
 
                 // Collect all bodies in this cluster
                 List<AbstractPhysicsBody> clusterBodies = new ArrayList<>();
-                for (InertiaPhysicsBody b : space.getBodies()) {
+                for (PhysicsBody b : space.getBodies()) {
                     if (b instanceof AbstractPhysicsBody ab && clusterId.equals(ab.getClusterId()) && ab.isValid()) {
                         clusterBodies.add(ab);
                     }
