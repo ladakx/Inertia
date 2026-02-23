@@ -271,7 +271,6 @@ public final class BukkitStaticEntityPersister implements StaticEntityPersister 
 
     private Vector3f computeDisplayTranslation(RenderEntityDefinition def, Vector3f scaleVec, Quaternionf leftRotation) {
         Vector translation = def.translation();
-        Vector localOffset = def.localOffset();
 
         if (def.kind() == RenderEntityDefinition.EntityKind.BLOCK_DISPLAY) {
             Vector3f center = new Vector3f(-0.5f, -0.5f, -0.5f).mul(scaleVec);
@@ -279,10 +278,6 @@ public final class BukkitStaticEntityPersister implements StaticEntityPersister 
                     (float) translation.getX(),
                     (float) translation.getY(),
                     (float) translation.getZ()
-            ).add(
-                    (float) localOffset.getX(),
-                    (float) localOffset.getY(),
-                    (float) localOffset.getZ()
             );
 
             if (def.rotTranslation()) {

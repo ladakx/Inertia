@@ -34,8 +34,8 @@ public class BlockDisplayVisual extends AbstractNetworkVisual {
         // 1. Center (-0.5 с учетом масштаба)
         Vector3f center = new Vector3f(-0.5f, -0.5f, -0.5f).mul(scale);
 
-        // 2. originalTrans (Translation + LocalOffset)
-        Vector3f originalTrans = new Vector3f(translation()).add(localOffset());
+        // 2. originalTrans (Translation only; local-offset is applied via entity teleports)
+        Vector3f originalTrans = new Vector3f(translation());
 
         if (rotateTranslation()) {
             // if (rotateTranslation) translation = center.add(originalTrans).rotate(rotation);

@@ -118,6 +118,35 @@ public final class PlayerTrackingState {
         return visibleIterationOrder.get(visibleCursor++);
     }
 
+    /**
+     * Returns the next visible id without advancing the internal cursor.
+     * This is useful when callers want to process composite-model groups atomically
+     * (avoid consuming the first id of the next group).
+     */
+    public Integer peekVisibleId(java.util.function.IntUnaryOperator groupKeyProvider) {
+        if (visibleIterationDirty) {
+            visibleIterationOrder.clear();
+            visibleIterationOrder.addAll(visibleIds);
+            if (groupKeyProvider != null && visibleIterationOrder.size() > 1) {
+                visibleIterationOrder.sort(java.util.Comparator
+                        .comparingInt((Integer id) -> groupKeyProvider.applyAsInt(id.intValue()))
+                        .thenComparingInt(Integer::intValue));
+            }
+            visibleIterationDirty = false;
+        }
+
+        int size = visibleIterationOrder.size();
+        if (size == 0) {
+            return null;
+        }
+
+        int cursor = visibleCursor;
+        if (cursor >= size) {
+            cursor = 0;
+        }
+        return visibleIterationOrder.get(cursor);
+    }
+
     public void resetVisibleCursor() {
         this.visibleCursor = 0;
     }
