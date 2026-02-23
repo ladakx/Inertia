@@ -3,7 +3,13 @@ package com.ladakx.inertia.physics.world.managers;
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.CustomContactListener;
 import com.github.stephengold.joltjni.PhysicsSystem;
+import com.ladakx.inertia.api.events.physics.PhysicsCollisionEvent;
+import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
+import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.entity.EntityPhysicsManager;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.util.Vector;
 
 import java.util.Objects;
 
@@ -11,6 +17,7 @@ public final class PhysicsContactListener extends CustomContactListener {
     private final PhysicsObjectManager objectManager;
     private final PhysicsSystem physicsSystem;
     private final EntityPhysicsManager entityPhysicsManager;
+    private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
 
     public PhysicsContactListener(PhysicsObjectManager objectManager,
                                   PhysicsSystem physicsSystem,
@@ -18,11 +25,26 @@ public final class PhysicsContactListener extends CustomContactListener {
         this.objectManager = Objects.requireNonNull(objectManager);
         this.physicsSystem = Objects.requireNonNull(physicsSystem);
         this.entityPhysicsManager = Objects.requireNonNull(entityPhysicsManager);
+        this.apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
     }
 
     @Override
     public void onContactAdded(long body1Va, long body2Va, long manifoldVa, long settingsVa) {
-        if (objectManager.getByVa(body1Va) != null && objectManager.getByVa(body2Va) != null) {
+        AbstractPhysicsBody firstPhysicsBody = objectManager.getByVa(body1Va);
+        AbstractPhysicsBody secondPhysicsBody = objectManager.getByVa(body2Va);
+        if (firstPhysicsBody != null && secondPhysicsBody != null) {
+            Location firstLocation = firstPhysicsBody.getLocation();
+            Location secondLocation = secondPhysicsBody.getLocation();
+            Vector contactPoint = new Vector(
+                    (firstLocation.getX() + secondLocation.getX()) * 0.5d,
+                    (firstLocation.getY() + secondLocation.getY()) * 0.5d,
+                    (firstLocation.getZ() + secondLocation.getZ()) * 0.5d
+            );
+            Bukkit.getPluginManager().callEvent(new PhysicsCollisionEvent(
+                    apiPhysicsBodyAdapter.adapt(firstPhysicsBody),
+                    apiPhysicsBodyAdapter.adapt(secondPhysicsBody),
+                    contactPoint
+            ));
             return;
         }
 

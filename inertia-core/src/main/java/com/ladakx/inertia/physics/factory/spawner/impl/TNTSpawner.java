@@ -3,7 +3,8 @@ package com.ladakx.inertia.physics.factory.spawner.impl;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.ShapeRefC;
-import com.ladakx.inertia.api.events.PhysicsBodySpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPostSpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
@@ -100,7 +101,13 @@ public class TNTSpawner implements BodySpawner {
         }
 
         Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(tnt));
+            PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(tnt);
+            Bukkit.getPluginManager().callEvent(preSpawnEvent);
+            if (preSpawnEvent.isCancelled()) {
+                tnt.destroy();
+                return;
+            }
+            Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(tnt));
         });
 
         return tnt;
