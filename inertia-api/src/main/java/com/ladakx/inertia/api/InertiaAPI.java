@@ -4,6 +4,7 @@ import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.api.capability.ApiCapability;
 import com.ladakx.inertia.api.capability.CapabilityService;
 import com.ladakx.inertia.api.config.ConfigService;
+import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.api.version.ApiVersion;
@@ -72,6 +73,9 @@ public abstract class InertiaAPI {
 
     @NotNull
     public abstract CapabilityService capabilities();
+
+    @NotNull
+    public abstract DiagnosticsService diagnostics();
 
     @NotNull
     public final ApiVersion apiVersion() {

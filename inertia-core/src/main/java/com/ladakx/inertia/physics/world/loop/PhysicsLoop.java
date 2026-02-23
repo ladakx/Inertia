@@ -8,6 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayDeque;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,6 +31,7 @@ public class PhysicsLoop {
         LATEST
     }
 
+    private final UUID worldId;
     private final String name;
     private final Thread tickThread;
     private final AtomicBoolean isActive = new AtomicBoolean(false);
@@ -56,10 +59,13 @@ public class PhysicsLoop {
 
     private final AtomicLong droppedSnapshots = new AtomicLong(0);
     private final AtomicLong overwrittenSnapshots = new AtomicLong(0);
+    private final AtomicLong backlogTicks = new AtomicLong(0);
+    private final AtomicLong overloadedTicks = new AtomicLong(0);
 
     private volatile int effectiveTargetTps;
 
-    public PhysicsLoop(String name,
+    public PhysicsLoop(UUID worldId,
+                       String name,
                        int tps,
                        int maxBodyLimit,
                        Runnable physicsStep,
@@ -70,7 +76,8 @@ public class PhysicsLoop {
                        Supplier<Integer> staticBodyCounter,
                        SnapshotPool snapshotPool,
                        SnapshotMode snapshotMode) {
-        this.name = name;
+        this.worldId = Objects.requireNonNull(worldId, "worldId");
+        this.name = Objects.requireNonNull(name, "name");
         if (tps <= 0) {
             InertiaLogger.warn("Invalid tick-rate (" + tps + ") for world '" + name + "'. Falling back to 20.");
             this.targetTps = 20;
@@ -160,21 +167,24 @@ public class PhysicsLoop {
 
         while (isActive.get()) {
             int queueSize = getPendingSnapshotCount();
-// Виправляємо умову backlog. Для FIFO ми допускаємо наявність кадрів у буфері.
-// Вважаємо затором тільки якщо ми досягли ліміту буфера.
             boolean backlog;
             if (snapshotMode == SnapshotMode.FIFO) {
-                // MAX_FIFO_SNAPSHOTS = 2. Якщо черга >= 2, значить мейн тред не встигає.
                 backlog = queueSize >= MAX_FIFO_SNAPSHOTS;
             } else {
-                // Для LATEST, якщо старий не забрали, це вже backlog, бо ми його перезапишемо.
                 backlog = queueSize > 0;
             }
 
-// Додатково: не зменшуємо TPS занадто різко, якщо це лише короткочасний пік
+            if (backlog) {
+                backlogTicks.incrementAndGet();
+            }
             int desiredTps = backlog
                     ? Math.max(MIN_OVERLOADED_WORLD_TPS, effectiveTargetTps / 2)
                     : Math.min(targetTps, syncCapacityTps);
+            boolean overloaded = desiredTps < targetTps;
+            if (overloaded) {
+                overloadedTicks.incrementAndGet();
+            }
+            effectiveTargetTps = desiredTps;
 
             long nsPerTick = 1_000_000_000L / Math.max(1, effectiveTargetTps);
             long now = System.nanoTime();
@@ -204,8 +214,33 @@ public class PhysicsLoop {
                         int stat = staticBodyCounter.get();
                         long dropped = droppedSnapshots.get();
                         long overwritten = overwrittenSnapshots.get();
+                        int pendingSnapshots = getPendingSnapshotCount();
+                        long currentBacklogTicks = backlogTicks.get();
+                        long currentOverloadedTicks = overloadedTicks.get();
+                        long timestampNanos = System.nanoTime();
+                        LoopDiagnosticsSnapshot diagnosticsSnapshot = new LoopDiagnosticsSnapshot(
+                                worldId,
+                                name,
+                                tick,
+                                duration,
+                                targetTps,
+                                effectiveTargetTps,
+                                pendingSnapshots,
+                                backlog,
+                                currentBacklogTicks,
+                                overloaded,
+                                currentOverloadedTicks,
+                                active,
+                                total,
+                                stat,
+                                maxBodyLimit,
+                                dropped,
+                                overwritten,
+                                timestampNanos
+                        );
                         for (LoopTickListener listener : listeners) {
                             listener.onTickEnd(tick, duration, active, total, stat, maxBodyLimit, dropped, overwritten);
+                            listener.onDiagnostics(diagnosticsSnapshot);
                         }
                     }
 
