@@ -348,7 +348,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
 
                 // This only updates the internal state of the tracker (Zero-Allocation / Zero-IO)
                 // The actual packets will be formed and sent in the global Flush phase.
-                networkEntityTracker.updateState(
+                networkEntityTracker.updateStateFromPhysics(
                         state.getVisual(),
                         mutableLoc,
                         state.getRotation(),

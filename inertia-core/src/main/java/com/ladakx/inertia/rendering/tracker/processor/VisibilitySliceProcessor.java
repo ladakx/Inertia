@@ -53,6 +53,10 @@ public final class VisibilitySliceProcessor {
                   PlayerTrackingState trackingState,
                   double viewDistanceSquared,
                   int maxVisibilityUpdatesPerPlayerPerTick,
+                  long tickCounter,
+                  boolean spawnRequirePhysicsSync,
+                  int spawnDelayTicks,
+                  int maxPendingSpawnsPerPlayerPerTick,
                   boolean destroyDrainFastPathActive,
                   Runnable rescheduleIfNeeded) {
         try {
@@ -62,6 +66,21 @@ public final class VisibilitySliceProcessor {
                 return;
             }
             UUID playerWorldId = playerFrame.worldId();
+
+            processPendingSpawns(
+                    playerId,
+                    playerFrame,
+                    playerWorldId,
+                    trackingState,
+                    viewDistanceSquared,
+                    tickCounter,
+                    spawnRequirePhysicsSync,
+                    maxPendingSpawnsPerPlayerPerTick
+            );
+
+            if (!trackingState.needsVisibilityPass()) {
+                return;
+            }
 
             int budget = maxVisibilityUpdatesPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxVisibilityUpdatesPerPlayerPerTick;
             int processed = 0;
@@ -92,6 +111,7 @@ public final class VisibilitySliceProcessor {
 
                 if (inRange) {
                     if (!tracked.isEnabled()) {
+                        trackingState.clearPendingSpawn(id);
                         if (trackingState.removeVisible(id)) {
                             scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
                                     null, false, false, -1L, -1L));
@@ -100,6 +120,7 @@ public final class VisibilitySliceProcessor {
                         continue;
                     }
                     if (!tracked.isAllowedForProtocol(playerFrame.clientProtocol())) {
+                        trackingState.clearPendingSpawn(id);
                         if (trackingState.removeVisible(id)) {
                             scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
                                     null, false, false, -1L, -1L));
@@ -109,6 +130,7 @@ public final class VisibilitySliceProcessor {
                     }
                     com.ladakx.inertia.rendering.tracker.state.LodLevel lod = lodResolver.resolve(distSq);
                     if (!tracked.isAllowedForLod(lod)) {
+                        trackingState.clearPendingSpawn(id);
                         if (trackingState.removeVisible(id)) {
                             scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
                                     null, false, false, -1L, -1L));
@@ -116,22 +138,40 @@ public final class VisibilitySliceProcessor {
                         processed++;
                         continue;
                     }
-                    if (trackingState.addVisible(id)) {
-                        Location spawnLoc = tracked.location().clone();
-                        Quaternionf spawnRot = new Quaternionf(tracked.rotation());
-                        long tokenVersion = tokenProvider.applyAsLong(id);
-                        int visualId = tracked.visual().getId();
-                        scheduler.enqueueSpawn(() ->
-                                        packetBuffer.buffer(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN,
-                                                visualId, false, false, -1L, tokenVersion),
-                                visualId,
-                                tokenVersion
-                        );
-                        tracked.markSent();
+                    if (!trackingState.isVisible(id)) {
+                        if (spawnRequirePhysicsSync && tracked.requiresPhysicsSync() && !tracked.isReadyToSpawn(tickCounter)) {
+                            trackingState.scheduleSpawn(id, tickCounter + 1);
+                            processed++;
+                            continue;
+                        }
+                        Long dueTick = spawnRequirePhysicsSync ? tickCounter : trackingState.getPendingSpawnTick(id);
+                        if (dueTick == null) {
+                            if (spawnDelayTicks <= 0) {
+                                dueTick = tickCounter;
+                            } else {
+                                trackingState.scheduleSpawn(id, tickCounter + spawnDelayTicks);
+                            }
+                        }
+                        if (dueTick != null && dueTick <= tickCounter && trackingState.addVisible(id)) {
+                            trackingState.clearPendingSpawn(id);
+                            Location spawnLoc = tracked.location().clone();
+                            Quaternionf spawnRot = new Quaternionf(tracked.rotation());
+                            long tokenVersion = tokenProvider.applyAsLong(id);
+                            int visualId = tracked.visual().getId();
+                            scheduler.enqueueSpawn(() ->
+                                            packetBuffer.buffer(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN,
+                                                    visualId, false, false, -1L, tokenVersion),
+                                    visualId,
+                                    tokenVersion
+                            );
+                            tracked.markSent();
+                        }
                     }
                 } else if (trackingState.removeVisible(id)) {
                     scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, tracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
                             null, false, false, -1L, -1L));
+                } else {
+                    trackingState.clearPendingSpawn(id);
                 }
 
                 processed++;
@@ -141,6 +181,93 @@ public final class VisibilitySliceProcessor {
             if (!destroyDrainFastPathActive && trackingState.needsVisibilityPass() && rescheduleIfNeeded != null) {
                 rescheduleIfNeeded.run();
             }
+        }
+    }
+
+    private void processPendingSpawns(UUID playerId,
+                                      PlayerFrame playerFrame,
+                                      UUID playerWorldId,
+                                      PlayerTrackingState trackingState,
+                                      double viewDistanceSquared,
+                                      long tickCounter,
+                                      boolean spawnRequirePhysicsSync,
+                                      int maxPendingSpawnsPerPlayerPerTick) {
+        if (!trackingState.hasPendingSpawns()) {
+            return;
+        }
+        int budget = maxPendingSpawnsPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxPendingSpawnsPerPlayerPerTick;
+        int processed = 0;
+
+        java.util.Iterator<java.util.Map.Entry<Integer, Long>> it = trackingState.pendingSpawnEntries().iterator();
+        while (it.hasNext() && processed < budget) {
+            java.util.Map.Entry<Integer, Long> entry = it.next();
+            Integer id = entry.getKey();
+            if (id == null) {
+                it.remove();
+                continue;
+            }
+            long dueTick = entry.getValue() != null ? entry.getValue() : Long.MIN_VALUE;
+            if (dueTick > tickCounter) {
+                continue;
+            }
+
+            TrackedVisual tracked = visualsById.get(id);
+            if (tracked == null) {
+                it.remove();
+                processed++;
+                continue;
+            }
+
+            Location trackedLoc = tracked.location();
+            World trackedWorld = trackedLoc.getWorld();
+            boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
+
+            double dx = trackedLoc.getX() - playerFrame.x();
+            double dy = trackedLoc.getY() - playerFrame.y();
+            double dz = trackedLoc.getZ() - playerFrame.z();
+            double distSq = dx * dx + dy * dy + dz * dz;
+            boolean inRange = sameWorld && distSq <= viewDistanceSquared;
+
+            if (!inRange || !tracked.isEnabled() || !tracked.isAllowedForProtocol(playerFrame.clientProtocol())) {
+                it.remove();
+                processed++;
+                continue;
+            }
+            com.ladakx.inertia.rendering.tracker.state.LodLevel lod = lodResolver.resolve(distSq);
+            if (!tracked.isAllowedForLod(lod)) {
+                it.remove();
+                processed++;
+                continue;
+            }
+
+            if (spawnRequirePhysicsSync && tracked.requiresPhysicsSync() && !tracked.isReadyToSpawn(tickCounter)) {
+                entry.setValue(tickCounter + 1);
+                processed++;
+                continue;
+            }
+
+            if (trackingState.isVisible(id)) {
+                it.remove();
+                processed++;
+                continue;
+            }
+
+            if (trackingState.addVisible(id)) {
+                it.remove();
+                Location spawnLoc = tracked.location().clone();
+                Quaternionf spawnRot = new Quaternionf(tracked.rotation());
+                long tokenVersion = tokenProvider.applyAsLong(id);
+                int visualId = tracked.visual().getId();
+                scheduler.enqueueSpawn(() ->
+                                packetBuffer.buffer(playerId, tracked.visual().createSpawnPacket(spawnLoc, spawnRot), PacketPriority.SPAWN,
+                                        visualId, false, false, -1L, tokenVersion),
+                        visualId,
+                        tokenVersion
+                );
+                tracked.markSent();
+            }
+
+            processed++;
         }
     }
 }

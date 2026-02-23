@@ -50,7 +50,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
                 true
         );
         entity.setBaseTransform(location, rotation);
-        tracker.register(visual, entity.trackerLocation(), entity.trackerRotation(), null, 0x07, true);
+        tracker.register(visual, entity.trackerLocation(), entity.trackerRotation(), null, visual.getId(), false, 0x07, true);
         return entity;
     }
 
@@ -94,6 +94,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
                     entity.trackerRotation(),
                     null,
                     groupKey,
+                    false,
                     0x07,
                     true
             ));

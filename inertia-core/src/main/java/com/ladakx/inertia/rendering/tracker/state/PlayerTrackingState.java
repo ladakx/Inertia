@@ -13,6 +13,7 @@ public final class PlayerTrackingState {
     private boolean initialized;
 
     private final Set<Integer> visibleIds = new HashSet<>();
+    private final Map<Integer, Long> pendingSpawnAtTick = new HashMap<>();
     private final List<Integer> visibleIterationOrder = new ArrayList<>();
     private final List<Integer> precomputedCandidateIds = new ArrayList<>();
     private final Set<Integer> candidateLookup = new HashSet<>();
@@ -29,6 +30,9 @@ public final class PlayerTrackingState {
     public long lastFullRecalcTick() { return lastFullRecalcTick; }
     public boolean initialized() { return initialized; }
     public Set<Integer> visibleIds() { return visibleIds; }
+    public boolean isVisible(int id) { return visibleIds.contains(id); }
+    public boolean hasPendingSpawns() { return !pendingSpawnAtTick.isEmpty(); }
+    public java.util.Set<java.util.Map.Entry<Integer, Long>> pendingSpawnEntries() { return pendingSpawnAtTick.entrySet(); }
 
     public void updatePosition(int chunkX, int chunkZ, UUID worldId) {
         this.chunkX = chunkX;
@@ -58,6 +62,7 @@ public final class PlayerTrackingState {
         if (visibleIds.removeIf(id -> !candidateLookup.contains(id))) {
             visibleIterationDirty = true;
         }
+        pendingSpawnAtTick.keySet().removeIf(id -> !candidateLookup.contains(id));
         resetVisibleCursor();
     }
 
@@ -142,7 +147,20 @@ public final class PlayerTrackingState {
             visibleIds.clear();
             visibleIterationDirty = true;
         }
+        pendingSpawnAtTick.clear();
         resetVisibleCursor();
+    }
+
+    public Long getPendingSpawnTick(int id) {
+        return pendingSpawnAtTick.get(id);
+    }
+
+    public void scheduleSpawn(int id, long dueTick) {
+        pendingSpawnAtTick.put(id, dueTick);
+    }
+
+    public void clearPendingSpawn(int id) {
+        pendingSpawnAtTick.remove(id);
     }
 
     public void markVisibleIterationDirty() {

@@ -59,7 +59,7 @@ public final class PlayerTickProcessor {
                 trackingState.markVisibilityDirty();
             }
 
-            if (!destroyDrainFastPathActive && trackingState.needsVisibilityPass()) {
+            if (!destroyDrainFastPathActive && (trackingState.needsVisibilityPass() || trackingState.hasPendingSpawns())) {
                 visibilityEnqueuer.enqueue(playerId, trackingState, viewDistanceSquared);
             }
 
