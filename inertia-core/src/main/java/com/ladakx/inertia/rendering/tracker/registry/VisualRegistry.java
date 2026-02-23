@@ -33,13 +33,14 @@ public final class VisualRegistry {
     }
 
     public void register(NetworkVisual visual, Location location, Quaternionf rotation, @Nullable ClientVersionRange clientRange) {
-        register(visual, location, rotation, clientRange, 0x07, true);
+        register(visual, location, rotation, clientRange, visual.getId(), 0x07, true);
     }
 
     public void register(NetworkVisual visual,
                          Location location,
                          Quaternionf rotation,
                          @Nullable ClientVersionRange clientRange,
+                         int groupKey,
                          int allowedLodMask,
                          boolean enabled) {
         Objects.requireNonNull(visual, "visual");
@@ -49,7 +50,7 @@ public final class VisualRegistry {
         tombstoneService.clear(visual.getId());
         tokenService.bump(visual.getId());
 
-        TrackedVisual tracked = new TrackedVisual(visual, location.clone(), new Quaternionf(rotation), clientRange, allowedLodMask, enabled);
+        TrackedVisual tracked = new TrackedVisual(visual, location.clone(), new Quaternionf(rotation), clientRange, groupKey, allowedLodMask, enabled);
         visualsById.put(visual.getId(), tracked);
         chunkGrid.add(visual.getId(), location);
     }

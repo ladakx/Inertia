@@ -12,6 +12,7 @@ public final class TrackedVisual {
     private final Location location;
     private final Quaternionf rotation;
     private final @Nullable ClientVersionRange clientRange;
+    private final int groupKey;
     private final int allowedLodMask;
     private volatile boolean enabled;
 
@@ -33,12 +34,14 @@ public final class TrackedVisual {
                          Location location,
                          Quaternionf rotation,
                          @Nullable ClientVersionRange clientRange,
+                         int groupKey,
                          int allowedLodMask,
                          boolean enabled) {
         this.visual = visual;
         this.location = location;
         this.rotation = rotation;
         this.clientRange = clientRange;
+        this.groupKey = groupKey;
         this.allowedLodMask = allowedLodMask & 0x07;
         this.enabled = enabled;
         syncAll();
@@ -48,6 +51,7 @@ public final class TrackedVisual {
     public Location location() { return location; }
     public Quaternionf rotation() { return rotation; }
     public @Nullable ClientVersionRange clientRange() { return clientRange; }
+    public int groupKey() { return groupKey; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 

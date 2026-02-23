@@ -214,6 +214,7 @@ public class NetworkEntityTracker {
                                      Location location,
                                      Quaternionf rotation,
                                      ClientVersionRange clientRange,
+                                     int groupKey,
                                      int allowedLodMask,
                                      boolean enabled) {
         public VisualRegistration {
@@ -233,6 +234,7 @@ public class NetworkEntityTracker {
                     registration.location(),
                     registration.rotation(),
                     registration.clientRange(),
+                    registration.groupKey(),
                     registration.allowedLodMask(),
                     registration.enabled());
         }
@@ -279,16 +281,26 @@ public class NetworkEntityTracker {
                          @NotNull Location location,
                          @NotNull Quaternionf rotation,
                          ClientVersionRange clientRange,
+                         int groupKey,
                          int allowedLodMask,
                          boolean enabled) {
-        visualRegistry.register(visual, location, rotation, clientRange, allowedLodMask, enabled);
+        visualRegistry.register(visual, location, rotation, clientRange, groupKey, allowedLodMask, enabled);
+    }
+
+    public void register(@NotNull NetworkVisual visual,
+                         @NotNull Location location,
+                         @NotNull Quaternionf rotation,
+                         ClientVersionRange clientRange,
+                         int allowedLodMask,
+                         boolean enabled) {
+        register(visual, location, rotation, clientRange, visual.getId(), allowedLodMask, enabled);
     }
 
     public void register(@NotNull NetworkVisual visual,
                          @NotNull Location location,
                          @NotNull Quaternionf rotation,
                          ClientVersionRange clientRange) {
-        register(visual, location, rotation, clientRange, 0x07, true);
+        register(visual, location, rotation, clientRange, visual.getId(), 0x07, true);
     }
 
     public void unregister(@NotNull NetworkVisual visual) {

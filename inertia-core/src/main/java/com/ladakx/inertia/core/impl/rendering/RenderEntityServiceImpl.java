@@ -66,6 +66,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
 
         Map<String, RenderEntityImpl> byKey = new LinkedHashMap<>();
         List<NetworkEntityTracker.VisualRegistration> regs = new ArrayList<>(modelDefinition.entities().size());
+        int groupKey = -1;
 
         for (Map.Entry<String, RenderEntityDefinition> entry : modelDefinition.entities().entrySet()) {
             String key = entry.getKey();
@@ -73,6 +74,9 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
             if (def == null) continue;
 
             NetworkVisual visual = renderFactory.create(world, location, def);
+            if (groupKey < 0) {
+                groupKey = visual.getId();
+            }
             RenderEntityImpl entity = new RenderEntityImpl(
                     tracker,
                     visual,
@@ -89,6 +93,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
                     entity.trackerLocation(),
                     entity.trackerRotation(),
                     null,
+                    groupKey,
                     0x07,
                     true
             ));
@@ -98,4 +103,3 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
         return new RenderModelInstanceImpl(modelDefinition.id(), byKey);
     }
 }
-

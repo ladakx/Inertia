@@ -19,9 +19,23 @@ import org.bukkit.util.Vector;
 
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.DoubleSupplier;
 
 public class PhysicsManipulationService {
+
+    private record WeldLink(long bodyVaA, long bodyVaB) {
+        boolean matchesPair(long a, long b) {
+            return (bodyVaA == a && bodyVaB == b) || (bodyVaA == b && bodyVaB == a);
+        }
+
+        boolean involves(long va) {
+            return bodyVaA == va || bodyVaB == va;
+        }
+    }
+
+    private final ConcurrentMap<Long, WeldLink> weldByConstraintVa = new ConcurrentHashMap<>();
 
     public UUID startGrabbing(PhysicsWorld space, AbstractPhysicsBody object, Player player, double force, DoubleSupplier distanceSupplier) {
         Body body = object.getBody();
@@ -66,6 +80,55 @@ public class PhysicsManipulationService {
         object.addRelatedConstraint(constraint.toRef());
     }
 
+    /**
+     * Removes any constraints that pin the given body to the world (fixed-to-world joints).
+     * <p>
+     * This is used by tools (e.g. Grabber) to "unfix" previously pinned bodies.
+     *
+     * @return number of removed constraints
+     */
+    public int removeStaticJoints(PhysicsWorld space, AbstractPhysicsBody object) {
+        if (space == null || object == null || !object.isValid()) {
+            return 0;
+        }
+
+        int removed = 0;
+        for (TwoBodyConstraintRef ref : object.getConstraintSnapshot()) {
+            if (ref == null) continue;
+            try {
+                TwoBodyConstraint constraint = ref.getPtr();
+                if (constraint == null) continue;
+
+                Body b1 = constraint.getBody1();
+                Body b2 = constraint.getBody2();
+                if (b1 == null || b2 == null) continue;
+
+                AbstractPhysicsBody o1 = space.getObjectByVa(b1.va());
+                AbstractPhysicsBody o2 = space.getObjectByVa(b2.va());
+
+                // A static joint is represented by one side being a fixed-to-world body (not owned by any physics object).
+                boolean isWorldPinned = (o1 == null && o2 == object) || (o2 == null && o1 == object);
+                if (!isWorldPinned) {
+                    continue;
+                }
+
+                space.removeConstraint(constraint);
+                object.removeRelatedConstraint(ref);
+                removed++;
+            } catch (Exception e) {
+                InertiaLogger.warn("Failed to remove static joint: " + e.getMessage());
+            }
+        }
+
+        if (removed > 0) {
+            try {
+                space.getBodyInterface().activateBody(object.getBody().getId());
+            } catch (Exception ignored) {
+            }
+        }
+        return removed;
+    }
+
     public void weldBodies(PhysicsWorld space, AbstractPhysicsBody obj1, AbstractPhysicsBody obj2, boolean keepDistance) {
         Body b1 = obj1.getBody();
         Body b2 = obj2.getBody();
@@ -97,6 +160,7 @@ public class PhysicsManipulationService {
 
         TwoBodyConstraint constraint = settings.create(b1, b2);
         space.addConstraint(constraint);
+        weldByConstraintVa.put(constraint.va(), new WeldLink(b1.va(), b2.va()));
         
         // Link constraint to both objects so destroying either removes it
         obj1.addRelatedConstraint(constraint.toRef());
@@ -104,6 +168,86 @@ public class PhysicsManipulationService {
         
         space.getBodyInterface().activateBody(b1.getId());
         space.getBodyInterface().activateBody(b2.getId());
+    }
+
+    /**
+     * Removes only "welder tool" constraints (does not remove chain/static/world-pin constraints).
+     *
+     * @return number of removed weld constraints
+     */
+    public int unweldBodies(PhysicsWorld space, AbstractPhysicsBody obj1, AbstractPhysicsBody obj2) {
+        if (space == null || obj1 == null || obj2 == null) return 0;
+        if (!obj1.isValid() || !obj2.isValid()) return 0;
+
+        long va1 = obj1.getBody().va();
+        long va2 = obj2.getBody().va();
+
+        int removed = 0;
+        for (TwoBodyConstraintRef ref : obj1.getConstraintSnapshot()) {
+            if (ref == null) continue;
+            try {
+                TwoBodyConstraint constraint = ref.getPtr();
+                if (constraint == null) continue;
+
+                WeldLink link = weldByConstraintVa.get(constraint.va());
+                if (link == null || !link.matchesPair(va1, va2)) {
+                    continue;
+                }
+
+                space.removeConstraint(constraint);
+                weldByConstraintVa.remove(constraint.va(), link);
+                removed++;
+            } catch (Exception e) {
+                InertiaLogger.warn("Failed to remove weld constraint: " + e.getMessage());
+            }
+        }
+
+        if (removed > 0) {
+            try {
+                space.getBodyInterface().activateBody(obj1.getBody().getId());
+                space.getBodyInterface().activateBody(obj2.getBody().getId());
+            } catch (Exception ignored) {
+            }
+        }
+        return removed;
+    }
+
+    /**
+     * Removes all weld constraints involving a given body.
+     *
+     * @return number of removed weld constraints
+     */
+    public int unweldAll(PhysicsWorld space, AbstractPhysicsBody object) {
+        if (space == null || object == null || !object.isValid()) return 0;
+        long targetVa = object.getBody().va();
+
+        int removed = 0;
+        for (TwoBodyConstraintRef ref : object.getConstraintSnapshot()) {
+            if (ref == null) continue;
+            try {
+                TwoBodyConstraint constraint = ref.getPtr();
+                if (constraint == null) continue;
+
+                WeldLink link = weldByConstraintVa.get(constraint.va());
+                if (link == null || !link.involves(targetVa)) {
+                    continue;
+                }
+
+                space.removeConstraint(constraint);
+                weldByConstraintVa.remove(constraint.va(), link);
+                removed++;
+            } catch (Exception e) {
+                InertiaLogger.warn("Failed to remove weld constraint: " + e.getMessage());
+            }
+        }
+
+        if (removed > 0) {
+            try {
+                space.getBodyInterface().activateBody(object.getBody().getId());
+            } catch (Exception ignored) {
+            }
+        }
+        return removed;
     }
 
     public int freezeCluster(PhysicsWorld space, AbstractPhysicsBody root) {

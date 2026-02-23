@@ -80,6 +80,7 @@ public final class PhysicsDisplayComposite {
         Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
 
         boolean sleepingNow = !body.isActive();
+        int groupKey = parts.isEmpty() ? -1 : parts.get(0).visual().getId();
         List<NetworkEntityTracker.VisualRegistration> registrations = new ArrayList<>(parts.size());
         for (DisplayPart part : parts) {
             int visualId = part.visual().getId();
@@ -91,6 +92,7 @@ public final class PhysicsDisplayComposite {
                     baseLoc,
                     baseRot,
                     part.clientRange(),
+                    groupKey,
                     allowedLodMask,
                     enabled
             ));

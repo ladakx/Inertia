@@ -63,6 +63,10 @@ public enum MessageKey {
     WELD_FIRST_SELECTED("weld-first-selected"),
     WELD_DESELECTED("weld-deselected"),
     WELD_CONNECTED("weld-connected"),
+    WELD_DISCONNECTED("weld-disconnected"),
+    WELD_NOT_CONNECTED("weld-not-connected"),
+    GRABBER_UNFIXED("grabber-unfixed"),
+    GRABBER_NOT_FIXED("grabber-not-fixed"),
     REMOVER_USED("remover-used"),
 
     TNT_SPAWNED("tnt-spawned"),

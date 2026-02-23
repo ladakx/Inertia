@@ -262,6 +262,15 @@ weld-deselected:
   - "{prefix} <yellow>Выделение первого объекта снято."
 weld-connected:
   - "{prefix} <green>Объекты соединены!"
+weld-disconnected:
+  - "{prefix} <yellow>Соединение снято!"
+weld-not-connected:
+  - "{prefix} <gray>Соединение не найдено."
+
+grabber-unfixed:
+  - "{prefix} <green>Фиксация снята."
+grabber-not-fixed:
+  - "{prefix} <gray>Нечего снимать."
 
 remover-used:
   - "{prefix} <red>Объект удалён."

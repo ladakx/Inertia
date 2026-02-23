@@ -19,14 +19,22 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class WeldTool extends Tool implements NetworkInteractTool {
 
-    private @Nullable AbstractPhysicsBody firstObject = null;
-    private boolean keepDistance = false;
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final PhysicsManipulationService manipulationService;
+
+    private static final class WeldSession {
+        @Nullable AbstractPhysicsBody firstObject;
+        boolean keepDistance;
+    }
+
+    private final Map<UUID, WeldSession> sessions = new HashMap<>();
 
     public WeldTool(ConfigurationService configurationService,
                     PhysicsWorldRegistry physicsWorldRegistry,
@@ -39,16 +47,18 @@ public class WeldTool extends Tool implements NetworkInteractTool {
 
     @Override
     public void onSwapHands(Player player) {
-        keepDistance = !keepDistance;
-        send(player, MessageKey.WELD_MODE_CHANGE, "{mode}", (keepDistance ? "Keep Distance" : "Snap Center"));
+        WeldSession session = sessions.computeIfAbsent(player.getUniqueId(), k -> new WeldSession());
+        session.keepDistance = !session.keepDistance;
+        send(player, MessageKey.WELD_MODE_CHANGE, "{mode}", (session.keepDistance ? "Keep Distance" : "Snap Center"));
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.5f);
     }
 
     @Override
     public void onLeftClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        if (firstObject != null) {
-            firstObject = null;
+        WeldSession session = sessions.get(player.getUniqueId());
+        if (session != null && session.firstObject != null) {
+            session.firstObject = null;
             send(player, MessageKey.WELD_DESELECTED);
             player.playSound(event.getPlayer().getLocation(), Sound.UI_BUTTON_CLICK, 1f, 0.5f);
         }
@@ -60,6 +70,8 @@ public class WeldTool extends Tool implements NetworkInteractTool {
         PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
+        WeldSession session = sessions.computeIfAbsent(player.getUniqueId(), k -> new WeldSession());
+
         var eye = player.getEyeLocation();
         List<PhysicsWorld.RaycastResult> results = space.raycastEntity(eye, eye.getDirection(), 16);
         if (results.isEmpty()) return;
@@ -67,27 +79,41 @@ public class WeldTool extends Tool implements NetworkInteractTool {
         AbstractPhysicsBody hitBody = space.getObjectByVa(results.get(0).va());
         if (hitBody == null) return;
 
-        if (firstObject != null) {
-            if (firstObject == hitBody) return; // Cannot weld to self
+        boolean unweld = player.isSneaking();
 
-            manipulationService.weldBodies(space, firstObject, hitBody, keepDistance);
+        if (session.firstObject != null) {
+            if (session.firstObject == hitBody) return; // Cannot weld to self
 
-            firstObject = null;
-            send(player, MessageKey.WELD_CONNECTED);
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 2.0f);
+            if (unweld) {
+                int removed = manipulationService.unweldBodies(space, session.firstObject, hitBody);
+                send(player, removed > 0 ? MessageKey.WELD_DISCONNECTED : MessageKey.WELD_NOT_CONNECTED);
+            } else {
+                manipulationService.weldBodies(space, session.firstObject, hitBody, session.keepDistance);
+                send(player, MessageKey.WELD_CONNECTED);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 2.0f);
+            }
+
+            session.firstObject = null;
             return;
         }
 
-        firstObject = hitBody;
+        if (unweld) {
+            int removed = manipulationService.unweldAll(space, hitBody);
+            send(player, removed > 0 ? MessageKey.WELD_DISCONNECTED : MessageKey.WELD_NOT_CONNECTED);
+            return;
+        }
+
+        session.firstObject = hitBody;
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 1.5f);
         send(player, MessageKey.WELD_FIRST_SELECTED);
     }
 
     @Override
     public void onNetworkInteract(Player player, AbstractPhysicsBody body, boolean attack) {
+        WeldSession session = sessions.computeIfAbsent(player.getUniqueId(), k -> new WeldSession());
         if (attack) {
-            if (firstObject != null) {
-                firstObject = null;
+            if (session.firstObject != null) {
+                session.firstObject = null;
                 send(player, MessageKey.WELD_DESELECTED);
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 0.5f);
             }
@@ -97,19 +123,37 @@ public class WeldTool extends Tool implements NetworkInteractTool {
         PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
-        if (firstObject != null) {
-            if (firstObject == body) return;
+        boolean unweld = player.isSneaking();
 
-            manipulationService.weldBodies(space, firstObject, body, keepDistance);
-            firstObject = null;
-            send(player, MessageKey.WELD_CONNECTED);
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 2.0f);
+        if (session.firstObject != null) {
+            if (session.firstObject == body) return;
+
+            if (unweld) {
+                int removed = manipulationService.unweldBodies(space, session.firstObject, body);
+                send(player, removed > 0 ? MessageKey.WELD_DISCONNECTED : MessageKey.WELD_NOT_CONNECTED);
+            } else {
+                manipulationService.weldBodies(space, session.firstObject, body, session.keepDistance);
+                send(player, MessageKey.WELD_CONNECTED);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 2.0f);
+            }
+            session.firstObject = null;
             return;
         }
 
-        firstObject = body;
+        if (unweld) {
+            int removed = manipulationService.unweldAll(space, body);
+            send(player, removed > 0 ? MessageKey.WELD_DISCONNECTED : MessageKey.WELD_NOT_CONNECTED);
+            return;
+        }
+
+        session.firstObject = body;
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, SoundCategory.MASTER, 0.5f, 1.5f);
         send(player, MessageKey.WELD_FIRST_SELECTED);
+    }
+
+    public void reset(Player player) {
+        if (player == null) return;
+        sessions.remove(player.getUniqueId());
     }
 
     @Override
