@@ -43,6 +43,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
+
 public class GreedyMeshAdapter implements TerrainAdapter {
     private PhysicsWorld world;
     private ChunkPhysicsManager chunkPhysicsManager;
@@ -63,9 +69,14 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private UUID meshApplyTaskId;
     private BukkitTask captureTickTask;
     private ChunkPhysicsCache cache;
+    private final Map<Long, Long> lastCapacityWarnMillis = new ConcurrentHashMap<>();
+    private final Long2ObjectLinkedOpenHashMap<DeferredChunkRequest> deferredChunkRequests = new Long2ObjectLinkedOpenHashMap<>();
+    private final LongLinkedOpenHashSet terrainBodyChunks = new LongLinkedOpenHashSet();
 
     private static final int TERRAIN_ALGORITHM_VERSION = 1;
     private static final long OFFLINE_GENERATION_AWAIT_TIMEOUT_SECONDS = 30L;
+    private static final int MERGED_SECTION_KEY = Integer.MIN_VALUE;
+    private static final long CAPACITY_WARN_COOLDOWN_MS = 5_000L;
 
     @Override
     public void onEnable(PhysicsWorld world) {
@@ -141,6 +152,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         loadedChunks.clear();
         pendingMeshData.clear();
         pendingMeshHandoffs.clear();
+        deferredChunkRequests.clear();
+        terrainBodyChunks.clear();
+        lastCapacityWarnMillis.clear();
         chunkPhysicsManager = null;
         cache = null;
         generator = null;
@@ -164,6 +178,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         long key = ChunkUtils.getChunkKey(x, z);
         loadedChunks.remove(key);
         pendingMeshHandoffs.offer(PendingMeshHandoff.discardChunk(key));
+        deferredChunkRequests.remove(key);
+        lastCapacityWarnMillis.remove(key);
+        terrainBodyChunks.remove(key);
 
         BukkitTask task = pendingUpdates.remove(key);
         if (task != null) task.cancel();
@@ -373,13 +390,72 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         if (!world.getWorldBukkit().isChunkLoaded(x, z)) return;
 
+        if (shouldDeferChunk(x, z)) {
+            deferChunkRequest(x, z, dirtyRegion, requestKind);
+            return;
+        }
+
+        scheduleChunkGenerationNow(x, z, dirtyRegion, requestKind);
+    }
+
+    private boolean shouldDeferChunk(int chunkX, int chunkZ) {
+        if (world == null) {
+            return false;
+        }
+        if (chunkSettings == null || !(chunkSettings.deferFarChunks() || chunkSettings.unloadFarChunkBodies())) {
+            return false;
+        }
+        int radius = Math.max(0, chunkSettings.maxPlayerDistanceChunks());
+        if (radius == 0) {
+            return !isChunkNearAnyPlayer(chunkX, chunkZ, 0);
+        }
+        return !isChunkNearAnyPlayer(chunkX, chunkZ, radius);
+    }
+
+    private boolean isChunkNearAnyPlayer(int chunkX, int chunkZ, int radiusChunks) {
+        if (world == null) {
+            return true;
+        }
+        int radiusSq = radiusChunks * radiusChunks;
+        var players = world.getWorldBukkit().getPlayers();
+        if (players == null || players.isEmpty()) {
+            return false;
+        }
+        for (var player : players) {
+            Location location = player.getLocation();
+            int px = location.getBlockX() >> 4;
+            int pz = location.getBlockZ() >> 4;
+            int dx = px - chunkX;
+            int dz = pz - chunkZ;
+            if ((dx * dx + dz * dz) <= radiusSq) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void deferChunkRequest(int chunkX, int chunkZ, DirtyChunkRegion dirtyRegion, GenerationRequestKind requestKind) {
+        long key = ChunkUtils.getChunkKey(chunkX, chunkZ);
+        DeferredChunkRequest next = new DeferredChunkRequest(chunkX, chunkZ, dirtyRegion, requestKind);
+        DeferredChunkRequest existing = deferredChunkRequests.get(key);
+        if (existing == null) {
+            deferredChunkRequests.put(key, next);
+            return;
+        }
+        deferredChunkRequests.put(key, existing.merge(next));
+    }
+
+    private void scheduleChunkGenerationNow(int chunkX, int chunkZ, DirtyChunkRegion dirtyRegion, GenerationRequestKind requestKind) {
+        if (world == null || chunkPhysicsManager == null) {
+            return;
+        }
         String worldName = world.getWorldBukkit().getName();
         chunkPhysicsManager.requestChunkGeneration(
-                worldName, x, z,
-                () -> captureChunkSnapshotData(x, z),
+                worldName, chunkX, chunkZ,
+                () -> captureChunkSnapshotData(chunkX, chunkZ),
                 data -> {
                     if (world != null) {
-                        pendingMeshHandoffs.offer(PendingMeshHandoff.meshData(x, z, data, meshSequence.incrementAndGet()));
+                        pendingMeshHandoffs.offer(PendingMeshHandoff.meshData(chunkX, chunkZ, data, meshSequence.incrementAndGet()));
                     }
                 },
                 dirtyRegion,
@@ -394,9 +470,103 @@ public class GreedyMeshAdapter implements TerrainAdapter {
         List<ChunkPhysicsManager.ChunkCoordinate> playerChunks = world.getWorldBukkit().getPlayers().stream()
                 .map(player -> new ChunkPhysicsManager.ChunkCoordinate(player.getLocation().getBlockX() >> 4, player.getLocation().getBlockZ() >> 4))
                 .toList();
+
+        processDeferredChunkRequests(playerChunks);
+        evictFarTerrainBodies(playerChunks);
         chunkPhysicsManager.processCaptureQueue(playerChunks, maxCapturePerTick, maxCaptureMillisPerTick);
     }
 
+    private void processDeferredChunkRequests(List<ChunkPhysicsManager.ChunkCoordinate> playerChunks) {
+        if (world == null || chunkSettings == null || !(chunkSettings.deferFarChunks() || chunkSettings.unloadFarChunkBodies())) {
+            return;
+        }
+        if (deferredChunkRequests.isEmpty()) {
+            return;
+        }
+
+        int radius = Math.max(0, chunkSettings.maxPlayerDistanceChunks());
+        int radiusSq = radius * radius;
+        int scanPerTick = Math.max(1, chunkSettings.deferredScanPerTick());
+
+        for (int i = 0; i < scanPerTick && !deferredChunkRequests.isEmpty(); i++) {
+            ObjectIterator<Long2ObjectMap.Entry<DeferredChunkRequest>> it = deferredChunkRequests.long2ObjectEntrySet().fastIterator();
+            if (!it.hasNext()) {
+                return;
+            }
+            Long2ObjectMap.Entry<DeferredChunkRequest> entry = it.next();
+            long key = entry.getLongKey();
+            DeferredChunkRequest request = entry.getValue();
+            it.remove(); // rotate round-robin by removing from head
+
+            if (!loadedChunks.contains(key) || !world.getWorldBukkit().isChunkLoaded(request.x(), request.z())) {
+                continue;
+            }
+
+            if (!isChunkNearPlayers(request.x(), request.z(), playerChunks, radiusSq)) {
+                deferredChunkRequests.put(key, request); // add to tail
+                continue;
+            }
+
+            scheduleChunkGenerationNow(request.x(), request.z(), request.dirtyRegion(), request.requestKind());
+        }
+    }
+
+    private boolean isChunkNearPlayers(int chunkX,
+                                       int chunkZ,
+                                       List<ChunkPhysicsManager.ChunkCoordinate> playerChunks,
+                                       int radiusSq) {
+        if (playerChunks == null || playerChunks.isEmpty()) {
+            return false;
+        }
+        for (ChunkPhysicsManager.ChunkCoordinate coord : playerChunks) {
+            int dx = coord.x() - chunkX;
+            int dz = coord.z() - chunkZ;
+            if ((dx * dx + dz * dz) <= radiusSq) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void evictFarTerrainBodies(List<ChunkPhysicsManager.ChunkCoordinate> playerChunks) {
+        if (world == null || chunkSettings == null || !chunkSettings.unloadFarChunkBodies()) {
+            return;
+        }
+        if (terrainBodyChunks.isEmpty()) {
+            return;
+        }
+
+        int radius = Math.max(0, chunkSettings.unloadPlayerDistanceChunks());
+        int radiusSq = radius * radius;
+        int scanPerTick = Math.max(1, chunkSettings.unloadScanPerTick());
+
+        for (int i = 0; i < scanPerTick && !terrainBodyChunks.isEmpty(); i++) {
+            LongIterator it = terrainBodyChunks.iterator();
+            if (!it.hasNext()) {
+                return;
+            }
+            long key = it.nextLong();
+            it.remove(); // round-robin
+
+            if (!loadedChunks.contains(key)) {
+                continue;
+            }
+
+            int chunkX = ChunkUtils.getChunkX(key);
+            int chunkZ = ChunkUtils.getChunkZ(key);
+            if (!world.getWorldBukkit().isChunkLoaded(chunkX, chunkZ)) {
+                continue;
+            }
+
+            if (isChunkNearPlayers(chunkX, chunkZ, playerChunks, radiusSq)) {
+                terrainBodyChunks.add(key);
+                continue;
+            }
+
+            world.schedulePhysicsTask(() -> removeChunkBodies(key));
+            deferChunkRequest(chunkX, chunkZ, null, GenerationRequestKind.GENERATE_ON_LOAD);
+        }
+    }
 
     public ChunkPhysicsManager.CaptureMetrics getCaptureMetrics() {
         if (chunkPhysicsManager == null) {
@@ -588,22 +758,50 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         RVec3 bodyPosition = new RVec3(chunkWorldX, chunkWorldY, chunkWorldZ);
 
-        Map<String, MeshGroup> groupedVertices = new HashMap<>();
+        // Group by friction/restitution across the whole chunk to minimize the number of static bodies.
+        // Jolt's friction/restitution are properties of the body, so we can only merge shapes that share them.
+        Map<MaterialPropertiesKey, MeshGroup> groupedVertices = new HashMap<>();
 
         for (GreedyMeshShape shapeData : data.shapes()) {
             if (shapeData.vertices().length == 0) continue;
-            int sectionY = ((int) Math.floor(shapeData.minY())) >> 4;
-            String groupKey = shapeData.materialId() + '#' + sectionY;
-            MeshGroup group = groupedVertices.computeIfAbsent(
-                    groupKey,
-                    materialId -> new MeshGroup(sectionY, shapeData.friction(), shapeData.restitution())
-            );
+            MaterialPropertiesKey groupKey = MaterialPropertiesKey.of(shapeData.friction(), shapeData.restitution());
+            MeshGroup group = groupedVertices.computeIfAbsent(groupKey, unused -> new MeshGroup(
+                    MERGED_SECTION_KEY,
+                    shapeData.friction(),
+                    shapeData.restitution()
+            ));
             group.vertices().add(shapeData.vertices());
             group.shapes().add(shapeData);
         }
 
-        // Build new section bodies first, then remove old ones and swap.
-        // This avoids a temporary "no collision" gap for the chunk while it is being replaced.
+        int bodiesNeeded = groupedVertices.size();
+        if (bodiesNeeded > 0) {
+            int existingBodiesForChunk = countChunkBodies(key);
+            int remainingNow = world.getRemainingBodyCapacity();
+            long effectiveRemainingAfterRemoval = (long) remainingNow + existingBodiesForChunk;
+            if (effectiveRemainingAfterRemoval < bodiesNeeded) {
+                warnCapacityLimited(key, x, z, bodiesNeeded, existingBodiesForChunk, remainingNow);
+                // Keep current bodies; retry later when capacity frees up.
+                pendingMeshData.put(key, new PendingMesh(x, z, data, meshSequence.incrementAndGet()));
+                return;
+            }
+        }
+
+        // Wake up nearby dynamic bodies before and after terrain-body rebuild,
+        // so contact pairs rebuild immediately.
+        activateDynamicBodiesNearChunk(x, z, 1);
+
+        // Important: free old terrain bodies before building new ones.
+        // Otherwise, chunk updates temporarily double the number of bodies and can hit Jolt's maxBodies limit
+        // ("ran out of bodies") even though the steady-state body count is within limits.
+        if (data.fullRebuild()) {
+            removeChunkBodies(key);
+        } else {
+            // Since we merge bodies across all sections, we can't safely remove just the touched sections here.
+            // Fall back to a full chunk rebuild for correctness and to avoid leaking bodies.
+            removeChunkBodies(key);
+        }
+
         Map<Integer, List<Integer>> builtSectionBodies = new HashMap<>();
         for (MeshGroup group : groupedVertices.values()) {
             List<Integer> newBodyIds = new ArrayList<>();
@@ -617,16 +815,6 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             }
         }
 
-        // Wake up nearby dynamic bodies right before and after terrain-body swap,
-        // so contact pairs rebuild immediately.
-        activateDynamicBodiesNearChunk(x, z, 1);
-
-        if (data.fullRebuild()) {
-            removeChunkBodies(key);
-        } else {
-            removeChunkBodies(key, data.touchedSections());
-        }
-
         Map<Integer, List<Integer>> sectionBodies = chunkBodies.computeIfAbsent(key, unused -> new HashMap<>());
         if (data.fullRebuild()) {
             sectionBodies.clear();
@@ -638,9 +826,50 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         if (sectionBodies.isEmpty()) {
             chunkBodies.remove(key);
+            terrainBodyChunks.remove(key);
+        } else {
+            terrainBodyChunks.add(key);
         }
 
         activateDynamicBodiesNearChunk(x, z, 1);
+    }
+
+    private int countChunkBodies(long key) {
+        Map<Integer, List<Integer>> sectionBodies = chunkBodies.get(key);
+        if (sectionBodies == null || sectionBodies.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (List<Integer> ids : sectionBodies.values()) {
+            if (ids != null) {
+                count += ids.size();
+            }
+        }
+        return count;
+    }
+
+    private void warnCapacityLimited(long key,
+                                     int chunkX,
+                                     int chunkZ,
+                                     int neededBodies,
+                                     int existingBodiesForChunk,
+                                     int remainingNow) {
+        long now = System.currentTimeMillis();
+        Long last = lastCapacityWarnMillis.get(key);
+        if (last != null && (now - last) < CAPACITY_WARN_COOLDOWN_MS) {
+            return;
+        }
+        lastCapacityWarnMillis.put(key, now);
+        int used = world.getPhysicsSystem().getNumBodies();
+        int max = world.getSettings().performance().maxBodies();
+        InertiaLogger.warn(
+                "Skipping terrain body rebuild for chunk " + chunkX + ", " + chunkZ
+                        + " due to body-capacity limit (needed=" + neededBodies
+                        + ", remaining=" + remainingNow
+                        + ", chunkExisting=" + existingBodiesForChunk
+                        + ", used=" + used
+                        + ", max=" + max + ")."
+        );
     }
 
     private void createMeshBodyForGroup(int x, int z,
@@ -755,6 +984,20 @@ public class GreedyMeshAdapter implements TerrainAdapter {
                 world.registerSystemStaticBody(body.getId());
                 newBodyIds.add(body.getId());
             }
+        } catch (IllegalStateException e) {
+            String message = e.getMessage();
+            if (message != null && message.toLowerCase(Locale.ROOT).contains("ran out of bodies") && world != null) {
+                int used = world.getPhysicsSystem().getNumBodies();
+                int max = world.getSettings().performance().maxBodies();
+                InertiaLogger.error(
+                        "Failed to create chunk body at " + chunkX + ", " + chunkZ
+                                + " (ran out of bodies: used=" + used + ", max=" + max + "). "
+                                + "Consider increasing the world's performance.max-bodies or reducing terrain body count.",
+                        e
+                );
+                return;
+            }
+            InertiaLogger.error("Failed to create chunk body at " + chunkX + ", " + chunkZ, e);
         } catch (Exception e) {
             InertiaLogger.error("Failed to create chunk body at " + chunkX + ", " + chunkZ, e);
         }
@@ -763,6 +1006,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     private void removeChunkBodies(long key) {
         if (world == null) return;
         Map<Integer, List<Integer>> sectionBodies = chunkBodies.remove(key);
+        terrainBodyChunks.remove(key);
         if (sectionBodies == null || sectionBodies.isEmpty()) return;
 
         BodyInterface bi = world.getBodyInterface();
@@ -800,6 +1044,9 @@ public class GreedyMeshAdapter implements TerrainAdapter {
 
         if (sectionBodies.isEmpty()) {
             chunkBodies.remove(key);
+            terrainBodyChunks.remove(key);
+        } else {
+            terrainBodyChunks.add(key);
         }
     }
 
@@ -832,4 +1079,26 @@ public class GreedyMeshAdapter implements TerrainAdapter {
     }
 
     private record ScoredPendingMesh(PendingMesh pending, double distance) {}
+
+    private record MaterialPropertiesKey(int frictionBits, int restitutionBits) {
+        private static MaterialPropertiesKey of(float friction, float restitution) {
+            // Use raw bit patterns to ensure exact grouping for config-provided floats.
+            return new MaterialPropertiesKey(Float.floatToIntBits(friction), Float.floatToIntBits(restitution));
+        }
+    }
+
+    private record DeferredChunkRequest(int x, int z, DirtyChunkRegion dirtyRegion, GenerationRequestKind requestKind) {
+        private DeferredChunkRequest merge(DeferredChunkRequest other) {
+            DirtyChunkRegion mergedRegion = dirtyRegion;
+            if (mergedRegion == null) {
+                mergedRegion = other.dirtyRegion;
+            } else if (other.dirtyRegion != null) {
+                mergedRegion = mergedRegion.merge(other.dirtyRegion);
+            }
+            GenerationRequestKind mergedKind = requestKind == GenerationRequestKind.DIRTY || other.requestKind == GenerationRequestKind.DIRTY
+                    ? GenerationRequestKind.DIRTY
+                    : requestKind;
+            return new DeferredChunkRequest(x, z, mergedRegion, mergedKind);
+        }
+    }
 }
