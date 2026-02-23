@@ -17,6 +17,14 @@ import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.dto.WorldsConfig;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPostSpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPreSpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsWorldPauseChangedEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsWorldPauseChangedPayload;
+import com.ladakx.inertia.api.events.physics.PhysicsWorldTickEndEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsWorldTickPayload;
+import com.ladakx.inertia.api.events.physics.PhysicsWorldTickStartEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsEventPayload;
 import com.ladakx.inertia.physics.body.impl.CustomPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
@@ -173,7 +181,16 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     private void runPhysicsStep() {
+        PhysicsWorldTickPayload tickPayload = new PhysicsWorldTickPayload(
+                PhysicsEventPayload.SCHEMA_VERSION_V1,
+                worldBukkit.getUID(),
+                worldName,
+                isPaused.get(),
+                settings.tickRate()
+        );
+        Bukkit.getPluginManager().callEvent(new PhysicsWorldTickStartEvent(tickPayload));
         if (isPaused.get()) {
+            Bukkit.getPluginManager().callEvent(new PhysicsWorldTickEndEvent(tickPayload));
             return;
         }
         float deltaTime = 1.0f / settings.tickRate();
@@ -188,6 +205,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (metricsService != null) {
             metricsService.updateTaskManagerMetrics(taskManagerMetrics);
         }
+        Bukkit.getPluginManager().callEvent(new PhysicsWorldTickEndEvent(tickPayload));
     }
 
     public boolean isFluidPhysicsEnabled() {
@@ -581,7 +599,21 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     @Override public @NotNull World getBukkitWorld() { return worldBukkit; }
-    @Override public void setSimulationPaused(boolean paused) { this.isPaused.set(paused); }
+    @Override
+    public void setSimulationPaused(boolean paused) {
+        boolean previous = this.isPaused.getAndSet(paused);
+        if (previous == paused) {
+            return;
+        }
+        Bukkit.getPluginManager().callEvent(new PhysicsWorldPauseChangedEvent(
+                new PhysicsWorldPauseChangedPayload(
+                        PhysicsEventPayload.SCHEMA_VERSION_V1,
+                        worldBukkit.getUID(),
+                        worldName,
+                        paused
+                )
+        ));
+    }
     @Override public boolean isSimulationPaused() { return isPaused.get(); }
     @Override public void setGravity(@NotNull Vector gravity) { if (gravity == null) return; physicsSystem.setGravity(ConvertUtils.toVec3(gravity)); }
     @Override public @NotNull Vector getGravity() { Vec3 g = physicsSystem.getGravity(); return ConvertUtils.toBukkit(g); }
@@ -640,7 +672,15 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             settings.setPosition(initialPos);
             settings.setRotation(initialRot);
 
-            return ApiResult.success(apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId())));
+            PhysicsBody spawnedBody = apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId()));
+            PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(spawnedBody);
+            Bukkit.getPluginManager().callEvent(preSpawnEvent);
+            if (preSpawnEvent.isCancelled()) {
+                spawnedBody.destroy();
+                return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "spawn-cancelled");
+            }
+            Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(spawnedBody));
+            return ApiResult.success(spawnedBody);
         } catch (Exception e) {
             InertiaLogger.error("Failed to spawn API body in world " + worldName, e);
             return ApiResult.failure(ApiErrorCode.INVALID_SPEC, "shape-invalid-params");

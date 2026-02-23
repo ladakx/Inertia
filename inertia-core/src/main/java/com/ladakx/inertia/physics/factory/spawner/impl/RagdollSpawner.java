@@ -4,7 +4,8 @@ import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstShape;
-import com.ladakx.inertia.api.events.PhysicsBodySpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPostSpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.common.utils.MiscUtils;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
@@ -210,7 +211,13 @@ public class RagdollSpawner implements BodySpawner {
         obj.setClusterId(clusterId);
         spawnedBodies.put(partName, obj.getBody());
         Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-            Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
+            PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(obj);
+                Bukkit.getPluginManager().callEvent(preSpawnEvent);
+                if (preSpawnEvent.isCancelled()) {
+                    obj.destroy();
+                    return;
+                }
+                Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(obj));
         });
         return obj;
     }

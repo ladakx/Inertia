@@ -4,7 +4,8 @@ import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.github.stephengold.joltjni.ShapeRefC;
 import com.ladakx.inertia.api.InertiaAPI;
-import com.ladakx.inertia.api.events.PhysicsBodySpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPostSpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
@@ -73,7 +74,13 @@ public class BlockSpawner implements BodySpawner {
                 ab.setClusterId(clusterId);
             }
             Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-                Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(obj));
+                PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(obj);
+                Bukkit.getPluginManager().callEvent(preSpawnEvent);
+                if (preSpawnEvent.isCancelled()) {
+                    obj.destroy();
+                    return;
+                }
+                Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(obj));
             });
             return obj;
         }
