@@ -3,15 +3,19 @@ package com.ladakx.inertia.core.impl;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
+import com.ladakx.inertia.api.capability.ApiCapability;
+import com.ladakx.inertia.api.capability.CapabilityService;
 import com.ladakx.inertia.api.ApiErrorCode;
 import com.ladakx.inertia.api.ApiResult;
 import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
+import com.ladakx.inertia.api.version.ApiVersion;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.api.InertiaApiProvider;
 import com.ladakx.inertia.core.impl.config.ConfigServiceImpl;
+import com.ladakx.inertia.core.impl.capability.CapabilityServiceImpl;
 import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
 import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.configuration.ConfigurationService;
@@ -31,8 +35,9 @@ import org.joml.Quaternionf;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import com.ladakx.inertia.core.impl.RenderingServiceImpl;
 
 public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
@@ -42,8 +47,11 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
     private final ConfigurationService configurationService;
     private final RenderFactory renderFactory;
     private final JShapeFactory shapeFactory;
+    private static final ApiVersion API_VERSION = new ApiVersion(1, 2, 0);
+
     private final RenderingService renderingService;
     private final ConfigService configService;
+    private final CapabilityService capabilityService;
     private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
 
     public InertiaAPIImpl(InertiaPlugin plugin,
@@ -58,6 +66,7 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
         this.shapeFactory = shapeFactory;
         this.renderingService = new RenderingServiceImpl(renderFactory, networkEntityTracker);
         this.configService = new ConfigServiceImpl();
+        this.capabilityService = new CapabilityServiceImpl(API_VERSION, resolveCapabilities());
         this.apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
     }
 
@@ -140,11 +149,34 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
 
     @Override
     public @NotNull RenderingService rendering() {
+        capabilities().require(ApiCapability.RENDERING);
         return renderingService;
     }
 
     @Override
     public @NotNull ConfigService configs() {
         return configService;
+    }
+
+    @Override
+    public @NotNull CapabilityService capabilities() {
+        return capabilityService;
+    }
+
+    private @NotNull Set<ApiCapability> resolveCapabilities() {
+        EnumSet<ApiCapability> supported = EnumSet.noneOf(ApiCapability.class);
+        supported.add(ApiCapability.PHYSICS_SHAPE_BOX);
+        supported.add(ApiCapability.PHYSICS_SHAPE_SPHERE);
+        supported.add(ApiCapability.PHYSICS_SHAPE_CAPSULE);
+        supported.add(ApiCapability.PHYSICS_SHAPE_CYLINDER);
+        supported.add(ApiCapability.PHYSICS_SHAPE_TAPERED_CAPSULE);
+        supported.add(ApiCapability.PHYSICS_SHAPE_TAPERED_CYLINDER);
+        supported.add(ApiCapability.PHYSICS_SHAPE_CONVEX_HULL);
+        supported.add(ApiCapability.PHYSICS_SHAPE_COMPOUND);
+        supported.add(ApiCapability.INTERACTION_ADVANCED);
+        if (renderFactory != null) {
+            supported.add(ApiCapability.RENDERING);
+        }
+        return supported;
     }
 }
