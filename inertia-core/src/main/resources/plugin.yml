@@ -3,3 +3,6 @@ version: 1.0
 author: Ladakx
 main: com.ladakx.inertia.core.InertiaPlugin
 api-version: 1.16
+softdepend:
+  - ViaVersion
+  - WorldEdit

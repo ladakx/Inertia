@@ -49,15 +49,30 @@ public class WorldsConfig {
         ConfigurationSection chunkSec = section.getConfigurationSection("chunk-management");
         ChunkManagementSettings chunkSettings;
         if (chunkSec != null) {
+            boolean deferFarChunks = chunkSec.getBoolean("defer-far-chunks", false);
+            int maxPlayerDistanceChunks = Math.max(0, chunkSec.getInt("max-player-distance-chunks", 12));
+            int deferredScanPerTick = Math.max(1, chunkSec.getInt("deferred-scan-per-tick", 64));
+            boolean unloadFarChunkBodies = chunkSec.getBoolean("unload-far-chunk-bodies", false);
+            int unloadPlayerDistanceChunks = Math.max(
+                    0,
+                    chunkSec.getInt("unload-player-distance-chunks", Math.max(maxPlayerDistanceChunks + 4, maxPlayerDistanceChunks))
+            );
+            int unloadScanPerTick = Math.max(1, chunkSec.getInt("unload-scan-per-tick", 64));
             chunkSettings = new ChunkManagementSettings(
                     chunkSec.getBoolean("generate-on-load", true),
                     chunkSec.getBoolean("remove-on-unload", true),
                     chunkSec.getBoolean("update-on-block-change", true),
                     chunkSec.getInt("update-debounce-ticks", 5),
-                    chunkSec.getInt("mesh-apply-per-tick", 4)
+                    chunkSec.getInt("mesh-apply-per-tick", 4),
+                    deferFarChunks,
+                    maxPlayerDistanceChunks,
+                    deferredScanPerTick,
+                    unloadFarChunkBodies,
+                    unloadPlayerDistanceChunks,
+                    unloadScanPerTick
             );
         } else {
-            chunkSettings = new ChunkManagementSettings(true, true, true, 5, 4);
+            chunkSettings = new ChunkManagementSettings(true, true, true, 5, 4, false, 12, 64, false, 16, 64);
         }
 
         ConfigurationSection perfSec = section.getConfigurationSection("performance");
@@ -494,6 +509,12 @@ public class WorldsConfig {
             boolean removeOnUnload,
             boolean updateOnBlockChange,
             int updateDebounceTicks,
-            int maxMeshAppliesPerTick
+            int maxMeshAppliesPerTick,
+            boolean deferFarChunks,
+            int maxPlayerDistanceChunks,
+            int deferredScanPerTick,
+            boolean unloadFarChunkBodies,
+            int unloadPlayerDistanceChunks,
+            int unloadScanPerTick
     ) {}
 }
