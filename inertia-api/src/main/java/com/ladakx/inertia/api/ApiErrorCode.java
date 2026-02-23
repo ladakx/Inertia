@@ -1,0 +1,12 @@
+package com.ladakx.inertia.api;
+
+public enum ApiErrorCode {
+    WORLD_NOT_SIMULATED,
+    INVALID_SPEC,
+    OUT_OF_BOUNDS,
+    BODY_NOT_FOUND,
+    UNSUPPORTED_BODY_TYPE,
+    WORLD_MISMATCH,
+    INTERNAL_ERROR,
+    UNSUPPORTED_OPERATION
+}
