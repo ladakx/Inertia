@@ -6,7 +6,8 @@ import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
-import com.ladakx.inertia.api.events.PhysicsBodySpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPostSpawnEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.utils.MiscUtils;
 import com.ladakx.inertia.configuration.ConfigurationService;
@@ -224,7 +225,13 @@ public class ChainSpawner implements BodySpawner {
             lastLink = link;
             parentBody = link.getBody();
             Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-                Bukkit.getPluginManager().callEvent(new PhysicsBodySpawnEvent(link));
+                PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(link);
+                Bukkit.getPluginManager().callEvent(preSpawnEvent);
+                if (preSpawnEvent.isCancelled()) {
+                    link.destroy();
+                    return;
+                }
+                Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(link));
             });
         }
 
