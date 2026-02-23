@@ -13,6 +13,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -36,6 +37,39 @@ public final class TransformSliceProcessor {
     private final VisibilitySliceProcessor.PacketBuffer packetBuffer;
     private final java.util.function.IntToLongFunction tokenProvider;
     private final Function<UUID, PlayerFrame> playerFrameProvider;
+
+    private static final class GroupPacketBatch {
+        private final ArrayList<Object> packets = new ArrayList<>(4);
+        private int representativeVisualId = -1;
+        private long representativeTokenVersion = -1L;
+
+        private void addPacket(Object packet, int visualId, long tokenVersion) {
+            if (packet == null) {
+                return;
+            }
+            packets.add(packet);
+            if (representativeVisualId < 0) {
+                representativeVisualId = visualId;
+                representativeTokenVersion = tokenVersion;
+            }
+        }
+
+        private boolean isEmpty() {
+            return packets.isEmpty();
+        }
+
+        private Object packetPayload() {
+            return packets.size() == 1 ? packets.get(0) : new ArrayList<>(packets);
+        }
+
+        private int representativeVisualId() {
+            return representativeVisualId;
+        }
+
+        private long representativeTokenVersion() {
+            return representativeTokenVersion;
+        }
+    }
 
     public TransformSliceProcessor(Map<Integer, TrackedVisual> visualsById,
                             RenderNetworkBudgetScheduler scheduler,
@@ -80,6 +114,7 @@ public final class TransformSliceProcessor {
 
             int checkBudget = maxTransformChecksPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxTransformChecksPerPlayerPerTick;
             int checked = 0;
+            LinkedHashMap<Integer, GroupPacketBatch> groupedTeleportPackets = new LinkedHashMap<>();
             while (checked < checkBudget) {
                 Integer id = trackingState.nextVisibleId(visualId -> {
                     TrackedVisual tracked = visualsById.get(visualId);
@@ -166,7 +201,8 @@ public final class TransformSliceProcessor {
                         metadataBundledWithPosition = true;
                     }
                     Object packetToSend = bundledPackets != null ? bundledPackets : positionPacket;
-                    packetBuffer.buffer(playerId, packetToSend, PacketPriority.TELEPORT, tracked.visual().getId(), true, false, -1L, tokenVersion);
+                    GroupPacketBatch batch = groupedTeleportPackets.computeIfAbsent(tracked.groupKey(), unused -> new GroupPacketBatch());
+                    batch.addPacket(packetToSend, tracked.visual().getId(), tokenVersion);
                     tracked.markSent();
                 }
 
@@ -198,6 +234,20 @@ public final class TransformSliceProcessor {
                 }
 
                 checked++;
+            }
+
+            for (GroupPacketBatch batch : groupedTeleportPackets.values()) {
+                if (batch.isEmpty()) {
+                    continue;
+                }
+                packetBuffer.buffer(playerId,
+                        batch.packetPayload(),
+                        PacketPriority.TELEPORT,
+                        batch.representativeVisualId(),
+                        true,
+                        false,
+                        -1L,
+                        batch.representativeTokenVersion());
             }
 
             if (checkBudget != Integer.MAX_VALUE) {
