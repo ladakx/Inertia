@@ -93,6 +93,7 @@ public final class PhysicsDisplayComposite {
                     baseRot,
                     part.clientRange(),
                     groupKey,
+                    true,
                     allowedLodMask,
                     enabled
             ));

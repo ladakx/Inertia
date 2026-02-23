@@ -309,6 +309,9 @@ public class InertiaConfig {
             public final int maxVisibilityUpdatesPerPlayerPerTick;
             public final int maxTransformChecksPerPlayerPerTick;
             public final int fullRecalcIntervalTicks;
+            public final int spawnDelayTicks;
+            public final boolean spawnRequirePhysicsSync;
+            public final int maxPendingSpawnsPerPlayerPerTick;
             public final int maxPacketsPerPlayerPerTick;
             public final int destroyBacklogThreshold;
             public final int destroyDrainExtraPacketsPerPlayerPerTick;
@@ -401,6 +404,23 @@ public class InertiaConfig {
                         ? section.getInt("full-recalc-interval-ticks", defaultFullRecalcIntervalTicks)
                         : defaultFullRecalcIntervalTicks;
                 this.fullRecalcIntervalTicks = Math.max(1, configuredFullRecalcIntervalTicks);
+
+                int defaultSpawnDelayTicks = 1;
+                int configuredSpawnDelayTicks = section != null
+                        ? section.getInt("spawn-delay-ticks", defaultSpawnDelayTicks)
+                        : defaultSpawnDelayTicks;
+                this.spawnDelayTicks = Math.max(0, configuredSpawnDelayTicks);
+
+                boolean defaultSpawnRequirePhysicsSync = true;
+                this.spawnRequirePhysicsSync = section != null
+                        ? section.getBoolean("spawn-require-physics-sync", defaultSpawnRequirePhysicsSync)
+                        : defaultSpawnRequirePhysicsSync;
+
+                int defaultMaxPendingSpawnsPerPlayerPerTick = 64;
+                int configuredMaxPendingSpawnsPerPlayerPerTick = section != null
+                        ? section.getInt("max-pending-spawns-per-player-per-tick", defaultMaxPendingSpawnsPerPlayerPerTick)
+                        : defaultMaxPendingSpawnsPerPlayerPerTick;
+                this.maxPendingSpawnsPerPlayerPerTick = Math.max(1, configuredMaxPendingSpawnsPerPlayerPerTick);
 
                 int defaultMaxPacketsPerPlayerPerTick = 1024;
                 int configuredMaxPacketsPerPlayerPerTick = section != null

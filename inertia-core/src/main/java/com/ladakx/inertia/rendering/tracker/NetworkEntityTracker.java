@@ -73,6 +73,9 @@ public class NetworkEntityTracker {
     private volatile int maxVisibilityUpdatesPerPlayerPerTick = 1024;
     private volatile int maxTransformChecksPerPlayerPerTick = 1024;
     private volatile int fullRecalcIntervalTicks = 10;
+    private volatile int spawnDelayTicks = 1;
+    private volatile boolean spawnRequirePhysicsSync = true;
+    private volatile int maxPendingSpawnsPerPlayerPerTick = 64;
     private volatile int maxPacketsPerPlayerPerTick = 1024;
     private volatile int destroyBacklogThreshold = 512;
     private volatile int destroyDrainExtraPacketsPerPlayerPerTick = 256;
@@ -193,6 +196,9 @@ public class NetworkEntityTracker {
         this.maxVisibilityUpdatesPerPlayerPerTick = settings.maxVisibilityUpdatesPerPlayerPerTick;
         this.maxTransformChecksPerPlayerPerTick = settings.maxTransformChecksPerPlayerPerTick;
         this.fullRecalcIntervalTicks = settings.fullRecalcIntervalTicks;
+        this.spawnDelayTicks = Math.max(0, settings.spawnDelayTicks);
+        this.spawnRequirePhysicsSync = settings.spawnRequirePhysicsSync;
+        this.maxPendingSpawnsPerPlayerPerTick = Math.max(1, settings.maxPendingSpawnsPerPlayerPerTick);
         this.maxPacketsPerPlayerPerTick = settings.maxPacketsPerPlayerPerTick;
         this.destroyBacklogThreshold = settings.destroyBacklogThreshold;
         this.destroyDrainExtraPacketsPerPlayerPerTick = settings.destroyDrainExtraPacketsPerPlayerPerTick;
@@ -215,6 +221,7 @@ public class NetworkEntityTracker {
                                      Quaternionf rotation,
                                      ClientVersionRange clientRange,
                                      int groupKey,
+                                     boolean requiresPhysicsSync,
                                      int allowedLodMask,
                                      boolean enabled) {
         public VisualRegistration {
@@ -235,6 +242,7 @@ public class NetworkEntityTracker {
                     registration.rotation(),
                     registration.clientRange(),
                     registration.groupKey(),
+                    registration.requiresPhysicsSync(),
                     registration.allowedLodMask(),
                     registration.enabled());
         }
@@ -282,9 +290,10 @@ public class NetworkEntityTracker {
                          @NotNull Quaternionf rotation,
                          ClientVersionRange clientRange,
                          int groupKey,
+                         boolean requiresPhysicsSync,
                          int allowedLodMask,
                          boolean enabled) {
-        visualRegistry.register(visual, location, rotation, clientRange, groupKey, allowedLodMask, enabled);
+        visualRegistry.register(visual, location, rotation, clientRange, groupKey, requiresPhysicsSync, tickCounter, allowedLodMask, enabled);
     }
 
     public void register(@NotNull NetworkVisual visual,
@@ -293,14 +302,14 @@ public class NetworkEntityTracker {
                          ClientVersionRange clientRange,
                          int allowedLodMask,
                          boolean enabled) {
-        register(visual, location, rotation, clientRange, visual.getId(), allowedLodMask, enabled);
+        register(visual, location, rotation, clientRange, visual.getId(), false, allowedLodMask, enabled);
     }
 
     public void register(@NotNull NetworkVisual visual,
                          @NotNull Location location,
                          @NotNull Quaternionf rotation,
                          ClientVersionRange clientRange) {
-        register(visual, location, rotation, clientRange, visual.getId(), 0x07, true);
+        register(visual, location, rotation, clientRange, visual.getId(), false, 0x07, true);
     }
 
     public void unregister(@NotNull NetworkVisual visual) {
@@ -321,6 +330,13 @@ public class NetworkEntityTracker {
 
     public void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
         visualRegistry.updateState(visual, location, rotation, true, tickCounter);
+    }
+
+    public void updateStateFromPhysics(@NotNull NetworkVisual visual,
+                                       @NotNull Location location,
+                                       @NotNull Quaternionf rotation,
+                                       boolean enabled) {
+        visualRegistry.updateStateFromPhysics(visual, location, rotation, enabled, tickCounter);
     }
 
     public void updateState(@NotNull NetworkVisual visual,
@@ -567,6 +583,10 @@ public class NetworkEntityTracker {
                 trackingState,
                 viewDistanceSquared,
                 Math.max(16, maxVisibilityUpdatesPerPlayerPerTick / Math.max(1, backlogPressureMultiplier)),
+                tickCounter,
+                spawnRequirePhysicsSync,
+                spawnDelayTicks,
+                Math.max(8, maxPendingSpawnsPerPlayerPerTick / Math.max(1, backlogPressureMultiplier)),
                 destroyDrainFastPathActive,
                 () -> enqueueVisibilitySlice(playerId, trackingState, viewDistanceSquared)
         );

@@ -13,6 +13,9 @@ public final class TrackedVisual {
     private final Quaternionf rotation;
     private final @Nullable ClientVersionRange clientRange;
     private final int groupKey;
+    private final boolean requiresPhysicsSync;
+    private final long registeredAtTick;
+    private volatile long lastPhysicsSyncTick = Long.MIN_VALUE;
     private final int allowedLodMask;
     private volatile boolean enabled;
 
@@ -35,6 +38,8 @@ public final class TrackedVisual {
                          Quaternionf rotation,
                          @Nullable ClientVersionRange clientRange,
                          int groupKey,
+                         boolean requiresPhysicsSync,
+                         long registeredAtTick,
                          int allowedLodMask,
                          boolean enabled) {
         this.visual = visual;
@@ -42,6 +47,8 @@ public final class TrackedVisual {
         this.rotation = rotation;
         this.clientRange = clientRange;
         this.groupKey = groupKey;
+        this.requiresPhysicsSync = requiresPhysicsSync;
+        this.registeredAtTick = registeredAtTick;
         this.allowedLodMask = allowedLodMask & 0x07;
         this.enabled = enabled;
         syncAll();
@@ -52,6 +59,14 @@ public final class TrackedVisual {
     public Quaternionf rotation() { return rotation; }
     public @Nullable ClientVersionRange clientRange() { return clientRange; }
     public int groupKey() { return groupKey; }
+    public boolean requiresPhysicsSync() { return requiresPhysicsSync; }
+    public long registeredAtTick() { return registeredAtTick; }
+    public long lastPhysicsSyncTick() { return lastPhysicsSyncTick; }
+    public void markPhysicsSynced(long tickCounter) { this.lastPhysicsSyncTick = tickCounter; }
+    public boolean isReadyToSpawn(long tickCounter) {
+        if (!requiresPhysicsSync) return true;
+        return lastPhysicsSyncTick >= registeredAtTick;
+    }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
