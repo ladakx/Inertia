@@ -1,6 +1,7 @@
 package com.ladakx.inertia.api.events.physics;
 
-import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.ExecutionContext;
+import com.ladakx.inertia.api.ThreadingPolicy;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.util.Vector;
@@ -9,50 +10,46 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 
 /**
- * Async physics-thread event emitted when a collision contact is generated.
- * Payload is read-only and versioned via schemaVersion.
- * Bukkit API calls are limited to thread-safe operations only.
+ * Async event emitted on the physics thread when a collision contact is generated.
+ * Uses immutable payload only and must be handled as read-only.
  */
+@ExecutionContext(ThreadingPolicy.PHYSICS_THREAD_READONLY)
 public class PhysicsCollisionEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
-    private final PhysicsBody bodyA;
-    private final PhysicsBody bodyB;
     private final PhysicsCollisionPayload payload;
 
-    public PhysicsCollisionEvent(@NotNull PhysicsBody bodyA, @NotNull PhysicsBody bodyB, @NotNull Vector contactPoint) {
+    public PhysicsCollisionEvent(@NotNull PhysicsCollisionPayload payload) {
         super(true);
-        this.bodyA = Objects.requireNonNull(bodyA, "bodyA");
-        this.bodyB = Objects.requireNonNull(bodyB, "bodyB");
-        this.payload = new PhysicsCollisionPayload(
-                PhysicsEventPayload.SCHEMA_VERSION_V1,
-                Objects.requireNonNull(bodyA.getLocation().getWorld(), "bodyA.location.world").getUID(),
-                bodyA.getBodyId(),
-                bodyB.getBodyId(),
-                Objects.requireNonNull(contactPoint, "contactPoint")
-        );
+        this.payload = Objects.requireNonNull(payload, "payload");
     }
 
-    public @NotNull PhysicsBody getBodyA() {
-        return bodyA;
+    @ExecutionContext(ThreadingPolicy.PHYSICS_THREAD_READONLY)
+    public @NotNull String getBodyAId() {
+        return payload.bodyAId();
     }
 
-    public @NotNull PhysicsBody getBodyB() {
-        return bodyB;
+    @ExecutionContext(ThreadingPolicy.PHYSICS_THREAD_READONLY)
+    public @NotNull String getBodyBId() {
+        return payload.bodyBId();
     }
 
+    @ExecutionContext(ThreadingPolicy.PHYSICS_THREAD_READONLY)
     public @NotNull Vector getContactPoint() {
-        return payload.contactPoint().clone();
+        return new Vector(payload.contactPointX(), payload.contactPointY(), payload.contactPointZ());
     }
 
+    @ExecutionContext(ThreadingPolicy.PHYSICS_THREAD_READONLY)
     public @NotNull PhysicsCollisionPayload getPayload() {
         return payload;
     }
 
     @Override
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public @NotNull HandlerList getHandlers() {
         return HANDLERS;
     }
 
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public static @NotNull HandlerList getHandlerList() {
         return HANDLERS;
     }

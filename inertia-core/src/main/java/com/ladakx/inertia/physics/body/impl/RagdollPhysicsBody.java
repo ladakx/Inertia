@@ -10,6 +10,7 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.rendering.NetworkVisual;
@@ -55,8 +56,9 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
                               @NotNull GroupFilterTableRef groupFilter,
                               int groupId,
                               int partIndex,
-                              @Nullable String skinNickname) {
-        super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, groupId, partIndex), renderFactory, modelRegistry);
+                              @Nullable String skinNickname,
+                              @NotNull PhysicsEventDispatcher eventDispatcher) {
+        super(space, createBodySettings(bodyId, partName, modelRegistry, shapeFactory, initialPosition, initialRotation, groupFilter, groupId, partIndex), renderFactory, modelRegistry, eventDispatcher);
         this.bodyId = bodyId;
         this.partName = partName;
         this.skinNickname = (skinNickname == null || skinNickname.isBlank()) ? null : skinNickname;

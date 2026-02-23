@@ -23,4 +23,10 @@ dependencies {
 
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.2.9")
     compileOnly("com.sk89q.worldedit:worldedit-core:7.2.0-SNAPSHOT")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

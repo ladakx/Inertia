@@ -7,10 +7,9 @@ import com.ladakx.inertia.api.events.physics.PhysicsBodyPostDestroyEvent;
 import com.ladakx.inertia.api.events.physics.PhysicsBodyPreDestroyEvent;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.utils.ConvertUtils;
-import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -27,14 +26,17 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
     private final @NotNull BodyCreationSettings bodySettings;
     private final @NotNull Body body;
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
+    private final PhysicsEventDispatcher eventDispatcher;
     private final java.util.UUID uuid = java.util.UUID.randomUUID();
     private java.util.UUID clusterId = uuid;
     private RVec3 worldAnchor = null;
 
     public AbstractPhysicsBody(@NotNull PhysicsWorld space,
-                               @NotNull BodyCreationSettings bodySettings) {
+                               @NotNull BodyCreationSettings bodySettings,
+                               @NotNull PhysicsEventDispatcher eventDispatcher) {
         this.space = space;
         this.bodySettings = bodySettings;
+        this.eventDispatcher = java.util.Objects.requireNonNull(eventDispatcher, "eventDispatcher");
         this.body = space.getBodyInterface().createBody(this.bodySettings);
         space.getBodyInterface().addBody(body, EActivation.Activate);
         space.addObject(this);
@@ -110,21 +112,9 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
             return;
         }
 
-        InertiaPlugin plugin = InertiaPlugin.getInstance();
-        boolean cancellationSupported = Bukkit.isPrimaryThread();
+        boolean cancellationSupported = org.bukkit.Bukkit.isPrimaryThread();
         PhysicsBodyPreDestroyEvent preDestroyEvent = new PhysicsBodyPreDestroyEvent(this, cancellationSupported);
-        if (plugin != null && plugin.isEnabled() && !Bukkit.isPrimaryThread()) {
-            try {
-                Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                    Bukkit.getPluginManager().callEvent(preDestroyEvent);
-                    return Boolean.TRUE;
-                }).get();
-            } catch (Exception e) {
-                InertiaLogger.error("physics-destroy-pre-event-failed", e);
-            }
-        } else {
-            Bukkit.getPluginManager().callEvent(preDestroyEvent);
-        }
+        eventDispatcher.dispatchSync(preDestroyEvent);
         if (preDestroyEvent.isCancelled()) {
             return;
         }
@@ -178,11 +168,7 @@ public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
 
         space.removeObject(this);
 
-        if (plugin != null && plugin.isEnabled()) {
-            Bukkit.getScheduler().runTask(plugin, () -> Bukkit.getPluginManager().callEvent(new PhysicsBodyPostDestroyEvent(this)));
-        } else {
-            Bukkit.getPluginManager().callEvent(new PhysicsBodyPostDestroyEvent(this));
-        }
+        eventDispatcher.dispatchSync(new PhysicsBodyPostDestroyEvent(this));
     }
 
     @Override

@@ -206,19 +206,18 @@ public class RagdollSpawner implements BodySpawner {
                 shapeFactory,
                 pos, rot, spawnedBodies,
                 groupFilter, groupId, partIndex,
-                skinNickname
+                skinNickname,
+                space.getEventDispatcher()
         );
         obj.setClusterId(clusterId);
         spawnedBodies.put(partName, obj.getBody());
-        Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-            PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(obj);
-                Bukkit.getPluginManager().callEvent(preSpawnEvent);
-                if (preSpawnEvent.isCancelled()) {
-                    obj.destroy();
-                    return;
-                }
-                Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(obj));
-        });
+        PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(obj);
+        space.getEventDispatcher().dispatchSync(preSpawnEvent);
+        if (preSpawnEvent.isCancelled()) {
+            obj.destroy();
+            return obj;
+        }
+        space.getEventDispatcher().dispatchSync(new PhysicsBodyPostSpawnEvent(obj));
         return obj;
     }
 }
