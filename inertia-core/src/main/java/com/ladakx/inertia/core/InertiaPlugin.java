@@ -1,6 +1,6 @@
 package com.ladakx.inertia.core;
 
-import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.api.InertiaApiProvider;
 import com.ladakx.inertia.api.service.DebugRenderService;
 import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
@@ -79,6 +79,7 @@ public final class InertiaPlugin extends JavaPlugin {
     private DynamicBodyPersistenceCoordinator dynamicBodyPersistenceCoordinator;
 
     private BukkitTask globalNetworkTask;
+    private InertiaApiProvider inertiaApiProvider;
 
     @Override
     public void onEnable() {
@@ -142,7 +143,8 @@ public final class InertiaPlugin extends JavaPlugin {
 
         this.perfMonitor = new BossBarPerformanceMonitor(this, metricsService, configurationService);
 
-        InertiaAPI.setImplementation(new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory, networkEntityTracker));
+        this.inertiaApiProvider = new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory, networkEntityTracker);
+        Bukkit.getServicesManager().register(InertiaApiProvider.class, inertiaApiProvider, this, org.bukkit.plugin.ServicePriority.Normal);
         InertiaLogger.info("Inertia API registered.");
 
         new com.ladakx.inertia.features.integrations.WorldEditIntegration().init();
@@ -192,6 +194,11 @@ public final class InertiaPlugin extends JavaPlugin {
         if (globalNetworkTask != null) {
             globalNetworkTask.cancel();
             globalNetworkTask = null;
+        }
+
+        if (inertiaApiProvider != null) {
+            Bukkit.getServicesManager().unregister(InertiaApiProvider.class, inertiaApiProvider);
+            inertiaApiProvider = null;
         }
 
         if (perfMonitor != null) perfMonitor.stop();

@@ -4,28 +4,41 @@ import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.body.PhysicsBody;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public abstract class InertiaAPI {
-    private static InertiaAPI instance;
+    private static final Logger LOGGER = Logger.getLogger(InertiaAPI.class.getName());
+    private static volatile InertiaApiResolver resolver = new BukkitInertiaApiResolver();
 
+    @Deprecated(forRemoval = false)
     public static InertiaAPI get() {
-        if (instance == null) {
-            throw new IllegalStateException("InertiaAPI is not initialized. Check if Inertia plugin is enabled.");
-        }
-        return instance;
+        LOGGER.log(Level.WARNING, "Legacy InertiaAPI.get() access detected. Switch to Bukkit ServicesManager + InertiaApiProvider.");
+        return resolve();
     }
 
-    public static void setImplementation(@NotNull InertiaAPI implementation) {
-        if (instance != null) {
-            throw new IllegalStateException("InertiaAPI implementation is already registered.");
+    public static @NotNull InertiaAPI resolve() {
+        InertiaApiProvider provider = resolver.resolveProvider();
+        if (provider == null) {
+            throw new InertiaApiUnavailableException("Inertia API service is unavailable.");
         }
-        instance = implementation;
+        return Objects.requireNonNull(provider.getApi(), "provider.getApi()");
+    }
+
+    static void setResolver(@NotNull InertiaApiResolver resolver) {
+        InertiaAPI.resolver = Objects.requireNonNull(resolver, "resolver");
+    }
+
+    static void resetResolver() {
+        resolver = new BukkitInertiaApiResolver();
     }
 
     @Nullable
@@ -47,4 +60,15 @@ public abstract class InertiaAPI {
      */
     @NotNull
     public abstract ConfigService configs();
+
+    interface InertiaApiResolver {
+        @Nullable InertiaApiProvider resolveProvider();
+    }
+
+    private static final class BukkitInertiaApiResolver implements InertiaApiResolver {
+        @Override
+        public @Nullable InertiaApiProvider resolveProvider() {
+            return Bukkit.getServicesManager().load(InertiaApiProvider.class);
+        }
+    }
 }
