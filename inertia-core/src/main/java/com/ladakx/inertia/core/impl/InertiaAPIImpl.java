@@ -9,7 +9,8 @@ import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
 import com.ladakx.inertia.core.impl.config.ConfigServiceImpl;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.physics.body.impl.BlockPhysicsBody;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
@@ -39,6 +40,7 @@ public class InertiaAPIImpl extends InertiaAPI {
     private final JShapeFactory shapeFactory;
     private final RenderingService renderingService;
     private final ConfigService configService;
+    private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
 
     public InertiaAPIImpl(InertiaPlugin plugin,
                           PhysicsWorldRegistry physicsWorldRegistry,
@@ -52,10 +54,11 @@ public class InertiaAPIImpl extends InertiaAPI {
         this.shapeFactory = shapeFactory;
         this.renderingService = new RenderingServiceImpl(renderFactory, networkEntityTracker);
         this.configService = new ConfigServiceImpl();
+        this.apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
     }
 
     @Override
-    public @Nullable InertiaPhysicsBody createBody(@NotNull Location location, @NotNull String bodyId) {
+    public @Nullable PhysicsBody createBody(@NotNull Location location, @NotNull String bodyId) {
         if (location.getWorld() == null) {
             InertiaLogger.warn("Cannot create body: Location world is null.");
             return null;
@@ -90,7 +93,7 @@ public class InertiaAPIImpl extends InertiaAPI {
 
         try {
             if (type == PhysicsBodyType.BLOCK) {
-                return new BlockPhysicsBody(
+                return apiPhysicsBodyAdapter.adapt(new BlockPhysicsBody(
                         space,
                         bodyId,
                         modelRegistry,
@@ -98,7 +101,7 @@ public class InertiaAPIImpl extends InertiaAPI {
                         shapeFactory,
                         initialPos,
                         initialRot
-                );
+                ));
             } else {
                 InertiaLogger.warn("Cannot create body: Unsupported body type for ID '" + bodyId + "'.");
                 return null;

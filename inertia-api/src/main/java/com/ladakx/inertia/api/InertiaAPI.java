@@ -3,7 +3,7 @@ package com.ladakx.inertia.api;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
@@ -29,7 +29,7 @@ public abstract class InertiaAPI {
     }
 
     @Nullable
-    public abstract InertiaPhysicsBody createBody(@NotNull Location location, @NotNull String bodyId);
+    public abstract PhysicsBody createBody(@NotNull Location location, @NotNull String bodyId);
 
     public abstract boolean isWorldSimulated(@NotNull String worldName);
 

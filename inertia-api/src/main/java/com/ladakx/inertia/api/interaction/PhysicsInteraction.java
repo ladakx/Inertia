@@ -1,6 +1,6 @@
 package com.ladakx.inertia.api.interaction;
 
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -33,7 +33,7 @@ public interface PhysicsInteraction {
      * Возвращает список всех физических тел, находящихся в радиусе radius от точки center.
      */
     @NotNull
-    Collection<InertiaPhysicsBody> getOverlappingSphere(@NotNull Location center, double radius);
+    Collection<PhysicsBody> getOverlappingSphere(@NotNull Location center, double radius);
 
     /**
      * Создает физический взрыв, расталкивающий объекты.

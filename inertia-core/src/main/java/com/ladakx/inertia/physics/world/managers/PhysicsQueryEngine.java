@@ -7,7 +7,8 @@ import com.github.stephengold.joltjni.readonly.ConstBodyLockInterfaceLocking;
 import com.github.stephengold.joltjni.readonly.ConstBroadPhaseQuery;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import org.bukkit.Location;
@@ -22,11 +23,13 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
     private final PhysicsWorld physicsWorld;
     private final PhysicsSystem physicsSystem;
     private final PhysicsObjectManager objectManager;
+    private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
 
-    public PhysicsQueryEngine(PhysicsWorld physicsWorld, PhysicsSystem physicsSystem, PhysicsObjectManager objectManager) {
+    public PhysicsQueryEngine(PhysicsWorld physicsWorld, PhysicsSystem physicsSystem, PhysicsObjectManager objectManager, ApiPhysicsBodyAdapter apiPhysicsBodyAdapter) {
         this.physicsWorld = physicsWorld;
         this.physicsSystem = physicsSystem;
         this.objectManager = objectManager;
+        this.apiPhysicsBodyAdapter = apiPhysicsBodyAdapter;
     }
 
     @Override
@@ -65,7 +68,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
 
                 RVec3 hitPosJolt = ray.getPointOnRay(hit.getFraction());
                 Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
-                return new RaycastHit(obj, hitPosBukkit, hit.getFraction());
+                return new RaycastHit(apiPhysicsBodyAdapter.adapt(obj), hitPosBukkit, hit.getFraction());
             }
         }
 
@@ -104,7 +107,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
                         // Convert Jolt Hit Pos to Bukkit Location
                         Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
 
-                        results.add(new RaycastHit(obj, hitPosBukkit, hit.getFraction()));
+                        results.add(new RaycastHit(apiPhysicsBodyAdapter.adapt(obj), hitPosBukkit, hit.getFraction()));
                     }
                 }
             }
@@ -113,7 +116,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
     }
 
     @Override
-    public @NotNull Collection<InertiaPhysicsBody> getOverlappingSphere(@NotNull Location center, double radius) {
+    public @NotNull Collection<PhysicsBody> getOverlappingSphere(@NotNull Location center, double radius) {
         // Convert Center to Jolt Space
         RVec3 centerVec = physicsWorld.toJolt(center);
         Vec3 centerVecF = new Vec3((float)centerVec.xx(), (float)centerVec.yy(), (float)centerVec.zz());
@@ -123,7 +126,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
 
             if (collector.getHits().length == 0) return Collections.emptyList();
 
-            Set<InertiaPhysicsBody> bodies = new HashSet<>();
+            Set<PhysicsBody> bodies = new HashSet<>();
             ConstBodyLockInterfaceLocking bli = physicsSystem.getBodyLockInterface();
             int[] hitIds = collector.getHits();
 
@@ -133,7 +136,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
                         ConstBody body = lock.getBody();
                         AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
                         if (obj != null) {
-                            bodies.add(obj);
+                            bodies.add(apiPhysicsBodyAdapter.adapt(obj));
                         }
                     }
                 }
