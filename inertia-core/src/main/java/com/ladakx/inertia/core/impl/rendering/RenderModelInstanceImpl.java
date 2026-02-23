@@ -2,12 +2,14 @@ package com.ladakx.inertia.core.impl.rendering;
 
 import com.ladakx.inertia.api.rendering.entity.RenderEntity;
 import com.ladakx.inertia.api.rendering.entity.RenderModelInstance;
+import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
 
@@ -64,8 +66,13 @@ final class RenderModelInstanceImpl implements RenderModelInstance {
     @Override
     public void sync() {
         if (closed) return;
+        ArrayList<NetworkEntityTracker.VisualStateUpdate> updates = new ArrayList<>(entitiesByKey.size());
         for (RenderEntityImpl entity : entitiesByKey.values()) {
-            entity.sync();
+            updates.add(entity.prepareStateUpdate());
+        }
+        if (!updates.isEmpty()) {
+            RenderEntityImpl anyEntity = entitiesByKey.values().iterator().next();
+            anyEntity.tracker().updateStateBatch(updates);
         }
     }
 
@@ -78,4 +85,3 @@ final class RenderModelInstanceImpl implements RenderModelInstance {
         }
     }
 }
-
