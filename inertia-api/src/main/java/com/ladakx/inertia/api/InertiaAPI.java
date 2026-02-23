@@ -1,9 +1,12 @@
 package com.ladakx.inertia.api;
 
 import com.ladakx.inertia.api.world.IPhysicsWorld;
+import com.ladakx.inertia.api.capability.ApiCapability;
+import com.ladakx.inertia.api.capability.CapabilityService;
 import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.version.ApiVersion;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -66,6 +69,33 @@ public abstract class InertiaAPI {
      */
     @NotNull
     public abstract ConfigService configs();
+
+    @NotNull
+    public abstract CapabilityService capabilities();
+
+    @NotNull
+    public final ApiVersion apiVersion() {
+        return capabilities().apiVersion();
+    }
+
+    public final boolean isCompatibleWith(@NotNull ApiVersion minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {
+        Objects.requireNonNull(minimumVersion, "minimumVersion");
+        Objects.requireNonNull(requiredCapabilities, "requiredCapabilities");
+        if (!apiVersion().isAtLeast(minimumVersion)) {
+            return false;
+        }
+        for (ApiCapability capability : requiredCapabilities) {
+            if (!capabilities().supports(Objects.requireNonNull(capability, "capability"))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public final boolean isCompatibleWith(@NotNull String minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {
+        Objects.requireNonNull(minimumVersion, "minimumVersion");
+        return isCompatibleWith(ApiVersion.parse(minimumVersion), requiredCapabilities);
+    }
 
     interface InertiaApiResolver {
         @Nullable InertiaApiProvider resolveProvider();
