@@ -4,12 +4,12 @@ import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.CustomContactListener;
 import com.github.stephengold.joltjni.PhysicsSystem;
 import com.ladakx.inertia.api.events.physics.PhysicsCollisionEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsCollisionPayload;
+import com.ladakx.inertia.api.events.physics.PhysicsEventPayload;
 import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.entity.EntityPhysicsManager;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.util.Vector;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 
 import java.util.Objects;
 
@@ -18,14 +18,18 @@ public final class PhysicsContactListener extends CustomContactListener {
     private final PhysicsSystem physicsSystem;
     private final EntityPhysicsManager entityPhysicsManager;
     private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
+    private final PhysicsEventDispatcher eventDispatcher;
 
     public PhysicsContactListener(PhysicsObjectManager objectManager,
                                   PhysicsSystem physicsSystem,
-                                  EntityPhysicsManager entityPhysicsManager) {
-        this.objectManager = Objects.requireNonNull(objectManager);
-        this.physicsSystem = Objects.requireNonNull(physicsSystem);
-        this.entityPhysicsManager = Objects.requireNonNull(entityPhysicsManager);
-        this.apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
+                                  EntityPhysicsManager entityPhysicsManager,
+                                  ApiPhysicsBodyAdapter apiPhysicsBodyAdapter,
+                                  PhysicsEventDispatcher eventDispatcher) {
+        this.objectManager = Objects.requireNonNull(objectManager, "objectManager");
+        this.physicsSystem = Objects.requireNonNull(physicsSystem, "physicsSystem");
+        this.entityPhysicsManager = Objects.requireNonNull(entityPhysicsManager, "entityPhysicsManager");
+        this.apiPhysicsBodyAdapter = Objects.requireNonNull(apiPhysicsBodyAdapter, "apiPhysicsBodyAdapter");
+        this.eventDispatcher = Objects.requireNonNull(eventDispatcher, "eventDispatcher");
     }
 
     @Override
@@ -33,18 +37,20 @@ public final class PhysicsContactListener extends CustomContactListener {
         AbstractPhysicsBody firstPhysicsBody = objectManager.getByVa(body1Va);
         AbstractPhysicsBody secondPhysicsBody = objectManager.getByVa(body2Va);
         if (firstPhysicsBody != null && secondPhysicsBody != null) {
-            Location firstLocation = firstPhysicsBody.getLocation();
-            Location secondLocation = secondPhysicsBody.getLocation();
-            Vector contactPoint = new Vector(
+            var firstBody = apiPhysicsBodyAdapter.adapt(firstPhysicsBody);
+            var secondBody = apiPhysicsBodyAdapter.adapt(secondPhysicsBody);
+            var firstLocation = firstBody.getLocation();
+            var secondLocation = secondBody.getLocation();
+            PhysicsCollisionPayload payload = new PhysicsCollisionPayload(
+                    PhysicsEventPayload.SCHEMA_VERSION_V1,
+                    Objects.requireNonNull(firstLocation.getWorld(), "firstLocation.world").getUID(),
+                    firstBody.getBodyId(),
+                    secondBody.getBodyId(),
                     (firstLocation.getX() + secondLocation.getX()) * 0.5d,
                     (firstLocation.getY() + secondLocation.getY()) * 0.5d,
                     (firstLocation.getZ() + secondLocation.getZ()) * 0.5d
             );
-            Bukkit.getPluginManager().callEvent(new PhysicsCollisionEvent(
-                    apiPhysicsBodyAdapter.adapt(firstPhysicsBody),
-                    apiPhysicsBodyAdapter.adapt(secondPhysicsBody),
-                    contactPoint
-            ));
+            eventDispatcher.dispatchAsync(new PhysicsCollisionEvent(payload), payload);
             return;
         }
 

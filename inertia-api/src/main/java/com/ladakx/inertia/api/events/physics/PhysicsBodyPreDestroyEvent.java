@@ -1,5 +1,7 @@
 package com.ladakx.inertia.api.events.physics;
 
+import com.ladakx.inertia.api.ExecutionContext;
+import com.ladakx.inertia.api.ThreadingPolicy;
 import com.ladakx.inertia.api.body.PhysicsBody;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
@@ -8,11 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 
-/**
- * Sync cancellable event emitted before a physics body destroy operation.
- * Cancellation is applied only when isCancellationSupported() is true.
- * Bukkit API calls are allowed as for main-thread sync events.
- */
+@ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
 public class PhysicsBodyPreDestroyEvent extends Event implements Cancellable {
     private static final HandlerList HANDLERS = new HandlerList();
     private final PhysicsBodyLifecyclePayload payload;
@@ -31,24 +29,29 @@ public class PhysicsBodyPreDestroyEvent extends Event implements Cancellable {
         );
     }
 
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public @NotNull PhysicsBody getBody() {
         return payload.body();
     }
 
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public boolean isCancellationSupported() {
         return cancellationSupported;
     }
 
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public @NotNull PhysicsBodyLifecyclePayload getPayload() {
         return payload;
     }
 
     @Override
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public boolean isCancelled() {
         return cancellationSupported && cancelled;
     }
 
     @Override
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public void setCancelled(boolean cancel) {
         if (cancellationSupported) {
             this.cancelled = cancel;
@@ -56,10 +59,12 @@ public class PhysicsBodyPreDestroyEvent extends Event implements Cancellable {
     }
 
     @Override
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public @NotNull HandlerList getHandlers() {
         return HANDLERS;
     }
 
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public static @NotNull HandlerList getHandlerList() {
         return HANDLERS;
     }
