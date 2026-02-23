@@ -1,7 +1,7 @@
 package com.ladakx.inertia.physics.events;
 
-import com.ladakx.inertia.api.events.physics.ImmutablePhysicsEventPayload;
-import com.ladakx.inertia.api.events.physics.PhysicsEventPayload;
+import com.ladakx.inertia.api.events.ImmutablePhysicsEventPayload;
+import com.ladakx.inertia.api.events.PhysicsEventPayload;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.junit.jupiter.api.Assertions;

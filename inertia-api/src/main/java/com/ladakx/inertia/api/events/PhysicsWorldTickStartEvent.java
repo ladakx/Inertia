@@ -1,4 +1,4 @@
-package com.ladakx.inertia.api.events.physics;
+package com.ladakx.inertia.api.events;
 
 import com.ladakx.inertia.api.ExecutionContext;
 import com.ladakx.inertia.api.ThreadingPolicy;
@@ -9,24 +9,27 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 
 @ExecutionContext(ThreadingPolicy.PHYSICS_THREAD_READONLY)
-public class PhysicsBackpressureEvent extends Event {
+public class PhysicsWorldTickStartEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
-    private final PhysicsBackpressurePayload payload;
+    private final PhysicsWorldTickPayload payload;
 
-    public PhysicsBackpressureEvent(@NotNull PhysicsBackpressurePayload payload) {
+    public PhysicsWorldTickStartEvent(@NotNull PhysicsWorldTickPayload payload) {
         super(true);
         this.payload = Objects.requireNonNull(payload, "payload");
     }
 
-    public @NotNull PhysicsBackpressurePayload getPayload() {
+    @ExecutionContext(ThreadingPolicy.PHYSICS_THREAD_READONLY)
+    public @NotNull PhysicsWorldTickPayload getPayload() {
         return payload;
     }
 
     @Override
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public @NotNull HandlerList getHandlers() {
         return HANDLERS;
     }
 
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
     public static @NotNull HandlerList getHandlerList() {
         return HANDLERS;
     }

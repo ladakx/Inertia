@@ -1,15 +1,10 @@
 package com.ladakx.inertia.physics.factory.spawner.impl;
 
 import com.github.stephengold.joltjni.*;
-import com.github.stephengold.joltjni.enumerate.EMotionQuality;
-import com.github.stephengold.joltjni.enumerate.EMotionType;
-import com.github.stephengold.joltjni.readonly.ConstShape;
-import com.ladakx.inertia.api.events.physics.PhysicsBodyPostSpawnEvent;
-import com.ladakx.inertia.api.events.physics.PhysicsBodyPreSpawnEvent;
-import com.ladakx.inertia.common.utils.MiscUtils;
+import com.ladakx.inertia.api.events.PhysicsBodyPostSpawnEvent;
+import com.ladakx.inertia.api.events.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
-import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
@@ -21,7 +16,6 @@ import com.ladakx.inertia.physics.factory.spawner.BodySpawnContext;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawner;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.rendering.RenderFactory;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.joml.AxisAngle4f;

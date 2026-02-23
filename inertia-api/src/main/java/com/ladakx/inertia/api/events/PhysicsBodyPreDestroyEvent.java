@@ -1,4 +1,4 @@
-package com.ladakx.inertia.api.events.physics;
+package com.ladakx.inertia.api.events;
 
 import com.ladakx.inertia.api.ExecutionContext;
 import com.ladakx.inertia.api.ThreadingPolicy;
@@ -11,14 +11,16 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 
 @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
-public class PhysicsBodyPreSpawnEvent extends Event implements Cancellable {
+public class PhysicsBodyPreDestroyEvent extends Event implements Cancellable {
     private static final HandlerList HANDLERS = new HandlerList();
     private final PhysicsBodyLifecyclePayload payload;
+    private final boolean cancellationSupported;
     private boolean cancelled;
 
-    public PhysicsBodyPreSpawnEvent(@NotNull PhysicsBody body) {
+    public PhysicsBodyPreDestroyEvent(@NotNull PhysicsBody body, boolean cancellationSupported) {
         super(false);
         Objects.requireNonNull(body, "body");
+        this.cancellationSupported = cancellationSupported;
         this.payload = new PhysicsBodyLifecyclePayload(
                 PhysicsEventPayload.SCHEMA_VERSION_V1,
                 Objects.requireNonNull(body.getLocation().getWorld(), "body.location.world").getUID(),
@@ -33,6 +35,11 @@ public class PhysicsBodyPreSpawnEvent extends Event implements Cancellable {
     }
 
     @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    public boolean isCancellationSupported() {
+        return cancellationSupported;
+    }
+
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public @NotNull PhysicsBodyLifecyclePayload getPayload() {
         return payload;
     }
@@ -40,13 +47,15 @@ public class PhysicsBodyPreSpawnEvent extends Event implements Cancellable {
     @Override
     @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public boolean isCancelled() {
-        return cancelled;
+        return cancellationSupported && cancelled;
     }
 
     @Override
     @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public void setCancelled(boolean cancel) {
-        this.cancelled = cancel;
+        if (cancellationSupported) {
+            this.cancelled = cancel;
+        }
     }
 
     @Override

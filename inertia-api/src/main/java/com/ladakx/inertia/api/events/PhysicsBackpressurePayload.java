@@ -1,4 +1,4 @@
-package com.ladakx.inertia.api.events.physics;
+package com.ladakx.inertia.api.events;
 
 import java.util.Objects;
 import java.util.UUID;
