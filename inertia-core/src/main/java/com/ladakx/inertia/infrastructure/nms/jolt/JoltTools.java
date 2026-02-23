@@ -7,6 +7,8 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Slab;
 
 import java.util.List;
 
@@ -18,9 +20,25 @@ public interface JoltTools {
     /**
      * Slab state discriminator for placed blocks.
      * 0 = bottom, 1 = top, 2 = double/full.
-     * Default implementation returns bottom.
+     * Default implementation falls back to Bukkit ChunkSnapshot blockdata (slower but correct).
      */
     default byte getSlabType(Chunk chunk, int sectionY, int x, int yInSection, int z) {
+        if (chunk == null) {
+            return 0;
+        }
+        int worldY = (sectionY << 4) + yInSection;
+        try {
+            BlockData data = chunk.getChunkSnapshot().getBlockData(x, worldY, z);
+            if (data instanceof Slab slab) {
+                Slab.Type type = slab.getType();
+                return switch (type) {
+                    case TOP -> (byte) 1;
+                    case DOUBLE -> (byte) 2;
+                    case BOTTOM -> (byte) 0;
+                };
+            }
+        } catch (Throwable ignored) {
+        }
         return 0;
     }
 
