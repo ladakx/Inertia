@@ -3,6 +3,7 @@ package com.ladakx.inertia.physics.body.impl;
 import com.github.stephengold.joltjni.BodyCreationSettings;
 import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
+import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -14,8 +15,9 @@ public final class CustomPhysicsBody extends AbstractPhysicsBody {
 
     public CustomPhysicsBody(@NotNull PhysicsWorld space,
                              @NotNull BodyCreationSettings bodySettings,
-                             @Nullable String bodyId) {
-        super(space, Objects.requireNonNull(bodySettings, "bodySettings"));
+                             @Nullable String bodyId,
+                             @NotNull PhysicsEventDispatcher eventDispatcher) {
+        super(space, Objects.requireNonNull(bodySettings, "bodySettings"), Objects.requireNonNull(eventDispatcher, "eventDispatcher"));
         this.bodyId = (bodyId != null && !bodyId.isBlank())
                 ? bodyId
                 : ("custom:" + getUuid());

@@ -7,7 +7,7 @@ public record PhysicsWorldTickPayload(int schemaVersion,
                                       UUID worldId,
                                       String worldName,
                                       boolean paused,
-                                      int configuredTps) implements PhysicsEventPayload {
+                                      int configuredTps) implements ImmutablePhysicsEventPayload {
     public PhysicsWorldTickPayload {
         Objects.requireNonNull(worldId, "worldId");
         Objects.requireNonNull(worldName, "worldName");

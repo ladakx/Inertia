@@ -217,22 +217,21 @@ public class ChainSpawner implements BodySpawner {
                     groupFilter,
                     groupId,
                     i,
-                    size
+                    size,
+                    context.world().getEventDispatcher()
             );
             link.setClusterId(clusterId);
 
             if (firstLink == null) firstLink = link;
             lastLink = link;
             parentBody = link.getBody();
-            Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-                PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(link);
-                Bukkit.getPluginManager().callEvent(preSpawnEvent);
-                if (preSpawnEvent.isCancelled()) {
-                    link.destroy();
-                    return;
-                }
-                Bukkit.getPluginManager().callEvent(new PhysicsBodyPostSpawnEvent(link));
-            });
+            PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(link);
+            context.world().getEventDispatcher().dispatchSync(preSpawnEvent);
+            if (preSpawnEvent.isCancelled()) {
+                link.destroy();
+                continue;
+            }
+            context.world().getEventDispatcher().dispatchSync(new PhysicsBodyPostSpawnEvent(link));
         }
 
         if (endLoc != null && firstLink != null && lastLink != null) {
