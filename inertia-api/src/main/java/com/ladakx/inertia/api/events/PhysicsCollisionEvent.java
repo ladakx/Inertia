@@ -1,6 +1,6 @@
 package com.ladakx.inertia.api.events;
 
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.util.Vector;
@@ -13,11 +13,11 @@ import org.jetbrains.annotations.NotNull;
  */
 public class PhysicsCollisionEvent extends Event {
     private static final HandlerList handlers = new HandlerList();
-    private final InertiaPhysicsBody bodyA;
-    private final InertiaPhysicsBody bodyB;
+    private final PhysicsBody bodyA;
+    private final PhysicsBody bodyB;
     private final Vector contactPoint;
 
-    public PhysicsCollisionEvent(@NotNull InertiaPhysicsBody bodyA, @NotNull InertiaPhysicsBody bodyB, @NotNull Vector contactPoint) {
+    public PhysicsCollisionEvent(@NotNull PhysicsBody bodyA, @NotNull PhysicsBody bodyB, @NotNull Vector contactPoint) {
         super(true); // Async event
         this.bodyA = bodyA;
         this.bodyB = bodyB;
@@ -25,12 +25,12 @@ public class PhysicsCollisionEvent extends Event {
     }
 
     @NotNull
-    public InertiaPhysicsBody getBodyA() {
+    public PhysicsBody getBodyA() {
         return bodyA;
     }
 
     @NotNull
-    public InertiaPhysicsBody getBodyB() {
+    public PhysicsBody getBodyB() {
         return bodyB;
     }
 

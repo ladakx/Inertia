@@ -4,7 +4,7 @@ import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.ladakx.inertia.api.body.MotionType;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
@@ -605,7 +605,7 @@ public class GreedyMeshAdapter implements TerrainAdapter {
             return;
         }
 
-        for (InertiaPhysicsBody body : world.getBodies()) {
+        for (PhysicsBody body : world.getBodies()) {
             if (!(body instanceof AbstractPhysicsBody physicsBody)) {
                 continue;
             }

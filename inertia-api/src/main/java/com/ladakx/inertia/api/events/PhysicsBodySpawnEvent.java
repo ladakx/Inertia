@@ -1,20 +1,20 @@
 package com.ladakx.inertia.api.events;
 
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
 public class PhysicsBodySpawnEvent extends Event {
     private static final HandlerList handlers = new HandlerList();
-    private final InertiaPhysicsBody body;
+    private final PhysicsBody body;
 
-    public PhysicsBodySpawnEvent(@NotNull InertiaPhysicsBody body) {
+    public PhysicsBodySpawnEvent(@NotNull PhysicsBody body) {
         this.body = body;
     }
 
     @NotNull
-    public InertiaPhysicsBody getBody() {
+    public PhysicsBody getBody() {
         return body;
     }
 
