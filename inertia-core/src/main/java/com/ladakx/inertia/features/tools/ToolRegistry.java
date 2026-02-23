@@ -18,9 +18,12 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.EquipmentSlot;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 public class ToolRegistry implements Listener {
 
@@ -28,6 +31,10 @@ public class ToolRegistry implements Listener {
     private final ConfigurationService configurationService;
     private final PhysicsWorldRegistry physicsWorldRegistry;
     private final ToolDataManager toolDataManager;
+
+    // Use monotonic time to avoid getting stuck when world time is set backwards / player changes worlds.
+    private static final long RIGHT_CLICK_COOLDOWN_NANOS = TimeUnit.MILLISECONDS.toNanos(150);
+    private final Map<UUID, Long> lastRightClickAtNanosByPlayer = new HashMap<>();
 
     public ToolRegistry(InertiaPlugin plugin,
                         ConfigurationService configurationService,
@@ -66,6 +73,10 @@ public class ToolRegistry implements Listener {
         Tool tool = getToolFromItem(player.getInventory().getItemInMainHand());
         if (tool == null) return;
 
+        if (!attack && !acquireRightClick(player)) {
+            return;
+        }
+
         if (tool instanceof NetworkInteractTool networkTool) {
             networkTool.onNetworkInteract(player, body, attack);
             return;
@@ -101,10 +112,17 @@ public class ToolRegistry implements Listener {
         Tool tool = getToolFromItem(event.getItem());
         if (tool == null) return;
 
+        if (event.getHand() != null && event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
+
         event.setCancelled(true);
 
         Action action = event.getAction();
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
+            if (!acquireRightClick(event.getPlayer())) {
+                return;
+            }
             tool.onRightClick(event);
         } else if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
             tool.onLeftClick(event);
@@ -139,13 +157,30 @@ public class ToolRegistry implements Listener {
 
     @EventHandler
     public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
+        lastRightClickAtNanosByPlayer.remove(event.getPlayer().getUniqueId());
         Tool chainTool = getTool("chain_tool");
         if (chainTool instanceof ChainTool ct) {
             ct.onSwapHands(event.getPlayer());
+        }
+        Tool weldTool = getTool("welder");
+        if (weldTool instanceof WeldTool wt) {
+            wt.reset(event.getPlayer());
         }
         Tool grabberTool = getTool("grabber");
         if (grabberTool instanceof GrabberTool gt) {
             gt.release(event.getPlayer());
         }
+    }
+
+    private boolean acquireRightClick(Player player) {
+        if (player == null) return false;
+        long now = System.nanoTime();
+        UUID playerId = player.getUniqueId();
+        Long last = lastRightClickAtNanosByPlayer.get(playerId);
+        if (last != null && (now - last) < RIGHT_CLICK_COOLDOWN_NANOS) {
+            return false;
+        }
+        lastRightClickAtNanosByPlayer.put(playerId, now);
+        return true;
     }
 }

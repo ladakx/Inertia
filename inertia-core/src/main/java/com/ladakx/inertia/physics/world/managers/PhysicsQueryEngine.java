@@ -40,29 +40,35 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
         Vec3 dirVec = new Vec3((float) dir.getX(), (float) dir.getY(), (float) dir.getZ());
 
         RRayCast ray = new RRayCast(startVec, dirVec);
-        ClosestHitCastRayCollector collector = new ClosestHitCastRayCollector();
+        AllHitCastRayCollector collector = new AllHitCastRayCollector();
         RayCastSettings settings = new RayCastSettings();
 
         physicsSystem.getNarrowPhaseQuery().castRay(ray, settings, collector);
 
-        if (collector.hadHit()) {
-            RayCastResult hit = collector.getHit();
-            ConstBodyLockInterfaceLocking bli = physicsSystem.getBodyLockInterface();
-            try (BodyLockRead lock = new BodyLockRead(bli, hit.getBodyId())) {
-                if (lock.succeeded()) {
-                    ConstBody body = lock.getBody();
-                    AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
-                    if (obj != null) {
-                        // Calculate hit position in Jolt Space
-                        RVec3 hitPosJolt = ray.getPointOnRay(hit.getFraction());
-                        // Convert Jolt Hit Pos to Bukkit Location
-                        Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
+        List<RayCastResult> hits = collector.getHits();
+        if (hits.isEmpty()) {
+            return null;
+        }
+        hits.sort(Comparator.comparingDouble(RayCastResult::getFraction));
 
-                        return new RaycastHit(obj, hitPosBukkit, hit.getFraction());
-                    }
+        ConstBodyLockInterfaceLocking bli = physicsSystem.getBodyLockInterface();
+        for (RayCastResult hit : hits) {
+            try (BodyLockRead lock = new BodyLockRead(bli, hit.getBodyId())) {
+                if (!lock.succeeded()) {
+                    continue;
                 }
+                ConstBody body = lock.getBody();
+                AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
+                if (obj == null) {
+                    continue;
+                }
+
+                RVec3 hitPosJolt = ray.getPointOnRay(hit.getFraction());
+                Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
+                return new RaycastHit(obj, hitPosBukkit, hit.getFraction());
             }
         }
+
         return null;
     }
 

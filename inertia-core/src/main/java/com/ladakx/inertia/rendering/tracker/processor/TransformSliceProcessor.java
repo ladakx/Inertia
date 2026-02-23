@@ -81,7 +81,10 @@ public final class TransformSliceProcessor {
             int checkBudget = maxTransformChecksPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxTransformChecksPerPlayerPerTick;
             int checked = 0;
             while (checked < checkBudget) {
-                Integer id = trackingState.nextVisibleId();
+                Integer id = trackingState.nextVisibleId(visualId -> {
+                    TrackedVisual tracked = visualsById.get(visualId);
+                    return tracked != null ? tracked.groupKey() : visualId;
+                });
                 if (id == null) {
                     trackingState.resetVisibleCursor();
                     break;

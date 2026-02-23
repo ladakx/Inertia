@@ -87,20 +87,38 @@ public class GrabberTool extends Tool implements NetworkInteractTool {
     public void onLeftClick(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         GrabSession session = sessions.get(player.getUniqueId());
-        if (session == null) return;
 
         PhysicsWorld space = physicsWorldRegistry.getWorld(player.getWorld());
         if (space == null) return;
 
-        // Create static joint
-        manipulationService.createStaticJoint(space, session.body, session.body.getLocation());
+        // If currently holding: fix it in place (static joint) and release.
+        if (session != null) {
+            manipulationService.createStaticJoint(space, session.body, session.body.getLocation());
 
-        // Visual effects
-        player.spawnParticle(Particle.REVERSE_PORTAL, session.body.getLocation(), 20);
-        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, SoundCategory.MASTER, 0.5F, 1.8F);
-        player.playSound(player.getLocation(), Sound.ENTITY_BEE_STING, SoundCategory.MASTER, 0.5F, 2.0F);
+            player.spawnParticle(Particle.REVERSE_PORTAL, session.body.getLocation(), 20);
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, SoundCategory.MASTER, 0.5F, 1.8F);
+            player.playSound(player.getLocation(), Sound.ENTITY_BEE_STING, SoundCategory.MASTER, 0.5F, 2.0F);
 
-        release(player, session, space);
+            release(player, session, space);
+            return;
+        }
+
+        // If not holding: try to unfix (remove static joints) from the targeted body.
+        var eye = player.getEyeLocation();
+        List<PhysicsWorld.RaycastResult> results = space.raycastEntity(eye, eye.getDirection(), 16);
+        if (results.isEmpty()) return;
+
+        AbstractPhysicsBody hitBody = space.getObjectByVa(results.get(0).va());
+        if (hitBody == null) return;
+
+        int removed = manipulationService.removeStaticJoints(space, hitBody);
+        if (removed > 0) {
+            player.spawnParticle(Particle.END_ROD, hitBody.getLocation(), 12);
+            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, SoundCategory.MASTER, 0.6F, 1.6F);
+            send(player, MessageKey.GRABBER_UNFIXED);
+        } else {
+            send(player, MessageKey.GRABBER_NOT_FIXED);
+        }
     }
 
     @Override
@@ -116,6 +134,15 @@ public class GrabberTool extends Tool implements NetworkInteractTool {
                 player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, SoundCategory.MASTER, 0.5F, 1.8F);
                 player.playSound(player.getLocation(), Sound.ENTITY_BEE_STING, SoundCategory.MASTER, 0.5F, 2.0F);
                 release(player, session, space);
+            } else {
+                int removed = manipulationService.removeStaticJoints(space, body);
+                if (removed > 0) {
+                    player.spawnParticle(Particle.END_ROD, body.getLocation(), 12);
+                    player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, SoundCategory.MASTER, 0.6F, 1.6F);
+                    send(player, MessageKey.GRABBER_UNFIXED);
+                } else {
+                    send(player, MessageKey.GRABBER_NOT_FIXED);
+                }
             }
             return;
         }

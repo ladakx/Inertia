@@ -86,9 +86,18 @@ public final class PlayerTrackingState {
     }
 
     public Integer nextVisibleId() {
+        return nextVisibleId(null);
+    }
+
+    public Integer nextVisibleId(java.util.function.IntUnaryOperator groupKeyProvider) {
         if (visibleIterationDirty) {
             visibleIterationOrder.clear();
             visibleIterationOrder.addAll(visibleIds);
+            if (groupKeyProvider != null && visibleIterationOrder.size() > 1) {
+                visibleIterationOrder.sort(java.util.Comparator
+                        .comparingInt((Integer id) -> groupKeyProvider.applyAsInt(id.intValue()))
+                        .thenComparingInt(Integer::intValue));
+            }
             visibleIterationDirty = false;
         }
 

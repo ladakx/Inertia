@@ -131,6 +131,15 @@ weld-deselected:
   - "{prefix} <yellow>Deselected first object."
 weld-connected:
   - "{prefix} <green>Connected objects!"
+weld-disconnected:
+  - "{prefix} <yellow>Disconnected objects!"
+weld-not-connected:
+  - "{prefix} <gray>No weld found."
+
+grabber-unfixed:
+  - "{prefix} <green>Unfixed."
+grabber-not-fixed:
+  - "{prefix} <gray>Nothing to unfix."
 
 remover-used:
   - "{prefix} <red>Object removed."
