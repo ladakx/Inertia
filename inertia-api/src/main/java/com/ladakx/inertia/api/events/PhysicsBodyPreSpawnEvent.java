@@ -1,8 +1,9 @@
-package com.ladakx.inertia.api.events.physics;
+package com.ladakx.inertia.api.events;
 
 import com.ladakx.inertia.api.ExecutionContext;
 import com.ladakx.inertia.api.ThreadingPolicy;
 import com.ladakx.inertia.api.body.PhysicsBody;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
@@ -10,11 +11,12 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 
 @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
-public class PhysicsBodyPostSpawnEvent extends Event {
+public class PhysicsBodyPreSpawnEvent extends Event implements Cancellable {
     private static final HandlerList HANDLERS = new HandlerList();
     private final PhysicsBodyLifecyclePayload payload;
+    private boolean cancelled;
 
-    public PhysicsBodyPostSpawnEvent(@NotNull PhysicsBody body) {
+    public PhysicsBodyPreSpawnEvent(@NotNull PhysicsBody body) {
         super(false);
         Objects.requireNonNull(body, "body");
         this.payload = new PhysicsBodyLifecyclePayload(
@@ -33,6 +35,18 @@ public class PhysicsBodyPostSpawnEvent extends Event {
     @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     public @NotNull PhysicsBodyLifecyclePayload getPayload() {
         return payload;
+    }
+
+    @Override
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    @Override
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    public void setCancelled(boolean cancel) {
+        this.cancelled = cancel;
     }
 
     @Override

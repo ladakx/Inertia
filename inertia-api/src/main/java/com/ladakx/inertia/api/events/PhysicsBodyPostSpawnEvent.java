@@ -1,4 +1,4 @@
-package com.ladakx.inertia.api.events.physics;
+package com.ladakx.inertia.api.events;
 
 import com.ladakx.inertia.api.ExecutionContext;
 import com.ladakx.inertia.api.ThreadingPolicy;
@@ -10,11 +10,11 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 
 @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
-public class PhysicsBodyPostDestroyEvent extends Event {
+public class PhysicsBodyPostSpawnEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
     private final PhysicsBodyLifecyclePayload payload;
 
-    public PhysicsBodyPostDestroyEvent(@NotNull PhysicsBody body) {
+    public PhysicsBodyPostSpawnEvent(@NotNull PhysicsBody body) {
         super(false);
         Objects.requireNonNull(body, "body");
         this.payload = new PhysicsBodyLifecyclePayload(
