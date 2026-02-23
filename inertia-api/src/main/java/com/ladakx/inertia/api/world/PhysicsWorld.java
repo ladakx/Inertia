@@ -1,5 +1,7 @@
 package com.ladakx.inertia.api.world;
 
+import com.ladakx.inertia.api.ApiErrorCode;
+import com.ladakx.inertia.api.ApiResult;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.physics.PhysicsBodySpec;
 import com.ladakx.inertia.api.body.PhysicsBody;
@@ -9,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Objects;
 
 public interface PhysicsWorld {
     @NotNull
@@ -29,12 +32,14 @@ public interface PhysicsWorld {
     @NotNull
     PhysicsInteraction getInteraction();
 
-    /**
-     * Spawns a physics body with an API-provided shape.
-     * <p>
-     * Implementations may return {@code null} if the world is not simulated or inputs are invalid.
-     */
+    default @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull PhysicsBodySpec spec) {
+        Objects.requireNonNull(spec, "spec");
+        return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "error-occurred");
+    }
+
+    @Deprecated(forRemoval = false)
     default @Nullable PhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
-        throw new UnsupportedOperationException("createBody(spec) is not supported by this implementation");
+        Objects.requireNonNull(spec, "spec");
+        return createBodyResult(spec).getValue();
     }
 }

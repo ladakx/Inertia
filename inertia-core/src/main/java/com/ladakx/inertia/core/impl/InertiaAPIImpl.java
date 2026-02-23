@@ -3,6 +3,8 @@ package com.ladakx.inertia.core.impl;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
+import com.ladakx.inertia.api.ApiErrorCode;
+import com.ladakx.inertia.api.ApiResult;
 import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.common.logging.InertiaLogger;
@@ -30,6 +32,7 @@ import org.joml.Quaternionf;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 import com.ladakx.inertia.core.impl.RenderingServiceImpl;
 
 public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
@@ -65,30 +68,30 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
     }
 
     @Override
-    public @Nullable PhysicsBody createBody(@NotNull Location location, @NotNull String bodyId) {
+    public @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull Location location, @NotNull String bodyId) {
+        Objects.requireNonNull(location, "location");
+        Objects.requireNonNull(bodyId, "bodyId");
         if (location.getWorld() == null) {
             InertiaLogger.warn("Cannot create body: Location world is null.");
-            return null;
+            return ApiResult.failure(ApiErrorCode.INVALID_SPEC, "error-occurred");
         }
 
         PhysicsWorld space = physicsWorldRegistry.getWorld(location.getWorld());
         if (space == null) {
-            return null;
+            return ApiResult.failure(ApiErrorCode.WORLD_NOT_SIMULATED, "not-for-this-world");
         }
 
-        // Validate Bounds
         if (!space.isInsideWorld(location)) {
             InertiaLogger.debug("Attempted to spawn body '" + bodyId + "' outside world boundaries at " + location);
-            return null;
+            return ApiResult.failure(ApiErrorCode.OUT_OF_BOUNDS, "spawn-fail-out-of-bounds");
         }
 
         PhysicsBodyRegistry modelRegistry = configurationService.getPhysicsBodyRegistry();
         if (modelRegistry.find(bodyId).isEmpty()) {
             InertiaLogger.warn("Cannot create body: Body ID '" + bodyId + "' not found in registry.");
-            return null;
+            return ApiResult.failure(ApiErrorCode.BODY_NOT_FOUND, "shape-not-found");
         }
 
-        // Convert Spawn Location to Jolt Space (Local)
         RVec3 initialPos = space.toJolt(location);
 
         float yawRad = (float) Math.toRadians(-location.getYaw());
@@ -100,7 +103,7 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
 
         try {
             if (type == PhysicsBodyType.BLOCK) {
-                return apiPhysicsBodyAdapter.adapt(new BlockPhysicsBody(
+                return ApiResult.success(apiPhysicsBodyAdapter.adapt(new BlockPhysicsBody(
                         space,
                         bodyId,
                         modelRegistry,
@@ -108,14 +111,14 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
                         shapeFactory,
                         initialPos,
                         initialRot
-                ));
+                )));
             } else {
                 InertiaLogger.warn("Cannot create body: Unsupported body type for ID '" + bodyId + "'.");
-                return null;
+                return ApiResult.failure(ApiErrorCode.UNSUPPORTED_BODY_TYPE, "shape-invalid-params");
             }
         } catch (Exception e) {
             InertiaLogger.error("Failed to spawn body '" + bodyId + "' via API", e);
-            return null;
+            return ApiResult.failure(ApiErrorCode.INTERNAL_ERROR, "error-occurred");
         }
     }
 

@@ -78,6 +78,11 @@ class InertiaApiCompatibilityTest {
         }
 
         @Override
+        public @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull Location location, @NotNull String bodyId) {
+            return ApiResult.failure(ApiErrorCode.INTERNAL_ERROR, "error-occurred");
+        }
+
+        @Override
         public boolean isWorldSimulated(@NotNull String worldName) {
             return false;
         }

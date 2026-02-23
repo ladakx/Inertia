@@ -3,6 +3,8 @@ package com.ladakx.inertia.physics.world;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.*;
 import com.github.stephengold.joltjni.readonly.ConstBody;
+import com.ladakx.inertia.api.ApiErrorCode;
+import com.ladakx.inertia.api.ApiResult;
 import com.ladakx.inertia.api.body.MotionType;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
@@ -587,20 +589,20 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     @Override public @NotNull PhysicsInteraction getInteraction() { return queryEngine; }
 
     @Override
-    public @Nullable PhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
+    public @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull PhysicsBodySpec spec) {
         Objects.requireNonNull(spec, "spec");
         Location spawnLocation = spec.location();
         if (spawnLocation.getWorld() == null) {
             InertiaLogger.warn("Cannot create API body: location.world is null");
-            return null;
+            return ApiResult.failure(ApiErrorCode.INVALID_SPEC, "error-occurred");
         }
         if (!spawnLocation.getWorld().getUID().equals(worldBukkit.getUID())) {
             InertiaLogger.warn("Cannot create API body: location world does not match PhysicsWorld");
-            return null;
+            return ApiResult.failure(ApiErrorCode.WORLD_MISMATCH, "not-for-this-world");
         }
         if (!isInsideWorld(spawnLocation)) {
             InertiaLogger.debug("Attempted to spawn API body outside world boundaries at " + spawnLocation);
-            return null;
+            return ApiResult.failure(ApiErrorCode.OUT_OF_BOUNDS, "spawn-fail-out-of-bounds");
         }
 
         try {
@@ -638,10 +640,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             settings.setPosition(initialPos);
             settings.setRotation(initialRot);
 
-            return apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId()));
+            return ApiResult.success(apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId())));
         } catch (Exception e) {
             InertiaLogger.error("Failed to spawn API body in world " + worldName, e);
-            return null;
+            return ApiResult.failure(ApiErrorCode.INVALID_SPEC, "shape-invalid-params");
         }
     }
 
