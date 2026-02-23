@@ -5,6 +5,9 @@ import com.ladakx.inertia.api.capability.ApiCapability;
 import com.ladakx.inertia.api.capability.CapabilityService;
 import com.ladakx.inertia.api.version.ApiVersion;
 import com.ladakx.inertia.api.config.ConfigService;
+import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
+import com.ladakx.inertia.api.diagnostics.DiagnosticsSlaContract;
+import com.ladakx.inertia.api.diagnostics.WorldHealthSnapshot;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
 import org.bukkit.Location;
@@ -121,6 +124,26 @@ class InertiaApiCompatibilityTest {
             throw new UnsupportedOperationException();
         }
 
+
+        @Override
+        public @NotNull DiagnosticsService diagnostics() {
+            return new DiagnosticsService() {
+                @Override
+                public @NotNull Collection<WorldHealthSnapshot> getWorldHealthSnapshots() {
+                    return Collections.emptyList();
+                }
+
+                @Override
+                public @NotNull WorldHealthSnapshot getWorldHealthSnapshot(@NotNull String worldName) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public @NotNull DiagnosticsSlaContract getSlaContract() {
+                    return new DiagnosticsSlaContract(20, 150, "physics-loop-thread", 256);
+                }
+            };
+        }
         @Override
         public @NotNull CapabilityService capabilities() {
             return new CapabilityService() {
