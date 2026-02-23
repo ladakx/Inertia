@@ -1,6 +1,9 @@
 package com.ladakx.inertia.api;
 
 import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.capability.ApiCapability;
+import com.ladakx.inertia.api.capability.CapabilityService;
+import com.ladakx.inertia.api.version.ApiVersion;
 import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.world.IPhysicsWorld;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -39,6 +43,16 @@ class InertiaApiCompatibilityTest {
         InertiaAPI.setResolver(() -> null);
 
         Assertions.assertThrows(InertiaApiUnavailableException.class, InertiaAPI::resolve);
+    }
+
+
+    @Test
+    void shouldMatchCompatibilityByVersionAndCapability() {
+        TestInertiaApi api = new TestInertiaApi();
+
+        Assertions.assertTrue(api.isCompatibleWith(ApiVersion.parse("1.2.0"), EnumSet.of(ApiCapability.RENDERING)));
+        Assertions.assertFalse(api.isCompatibleWith(ApiVersion.parse("1.3.0"), EnumSet.of(ApiCapability.RENDERING)));
+        Assertions.assertFalse(api.isCompatibleWith(ApiVersion.parse("1.2.0"), EnumSet.of(ApiCapability.PHYSICS_SHAPE_CUSTOM)));
     }
 
     @Test
@@ -105,6 +119,21 @@ class InertiaApiCompatibilityTest {
         @Override
         public @NotNull ConfigService configs() {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public @NotNull CapabilityService capabilities() {
+            return new CapabilityService() {
+                @Override
+                public boolean supports(@NotNull ApiCapability capability) {
+                    return capability == ApiCapability.RENDERING || capability == ApiCapability.INTERACTION_ADVANCED;
+                }
+
+                @Override
+                public @NotNull ApiVersion apiVersion() {
+                    return new ApiVersion(1, 2, 0);
+                }
+            };
         }
     }
 }
