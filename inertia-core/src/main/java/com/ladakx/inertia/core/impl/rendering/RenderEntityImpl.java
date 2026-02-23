@@ -130,6 +130,19 @@ final class RenderEntityImpl implements RenderEntity {
         return trackerRotation;
     }
 
+    NetworkEntityTracker.VisualStateUpdate stateUpdate() {
+        return new NetworkEntityTracker.VisualStateUpdate(visual, trackerLocation, trackerRotation, enabled);
+    }
+
+    NetworkEntityTracker tracker() {
+        return tracker;
+    }
+
+    NetworkEntityTracker.VisualStateUpdate prepareStateUpdate() {
+        recompute();
+        return stateUpdate();
+    }
+
     private void recompute() {
         transformStack.getLocalTranslation(stackPos);
         transformStack.getLocalRotation(stackRot);
@@ -164,4 +177,3 @@ final class RenderEntityImpl implements RenderEntity {
         trackerRotation.set(worldRot);
     }
 }
-

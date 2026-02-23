@@ -352,6 +352,42 @@ public class NetworkEntityTracker {
         }
     }
 
+    public record VisualStateUpdate(NetworkVisual visual, Location location, Quaternionf rotation, boolean enabled) {
+        public VisualStateUpdate {
+            Objects.requireNonNull(visual, "visual");
+            Objects.requireNonNull(location, "location");
+            Objects.requireNonNull(rotation, "rotation");
+        }
+    }
+
+    public void updateStateBatch(@NotNull Collection<VisualStateUpdate> updates) {
+        Objects.requireNonNull(updates, "updates");
+        if (updates.isEmpty()) {
+            return;
+        }
+        Set<Long> changedChunks = new HashSet<>();
+        for (VisualStateUpdate update : updates) {
+            if (update == null) {
+                continue;
+            }
+            boolean enabledChanged = visualRegistry.updateState(
+                    update.visual(),
+                    update.location(),
+                    update.rotation(),
+                    update.enabled(),
+                    tickCounter
+            );
+            if (enabledChanged) {
+                int cx = update.location().getBlockX() >> 4;
+                int cz = update.location().getBlockZ() >> 4;
+                changedChunks.add(com.ladakx.inertia.common.chunk.ChunkUtils.getChunkKey(cx, cz));
+            }
+        }
+        if (!changedChunks.isEmpty()) {
+            notifyPlayersOfChanges(changedChunks);
+        }
+    }
+
     public boolean isVisualClosed(int visualId) {
         return visualRegistry.isClosed(visualId, tickCounter);
     }
