@@ -41,8 +41,14 @@ public abstract class InertiaAPI {
         resolver = new BukkitInertiaApiResolver();
     }
 
-    @Nullable
-    public abstract PhysicsBody createBody(@NotNull Location location, @NotNull String bodyId);
+    public abstract @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull Location location, @NotNull String bodyId);
+
+    @Deprecated(forRemoval = false)
+    public @Nullable PhysicsBody createBody(@NotNull Location location, @NotNull String bodyId) {
+        Objects.requireNonNull(location, "location");
+        Objects.requireNonNull(bodyId, "bodyId");
+        return createBodyResult(location, bodyId).getValue();
+    }
 
     public abstract boolean isWorldSimulated(@NotNull String worldName);
 
