@@ -19,4 +19,11 @@ dependencies {
     compileOnly("org.jetbrains:annotations:24.1.0")
 
     api("org.joml:joml:1.10.8")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
+
+tasks.test {
+    useJUnitPlatform()
+}
+

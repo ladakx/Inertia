@@ -8,6 +8,7 @@ import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.api.InertiaApiProvider;
 import com.ladakx.inertia.core.impl.config.ConfigServiceImpl;
 import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
 import com.ladakx.inertia.api.body.PhysicsBody;
@@ -31,7 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import com.ladakx.inertia.core.impl.RenderingServiceImpl;
 
-public class InertiaAPIImpl extends InertiaAPI {
+public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
 
     private final InertiaPlugin plugin;
     private final PhysicsWorldRegistry physicsWorldRegistry;
@@ -55,6 +56,12 @@ public class InertiaAPIImpl extends InertiaAPI {
         this.renderingService = new RenderingServiceImpl(renderFactory, networkEntityTracker);
         this.configService = new ConfigServiceImpl();
         this.apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
+    }
+
+
+    @Override
+    public @NotNull InertiaAPI getApi() {
+        return this;
     }
 
     @Override
