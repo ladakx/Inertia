@@ -33,7 +33,9 @@ public class BlockDisplayVisual extends AbstractNetworkVisual {
     protected Vector3f calculateTranslation(Vector3f scale, Quaternionf rotation) {
         Vector3f center = new Vector3f(-0.5f, -0.5f, -0.5f).mul(scale);
 
-        Vector3f originalTrans = new Vector3f(translation()).add(localOffset());
+        // local-offset is applied at the entity/world level (tracker teleports),
+        // translation is reserved for Display transformation-only offsets.
+        Vector3f originalTrans = new Vector3f(translation());
 
         if (rotateTranslation()) {
             return center.add(originalTrans).rotate(rotation);

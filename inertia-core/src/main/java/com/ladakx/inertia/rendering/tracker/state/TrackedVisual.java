@@ -149,12 +149,19 @@ public final class TrackedVisual {
         if (positionChanged) {
             emitPosition(nearSyncState);
         }
-        if (transformChanged || forcedTransform) {
+        // IMPORTANT:
+        // For Display-based visuals, the final rendered position may depend on transformation metadata
+        // (left rotation + translation, including rotate-translation + teleport/interpolation durations).
+        // If we teleport without also syncing transform metadata, parts of composite models can visibly jitter
+        // at high angular velocity. So we always emit transform metadata when position is sent.
+        boolean sendTransform = transformChanged || forcedTransform || positionChanged;
+        if (sendTransform) {
             emitTransformMetadata(nearSyncState);
             forceTransformResyncDirty = false;
         }
 
-        return new UpdateDecision(positionChanged, transformChanged || forcedTransform, forcedTransform);
+        boolean transformPacketPresent = cachedTransformMetaPacket != null;
+        return new UpdateDecision(positionChanged, transformPacketPresent, forcedTransform);
     }
 
     private UpdateDecision prepareLodUpdate(SyncState state,
