@@ -1,5 +1,6 @@
 package com.ladakx.inertia.api.service;
 
+import com.ladakx.inertia.api.diagnostics.MetricsServiceSnapshot;
 import com.ladakx.inertia.common.metrics.RollingAverage;
 import com.ladakx.inertia.physics.world.loop.LoopTickListener;
 import org.bukkit.Bukkit;
@@ -62,12 +63,10 @@ public class PhysicsMetricsService implements LoopTickListener {
         this.overwrittenSnapshots.set(overwrittenSnapshots);
     }
 
-    // Використовується в BossBar
     public double getPhysicsMspt() {
         return mspt1s.getAverage();
     }
 
-    // Використовуються в AdminCommands
     public double getAverageMspt1s() {
         return mspt1s.getAverage();
     }
@@ -139,5 +138,18 @@ public class PhysicsMetricsService implements LoopTickListener {
 
     public int getRecurringQueueDepth() {
         return recurringQueueDepth.get();
+    }
+
+    public MetricsServiceSnapshot getReadOnlySnapshot() {
+        return new MetricsServiceSnapshot(
+                oneTimeQueueDepth.get(),
+                recurringQueueDepth.get(),
+                droppedSnapshots.get(),
+                overwrittenSnapshots.get(),
+                activeBodyCount.get(),
+                totalBodyCount.get(),
+                staticBodyCount.get(),
+                maxBodyLimit.get()
+        );
     }
 }

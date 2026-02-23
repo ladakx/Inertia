@@ -8,6 +8,7 @@ import com.ladakx.inertia.api.capability.CapabilityService;
 import com.ladakx.inertia.api.ApiErrorCode;
 import com.ladakx.inertia.api.ApiResult;
 import com.ladakx.inertia.api.config.ConfigService;
+import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.version.ApiVersion;
 import com.ladakx.inertia.common.logging.InertiaLogger;
@@ -52,13 +53,15 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
     private final RenderingService renderingService;
     private final ConfigService configService;
     private final CapabilityService capabilityService;
+    private final DiagnosticsService diagnosticsService;
     private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
 
     public InertiaAPIImpl(InertiaPlugin plugin,
                           PhysicsWorldRegistry physicsWorldRegistry,
                           ConfigurationService configurationService,
                           JShapeFactory shapeFactory,
-                          NetworkEntityTracker networkEntityTracker) {
+                          NetworkEntityTracker networkEntityTracker,
+                          DiagnosticsService diagnosticsService) {
         this.plugin = plugin;
         this.physicsWorldRegistry = physicsWorldRegistry;
         this.configurationService = configurationService;
@@ -68,6 +71,7 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
         this.configService = new ConfigServiceImpl();
         this.capabilityService = new CapabilityServiceImpl(API_VERSION, resolveCapabilities());
         this.apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
+        this.diagnosticsService = Objects.requireNonNull(diagnosticsService, "diagnosticsService");
     }
 
 
@@ -163,6 +167,11 @@ public class InertiaAPIImpl extends InertiaAPI implements InertiaApiProvider {
         return capabilityService;
     }
 
+
+    @Override
+    public @NotNull DiagnosticsService diagnostics() {
+        return diagnosticsService;
+    }
     private @NotNull Set<ApiCapability> resolveCapabilities() {
         EnumSet<ApiCapability> supported = EnumSet.noneOf(ApiCapability.class);
         supported.add(ApiCapability.PHYSICS_SHAPE_BOX);
