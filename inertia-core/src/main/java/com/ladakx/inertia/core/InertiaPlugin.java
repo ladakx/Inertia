@@ -1,11 +1,13 @@
 package com.ladakx.inertia.core;
 
 import com.ladakx.inertia.api.InertiaApiProvider;
+import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
 import com.ladakx.inertia.api.service.DebugRenderService;
 import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
 import com.ladakx.inertia.common.mesh.BlockBenchMeshProvider;
 import com.ladakx.inertia.core.impl.InertiaAPIImpl;
+import com.ladakx.inertia.core.impl.diagnostics.DiagnosticsServiceImpl;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.features.commands.InertiaCommandManager;
@@ -68,6 +70,7 @@ public final class InertiaPlugin extends JavaPlugin {
     private PhysicsManipulationService manipulationService;
     private PhysicsMetricsService metricsService;
     private DebugRenderService debugRenderService;
+    private DiagnosticsService diagnosticsService;
     private BossBarPerformanceMonitor perfMonitor;
     private ToolDataManager toolDataManager;
 
@@ -121,9 +124,10 @@ public final class InertiaPlugin extends JavaPlugin {
         this.globalNetworkTask = Bukkit.getScheduler().runTaskTimer(this, this::runGlobalNetworkTick, 1L, 1L);
 
         this.metricsService = new PhysicsMetricsService();
+        this.diagnosticsService = new DiagnosticsServiceImpl(metricsService);
 
         this.physicsEngine = new PhysicsEngine(this, configurationService);
-        this.physicsWorldRegistry = new PhysicsWorldRegistry(this, configurationService, physicsEngine, metricsService);
+        this.physicsWorldRegistry = new PhysicsWorldRegistry(this, configurationService, physicsEngine, metricsService, diagnosticsService);
 
         this.manipulationService = new PhysicsManipulationService();
         this.toolDataManager = new ToolDataManager(this);
@@ -143,7 +147,7 @@ public final class InertiaPlugin extends JavaPlugin {
 
         this.perfMonitor = new BossBarPerformanceMonitor(this, metricsService, configurationService);
 
-        this.inertiaApiProvider = new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory, networkEntityTracker);
+        this.inertiaApiProvider = new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory, networkEntityTracker, diagnosticsService);
         Bukkit.getServicesManager().register(InertiaApiProvider.class, inertiaApiProvider, this, org.bukkit.plugin.ServicePriority.Normal);
         InertiaLogger.info("Inertia API registered.");
 
@@ -412,6 +416,8 @@ public final class InertiaPlugin extends JavaPlugin {
     public PhysicsManipulationService getManipulationService() { return manipulationService; }
     public ToolDataManager getToolDataManager() { return toolDataManager; }
     public PhysicsMetricsService getMetricsService() { return metricsService; }
+
+    public DiagnosticsService getDiagnosticsService() { return diagnosticsService; }
     public DebugRenderService getDebugRenderService() { return debugRenderService; }
     public BossBarPerformanceMonitor getPerfMonitor() { return perfMonitor; }
     public NetworkManager getNetworkManager() { return networkManager; }

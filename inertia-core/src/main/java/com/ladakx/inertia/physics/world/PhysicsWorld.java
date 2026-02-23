@@ -24,6 +24,11 @@ import com.ladakx.inertia.api.events.physics.PhysicsBodyPostSpawnEvent;
 import com.ladakx.inertia.api.events.physics.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.api.events.physics.PhysicsWorldPauseChangedEvent;
 import com.ladakx.inertia.api.events.physics.PhysicsWorldPauseChangedPayload;
+import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
+import com.ladakx.inertia.api.events.physics.PhysicsBackpressureEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsBackpressurePayload;
+import com.ladakx.inertia.api.events.physics.PhysicsWorldOverloadEvent;
+import com.ladakx.inertia.api.events.physics.PhysicsWorldOverloadPayload;
 import com.ladakx.inertia.api.events.physics.PhysicsWorldTickEndEvent;
 import com.ladakx.inertia.api.events.physics.PhysicsWorldTickPayload;
 import com.ladakx.inertia.api.events.physics.PhysicsWorldTickStartEvent;
@@ -32,6 +37,8 @@ import com.ladakx.inertia.physics.body.impl.CustomPhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.engine.PhysicsLayers;
 import com.ladakx.inertia.physics.body.impl.DisplayedPhysicsBody;
+import com.ladakx.inertia.physics.world.loop.LoopDiagnosticsSnapshot;
+import com.ladakx.inertia.physics.world.loop.LoopTickListener;
 import com.ladakx.inertia.physics.world.loop.PhysicsLoop;
 import com.ladakx.inertia.physics.entity.EntityPhysicsManager;
 import com.ladakx.inertia.physics.events.BukkitEventPublisher;
@@ -98,6 +105,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private final InertiaBodyActivationListener bodyActivationListener;
     private final NetworkEntityTracker networkEntityTracker;
     private final @Nullable PhysicsMetricsService metricsService;
+    private final @Nullable DiagnosticsService diagnosticsService;
     private final BuoyancyManager buoyancyManager;
     private final ThreadLocal<ByteBuffer> batchTransformBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(7 * Float.BYTES).order(ByteOrder.nativeOrder()));
     private volatile boolean fluidPhysicsEnabled;
@@ -114,7 +122,8 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                         JobSystem jobSystem,
                         TempAllocator tempAllocator,
                         TerrainAdapter terrainAdapter,
-                        PhysicsMetricsService metricsService) {
+                        PhysicsMetricsService metricsService,
+                        DiagnosticsService diagnosticsService) {
         this.worldBukkit = world;
         this.worldName = world.getName();
         this.settings = settings;
@@ -167,6 +176,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         this.physicsSystem.optimizeBroadPhase();
 
         this.physicsLoop = new PhysicsLoop(
+                worldBukkit.getUID(),
                 worldName,
                 settings.tickRate(),
                 settings.performance().maxBodies(),
@@ -184,6 +194,47 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (metricsService != null) {
             this.physicsLoop.addListener(metricsService);
         }
+        this.diagnosticsService = diagnosticsService;
+        if (diagnosticsService instanceof LoopTickListener loopTickListener) {
+            this.physicsLoop.addListener(loopTickListener);
+        }
+        this.physicsLoop.addListener(new LoopTickListener() {
+            @Override
+            public void onTickStart(long tickNumber) {
+            }
+
+            @Override
+            public void onTickEnd(long tickNumber, long durationNanos, int activeBodies, int totalBodies, int staticBodies, int maxBodies, long droppedSnapshots, long overwrittenSnapshots) {
+            }
+
+            @Override
+            public void onDiagnostics(LoopDiagnosticsSnapshot snapshot) {
+                if (snapshot.backlog()) {
+                    PhysicsBackpressurePayload payload = new PhysicsBackpressurePayload(
+                            PhysicsEventPayload.SCHEMA_VERSION_V1,
+                            snapshot.worldId(),
+                            snapshot.worldName(),
+                            snapshot.pendingSnapshots(),
+                            snapshot.droppedSnapshots(),
+                            snapshot.overwrittenSnapshots(),
+                            snapshot.backlogTicks()
+                    );
+                    eventDispatcher.dispatchAsync(new PhysicsBackpressureEvent(payload), payload);
+                }
+                if (snapshot.overloaded()) {
+                    PhysicsWorldOverloadPayload payload = new PhysicsWorldOverloadPayload(
+                            PhysicsEventPayload.SCHEMA_VERSION_V1,
+                            snapshot.worldId(),
+                            snapshot.worldName(),
+                            snapshot.tickNumber(),
+                            snapshot.durationNanos() / 1_000_000.0d,
+                            snapshot.configuredTps(),
+                            snapshot.overloadedTicks()
+                    );
+                    eventDispatcher.dispatchAsync(new PhysicsWorldOverloadEvent(payload), payload);
+                }
+            }
+        });
 
         updateBuoyancyTask();
 
