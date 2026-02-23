@@ -5,6 +5,9 @@ import com.github.stephengold.joltjni.enumerate.*;
 import com.github.stephengold.joltjni.readonly.ConstBody;
 import com.ladakx.inertia.api.ApiErrorCode;
 import com.ladakx.inertia.api.ApiResult;
+import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.api.capability.ApiCapabilities;
+import com.ladakx.inertia.api.capability.ApiCapability;
 import com.ladakx.inertia.api.body.MotionType;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
@@ -626,7 +629,10 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     @Override public void setGravity(@NotNull Vector gravity) { if (gravity == null) return; physicsSystem.setGravity(ConvertUtils.toVec3(gravity)); }
     @Override public @NotNull Vector getGravity() { Vec3 g = physicsSystem.getGravity(); return ConvertUtils.toBukkit(g); }
     @Override public @NotNull Collection<PhysicsBody> getBodies() { return objectManager.getAll().stream().map(apiPhysicsBodyAdapter::adapt).collect(java.util.stream.Collectors.toUnmodifiableSet()); }
-    @Override public @NotNull PhysicsInteraction getInteraction() { return queryEngine; }
+    @Override public @NotNull PhysicsInteraction getInteraction() {
+        InertiaAPI.resolve().capabilities().require(ApiCapability.INTERACTION_ADVANCED);
+        return queryEngine;
+    }
 
     @Override
     public @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull PhysicsBodySpec spec) {
@@ -643,6 +649,11 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         if (!isInsideWorld(spawnLocation)) {
             InertiaLogger.debug("Attempted to spawn API body outside world boundaries at " + spawnLocation);
             return ApiResult.failure(ApiErrorCode.OUT_OF_BOUNDS, "spawn-fail-out-of-bounds");
+        }
+
+        ApiCapability shapeCapability = ApiCapabilities.forShape(spec.shape().kind());
+        if (!InertiaAPI.resolve().capabilities().supports(shapeCapability)) {
+            return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "shape-invalid-params");
         }
 
         try {
