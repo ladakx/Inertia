@@ -33,7 +33,7 @@ public class TNTPhysicsBody extends BlockPhysicsBody {
                           @NotNull Quat initialRotation,
                           float explosionForce,
                           int fuseTicks) {
-        super(space, bodyId, modelRegistry, renderFactory, shapeFactory, initialPosition, initialRotation);
+        super(space, bodyId, modelRegistry, renderFactory, shapeFactory, initialPosition, initialRotation, space.getEventDispatcher());
         this.explosionForce = explosionForce;
         this.fuseTicks = fuseTicks;
         this.explosionRadius = Math.max(4.0f, explosionForce / 2.0f);

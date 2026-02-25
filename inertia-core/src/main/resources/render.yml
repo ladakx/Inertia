@@ -171,8 +171,8 @@ test_bouncy_ball:
       block: SLIME_BLOCK
       scale: "0.35 0.35 0.35"
       rotate-translation: true
-      interpolation-duration: 3
-      teleport-duration: 3
+      interpolation-duration: 0
+      teleport-duration: 0
       place: "core"
     x_pos:
       type: BLOCK_DISPLAY
@@ -180,7 +180,7 @@ test_bouncy_ball:
       scale: "0.25 0.25 0.25"
       local-offset: "0.23 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 3
+      interpolation-duration: 0
       teleport-duration: 0
       place: "main"
     x_neg:
@@ -189,7 +189,7 @@ test_bouncy_ball:
       scale: "0.25 0.25 0.25"
       local-offset: "-0.23 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 3
+      interpolation-duration: 0
       teleport-duration: 0
       place: "main"
     y_pos:
@@ -198,7 +198,7 @@ test_bouncy_ball:
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 0.23 0.0"
       rotate-translation: true
-      interpolation-duration: 3
+      interpolation-duration: 0
       teleport-duration: 0
       place: "main"
     y_neg:
@@ -207,7 +207,7 @@ test_bouncy_ball:
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 -0.23 0.0"
       rotate-translation: true
-      interpolation-duration: 3
+      interpolation-duration: 0
       teleport-duration: 0
       place: "main"
     z_pos:
@@ -216,7 +216,7 @@ test_bouncy_ball:
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 0.0 0.23"
       rotate-translation: true
-      interpolation-duration: 3
+      interpolation-duration: 0
       teleport-duration: 0
       place: "main"
     z_neg:
@@ -225,7 +225,7 @@ test_bouncy_ball:
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 0.0 -0.23"
       rotate-translation: true
-      interpolation-duration: 3
+      interpolation-duration: 0
       teleport-duration: 0
       place: "main"
 
