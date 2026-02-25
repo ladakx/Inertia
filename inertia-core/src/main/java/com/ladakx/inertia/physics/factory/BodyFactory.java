@@ -58,7 +58,7 @@ public class BodyFactory {
     }
 
     private void registerSpawners() {
-        register(new BlockSpawner(configurationService, shapeFactory));
+        register(new BlockSpawner(configurationService, shapeFactory, plugin.getRenderFactory()));
         register(new ChainSpawner(configurationService, shapeFactory, plugin.getRenderFactory()));
         register(new RagdollSpawner(configurationService, shapeFactory, plugin.getRenderFactory()));
         register(new TNTSpawner(configurationService, shapeFactory, plugin.getRenderFactory()));
