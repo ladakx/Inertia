@@ -21,6 +21,7 @@ public class MetadataAccessors {
     public static EntityDataAccessor<Byte> ARMOR_STAND_CLIENT_FLAGS;
 
     // Display (Base)
+    public static EntityDataAccessor<Integer> DISPLAY_DELAY_INTERPOLATION_DURATION;
     public static EntityDataAccessor<Integer> DISPLAY_INTERPOLATION_DURATION;
     public static EntityDataAccessor<Integer> DISPLAY_TELEPORT_DURATION;
     public static EntityDataAccessor<Vector3f> DISPLAY_TRANSLATION;
@@ -57,6 +58,7 @@ public class MetadataAccessors {
 
             // Display (Base)
             // private static final EntityDataAccessor<Integer> DATA_TRANSFORMATION_INTERPOLATION_DURATION_ID;
+            DISPLAY_DELAY_INTERPOLATION_DURATION = getField(Display.class, "DATA_TRANSFORMATION_INTERPOLATION_START_DELTA_TICKS_ID");
             DISPLAY_INTERPOLATION_DURATION = getField(Display.class, "DATA_TRANSFORMATION_INTERPOLATION_DURATION_ID");
 
             // public static final EntityDataAccessor<Integer> DATA_POS_ROT_INTERPOLATION_DURATION_ID;

@@ -16,6 +16,7 @@ import com.ladakx.inertia.rendering.tracker.processor.PlayerTickProcessor;
 import com.ladakx.inertia.rendering.tracker.processor.TransformSliceProcessor;
 import com.ladakx.inertia.rendering.tracker.processor.VisibilitySliceProcessor;
 import com.ladakx.inertia.rendering.tracker.processor.UnregisterBatchProcessor;
+import com.ladakx.inertia.rendering.tracker.registry.VisualGroupIndex;
 import com.ladakx.inertia.rendering.tracker.registry.VisualRegistry;
 import com.ladakx.inertia.rendering.tracker.registry.VisualTokenService;
 import com.ladakx.inertia.rendering.tracker.registry.VisualTombstoneService;
@@ -46,6 +47,7 @@ public class NetworkEntityTracker {
     private final Map<Integer, TrackedVisual> visualsById = new ConcurrentHashMap<>();
     private final VisualTokenService tokenService = new VisualTokenService();
     private final VisualTombstoneService tombstoneService = new VisualTombstoneService();
+    private final VisualGroupIndex groupIndex = new VisualGroupIndex();
     private final Map<UUID, PlayerTrackingState> playerTrackingStates = new ConcurrentHashMap<>();
     private final ChunkGridIndex chunkGrid = new ChunkGridIndex();
 
@@ -57,6 +59,7 @@ public class NetworkEntityTracker {
     private volatile Map<UUID, PlayerPacketQueue> lastCompletedIntentBuffer = intentBufferBack;
     private final Map<UUID, PendingDestroyState> pendingDestroyIds = new ConcurrentHashMap<>();
     private final Map<UUID, PlayerFrame> playerFrames = new ConcurrentHashMap<>();
+    private final Map<Integer, int[]> mountPassengersByVehicleId = new ConcurrentHashMap<>();
 
     // Defaults are aligned with inertia-core/src/main/resources/config.yml (smooth visuals by default).
     private volatile float posThresholdSq = 0.0f;
@@ -143,14 +146,18 @@ public class NetworkEntityTracker {
                 this::bufferPacket,
                 this::currentVisualToken,
                 playerFrames::get,
-                this::resolveLodLevel
+                this::resolveLodLevel,
+                packetFactory,
+                this::passengersOfVehicle,
+                groupIndex::membersOf
         );
         this.transformSliceProcessor = new TransformSliceProcessor(
                 visualsById,
                 networkScheduler,
                 this::bufferPacket,
                 this::currentVisualToken,
-                playerFrames::get
+                playerFrames::get,
+                groupIndex::membersOf
         );
         this.playerTickProcessor = new PlayerTickProcessor(
                 playerTrackingStates,
@@ -166,6 +173,10 @@ public class NetworkEntityTracker {
                 playerTrackingStates,
                 pendingDestroyIds,
                 this::invalidateVisualQueues,
+                (removedId, removedTracked) -> {
+                    groupIndex.onUnregister(removedId);
+                    onUnregisterMountIndex(removedId, removedTracked);
+                },
                 DEFAULT_TOMBSTONE_TTL_TICKS
         );
         this.destroyBacklogProcessor = new DestroyBacklogProcessor(
@@ -221,6 +232,7 @@ public class NetworkEntityTracker {
                                      Quaternionf rotation,
                                      ClientVersionRange clientRange,
                                      int groupKey,
+                                     int mountVehicleId,
                                      boolean requiresPhysicsSync,
                                      int allowedLodMask,
                                      boolean enabled) {
@@ -235,6 +247,7 @@ public class NetworkEntityTracker {
         Objects.requireNonNull(registrations, "registrations");
         if (registrations.isEmpty()) return;
 
+        java.util.Map<Integer, java.util.List<Integer>> mountLists = new java.util.HashMap<>();
         for (VisualRegistration registration : registrations) {
             if (registration == null) continue;
             register(registration.visual(),
@@ -242,9 +255,24 @@ public class NetworkEntityTracker {
                     registration.rotation(),
                     registration.clientRange(),
                     registration.groupKey(),
+                    registration.mountVehicleId(),
                     registration.requiresPhysicsSync(),
                     registration.allowedLodMask(),
                     registration.enabled());
+            if (registration.mountVehicleId() >= 0) {
+                mountLists.computeIfAbsent(registration.mountVehicleId(), k -> new java.util.ArrayList<>())
+                        .add(registration.visual().getId());
+            }
+        }
+
+        for (java.util.Map.Entry<Integer, java.util.List<Integer>> e : mountLists.entrySet()) {
+            int vehicleId = e.getKey();
+            java.util.List<Integer> list = e.getValue();
+            int[] arr = new int[list.size()];
+            for (int i = 0; i < list.size(); i++) {
+                arr[i] = list.get(i);
+            }
+            mountPassengersByVehicleId.put(vehicleId, arr);
         }
 
         java.util.Set<Long> affectedChunks = new java.util.HashSet<>();
@@ -290,10 +318,12 @@ public class NetworkEntityTracker {
                          @NotNull Quaternionf rotation,
                          ClientVersionRange clientRange,
                          int groupKey,
+                         int mountVehicleId,
                          boolean requiresPhysicsSync,
                          int allowedLodMask,
                          boolean enabled) {
-        visualRegistry.register(visual, location, rotation, clientRange, groupKey, requiresPhysicsSync, tickCounter, allowedLodMask, enabled);
+        visualRegistry.register(visual, location, rotation, clientRange, groupKey, mountVehicleId, requiresPhysicsSync, tickCounter, allowedLodMask, enabled);
+        groupIndex.onRegister(visual.getId(), groupKey);
     }
 
     public void register(@NotNull NetworkVisual visual,
@@ -302,14 +332,14 @@ public class NetworkEntityTracker {
                          ClientVersionRange clientRange,
                          int allowedLodMask,
                          boolean enabled) {
-        register(visual, location, rotation, clientRange, visual.getId(), false, allowedLodMask, enabled);
+        register(visual, location, rotation, clientRange, visual.getId(), -1, false, allowedLodMask, enabled);
     }
 
     public void register(@NotNull NetworkVisual visual,
                          @NotNull Location location,
                          @NotNull Quaternionf rotation,
                          ClientVersionRange clientRange) {
-        register(visual, location, rotation, clientRange, visual.getId(), false, 0x07, true);
+        register(visual, location, rotation, clientRange, visual.getId(), -1, false, 0x07, true);
     }
 
     public void unregister(@NotNull NetworkVisual visual) {
@@ -326,6 +356,39 @@ public class NetworkEntityTracker {
         if (result.bulkFastPathUsed()) {
             massDestroyBoostTicksRemaining = Math.max(massDestroyBoostTicksRemaining, 2);
         }
+    }
+
+    private int[] passengersOfVehicle(int vehicleId) {
+        int[] arr = mountPassengersByVehicleId.get(vehicleId);
+        return arr != null ? arr : new int[0];
+    }
+
+    private void onUnregisterMountIndex(int removedId, TrackedVisual removedTracked) {
+        mountPassengersByVehicleId.remove(removedId);
+        if (removedTracked == null) return;
+
+        int vehicleId = removedTracked.mountVehicleId();
+        if (vehicleId < 0) return;
+
+        int[] passengers = mountPassengersByVehicleId.get(vehicleId);
+        if (passengers == null || passengers.length == 0) return;
+
+        int count = 0;
+        for (int id : passengers) {
+            if (id != removedId) count++;
+        }
+        if (count == passengers.length) return;
+        if (count == 0) {
+            mountPassengersByVehicleId.remove(vehicleId);
+            return;
+        }
+        int[] out = new int[count];
+        int j = 0;
+        for (int id : passengers) {
+            if (id == removedId) continue;
+            out[j++] = id;
+        }
+        mountPassengersByVehicleId.put(vehicleId, out);
     }
 
     public void updateState(@NotNull NetworkVisual visual, @NotNull Location location, @NotNull Quaternionf rotation) {
@@ -922,6 +985,7 @@ public class NetworkEntityTracker {
     }
 
     private long invalidateVisualQueues(int visualId) {
+        Integer groupKey = groupIndex.groupKeyOf(visualId);
         long activeToken = bumpVisualToken(visualId);
         for (Map<UUID, PlayerPacketQueue> buffer : List.of(packetBuffer, packetBufferBack, intentBufferFront, intentBufferBack)) {
             for (PlayerPacketQueue queue : buffer.values()) {
@@ -929,6 +993,18 @@ public class NetworkEntityTracker {
                     continue;
                 }
                 queue.invalidateVisual(visualId, activeToken);
+            }
+        }
+
+        if (groupKey != null && groupKey.intValue() != visualId) {
+            long groupToken = bumpVisualToken(groupKey.intValue());
+            for (Map<UUID, PlayerPacketQueue> buffer : List.of(packetBuffer, packetBufferBack, intentBufferFront, intentBufferBack)) {
+                for (PlayerPacketQueue queue : buffer.values()) {
+                    if (queue == null) {
+                        continue;
+                    }
+                    queue.invalidateVisual(groupKey.intValue(), groupToken);
+                }
             }
         }
         return activeToken;

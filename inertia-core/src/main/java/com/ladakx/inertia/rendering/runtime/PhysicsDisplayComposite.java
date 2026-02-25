@@ -6,6 +6,7 @@ import com.github.stephengold.joltjni.RVec3;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
+import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
@@ -18,9 +19,12 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -55,6 +59,11 @@ public final class PhysicsDisplayComposite {
     private final Vector3f cacheLocalOffset = new Vector3f();
     private final Quaternionf cacheFinalRot = new Quaternionf();
 
+    private final int[] orderedPartIndices;
+    private final int[] placedOnIndex;
+    private final Vector3f[] partWorldPos;
+    private final Quaternionf[] partWorldRot;
+
     public PhysicsDisplayComposite(AbstractPhysicsBody owner,
                                    World world,
                                    List<DisplayPart> parts,
@@ -66,6 +75,14 @@ public final class PhysicsDisplayComposite {
         this.parts = Collections.unmodifiableList(parts);
         this.tracker = tracker;
         this.staticEntityPersister = Objects.requireNonNull(staticEntityPersister, "staticEntityPersister");
+        this.placedOnIndex = new int[parts.size()];
+        this.orderedPartIndices = computePlaceOrder();
+        this.partWorldPos = new Vector3f[parts.size()];
+        this.partWorldRot = new Quaternionf[parts.size()];
+        for (int i = 0; i < parts.size(); i++) {
+            this.partWorldPos[i] = new Vector3f();
+            this.partWorldRot[i] = new Quaternionf();
+        }
         registerAll();
     }
 
@@ -80,24 +97,51 @@ public final class PhysicsDisplayComposite {
         Quaternionf baseRot = new Quaternionf(rot.getX(), rot.getY(), rot.getZ(), rot.getW());
 
         boolean sleepingNow = !body.isActive();
-        int groupKey = parts.isEmpty() ? -1 : parts.get(0).visual().getId();
+        int groupKey = -1;
+        for (int idx : orderedPartIndices) {
+            if (placedOnIndex[idx] < 0) {
+                groupKey = parts.get(idx).visual().getId();
+                break;
+            }
+        }
+        if (groupKey < 0) {
+            groupKey = parts.isEmpty() ? -1 : parts.get(0).visual().getId();
+        }
         List<NetworkEntityTracker.VisualRegistration> registrations = new ArrayList<>(parts.size());
-        for (DisplayPart part : parts) {
-            int visualId = part.visual().getId();
+
+        cacheBodyPos.set((float) baseLoc.getX(), (float) baseLoc.getY(), (float) baseLoc.getZ());
+        cacheBodyRot.set(baseRot);
+        cacheCenterOffset.set(0, 0, 0);
+
+        for (int idx : orderedPartIndices) {
+            DisplayPart part = parts.get(idx);
             RenderEntityDefinition def = part.definition();
+
+            int parentIdx = placedOnIndex[idx];
+            Vector3f basePos = (parentIdx < 0) ? cacheBodyPos : partWorldPos[parentIdx];
+            Quaternionf baseQ = (parentIdx < 0) ? cacheBodyRot : partWorldRot[parentIdx];
+
+            Vector3f outPos = partWorldPos[idx];
+            Quaternionf outRot = partWorldRot[idx];
+            computeWorldTransform(part, def, parentIdx >= 0, basePos, baseQ, outPos, outRot);
+
+            Location spawnLoc = new Location(world, outPos.x, outPos.y, outPos.z);
+            int mountVehicleId = parentIdx < 0 ? -1 : parts.get(parentIdx).visual().getId();
             int allowedLodMask = computeAllowedLodMask(def);
             boolean enabled = computeEnabled(def, sleepingNow);
             registrations.add(new NetworkEntityTracker.VisualRegistration(
                     part.visual(),
-                    baseLoc,
-                    baseRot,
+                    spawnLoc,
+                    outRot,
                     part.clientRange(),
                     groupKey,
+                    mountVehicleId,
                     true,
                     allowedLodMask,
                     enabled
             ));
-            owner.getSpace().registerNetworkEntityId(owner, visualId);
+
+            owner.getSpace().registerNetworkEntityId(owner, part.visual().getId());
         }
         tracker.registerBatch(registrations);
     }
@@ -154,33 +198,26 @@ public final class PhysicsDisplayComposite {
         cacheBodyRot.set(rotationX, rotationY, rotationZ, rotationW);
         cacheCenterOffset.set(0, 0, 0);
 
-        for (DisplayPart part : parts) {
+        for (int idx : orderedPartIndices) {
+            DisplayPart part = parts.get(idx);
             RenderEntityDefinition def = part.definition();
-            NetworkVisual visual = part.visual();
+
+            int parentIdx = placedOnIndex[idx];
+            Vector3f basePos = (parentIdx < 0) ? cacheBodyPos : partWorldPos[parentIdx];
+            Quaternionf baseQ = (parentIdx < 0) ? cacheBodyRot : partWorldRot[parentIdx];
+
+            Vector3f outPos = partWorldPos[idx];
+            Quaternionf outRot = partWorldRot[idx];
+            computeWorldTransform(part, def, parentIdx >= 0, basePos, baseQ, outPos, outRot);
 
             boolean enabled = computeEnabled(def, sleeping);
             if (!enabled && !forceVisibilitySync) continue;
 
-            cacheFinalPos.set(cacheBodyPos);
-
-            if (part.syncPosition()) {
-                Vector offset = def.localOffset();
-                cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
-                cacheBodyRot.transform(cacheLocalOffset);
-                cacheFinalPos.add(cacheLocalOffset);
-            }
-
-            if (part.syncRotation()) {
-                cacheFinalRot.set(cacheBodyRot).mul(def.localRotation());
-            } else {
-                cacheFinalRot.set(def.localRotation());
-            }
-
             VisualState state = pool.borrowState();
             state.set(
-                    visual,
-                    cacheFinalPos,
-                    cacheFinalRot,
+                    part.visual(),
+                    outPos,
+                    outRot,
                     cacheCenterOffset,
                     def.rotTranslation(),
                     enabled
@@ -215,9 +252,18 @@ public final class PhysicsDisplayComposite {
 
         Location spawnLoc = new Location(world, 0, 0, 0);
 
-        for (DisplayPart part : parts) {
+        for (int idx : orderedPartIndices) {
+            DisplayPart part = parts.get(idx);
             RenderEntityDefinition def = part.definition();
             NetworkVisual visual = part.visual();
+
+            int parentIdx = placedOnIndex[idx];
+            Vector3f basePos = (parentIdx < 0) ? cacheBodyPos : partWorldPos[parentIdx];
+            Quaternionf baseQ = (parentIdx < 0) ? cacheBodyRot : partWorldRot[parentIdx];
+
+            Vector3f outPos = partWorldPos[idx];
+            Quaternionf outRot = partWorldRot[idx];
+            computeWorldTransform(part, def, parentIdx >= 0, basePos, baseQ, outPos, outRot);
 
             boolean enabled = computeEnabled(def, sleeping);
             if (!enabled) {
@@ -225,24 +271,9 @@ public final class PhysicsDisplayComposite {
                 continue;
             }
 
-            cacheFinalPos.set(cacheBodyPos);
-
-            if (part.syncPosition()) {
-                Vector offset = def.localOffset();
-                cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
-                cacheBodyRot.transform(cacheLocalOffset);
-                cacheFinalPos.add(cacheLocalOffset);
-            }
-
-            if (part.syncRotation()) {
-                cacheFinalRot.set(cacheBodyRot).mul(def.localRotation());
-            } else {
-                cacheFinalRot.set(def.localRotation());
-            }
-
-            spawnLoc.setX(cacheFinalPos.x);
-            spawnLoc.setY(cacheFinalPos.y);
-            spawnLoc.setZ(cacheFinalPos.z);
+            spawnLoc.setX(outPos.x);
+            spawnLoc.setY(outPos.y);
+            spawnLoc.setZ(outPos.z);
 
             try {
                 StaticEntityMetadata metadata = new StaticEntityMetadata(
@@ -258,12 +289,126 @@ public final class PhysicsDisplayComposite {
                         ? com.ladakx.inertia.common.MinecraftVersions.CURRENT.networkProtocol
                         : Integer.MAX_VALUE;
                 if (range == null || range.containsProtocol(serverProtocol)) {
-                    staticEntityPersister.persist(spawnLoc, def, cacheFinalRot, metadata);
+                    staticEntityPersister.persist(spawnLoc, def, outRot, metadata);
                 }
             } finally {
                 cleanupNetworkVisual(visual);
             }
         }
+    }
+
+    private void computeWorldTransform(DisplayPart part,
+                                       RenderEntityDefinition def,
+                                       boolean isPassenger,
+                                       Vector3f basePos,
+                                       Quaternionf baseRot,
+                                       Vector3f outPos,
+                                       Quaternionf outRot) {
+        outPos.set(basePos);
+
+        if (!isPassenger && part.syncPosition()) {
+            Vector offset = def.localOffset();
+            cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
+            baseRot.transform(cacheLocalOffset);
+            outPos.add(cacheLocalOffset);
+        }
+
+        if (part.syncRotation()) {
+            outRot.set(baseRot).mul(def.localRotation());
+        } else {
+            outRot.set(def.localRotation());
+        }
+    }
+
+    private int[] computePlaceOrder() {
+        int n = parts.size();
+        if (n == 0) return new int[0];
+
+        for (int i = 0; i < n; i++) {
+            placedOnIndex[i] = -1;
+        }
+
+        Map<String, List<Integer>> groups = new LinkedHashMap<>();
+        for (int i = 0; i < n; i++) {
+            DisplayPart part = parts.get(i);
+            groups.computeIfAbsent(part.modelId(), k -> new ArrayList<>()).add(i);
+        }
+
+        List<Integer> globalOrder = new ArrayList<>(n);
+
+        for (Map.Entry<String, List<Integer>> entry : groups.entrySet()) {
+            String modelId = entry.getKey();
+            List<Integer> indices = entry.getValue();
+
+            Map<String, Integer> indexByKey = new LinkedHashMap<>();
+            for (int idx : indices) {
+                String key = parts.get(idx).definition().key();
+                if (indexByKey.putIfAbsent(key, idx) != null) {
+                    InertiaLogger.warn("Render model '" + modelId + "': duplicate entity key '" + key + "' in composite; 'place' may be ambiguous");
+                }
+            }
+
+            Map<Integer, Integer> indegree = new LinkedHashMap<>();
+            Map<Integer, List<Integer>> children = new LinkedHashMap<>();
+            for (int idx : indices) {
+                indegree.put(idx, 0);
+                children.put(idx, new ArrayList<>());
+            }
+
+            for (int idx : indices) {
+                RenderEntityDefinition def = parts.get(idx).definition();
+                String parentKey = def.placeOn();
+                if (parentKey == null) continue;
+                Integer parentIdx = indexByKey.get(parentKey);
+                if (parentIdx == null) {
+                    InertiaLogger.warn("Render model '" + modelId + "': entity '" + def.key() + "' place target '" + parentKey + "' not found");
+                    continue;
+                }
+                if (parentIdx == idx) {
+                    InertiaLogger.warn("Render model '" + modelId + "': entity '" + def.key() + "' cannot place on itself");
+                    continue;
+                }
+                placedOnIndex[idx] = parentIdx;
+                children.get(parentIdx).add(idx);
+                indegree.put(idx, indegree.get(idx) + 1);
+            }
+
+            ArrayDeque<Integer> queue = new ArrayDeque<>();
+            for (int idx : indices) {
+                if (indegree.get(idx) == 0) queue.add(idx);
+            }
+
+            List<Integer> localOrder = new ArrayList<>(indices.size());
+            while (!queue.isEmpty()) {
+                int idx = queue.removeFirst();
+                localOrder.add(idx);
+                for (int child : children.get(idx)) {
+                    int d = indegree.get(child) - 1;
+                    indegree.put(child, d);
+                    if (d == 0) queue.addLast(child);
+                }
+            }
+
+            if (localOrder.size() != indices.size()) {
+                // Cycle: drop parent links for the remaining ones.
+                java.util.Set<Integer> inOrder = new java.util.HashSet<>(localOrder);
+                for (int idx : indices) {
+                    if (inOrder.contains(idx)) continue;
+                    RenderEntityDefinition def = parts.get(idx).definition();
+                    InertiaLogger.warn("Render model '" + modelId + "': cyclic 'place' detected for entity '" + def.key() + "', ignoring its place");
+                    placedOnIndex[idx] = -1;
+                    localOrder.add(idx);
+                }
+            }
+
+            globalOrder.addAll(localOrder);
+        }
+
+        int[] out = new int[globalOrder.size()];
+        for (int i = 0; i < globalOrder.size(); i++) {
+            out[i] = globalOrder.get(i);
+        }
+        return out;
     }
 
     private boolean computeEnabled(RenderEntityDefinition def, boolean sleeping) {

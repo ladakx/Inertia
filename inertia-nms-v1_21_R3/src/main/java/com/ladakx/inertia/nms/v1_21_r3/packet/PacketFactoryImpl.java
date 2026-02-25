@@ -2,6 +2,8 @@ package com.ladakx.inertia.nms.v1_21_r3.packet;
 
 import com.ladakx.inertia.infrastructure.nms.packet.PacketFactory;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
+import io.netty.buffer.Unpooled;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.BundlePacket;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
@@ -72,6 +74,24 @@ public class PacketFactoryImpl implements PacketFactory {
     @Override
     public Object createDestroyPacket(int... ids) {
         return new ClientboundRemoveEntitiesPacket(ids);
+    }
+
+    @Override
+    public Object createMountPacket(int vehicleEntityId, int[] passengerEntityIds) {
+        if (passengerEntityIds == null) passengerEntityIds = new int[0];
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        buf.writeVarInt(vehicleEntityId);
+        buf.writeVarInt(passengerEntityIds.length);
+        for (int pid : passengerEntityIds) {
+            buf.writeVarInt(pid);
+        }
+        try {
+            var ctor = ClientboundSetPassengersPacket.class.getDeclaredConstructor(FriendlyByteBuf.class);
+            ctor.setAccessible(true);
+            return ctor.newInstance(buf);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     @Override

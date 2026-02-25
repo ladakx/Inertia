@@ -29,6 +29,14 @@ public interface PacketFactory {
     Object createDestroyPacket(int... ids);
 
     /**
+     * Creates a packet to set passengers of a vehicle entity (client-side mount).
+     * Implementations may return {@code null} if not supported.
+     */
+    default Object createMountPacket(int vehicleEntityId, int[] passengerEntityIds) {
+        return null;
+    }
+
+    /**
      * Creates a bundle packet object (if supported) wrapping the list.
      * Use sendBundle() to actually send data efficiently.
      */

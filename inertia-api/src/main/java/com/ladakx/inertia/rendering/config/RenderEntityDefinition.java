@@ -44,6 +44,11 @@ public record RenderEntityDefinition(
         boolean marker,
         boolean basePlate,
         boolean arms,
+        /**
+         * If not null, this visual is mounted as a passenger on another entity (by key) within the same render model.
+         * When mounted, the client uses the vehicle entity's position; Inertia will not send position packets for passengers.
+         */
+        String placeOn,
         Map<String, Object> settings
 ) {
 
@@ -63,6 +68,9 @@ public record RenderEntityDefinition(
         Objects.requireNonNull(localRotation, "localRotation");
         Objects.requireNonNull(scale, "scale");
         Objects.requireNonNull(translation, "translation");
+        if (placeOn != null && placeOn.isBlank()) {
+            placeOn = null;
+        }
         if (showLodMask < 0 || showLodMask > 7) {
             throw new IllegalArgumentException("showLodMask must be in [0..7]");
         }

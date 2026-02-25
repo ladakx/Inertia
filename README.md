@@ -85,6 +85,12 @@ crates.heavy_box_visual:
       item-model: items.custom_crate # From items.yml
       scale: "1.0 1.0 1.0"
       display-mode: HEAD
+    # Optional: mount one visual as a passenger of another (client-side via packets)
+    nameplate:
+      type: ITEM_DISPLAY
+      place: main_display # or "none"
+      item-model: items.crate_nameplate
+      translation: "0.0 0.6 0.0"
 
 ```
 

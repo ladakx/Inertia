@@ -25,6 +25,11 @@ public final class UnregisterBatchProcessor {
         long invalidateVisualQueues(int visualId);
     }
 
+    @FunctionalInterface
+    public interface VisualRemovedCallback {
+        void onRemoved(int visualId, TrackedVisual trackedVisual);
+    }
+
     private final Map<Integer, TrackedVisual> visualsById;
     private final ChunkGridIndex chunkGrid;
     private final VisualTombstoneService tombstoneService;
@@ -32,6 +37,7 @@ public final class UnregisterBatchProcessor {
     private final Map<UUID, PlayerTrackingState> playerTrackingStates;
     private final Map<UUID, PendingDestroyState> pendingDestroyIds;
     private final VisualQueueInvalidator queueInvalidator;
+    private final VisualRemovedCallback removedCallback;
     private final long tombstoneTtlTicks;
 
     public UnregisterBatchProcessor(Map<Integer, TrackedVisual> visualsById,
@@ -41,6 +47,7 @@ public final class UnregisterBatchProcessor {
                              Map<UUID, PlayerTrackingState> playerTrackingStates,
                              Map<UUID, PendingDestroyState> pendingDestroyIds,
                              VisualQueueInvalidator queueInvalidator,
+                             VisualRemovedCallback removedCallback,
                              long tombstoneTtlTicks) {
         this.visualsById = Objects.requireNonNull(visualsById, "visualsById");
         this.chunkGrid = Objects.requireNonNull(chunkGrid, "chunkGrid");
@@ -49,6 +56,7 @@ public final class UnregisterBatchProcessor {
         this.playerTrackingStates = Objects.requireNonNull(playerTrackingStates, "playerTrackingStates");
         this.pendingDestroyIds = Objects.requireNonNull(pendingDestroyIds, "pendingDestroyIds");
         this.queueInvalidator = Objects.requireNonNull(queueInvalidator, "queueInvalidator");
+        this.removedCallback = Objects.requireNonNull(removedCallback, "removedCallback");
         this.tombstoneTtlTicks = Math.max(0L, tombstoneTtlTicks);
     }
 
@@ -74,6 +82,7 @@ public final class UnregisterBatchProcessor {
                 continue;
             }
 
+            removedCallback.onRemoved(visualId, tracked);
             chunkGrid.remove(id, tracked.location());
             tombstoneService.add(id, tickCounter + tombstoneTtlTicks);
             removedIds.add(visualId);

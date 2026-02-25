@@ -47,10 +47,11 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
                 definition.localOffset(),
                 definition.localRotation(),
                 true,
-                true
+                true,
+                null
         );
         entity.setBaseTransform(location, rotation);
-        tracker.register(visual, entity.trackerLocation(), entity.trackerRotation(), null, visual.getId(), false, 0x07, true);
+        tracker.register(visual, entity.trackerLocation(), entity.trackerRotation(), null, visual.getId(), -1, false, 0x07, true);
         return entity;
     }
 
@@ -67,6 +68,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
         Map<String, RenderEntityImpl> byKey = new LinkedHashMap<>();
         List<NetworkEntityTracker.VisualRegistration> regs = new ArrayList<>(modelDefinition.entities().size());
         int groupKey = -1;
+        int firstVisualId = -1;
 
         for (Map.Entry<String, RenderEntityDefinition> entry : modelDefinition.entities().entrySet()) {
             String key = entry.getKey();
@@ -74,7 +76,10 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
             if (def == null) continue;
 
             NetworkVisual visual = renderFactory.create(world, location, def);
-            if (groupKey < 0) {
+            if (firstVisualId < 0) {
+                firstVisualId = visual.getId();
+            }
+            if (groupKey < 0 && def.placeOn() == null) {
                 groupKey = visual.getId();
             }
             RenderEntityImpl entity = new RenderEntityImpl(
@@ -83,17 +88,38 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
                     key,
                     def.localOffset(),
                     def.localRotation(),
-                    modelDefinition.syncPosition(),
-                    modelDefinition.syncRotation()
+                    modelDefinition.syncPosition() && def.placeOn() == null,
+                    modelDefinition.syncRotation(),
+                    def.placeOn()
             );
-            entity.setBaseTransform(location, rotation);
             byKey.put(key, entity);
+        }
+
+        if (groupKey < 0) {
+            groupKey = firstVisualId;
+        }
+
+        RenderModelInstanceImpl model = new RenderModelInstanceImpl(modelDefinition.id(), byKey);
+        model.setBaseTransform(location, rotation);
+        model.recomputeForSpawn();
+
+        for (RenderEntityImpl entity : model.orderedEntitiesForSpawn()) {
+            NetworkVisual visual = entity.visual();
+            int mountVehicleId = -1;
+            String parentKey = entity.placeOnKey();
+            if (parentKey != null) {
+                RenderEntityImpl parent = byKey.get(parentKey);
+                if (parent != null) {
+                    mountVehicleId = parent.visual().getId();
+                }
+            }
             regs.add(new NetworkEntityTracker.VisualRegistration(
                     visual,
                     entity.trackerLocation(),
                     entity.trackerRotation(),
                     null,
                     groupKey,
+                    mountVehicleId,
                     false,
                     0x07,
                     true
@@ -101,6 +127,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
         }
 
         tracker.registerBatch(regs);
-        return new RenderModelInstanceImpl(modelDefinition.id(), byKey);
+        return model;
     }
+
 }

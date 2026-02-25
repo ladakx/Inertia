@@ -13,6 +13,7 @@ public final class TrackedVisual {
     private final Quaternionf rotation;
     private final @Nullable ClientVersionRange clientRange;
     private final int groupKey;
+    private final int mountVehicleId;
     private final boolean requiresPhysicsSync;
     private final long registeredAtTick;
     private volatile long lastPhysicsSyncTick = Long.MIN_VALUE;
@@ -38,6 +39,7 @@ public final class TrackedVisual {
                          Quaternionf rotation,
                          @Nullable ClientVersionRange clientRange,
                          int groupKey,
+                         int mountVehicleId,
                          boolean requiresPhysicsSync,
                          long registeredAtTick,
                          int allowedLodMask,
@@ -47,6 +49,7 @@ public final class TrackedVisual {
         this.rotation = rotation;
         this.clientRange = clientRange;
         this.groupKey = groupKey;
+        this.mountVehicleId = mountVehicleId;
         this.requiresPhysicsSync = requiresPhysicsSync;
         this.registeredAtTick = registeredAtTick;
         this.allowedLodMask = allowedLodMask & 0x07;
@@ -59,6 +62,8 @@ public final class TrackedVisual {
     public Quaternionf rotation() { return rotation; }
     public @Nullable ClientVersionRange clientRange() { return clientRange; }
     public int groupKey() { return groupKey; }
+    public int mountVehicleId() { return mountVehicleId; }
+    public boolean isPassenger() { return mountVehicleId >= 0; }
     public boolean requiresPhysicsSync() { return requiresPhysicsSync; }
     public long registeredAtTick() { return registeredAtTick; }
     public long lastPhysicsSyncTick() { return lastPhysicsSyncTick; }
@@ -245,6 +250,67 @@ public final class TrackedVisual {
         return cachedMetaPacket;
     }
 
+    public void clearPendingMetaPacket() {
+        this.cachedMetaPacket = null;
+    }
+
+    public boolean isForceTransformResyncDirty() {
+        return forceTransformResyncDirty;
+    }
+
+    public void clearForceTransformResyncDirty() {
+        this.forceTransformResyncDirty = false;
+    }
+
+    public boolean isPositionChanged(LodLevel lodLevel, float posThresholdSq) {
+        return isPositionChanged(stateForLod(lodLevel), posThresholdSq);
+    }
+
+    public boolean isRotationChanged(LodLevel lodLevel, float rotThresholdDot) {
+        return isRotationChanged(stateForLod(lodLevel), rotThresholdDot);
+    }
+
+    public boolean isIntervalReached(LodLevel lodLevel, long tick, int intervalTicks) {
+        if (lodLevel == null || lodLevel == LodLevel.NEAR) {
+            return true;
+        }
+        long last = (lodLevel == LodLevel.MID) ? lastMidUpdateTick : lastFarUpdateTick;
+        return isIntervalReached(last, tick, intervalTicks);
+    }
+
+    public void markIntervalTick(LodLevel lodLevel, long tick) {
+        if (lodLevel == null || lodLevel == LodLevel.NEAR) {
+            return;
+        }
+        if (lodLevel == LodLevel.MID) {
+            lastMidUpdateTick = tick;
+        } else {
+            lastFarUpdateTick = tick;
+        }
+    }
+
+    public Object ensurePositionPacket() {
+        if (this.cachedPositionPacket == null) {
+            this.cachedPositionPacket = visual.createPositionPacket(location, rotation);
+        }
+        return this.cachedPositionPacket;
+    }
+
+    public Object ensureTransformMetaPacket() {
+        if (this.cachedTransformMetaPacket == null) {
+            this.cachedTransformMetaPacket = visual.createTransformMetadataPacket(rotation);
+        }
+        return this.cachedTransformMetaPacket;
+    }
+
+    public void syncPositionForLod(LodLevel lodLevel) {
+        syncPosition(stateForLod(lodLevel));
+    }
+
+    public void syncRotationForLod(LodLevel lodLevel) {
+        syncRotation(stateForLod(lodLevel));
+    }
+
     public void markSent() {
     }
 
@@ -263,6 +329,16 @@ public final class TrackedVisual {
 
     private void syncRotation(SyncState state) {
         state.rot.set(rotation);
+    }
+
+    private SyncState stateForLod(LodLevel lodLevel) {
+        if (lodLevel == LodLevel.MID) {
+            return midSyncState;
+        }
+        if (lodLevel == LodLevel.FAR) {
+            return farSyncState;
+        }
+        return nearSyncState;
     }
 
     private static final class SyncState {

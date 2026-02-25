@@ -8,6 +8,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -19,6 +20,7 @@ final class RenderEntityImpl implements RenderEntity {
     private final NetworkVisual visual;
     @SuppressWarnings("unused")
     private final String key;
+    private final @Nullable String placeOnKey;
 
     private final TransformStack transformStack = new TransformStack();
 
@@ -52,10 +54,12 @@ final class RenderEntityImpl implements RenderEntity {
                      @NotNull Vector localOffset,
                      @NotNull Quaternionf localRotation,
                      boolean syncPosition,
-                     boolean syncRotation) {
+                     boolean syncRotation,
+                     @Nullable String placeOnKey) {
         this.tracker = Objects.requireNonNull(tracker, "tracker");
         this.visual = Objects.requireNonNull(visual, "visual");
         this.key = Objects.requireNonNull(key, "key");
+        this.placeOnKey = (placeOnKey == null || placeOnKey.isBlank()) ? null : placeOnKey;
         Objects.requireNonNull(localOffset, "localOffset");
         Objects.requireNonNull(localRotation, "localRotation");
         this.syncPosition = syncPosition;
@@ -80,6 +84,11 @@ final class RenderEntityImpl implements RenderEntity {
 
     @Override
     public void setBaseTransform(@NotNull Location location, @NotNull Quaternionf rotation) {
+        setBaseTransformFast(location, rotation);
+        recompute();
+    }
+
+    void setBaseTransformFast(@NotNull Location location, @NotNull Quaternionf rotation) {
         Objects.requireNonNull(location, "location");
         Objects.requireNonNull(rotation, "rotation");
         World world = location.getWorld();
@@ -89,7 +98,6 @@ final class RenderEntityImpl implements RenderEntity {
         basePos.set((float) location.getX(), (float) location.getY(), (float) location.getZ());
         baseRot.set(rotation);
         trackerLocation.setWorld(world);
-        recompute();
     }
 
     @Override
@@ -130,17 +138,17 @@ final class RenderEntityImpl implements RenderEntity {
         return trackerRotation;
     }
 
-    NetworkEntityTracker.VisualStateUpdate stateUpdate() {
-        return new NetworkEntityTracker.VisualStateUpdate(visual, trackerLocation, trackerRotation, enabled);
+    String key() {
+        return key;
     }
 
-    NetworkEntityTracker tracker() {
-        return tracker;
+    @Nullable String placeOnKey() {
+        return placeOnKey;
     }
 
-    NetworkEntityTracker.VisualStateUpdate prepareStateUpdate() {
+    void recomputeForSpawn() {
+        if (closed) return;
         recompute();
-        return stateUpdate();
     }
 
     private void recompute() {

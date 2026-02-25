@@ -19,8 +19,38 @@ grass:
     display_1:
       type: BLOCK_DISPLAY
       block: GRASS_BLOCK
-      interpolation-duration: 2
-      teleport-duration: 2
+      interpolation-duration: 3
+      teleport-duration: 3
+    display_2:
+      type: BLOCK_DISPLAY
+      block: GRASS_BLOCK
+      translation: "1.0 0.0 0.0"
+      rotate-translation: true
+      interpolation-duration: 3
+      teleport-duration: 3
+grass_2:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    core:
+      type: ARMOR_STAND
+      small: true
+      invisible: true
+    display_1:
+      type: BLOCK_DISPLAY
+      block: GRASS_BLOCK
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
+    display_2:
+      type: BLOCK_DISPLAY
+      block: GRASS_BLOCK
+      translation: "1.0 0.0 0.0"
+      rotate-translation: true
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
 tnt:
   sync:
     position: true
@@ -29,8 +59,8 @@ tnt:
     display_1:
       type: BLOCK_DISPLAY
       block: TNT
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 slab:
   sync:
     position: true
@@ -39,8 +69,8 @@ slab:
     display_1:
       type: BLOCK_DISPLAY
       block: OAK_SLAB
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 
 ########
 # Test #
@@ -55,8 +85,8 @@ test_light_cube:
       block: WHITE_CONCRETE
       scale: "1.0 1.0 1.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 
 test_heavy_cube:
   sync:
@@ -68,8 +98,8 @@ test_heavy_cube:
       block: OBSIDIAN
       scale: "1.0 1.0 1.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 
 test_slippery_puck:
   sync:
@@ -77,107 +107,127 @@ test_slippery_puck:
     rotation: true
   entities:
     core:
+      type: ARMOR_STAND
+      small: true
+      invisible: true
+    main:
       type: BLOCK_DISPLAY
       block: PACKED_ICE
       # Approximation of cylinder(radius=0.45, height=0.2)
       scale: "0.9 0.2 0.9"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     rim_x_pos:
       type: BLOCK_DISPLAY
       block: PACKED_ICE
       scale: "0.2 0.2 0.6"
       local-offset: "0.25 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     rim_x_neg:
       type: BLOCK_DISPLAY
       block: PACKED_ICE
       scale: "0.2 0.2 0.6"
       local-offset: "-0.25 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     rim_z_pos:
       type: BLOCK_DISPLAY
       block: PACKED_ICE
       scale: "0.6 0.2 0.2"
       local-offset: "0.0 0.0 0.25"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     rim_z_neg:
       type: BLOCK_DISPLAY
       block: PACKED_ICE
       scale: "0.6 0.2 0.2"
       local-offset: "0.0 0.0 -0.25"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
 
 test_bouncy_ball:
   sync:
     position: true
     rotation: true
   entities:
+    core:
+      type: ARMOR_STAND
+      small: true
+      invisible: true
     # Approximation of sphere(radius=0.4) by small cubes
-    c:
+    main:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.35 0.35 0.35"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     x_pos:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
       local-offset: "0.23 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 0
+      place: "main"
     x_neg:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
       local-offset: "-0.23 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 0
+      place: "main"
     y_pos:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 0.23 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 0
+      place: "main"
     y_neg:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 -0.23 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 0
+      place: "main"
     z_pos:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 0.0 0.23"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 0
+      place: "main"
     z_neg:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
       local-offset: "0.0 0.0 -0.23"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 0
+      place: "main"
 
 test_capsule:
   sync:
@@ -186,114 +236,135 @@ test_capsule:
   entities:
     # Approximation of capsule(height=1.6, radius=0.25):
     # middle cylinder + 2 "sphere" caps.
-    mid:
+    core:
+      type: ARMOR_STAND
+      small: true
+      invisible: true
+    main:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.5 1.6 0.5"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_top_c:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.28 0.28 0.28"
       local-offset: "0.0 0.8 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_top_x_pos:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "0.14 0.8 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_top_x_neg:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "-0.14 0.8 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_top_z_pos:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "0.0 0.8 0.14"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_top_z_neg:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "0.0 0.8 -0.14"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_bot_c:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.28 0.28 0.28"
       local-offset: "0.0 -0.8 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_bot_x_pos:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "0.14 -0.8 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_bot_x_neg:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "-0.14 -0.8 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_bot_z_pos:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "0.0 -0.8 0.14"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     cap_bot_z_neg:
       type: BLOCK_DISPLAY
       block: SMOOTH_QUARTZ
       scale: "0.20 0.20 0.20"
       local-offset: "0.0 -0.8 -0.14"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
 
 test_compound_hammer:
   sync:
     position: true
     rotation: true
   entities:
+    core:
+      type: ARMOR_STAND
+      small: true
+      invisible: true
     handle:
       type: BLOCK_DISPLAY
       block: OAK_LOG
       scale: "0.16 0.9 0.16"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
     head:
       type: BLOCK_DISPLAY
       block: IRON_BLOCK
       scale: "0.64 0.2 0.24"
       local-offset: "0.0 0.5 0.0"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
+      place: "core"
 
 test_static_wall:
   sync:
@@ -305,8 +376,8 @@ test_static_wall:
       block: STONE
       scale: "1.0 2.0 0.3"
       rotate-translation: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 
 ##########
 # Chains #
@@ -324,8 +395,8 @@ iron_chain:
       show-when:
         active: true
         sleeping: true
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 
 ############
 # Ragdolls #
@@ -339,8 +410,8 @@ ragdoll_head:
       translation: "0.0 0.0 0.0"
       item-model: items.ragdoll_head
       rotate-translation: false
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 ragdoll_right_arm:
   entities:
     display:
@@ -350,8 +421,8 @@ ragdoll_right_arm:
       translation: "0.0 -1024 0.0"
       item-model: items.ragdoll_right_arm
       rotate-translation: false
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 ragdoll_left_arm:
   entities:
     display:
@@ -361,8 +432,8 @@ ragdoll_left_arm:
       translation: "0.0 -2048 0.0"
       item-model: items.ragdoll_left_arm
       rotate-translation: false
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 ragdoll_torso:
   entities:
     display:
@@ -372,8 +443,8 @@ ragdoll_torso:
       translation: "0.0 -5120 0.0"
       item-model: items.ragdoll_torso
       rotate-translation: false
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 ragdoll_right_leg:
   entities:
     display:
@@ -383,8 +454,8 @@ ragdoll_right_leg:
       translation: "0.0 -6144 0.0"
       item-model: items.ragdoll_right_leg
       rotate-translation: false
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 ragdoll_left_leg:
   entities:
     display:
@@ -394,8 +465,8 @@ ragdoll_left_leg:
       translation: "0.0 -7168 0.0"
       item-model: items.ragdoll_left_leg
       rotate-translation: false
-      interpolation-duration: 1
-      teleport-duration: 1
+      interpolation-duration: 3
+      teleport-duration: 3
 
 
 ####################
@@ -413,7 +484,7 @@ ragdoll_left_leg:
 #      marker: true
 #      base-plate: false
 #      arms: false
-#      local-offset: "0.0 0.0 0.0"
+#      translation: "0.0 0.0 0.0"
 #      local-rotation: "0.0 0.0 0.0" # pitch, yaw, roll
 #      show-when:
 #        active: true
@@ -531,7 +602,7 @@ ragdoll_left_leg:
 #      small: true
 #      invisible: true
 #      marker: true
-#      local-offset: "0.0 0.8 0.0"
+#      translation: "0.0 0.8 0.0"
 #      local-rotation: "0.0 0.0 0.0"
 #      show-when:
 #        active: true
@@ -540,7 +611,7 @@ ragdoll_left_leg:
 #      type: ITEM_DISPLAY
 #      item-model: items:example3
 #      display-mode: HEAD             # FIRSTPERSON_LEFTHAND/FIRSTPERSON_RIGHTHAND/FIXED/GROUND/GUI/HEAD/NONE/THIRDPERSON_LEFTHAND/THIRDPERSON_RIGHTHAND
-#      local-offset: "0.0 0.0 0.0"
+#      translation: "0.0 0.0 0.0"
 #      local-rotation: "0.0 0.0 0.0"
 #      scale: "1.0 1.0 1.0"
 #      view-range: 128
@@ -558,7 +629,7 @@ ragdoll_left_leg:
 #    example4:
 #      type: BLOCK_DISPLAY
 #      block: STONE
-#      local-offset: "0.0 -0.5 0.0"
+#      translation: "0.0 -0.5 0.0"
 #      local-rotation: "0.0 0.0 0.0"
 #      scale: "1.0 1.0 1.0"
 #      view-range: 128

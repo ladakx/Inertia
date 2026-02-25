@@ -141,7 +141,6 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
         addBaseMetadata(metadata);
         addTypeSpecificMetadata(metadata);
 
-        // FIX: Передаем актуальный поворот, а не сбрасываем его
         addTransformationMetadata(metadata, rotation);
 
         Object metaPacket = packetFactory.createMetaPacket(entityId, metadata);
@@ -236,13 +235,14 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
     }
 
     protected void addTransformationMetadata(List<SynchedEntityData.DataValue<?>> data, Quaternionf rotation) {
-        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SCALE, new Vector3f(scale)));
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SCALE, scale));
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_DELAY_INTERPOLATION_DURATION, 0));
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_LEFT_ROTATION, rotation));
 
         Vector3f translation = calculateTranslation(scale, rotation);
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_TRANSLATION, translation));
 
-        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_RIGHT_ROTATION, new Quaternionf(rightRotation)));
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_RIGHT_ROTATION, rightRotation));
 
         if (interpolationDuration != null && interpolationDuration > 0) {
             data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_INTERPOLATION_DURATION, interpolationDuration));

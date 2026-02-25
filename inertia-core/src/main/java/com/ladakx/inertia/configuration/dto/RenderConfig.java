@@ -163,6 +163,17 @@ public final class RenderConfig {
         Vector scale = parseVector(section.getString("scale"), new Vector(1, 1, 1));
         Vector translation = parseVector(section.getString("translation"), new Vector(0, 0, 0));
 
+        String placeOn = null;
+        if (section.isString("place")) {
+            String raw = section.getString("place");
+            if (raw != null) {
+                String trimmed = raw.trim();
+                if (!trimmed.isEmpty() && !trimmed.equalsIgnoreCase("none")) {
+                    placeOn = trimmed;
+                }
+            }
+        }
+
         boolean showWhenActive = section.getBoolean("show-when.active", true);
         boolean showWhenSleeping = section.getBoolean("show-when.sleeping", true);
 
@@ -201,6 +212,7 @@ public final class RenderConfig {
                 section.getBoolean("small", false), section.getBoolean("invisible", true),
                 section.getBoolean("marker", true), section.getBoolean("base-plate", false),
                 section.getBoolean("arms", false),
+                placeOn,
                 settings
         );
     }

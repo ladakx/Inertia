@@ -33,7 +33,7 @@ public final class VisualRegistry {
     }
 
     public void register(NetworkVisual visual, Location location, Quaternionf rotation, @Nullable ClientVersionRange clientRange) {
-        register(visual, location, rotation, clientRange, visual.getId(), false, 0L, 0x07, true);
+        register(visual, location, rotation, clientRange, visual.getId(), -1, false, 0L, 0x07, true);
     }
 
     public void register(NetworkVisual visual,
@@ -41,6 +41,7 @@ public final class VisualRegistry {
                          Quaternionf rotation,
                          @Nullable ClientVersionRange clientRange,
                          int groupKey,
+                         int mountVehicleId,
                          boolean requiresPhysicsSync,
                          long registeredAtTick,
                          int allowedLodMask,
@@ -51,6 +52,9 @@ public final class VisualRegistry {
 
         tombstoneService.clear(visual.getId());
         tokenService.bump(visual.getId());
+        if (groupKey != visual.getId()) {
+            tokenService.bump(groupKey);
+        }
 
         TrackedVisual tracked = new TrackedVisual(
                 visual,
@@ -58,6 +62,7 @@ public final class VisualRegistry {
                 new Quaternionf(rotation),
                 clientRange,
                 groupKey,
+                mountVehicleId,
                 requiresPhysicsSync,
                 registeredAtTick,
                 allowedLodMask,
@@ -102,6 +107,9 @@ public final class VisualRegistry {
         if (enabledChanged) {
             tracked.setEnabled(enabled);
             tokenService.bump(visual.getId());
+            if (tracked.groupKey() != visual.getId()) {
+                tokenService.bump(tracked.groupKey());
+            }
         }
 
         if (oldChunkKey != newChunkKey) {

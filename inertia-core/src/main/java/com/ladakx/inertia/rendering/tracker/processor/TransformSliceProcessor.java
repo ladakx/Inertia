@@ -5,7 +5,6 @@ import com.ladakx.inertia.rendering.tracker.packet.PacketPriority;
 import com.ladakx.inertia.rendering.tracker.state.LodLevel;
 import com.ladakx.inertia.rendering.tracker.budget.SheddingState;
 import com.ladakx.inertia.rendering.tracker.state.PendingMetadata;
-import com.ladakx.inertia.rendering.tracker.state.UpdateDecision;
 import com.ladakx.inertia.rendering.tracker.state.PlayerFrame;
 import com.ladakx.inertia.rendering.tracker.state.PlayerTrackingState;
 import com.ladakx.inertia.rendering.tracker.state.TrackedVisual;
@@ -13,8 +12,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -33,41 +31,30 @@ public final class TransformSliceProcessor {
         LodLevel resolve(double distanceSq);
     }
 
+    @FunctionalInterface
+    public interface GroupMembersProvider {
+        int[] membersOf(int groupKey);
+    }
+
     private final Map<Integer, TrackedVisual> visualsById;
     private final RenderNetworkBudgetScheduler scheduler;
     private final VisibilitySliceProcessor.PacketBuffer packetBuffer;
     private final java.util.function.IntToLongFunction tokenProvider;
     private final Function<UUID, PlayerFrame> playerFrameProvider;
-
-    private static final class GroupPacketBatch {
-        private final ArrayList<Object> packets = new ArrayList<>(4);
-
-        private void addPacket(Object packet) {
-            if (packet == null) {
-                return;
-            }
-            packets.add(packet);
-        }
-
-        private boolean isEmpty() {
-            return packets.isEmpty();
-        }
-
-        private Object packetPayload() {
-            return packets.size() == 1 ? packets.get(0) : new ArrayList<>(packets);
-        }
-    }
+    private final GroupMembersProvider groupMembersProvider;
 
     public TransformSliceProcessor(Map<Integer, TrackedVisual> visualsById,
                             RenderNetworkBudgetScheduler scheduler,
                             VisibilitySliceProcessor.PacketBuffer packetBuffer,
                             java.util.function.IntToLongFunction tokenProvider,
-                            Function<UUID, PlayerFrame> playerFrameProvider) {
+                            Function<UUID, PlayerFrame> playerFrameProvider,
+                            GroupMembersProvider groupMembersProvider) {
         this.visualsById = Objects.requireNonNull(visualsById, "visualsById");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.packetBuffer = Objects.requireNonNull(packetBuffer, "packetBuffer");
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider");
         this.playerFrameProvider = Objects.requireNonNull(playerFrameProvider, "playerFrameProvider");
+        this.groupMembersProvider = Objects.requireNonNull(groupMembersProvider, "groupMembersProvider");
     }
 
     public void runSlice(UUID playerId,
@@ -98,184 +85,220 @@ public final class TransformSliceProcessor {
                 return;
             }
             UUID playerWorldId = playerFrame.worldId();
-            int playerProtocol = playerFrame.clientProtocol();
 
-            int checkBudget = maxTransformChecksPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxTransformChecksPerPlayerPerTick;
-            int checked = 0;
-            LinkedHashMap<Integer, GroupPacketBatch> groupedTeleportPackets = new LinkedHashMap<>();
-            Map<Integer, GroupContext> groupContexts = new HashMap<>();
+            int groupBudget = maxTransformChecksPerPlayerPerTick <= 0 ? Integer.MAX_VALUE : maxTransformChecksPerPlayerPerTick;
+            int processedGroups = 0;
+            int scanned = 0;
+            int totalVisible = trackingState.visibleIds().size();
+            HashSet<Integer> processedGroupKeys = new HashSet<>();
 
-            java.util.function.IntUnaryOperator groupKeyProvider = visualId -> {
-                TrackedVisual tracked = visualsById.get(visualId);
-                return tracked != null ? tracked.groupKey() : visualId;
-            };
-            while (checked < checkBudget) {
-                Integer id = trackingState.nextVisibleId(groupKeyProvider);
+            while (processedGroups < groupBudget && scanned < totalVisible) {
+                Integer id = trackingState.nextVisibleId(visualId -> {
+                    TrackedVisual tracked = visualsById.get(visualId);
+                    return tracked != null ? tracked.groupKey() : visualId;
+                });
                 if (id == null) {
                     trackingState.resetVisibleCursor();
                     break;
                 }
+                scanned++;
 
-                TrackedVisual tracked = visualsById.get(id);
-                if (tracked == null) {
+                TrackedVisual anyTracked = visualsById.get(id);
+                if (anyTracked == null) {
                     trackingState.removeVisible(id);
-                    checked++;
                     continue;
                 }
 
-                // Process composite-model groups atomically (avoid splitting parts across ticks).
-                int groupKey = tracked.groupKey();
-                while (true) {
-                    if (tracked == null) {
-                        trackingState.removeVisible(id);
-                        checked++;
-                    } else {
-                        TrackedVisual trackedForContext = tracked;
-                        GroupContext groupContext = groupContexts.computeIfAbsent(groupKey, key -> computeGroupContext(
-                                key,
-                                trackedForContext,
-                                playerWorldId,
-                                playerFrame.x(),
-                                playerFrame.y(),
-                                playerFrame.z(),
-                                viewDistanceSquared,
-                                lodResolver
-                        ));
+                int groupKey = anyTracked.groupKey();
+                if (!processedGroupKeys.add(groupKey)) {
+                    continue;
+                }
 
-                        boolean allowed = tracked.isAllowedForProtocol(playerProtocol);
-                        if (!groupContext.inRange || !allowed) {
-                            if (trackingState.removeVisible(id)) {
-                                Object destroyPacket = tracked.visual().createDestroyPacket();
-                                scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, destroyPacket, PacketPriority.DESTROY,
-                                        null, false, false, -1L, -1L));
-                            }
-                            checked++;
-                        } else {
-                            LodLevel lodLevel = groupContext.lodLevel;
-                            if (!tracked.isEnabled() || !tracked.isAllowedForLod(lodLevel)) {
-                                if (trackingState.removeVisible(id)) {
-                                    Object destroyPacket = tracked.visual().createDestroyPacket();
-                                    scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, destroyPacket, PacketPriority.DESTROY,
-                                            null, false, false, -1L, -1L));
-                                }
-                                checked++;
-                            } else {
-                                int midInterval = midUpdateIntervalTicks * sheddingState.midTeleportIntervalMultiplier();
-                                int farInterval = farUpdateIntervalTicks * sheddingState.farTeleportIntervalMultiplier();
-                                UpdateDecision updateDecision = tracked.prepareUpdate(
-                                        lodLevel,
-                                        tickCounter,
-                                        posThresholdSq,
-                                        rotThresholdDot,
-                                        midPosThresholdSq,
-                                        midRotThresholdDot,
-                                        midInterval,
-                                        farPosThresholdSq,
-                                        farRotThresholdDot,
-                                        farInterval
-                                );
-                                if (!updateDecision.positionSent() && lodLevel != LodLevel.NEAR && tracked.hasSignificantNearChange(posThresholdSq, rotThresholdDot)) {
-                                    lodSkippedUpdates.incrementAndGet();
-                                }
+                int[] members = groupMembersProvider.membersOf(groupKey);
+                if (members == null || members.length == 0) {
+                    members = new int[]{id.intValue()};
+                }
 
-                                Object positionPacket = updateDecision.positionSent() ? tracked.getPendingPositionPacket() : null;
-                                Object transformMetaPacket = updateDecision.transformMetadataSent() ? tracked.getPendingTransformMetaPacket() : null;
-                                PendingMetadata meta = tracked.getPendingMetaPacket();
-                                boolean metadataBundledWithPosition = false;
+                TrackedVisual anchor = visualsById.get(groupKey);
+                if (anchor == null) {
+                    anchor = anyTracked;
+                }
+                if (anchor != null && anchor.isPassenger()) {
+                    for (int memberId : members) {
+                        TrackedVisual candidate = visualsById.get(memberId);
+                        if (candidate == null) continue;
+                        if (!candidate.isPassenger()) {
+                            anchor = candidate;
+                            break;
+                        }
+                    }
+                }
+
+                Location anchorLoc = anchor.location();
+                World anchorWorld = anchorLoc.getWorld();
+                boolean sameWorld = anchorWorld != null && playerWorldId.equals(anchorWorld.getUID());
+                double dx = anchorLoc.getX() - playerFrame.x();
+                double dy = anchorLoc.getY() - playerFrame.y();
+                double dz = anchorLoc.getZ() - playerFrame.z();
+                double distSq = dx * dx + dy * dy + dz * dz;
+                boolean inRange = sameWorld && distSq <= viewDistanceSquared;
+
+                LodLevel lodLevel = lodResolver.resolve(distSq);
+
+                boolean groupAllowed = anchor.isAllowedForProtocol(playerFrame.clientProtocol()) && anchor.isEnabled();
+                if (!inRange || !groupAllowed) {
+                    for (int memberId : members) {
+                        if (!trackingState.isVisible(memberId)) continue;
+                        TrackedVisual tracked = visualsById.get(memberId);
+                        if (tracked == null) {
+                            trackingState.removeVisible(memberId);
+                            continue;
+                        }
+                        if (trackingState.removeVisible(memberId)) {
+                            TrackedVisual finalTracked = tracked;
+                            scheduler.enqueueDestroy(() -> packetBuffer.buffer(playerId, finalTracked.visual().createDestroyPacket(), PacketPriority.DESTROY,
+                                    null, false, false, -1L, -1L));
+                        }
+                    }
+                    processedGroups++;
+                    continue;
+                }
+
+                int midInterval = midUpdateIntervalTicks * sheddingState.midTeleportIntervalMultiplier();
+                int farInterval = farUpdateIntervalTicks * sheddingState.farTeleportIntervalMultiplier();
+
+                float activePosThresholdSq;
+                float activeRotThresholdDot;
+                int activeIntervalTicks;
+                if (lodLevel == LodLevel.NEAR) {
+                    activePosThresholdSq = posThresholdSq;
+                    activeRotThresholdDot = rotThresholdDot;
+                    activeIntervalTicks = 0;
+                } else if (lodLevel == LodLevel.MID) {
+                    activePosThresholdSq = midPosThresholdSq;
+                    activeRotThresholdDot = midRotThresholdDot;
+                    activeIntervalTicks = midInterval;
+                } else {
+                    activePosThresholdSq = farPosThresholdSq;
+                    activeRotThresholdDot = farRotThresholdDot;
+                    activeIntervalTicks = farInterval;
+                }
+
+                boolean forcedTransform = false;
+                for (int memberId : members) {
+                    if (!trackingState.isVisible(memberId)) continue;
+                    TrackedVisual tracked = visualsById.get(memberId);
+                    if (tracked != null && tracked.isForceTransformResyncDirty()) {
+                        forcedTransform = true;
+                        break;
+                    }
+                }
+
+                boolean positionChanged = anchor.isPositionChanged(lodLevel, activePosThresholdSq);
+                boolean rotationChanged = anchor.isRotationChanged(lodLevel, activeRotThresholdDot);
+                boolean intervalReached = lodLevel == LodLevel.NEAR || anchor.isIntervalReached(lodLevel, tickCounter, activeIntervalTicks);
+
+                boolean sendPosition = lodLevel == LodLevel.NEAR ? positionChanged : positionChanged && intervalReached;
+                boolean sendTransform = lodLevel == LodLevel.NEAR
+                        ? (rotationChanged || forcedTransform)
+                        : (forcedTransform || rotationChanged || intervalReached);
+
+                if (!sendPosition && lodLevel != LodLevel.NEAR && anchor.isPositionChanged(LodLevel.NEAR, posThresholdSq)) {
+                    lodSkippedUpdates.incrementAndGet();
+                }
+
+                if (sendPosition || sendTransform) {
+                    ArrayList<Object> groupPackets = new ArrayList<>(members.length * 2);
+                    boolean anyCritical = false;
+
+                    for (int memberId : members) {
+                        if (!trackingState.isVisible(memberId)) continue;
+                        TrackedVisual tracked = visualsById.get(memberId);
+                        if (tracked == null) continue;
+
+                        if (!tracked.isEnabled() || !tracked.isAllowedForLod(lodLevel)
+                                || !tracked.isAllowedForProtocol(playerFrame.clientProtocol())) {
+                            continue;
+                        }
+
+                        if (sendPosition) {
+                            if (!tracked.isPassenger()) {
+                                Object positionPacket = tracked.ensurePositionPacket();
                                 if (positionPacket != null) {
-                                    ArrayList<Object> bundledPackets = null;
-                                    if (transformMetaPacket != null) {
-                                        bundledPackets = new ArrayList<>(3);
-                                        bundledPackets.add(positionPacket);
-                                        bundledPackets.add(transformMetaPacket);
-                                        transformMetaPacket = null;
-                                    }
-                                    if (meta != null) {
-                                        if (bundledPackets == null) {
-                                            bundledPackets = new ArrayList<>(2);
-                                            bundledPackets.add(positionPacket);
-                                        }
-                                        bundledPackets.add(meta.packet());
-                                        metadataBundledWithPosition = true;
-                                    }
-                                    Object packetToSend = bundledPackets != null ? bundledPackets : positionPacket;
-                                    GroupPacketBatch batch = groupedTeleportPackets.computeIfAbsent(groupKey, unused -> new GroupPacketBatch());
-                                    batch.addPacket(packetToSend);
-                                    tracked.markSent();
+                                    groupPackets.add(positionPacket);
                                 }
-
-                                if (transformMetaPacket != null) {
-                                    // Rotation-only updates (no teleport) must still be tightly synchronized for all parts of the same model.
-                                    // If we send these as individual METADATA packets, packet budgets can split parts across ticks which
-                                    // becomes very visible when rotate-translation is enabled.
-                                    GroupPacketBatch batch = groupedTeleportPackets.computeIfAbsent(groupKey, unused -> new GroupPacketBatch());
-                                    batch.addPacket(transformMetaPacket);
-                                }
-
-                                if (meta != null && !metadataBundledWithPosition) {
-                                    boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
-                                    if (allowMetaPacket) {
-                                        if (dropPolicy.shouldDrop(meta.critical(), lodLevel, tracked.visual().getId())) {
-                                            droppedUpdates.incrementAndGet();
-                                            if (lodLevel != LodLevel.NEAR) {
-                                                lodSkippedMetadataUpdates.incrementAndGet();
-                                            }
-                                        } else {
-                                            int visualId = tracked.visual().getId();
-                                            long tokenVersion = tokenProvider.applyAsLong(visualId);
-                                            scheduler.enqueueMetadataCoalesced(playerId, visualId,
-                                                    () -> packetBuffer.buffer(playerId, meta.packet(), PacketPriority.METADATA, visualId, false,
-                                                            meta.critical(), -1L, tokenVersion));
-                                        }
-                                    } else {
-                                        lodSkippedMetadataUpdates.incrementAndGet();
-                                    }
-                                }
-                                checked++;
                             }
+                            tracked.syncPositionForLod(lodLevel);
+                        }
+
+                        if (sendTransform) {
+                            Object transformPacket = tracked.ensureTransformMetaPacket();
+                            if (transformPacket != null) {
+                                groupPackets.add(transformPacket);
+                            }
+                            tracked.syncRotationForLod(lodLevel);
+                            tracked.clearForceTransformResyncDirty();
+                        }
+
+                        PendingMetadata meta = tracked.getPendingMetaPacket();
+                        if (meta != null) {
+                            if (!dropPolicy.shouldDrop(meta.critical(), lodLevel, tracked.visual().getId())) {
+                                groupPackets.add(meta.packet());
+                                anyCritical = anyCritical || meta.critical();
+                                tracked.clearPendingMetaPacket();
+                            } else {
+                                droppedUpdates.incrementAndGet();
+                                if (lodLevel != LodLevel.NEAR) {
+                                    lodSkippedMetadataUpdates.incrementAndGet();
+                                }
+                            }
+                        }
+
+                        if (lodLevel != LodLevel.NEAR && intervalReached) {
+                            tracked.markIntervalTick(lodLevel, tickCounter);
                         }
                     }
 
-                    // Continue with the next id if it belongs to the same composite-model group.
-                    Integer nextId = trackingState.peekVisibleId(groupKeyProvider);
-                    if (nextId == null) {
-                        trackingState.resetVisibleCursor();
-                        break;
+                    if (!groupPackets.isEmpty()) {
+                        long tokenVersion = tokenProvider.applyAsLong(groupKey);
+                        packetBuffer.buffer(playerId, groupPackets, PacketPriority.TELEPORT, groupKey, true, anyCritical, -1L, tokenVersion);
                     }
-                    TrackedVisual nextTracked = visualsById.get(nextId);
-                    int nextGroupKey = nextTracked != null ? nextTracked.groupKey() : nextId;
-                    if (nextGroupKey != groupKey) {
-                        break;
-                    }
-                    id = trackingState.nextVisibleId(groupKeyProvider);
-                    if (id == null) {
-                        trackingState.resetVisibleCursor();
-                        break;
-                    }
-                    tracked = visualsById.get(id);
                 }
 
-                // Respect the budget between groups, but never split a group.
-                if (checked >= checkBudget) {
-                    break;
+                // Any leftover metadata (not yet cleared) is sent out-of-band.
+                for (int memberId : members) {
+                    if (!trackingState.isVisible(memberId)) continue;
+                    TrackedVisual tracked = visualsById.get(memberId);
+                    if (tracked == null) continue;
+
+                    PendingMetadata meta = tracked.getPendingMetaPacket();
+                    if (meta == null) continue;
+
+                    boolean allowMetaPacket = lodLevel != LodLevel.FAR || farAllowMetadataUpdates;
+                    if (!allowMetaPacket) {
+                        lodSkippedMetadataUpdates.incrementAndGet();
+                        continue;
+                    }
+                    if (dropPolicy.shouldDrop(meta.critical(), lodLevel, tracked.visual().getId())) {
+                        droppedUpdates.incrementAndGet();
+                        if (lodLevel != LodLevel.NEAR) {
+                            lodSkippedMetadataUpdates.incrementAndGet();
+                        }
+                        continue;
+                    }
+                    long tokenVersion = tokenProvider.applyAsLong(tracked.visual().getId());
+                    PendingMetadata finalMeta = meta;
+                    scheduler.enqueueMetadataCoalesced(playerId, tracked.visual().getId(),
+                            () -> packetBuffer.buffer(playerId, finalMeta.packet(), PacketPriority.METADATA, tracked.visual().getId(), false,
+                                    finalMeta.critical(), -1L, tokenVersion));
+                    tracked.clearPendingMetaPacket();
                 }
+
+                processedGroups++;
             }
 
-            for (Map.Entry<Integer, GroupPacketBatch> entry : groupedTeleportPackets.entrySet()) {
-                int groupKey = entry.getKey();
-                GroupPacketBatch batch = entry.getValue();
-                if (batch == null || batch.isEmpty() || groupKey < 0) {
-                    continue;
-                }
-                // Coalesce by groupKey (model), not by an individual visual id, to keep composite models visually coherent.
-                // groupKey is stable (it is the first visual id of the model).
-                long groupTokenVersion = tokenProvider.applyAsLong(groupKey);
-                packetBuffer.buffer(playerId, batch.packetPayload(), PacketPriority.TELEPORT, groupKey, true,
-                        false, -1L, groupTokenVersion);
-            }
-
-            if (checkBudget != Integer.MAX_VALUE) {
-                int remaining = trackingState.remainingVisibleChecks();
+            if (groupBudget != Integer.MAX_VALUE) {
+                int remaining = Math.max(0, totalVisible - scanned);
                 if (remaining > 0) {
                     transformChecksSkippedDueBudget.addAndGet(remaining);
                 }
@@ -283,42 +306,5 @@ public final class TransformSliceProcessor {
         } finally {
             trackingState.markTransformTaskDone();
         }
-    }
-
-    private static final class GroupContext {
-        private final boolean inRange;
-        private final LodLevel lodLevel;
-
-        private GroupContext(boolean inRange, LodLevel lodLevel) {
-            this.inRange = inRange;
-            this.lodLevel = lodLevel;
-        }
-    }
-
-    private GroupContext computeGroupContext(int groupKey,
-                                             TrackedVisual fallback,
-                                             UUID playerWorldId,
-                                             double playerX,
-                                             double playerY,
-                                             double playerZ,
-                                             double viewDistanceSquared,
-                                             LodResolver lodResolver) {
-        TrackedVisual representative = visualsById.get(groupKey);
-        if (representative == null) {
-            representative = fallback;
-        }
-
-        Location trackedLoc = representative.location();
-        World trackedWorld = trackedLoc.getWorld();
-        boolean sameWorld = trackedWorld != null && playerWorldId.equals(trackedWorld.getUID());
-
-        double dx = trackedLoc.getX() - playerX;
-        double dy = trackedLoc.getY() - playerY;
-        double dz = trackedLoc.getZ() - playerZ;
-        double distSq = dx * dx + dy * dy + dz * dz;
-
-        boolean inRange = sameWorld && distSq <= viewDistanceSquared;
-        LodLevel lodLevel = lodResolver.resolve(distSq);
-        return new GroupContext(inRange, lodLevel);
     }
 }
