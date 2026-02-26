@@ -7,6 +7,8 @@ import com.ladakx.inertia.api.ApiResult;
 import com.ladakx.inertia.api.InertiaApi;
 import com.ladakx.inertia.api.InertiaApiProvider;
 import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBodiesService;
+import com.ladakx.inertia.api.body.PhysicsBodyServices;
 import com.ladakx.inertia.api.capability.ApiCapability;
 import com.ladakx.inertia.api.capability.CapabilityService;
 import com.ladakx.inertia.api.config.ConfigService;
@@ -16,6 +18,8 @@ import com.ladakx.inertia.api.extension.ExtensionHandle;
 import com.ladakx.inertia.api.extension.ExtensionRegistry;
 import com.ladakx.inertia.api.extension.InertiaExtension;
 import com.ladakx.inertia.api.rendering.RenderingService;
+import com.ladakx.inertia.api.rendering.model.RenderModelRegistryService;
+import com.ladakx.inertia.api.rendering.model.RenderingModelServices;
 import com.ladakx.inertia.api.services.ServiceKey;
 import com.ladakx.inertia.api.services.ServiceRegistry;
 import com.ladakx.inertia.api.version.ApiVersion;
@@ -25,6 +29,7 @@ import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.core.impl.capability.CapabilityServiceImpl;
 import com.ladakx.inertia.core.impl.config.ConfigServiceImpl;
+import com.ladakx.inertia.core.impl.body.PhysicsBodiesServiceImpl;
 import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.impl.BlockPhysicsBody;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -67,6 +72,8 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
     private final DiagnosticsService diagnosticsService;
     private final ServiceRegistryImpl serviceRegistry = new ServiceRegistryImpl();
     private final ExtensionRegistryImpl extensionRegistry = new ExtensionRegistryImpl(this, serviceRegistry);
+    private final RenderModelRegistryService renderModelRegistry;
+    private final PhysicsBodiesService physicsBodiesService;
 
     public InertiaApiImpl(@NotNull InertiaPlugin plugin,
                           @NotNull PhysicsWorldRegistry physicsWorldRegistry,
@@ -85,13 +92,21 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
         this.capabilityService = new CapabilityServiceImpl(API_VERSION, resolveCapabilities());
         this.diagnosticsService = Objects.requireNonNull(diagnosticsService, "diagnosticsService");
 
+        this.renderModelRegistry = new com.ladakx.inertia.core.impl.rendering.RenderModelRegistryServiceImpl();
+        this.physicsBodiesService = new PhysicsBodiesServiceImpl(physicsWorldRegistry);
+
         // Platform services (stable entry points for new subsystems).
         serviceRegistry.register(plugin, com.ladakx.inertia.api.transport.TransportServices.TRANSPORTS,
                 new com.ladakx.inertia.core.impl.transport.TransportServiceImpl(plugin, this));
         serviceRegistry.register(plugin, com.ladakx.inertia.api.jolt.JoltServices.JOLT,
                 new com.ladakx.inertia.core.impl.jolt.JoltServiceImpl());
+        serviceRegistry.register(plugin, RenderingModelServices.MODELS, renderModelRegistry);
+        serviceRegistry.register(plugin, PhysicsBodyServices.BODIES, physicsBodiesService);
 
-        plugin.getServer().getPluginManager().registerEvents(new AutoCleanupListener(serviceRegistry, extensionRegistry), plugin);
+        plugin.getServer().getPluginManager().registerEvents(
+                new AutoCleanupListener(serviceRegistry, extensionRegistry, renderModelRegistry, physicsBodiesService),
+                plugin
+        );
     }
 
     @Override
@@ -365,21 +380,39 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
     private static final class AutoCleanupListener implements Listener {
         private final ServiceRegistry services;
         private final ExtensionRegistry extensions;
+        private final RenderModelRegistryService renderModels;
+        private final PhysicsBodiesService bodies;
 
-        private AutoCleanupListener(ServiceRegistry services, ExtensionRegistry extensions) {
+        private AutoCleanupListener(ServiceRegistry services,
+                                    ExtensionRegistry extensions,
+                                    RenderModelRegistryService renderModels,
+                                    PhysicsBodiesService bodies) {
             this.services = services;
             this.extensions = extensions;
+            this.renderModels = renderModels;
+            this.bodies = bodies;
         }
 
         @EventHandler
         public void onPluginDisable(PluginDisableEvent event) {
             Plugin plugin = event.getPlugin();
+            if (plugin.equals(InertiaPlugin.getInstance())) {
+                return;
+            }
             try {
                 extensions.unregisterAll(plugin);
             } catch (Exception ignored) {
             }
             try {
                 services.unregisterAll(plugin);
+            } catch (Exception ignored) {
+            }
+            try {
+                renderModels.unregisterAll(plugin);
+            } catch (Exception ignored) {
+            }
+            try {
+                bodies.destroyAll(plugin);
             } catch (Exception ignored) {
             }
         }

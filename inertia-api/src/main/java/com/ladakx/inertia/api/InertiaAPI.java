@@ -9,7 +9,11 @@ import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
 import com.ladakx.inertia.api.extension.ExtensionRegistry;
 import com.ladakx.inertia.api.jolt.JoltService;
 import com.ladakx.inertia.api.jolt.JoltServices;
+import com.ladakx.inertia.api.body.PhysicsBodiesService;
+import com.ladakx.inertia.api.body.PhysicsBodyServices;
 import com.ladakx.inertia.api.rendering.RenderingService;
+import com.ladakx.inertia.api.rendering.model.RenderModelRegistryService;
+import com.ladakx.inertia.api.rendering.model.RenderingModelServices;
 import com.ladakx.inertia.api.services.ServiceRegistry;
 import com.ladakx.inertia.api.transport.TransportService;
 import com.ladakx.inertia.api.transport.TransportServices;
@@ -64,6 +68,20 @@ public interface InertiaApi {
      */
     default @NotNull JoltService jolt() {
         return services().require(JoltServices.JOLT);
+    }
+
+    /**
+     * Physics body facade for external plugins (ownership + safe cleanup).
+     */
+    default @NotNull PhysicsBodiesService bodies() {
+        return services().require(PhysicsBodyServices.BODIES);
+    }
+
+    /**
+     * Runtime registry for render models (config/programmatic integrations).
+     */
+    default @NotNull RenderModelRegistryService renderModels() {
+        return services().require(RenderingModelServices.MODELS);
     }
 
     default boolean isCompatibleWith(@NotNull ApiVersion minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {

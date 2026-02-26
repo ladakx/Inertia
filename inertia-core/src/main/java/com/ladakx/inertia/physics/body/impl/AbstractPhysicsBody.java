@@ -4,6 +4,7 @@ import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.ladakx.inertia.api.body.MotionType;
 import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBodyOwner;
 import com.ladakx.inertia.api.events.PhysicsBodyPostDestroyEvent;
 import com.ladakx.inertia.api.events.PhysicsBodyPreDestroyEvent;
 import com.ladakx.inertia.common.logging.InertiaLogger;
@@ -30,6 +31,7 @@ public abstract class AbstractPhysicsBody implements PhysicsBody {
     private final java.util.UUID uuid = java.util.UUID.randomUUID();
     private java.util.UUID clusterId = uuid;
     private RVec3 worldAnchor = null;
+    private volatile PhysicsBodyOwner owner = PhysicsBodyOwner.inertia();
 
     public AbstractPhysicsBody(@NotNull PhysicsWorld space,
                                @NotNull BodyCreationSettings bodySettings,
@@ -99,6 +101,14 @@ public abstract class AbstractPhysicsBody implements PhysicsBody {
 
     public java.util.UUID getUuid() {
         return uuid;
+    }
+
+    public @NotNull PhysicsBodyOwner getOwner() {
+        return owner;
+    }
+
+    public void setOwner(@NotNull PhysicsBodyOwner owner) {
+        this.owner = java.util.Objects.requireNonNull(owner, "owner");
     }
 
     @Override

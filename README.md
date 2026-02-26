@@ -128,6 +128,30 @@ Inertia uses a **Feature-Based** architecture with **Dependency Injection**.
 * `docs/transports-api.md`
 * `docs/jolt-api.md`
 
+### Third-Party Integration (Runtime Registries)
+
+Inertia provides stable runtime registries to help other plugins integrate without modifying Inertia configs directly:
+
+- Register render models from code or from a YAML config section (same format as `render.yml`).
+- Spawn physics bodies *owned by your plugin* (so Inertia can keep them separate and clean them up on disable).
+
+```java
+import com.ladakx.inertia.api.InertiaApi;
+import com.ladakx.inertia.api.InertiaApiAccess;
+import com.ladakx.inertia.api.physics.PhysicsBodySpec;
+import org.bukkit.configuration.file.FileConfiguration;
+
+InertiaApi api = InertiaApiAccess.resolve();
+
+// 1) Import render models from another plugin's config section
+FileConfiguration cfg = api.configs().loadYaml(myPlugin, "render-addon.yml");
+api.renderModels().registerFromConfigSection(myPlugin, cfg, com.ladakx.inertia.api.rendering.model.RenderIdPolicy.NAMESPACE_OWNER_IF_MISSING);
+
+// 2) Spawn a body owned by your plugin
+var pw = api.getPhysicsWorld(world);
+api.bodies().spawn(myPlugin, pw, PhysicsBodySpec.builder(loc, shape).build());
+```
+
 ### Building from Source
 
 The project uses Gradle with the Shadow plugin.

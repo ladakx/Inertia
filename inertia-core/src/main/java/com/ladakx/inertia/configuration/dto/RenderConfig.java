@@ -12,7 +12,6 @@ import com.ladakx.inertia.rendering.config.enums.InertiaBillboard;
 import com.ladakx.inertia.rendering.config.enums.InertiaDisplayMode;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 
@@ -22,12 +21,12 @@ public final class RenderConfig {
 
     private final Map<String, RenderModelSelector> selectors;
 
-    public RenderConfig(FileConfiguration config) {
+    public RenderConfig(ConfigurationSection config) {
         Objects.requireNonNull(config, "config");
         this.selectors = Collections.unmodifiableMap(parse(config));
     }
 
-    private Map<String, RenderModelSelector> parse(FileConfiguration config) {
+    private Map<String, RenderModelSelector> parse(ConfigurationSection config) {
         Map<String, RenderModelSelector> result = new LinkedHashMap<>();
 
         for (String modelId : config.getKeys(false)) {
