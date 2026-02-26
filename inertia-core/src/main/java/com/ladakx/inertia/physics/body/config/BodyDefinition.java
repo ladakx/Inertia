@@ -1,6 +1,6 @@
 package com.ladakx.inertia.physics.body.config;
 
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 
 /**
  * Маркерний інтерфейс для всіх типів фізичних визначень.

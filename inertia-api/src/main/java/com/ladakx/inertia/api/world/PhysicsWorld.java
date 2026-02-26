@@ -48,7 +48,6 @@ public interface PhysicsWorld {
         return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "error-occurred");
     }
 
-    @Deprecated(forRemoval = false)
     @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     default @Nullable PhysicsBody createBody(@NotNull PhysicsBodySpec spec) {
         Objects.requireNonNull(spec, "spec");

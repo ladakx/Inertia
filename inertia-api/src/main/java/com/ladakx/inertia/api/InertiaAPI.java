@@ -1,14 +1,20 @@
 package com.ladakx.inertia.api;
 
-import com.ladakx.inertia.api.world.IPhysicsWorld;
+import com.ladakx.inertia.api.ApiResult;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.api.capability.ApiCapability;
 import com.ladakx.inertia.api.capability.CapabilityService;
 import com.ladakx.inertia.api.config.ConfigService;
 import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
+import com.ladakx.inertia.api.extension.ExtensionRegistry;
+import com.ladakx.inertia.api.jolt.JoltService;
+import com.ladakx.inertia.api.jolt.JoltServices;
 import com.ladakx.inertia.api.rendering.RenderingService;
-import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.services.ServiceRegistry;
+import com.ladakx.inertia.api.transport.TransportService;
+import com.ladakx.inertia.api.transport.TransportServices;
 import com.ladakx.inertia.api.version.ApiVersion;
-import org.bukkit.Bukkit;
+import com.ladakx.inertia.api.world.PhysicsWorld;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
@@ -16,73 +22,51 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Objects;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-public abstract class InertiaAPI {
-    private static final Logger LOGGER = Logger.getLogger(InertiaAPI.class.getName());
-    private static volatile InertiaApiResolver resolver = new BukkitInertiaApiResolver();
+/**
+ * Stable public API surface for third-party plugins.
+ * <p>
+ * This interface is designed for long-term binary compatibility.
+ */
+public interface InertiaApi {
 
-    @Deprecated(forRemoval = false)
-    public static InertiaAPI get() {
-        LOGGER.log(Level.WARNING, "Legacy InertiaAPI.get() access detected. Switch to Bukkit ServicesManager + InertiaApiProvider.");
-        return resolve();
-    }
+    @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull Location location, @NotNull String bodyId);
 
-    public static @NotNull InertiaAPI resolve() {
-        InertiaApiProvider provider = resolver.resolveProvider();
-        if (provider == null) {
-            throw new InertiaApiUnavailableException("Inertia API service is unavailable.");
-        }
-        return Objects.requireNonNull(provider.getApi(), "provider.getApi()");
-    }
+    boolean isWorldSimulated(@NotNull String worldName);
 
-    static void setResolver(@NotNull InertiaApiResolver resolver) {
-        InertiaAPI.resolver = Objects.requireNonNull(resolver, "resolver");
-    }
+    @Nullable PhysicsWorld getPhysicsWorld(@NotNull World world);
 
-    static void resetResolver() {
-        resolver = new BukkitInertiaApiResolver();
-    }
+    @NotNull Collection<PhysicsWorld> getAllPhysicsWorlds();
 
-    public abstract @NotNull ApiResult<PhysicsBody> createBodyResult(@NotNull Location location, @NotNull String bodyId);
+    @NotNull RenderingService rendering();
 
-    @Deprecated(forRemoval = false)
-    public @Nullable PhysicsBody createBody(@NotNull Location location, @NotNull String bodyId) {
-        Objects.requireNonNull(location, "location");
-        Objects.requireNonNull(bodyId, "bodyId");
-        return createBodyResult(location, bodyId).getValue();
-    }
+    @NotNull ConfigService configs();
 
-    public abstract boolean isWorldSimulated(@NotNull String worldName);
+    @NotNull CapabilityService capabilities();
 
-    @Nullable
-    public abstract IPhysicsWorld getPhysicsWorld(@NotNull World world);
+    @NotNull DiagnosticsService diagnostics();
 
-    @NotNull
-    public abstract Collection<IPhysicsWorld> getAllPhysicsWorlds();
+    @NotNull ApiVersion apiVersion();
 
-    @NotNull
-    public abstract RenderingService rendering();
+    @NotNull ServiceRegistry services();
+
+    @NotNull ExtensionRegistry extensions();
 
     /**
-     * Config loading + validation helpers (including cross-plugin config sources).
+     * Transport platform service (requires {@link com.ladakx.inertia.api.capability.ApiCapability#TRANSPORT_PLATFORM}).
      */
-    @NotNull
-    public abstract ConfigService configs();
-
-    @NotNull
-    public abstract CapabilityService capabilities();
-
-    @NotNull
-    public abstract DiagnosticsService diagnostics();
-
-    @NotNull
-    public final ApiVersion apiVersion() {
-        return capabilities().apiVersion();
+    default @NotNull TransportService transports() {
+        return services().require(TransportServices.TRANSPORTS);
     }
 
-    public final boolean isCompatibleWith(@NotNull ApiVersion minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {
+    /**
+     * Advanced native Jolt access (requires {@link com.ladakx.inertia.api.capability.ApiCapability#JOLT_NATIVE_ACCESS}).
+     */
+    default @NotNull JoltService jolt() {
+        return services().require(JoltServices.JOLT);
+    }
+
+    default boolean isCompatibleWith(@NotNull ApiVersion minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {
         Objects.requireNonNull(minimumVersion, "minimumVersion");
         Objects.requireNonNull(requiredCapabilities, "requiredCapabilities");
         if (!apiVersion().isAtLeast(minimumVersion)) {
@@ -96,19 +80,8 @@ public abstract class InertiaAPI {
         return true;
     }
 
-    public final boolean isCompatibleWith(@NotNull String minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {
+    default boolean isCompatibleWith(@NotNull String minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {
         Objects.requireNonNull(minimumVersion, "minimumVersion");
         return isCompatibleWith(ApiVersion.parse(minimumVersion), requiredCapabilities);
-    }
-
-    interface InertiaApiResolver {
-        @Nullable InertiaApiProvider resolveProvider();
-    }
-
-    private static final class BukkitInertiaApiResolver implements InertiaApiResolver {
-        @Override
-        public @Nullable InertiaApiProvider resolveProvider() {
-            return Bukkit.getServicesManager().load(InertiaApiProvider.class);
-        }
     }
 }

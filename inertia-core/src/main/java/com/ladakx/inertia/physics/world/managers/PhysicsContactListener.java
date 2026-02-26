@@ -6,7 +6,7 @@ import com.github.stephengold.joltjni.PhysicsSystem;
 import com.ladakx.inertia.api.events.PhysicsCollisionEvent;
 import com.ladakx.inertia.api.events.PhysicsCollisionPayload;
 import com.ladakx.inertia.api.events.PhysicsEventPayload;
-import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.entity.EntityPhysicsManager;
 import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
@@ -17,18 +17,15 @@ public final class PhysicsContactListener extends CustomContactListener {
     private final PhysicsObjectManager objectManager;
     private final PhysicsSystem physicsSystem;
     private final EntityPhysicsManager entityPhysicsManager;
-    private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
     private final PhysicsEventDispatcher eventDispatcher;
 
     public PhysicsContactListener(PhysicsObjectManager objectManager,
                                   PhysicsSystem physicsSystem,
                                   EntityPhysicsManager entityPhysicsManager,
-                                  ApiPhysicsBodyAdapter apiPhysicsBodyAdapter,
                                   PhysicsEventDispatcher eventDispatcher) {
         this.objectManager = Objects.requireNonNull(objectManager, "objectManager");
         this.physicsSystem = Objects.requireNonNull(physicsSystem, "physicsSystem");
         this.entityPhysicsManager = Objects.requireNonNull(entityPhysicsManager, "entityPhysicsManager");
-        this.apiPhysicsBodyAdapter = Objects.requireNonNull(apiPhysicsBodyAdapter, "apiPhysicsBodyAdapter");
         this.eventDispatcher = Objects.requireNonNull(eventDispatcher, "eventDispatcher");
     }
 
@@ -37,8 +34,8 @@ public final class PhysicsContactListener extends CustomContactListener {
         AbstractPhysicsBody firstPhysicsBody = objectManager.getByVa(body1Va);
         AbstractPhysicsBody secondPhysicsBody = objectManager.getByVa(body2Va);
         if (firstPhysicsBody != null && secondPhysicsBody != null) {
-            var firstBody = apiPhysicsBodyAdapter.adapt(firstPhysicsBody);
-            var secondBody = apiPhysicsBodyAdapter.adapt(secondPhysicsBody);
+            PhysicsBody firstBody = firstPhysicsBody;
+            PhysicsBody secondBody = secondPhysicsBody;
             var firstLocation = firstBody.getLocation();
             var secondLocation = secondBody.getLocation();
             PhysicsCollisionPayload payload = new PhysicsCollisionPayload(

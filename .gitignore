@@ -16,6 +16,7 @@ build/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+libs/jolt-jni
 
 ### Eclipse ###
 .apt_generated

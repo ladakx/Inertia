@@ -19,38 +19,8 @@ grass:
     display_1:
       type: BLOCK_DISPLAY
       block: GRASS_BLOCK
-      interpolation-duration: 3
-      teleport-duration: 3
-    display_2:
-      type: BLOCK_DISPLAY
-      block: GRASS_BLOCK
-      translation: "1.0 0.0 0.0"
-      rotate-translation: true
-      interpolation-duration: 3
-      teleport-duration: 3
-grass_2:
-  sync:
-    position: true
-    rotation: true
-  entities:
-    core:
-      type: ARMOR_STAND
-      small: true
-      invisible: true
-    display_1:
-      type: BLOCK_DISPLAY
-      block: GRASS_BLOCK
-      interpolation-duration: 3
-      teleport-duration: 3
-      place: "core"
-    display_2:
-      type: BLOCK_DISPLAY
-      block: GRASS_BLOCK
-      translation: "1.0 0.0 0.0"
-      rotate-translation: true
-      interpolation-duration: 3
-      teleport-duration: 3
-      place: "core"
+      interpolation-duration: 2
+      teleport-duration: 2
 tnt:
   sync:
     position: true
@@ -171,63 +141,63 @@ test_bouncy_ball:
       block: SLIME_BLOCK
       scale: "0.35 0.35 0.35"
       rotate-translation: true
-      interpolation-duration: 0
-      teleport-duration: 0
+      interpolation-duration: 1
+      teleport-duration: 1
       place: "core"
     x_pos:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
-      local-offset: "0.23 0.0 0.0"
+      translation: "0.23 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 0
-      teleport-duration: 0
-      place: "main"
+      interpolation-duration: 1
+      teleport-duration: 1
+      place: "core"
     x_neg:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
-      local-offset: "-0.23 0.0 0.0"
+      translation: "-0.23 0.0 0.0"
       rotate-translation: true
-      interpolation-duration: 0
-      teleport-duration: 0
-      place: "main"
+      interpolation-duration: 1
+      teleport-duration: 1
+      place: "core"
     y_pos:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
-      local-offset: "0.0 0.23 0.0"
+      translation: "0.0 0.23 0.0"
       rotate-translation: true
-      interpolation-duration: 0
-      teleport-duration: 0
-      place: "main"
+      interpolation-duration: 1
+      teleport-duration: 1
+      place: "core"
     y_neg:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
-      local-offset: "0.0 -0.23 0.0"
+      translation: "0.0 -0.23 0.0"
       rotate-translation: true
-      interpolation-duration: 0
-      teleport-duration: 0
-      place: "main"
+      interpolation-duration: 1
+      teleport-duration: 1
+      place: "core"
     z_pos:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
-      local-offset: "0.0 0.0 0.23"
+      translation: "0.0 0.0 0.23"
       rotate-translation: true
-      interpolation-duration: 0
-      teleport-duration: 0
-      place: "main"
+      interpolation-duration: 1
+      teleport-duration: 1
+      place: "core"
     z_neg:
       type: BLOCK_DISPLAY
       block: SLIME_BLOCK
       scale: "0.25 0.25 0.25"
-      local-offset: "0.0 0.0 -0.23"
+      translation: "0.0 0.0 -0.23"
       rotate-translation: true
-      interpolation-duration: 0
-      teleport-duration: 0
-      place: "main"
+      interpolation-duration: 1
+      teleport-duration: 1
+      place: "core"
 
 test_capsule:
   sync:

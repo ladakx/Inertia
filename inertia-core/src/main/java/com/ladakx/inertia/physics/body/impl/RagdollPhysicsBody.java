@@ -5,10 +5,10 @@ import com.github.stephengold.joltjni.enumerate.EAxis;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.enumerate.EMotionType;
 import com.github.stephengold.joltjni.readonly.ConstShape;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.api.body.type.IRagdoll;
 import com.ladakx.inertia.core.InertiaPlugin;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -270,7 +270,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
     }
 
     @Override
-    public @Nullable InertiaPhysicsBody getParentPart() {
+    public @Nullable PhysicsBody getParentPart() {
         if (parentBodyId == null) return null;
         com.github.stephengold.joltjni.readonly.ConstBody body = getSpace().getBodyById(parentBodyId);
         if (body != null) {

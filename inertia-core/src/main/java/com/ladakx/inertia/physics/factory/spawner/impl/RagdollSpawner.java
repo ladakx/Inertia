@@ -5,8 +5,8 @@ import com.ladakx.inertia.api.events.PhysicsBodyPostSpawnEvent;
 import com.ladakx.inertia.api.events.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.config.RagdollDefinition;
 import com.ladakx.inertia.physics.body.impl.RagdollPhysicsBody;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -43,7 +43,7 @@ public class RagdollSpawner implements BodySpawner {
     }
 
     @Override
-    public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
+    public PhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsBodyRegistry registry = configService.getPhysicsBodyRegistry();
         Optional<PhysicsBodyRegistry.BodyModel> modelOpt = registry.find(context.bodyId());
         if (modelOpt.isEmpty() || !(modelOpt.get().bodyDefinition() instanceof RagdollDefinition def)) {

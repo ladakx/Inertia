@@ -2,7 +2,6 @@ package com.ladakx.inertia.api.body;
 
 import com.ladakx.inertia.api.ExecutionContext;
 import com.ladakx.inertia.api.ThreadingPolicy;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;

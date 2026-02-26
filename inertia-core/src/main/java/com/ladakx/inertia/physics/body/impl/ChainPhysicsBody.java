@@ -6,7 +6,7 @@ import com.github.stephengold.joltjni.enumerate.EConstraintSpace;
 import com.github.stephengold.joltjni.enumerate.EMotionQuality;
 import com.github.stephengold.joltjni.readonly.ConstShape;
 import com.ladakx.inertia.api.body.type.IChain;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import com.ladakx.inertia.physics.world.PhysicsWorld;

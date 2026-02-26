@@ -1,13 +1,14 @@
 package com.ladakx.inertia.core;
 
-import com.ladakx.inertia.api.InertiaApiProvider;
+import com.ladakx.inertia.api.lifecycle.InertiaApiReadyEvent;
+import com.ladakx.inertia.api.lifecycle.InertiaApiShutdownEvent;
 import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
 import com.ladakx.inertia.api.service.DebugRenderService;
 import com.ladakx.inertia.api.service.PhysicsManipulationService;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
 import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.common.mesh.BlockBenchMeshProvider;
-import com.ladakx.inertia.core.impl.InertiaAPIImpl;
+import com.ladakx.inertia.core.impl.InertiaApiImpl;
 import com.ladakx.inertia.core.impl.diagnostics.DiagnosticsServiceImpl;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.ConfigurationService;
@@ -83,7 +84,7 @@ public final class InertiaPlugin extends JavaPlugin {
     private DynamicBodyPersistenceCoordinator dynamicBodyPersistenceCoordinator;
 
     private BukkitTask globalNetworkTask;
-    private InertiaApiProvider inertiaApiProvider;
+    private com.ladakx.inertia.api.InertiaApiProvider inertiaApiProvider;
 
     @Override
     public void onEnable() {
@@ -148,8 +149,9 @@ public final class InertiaPlugin extends JavaPlugin {
 
         this.perfMonitor = new BossBarPerformanceMonitor(this, metricsService, configurationService);
 
-        this.inertiaApiProvider = new InertiaAPIImpl(this, physicsWorldRegistry, configurationService, shapeFactory, networkEntityTracker, diagnosticsService);
-        Bukkit.getServicesManager().register(InertiaApiProvider.class, inertiaApiProvider, this, org.bukkit.plugin.ServicePriority.Normal);
+        this.inertiaApiProvider = new InertiaApiImpl(this, physicsWorldRegistry, configurationService, shapeFactory, networkEntityTracker, diagnosticsService);
+        Bukkit.getServicesManager().register(com.ladakx.inertia.api.InertiaApiProvider.class, inertiaApiProvider, this, org.bukkit.plugin.ServicePriority.Normal);
+        Bukkit.getPluginManager().callEvent(new InertiaApiReadyEvent(inertiaApiProvider.getApi()));
         InertiaLogger.info("Inertia API registered.");
 
         new com.ladakx.inertia.features.integrations.WorldEditIntegration().init();
@@ -202,7 +204,12 @@ public final class InertiaPlugin extends JavaPlugin {
         }
 
         if (inertiaApiProvider != null) {
-            Bukkit.getServicesManager().unregister(InertiaApiProvider.class, inertiaApiProvider);
+            try {
+                Bukkit.getPluginManager().callEvent(new InertiaApiShutdownEvent(inertiaApiProvider.getApi()));
+            } catch (Exception e) {
+                InertiaLogger.warn("Failed to emit InertiaApiShutdownEvent: " + e.getMessage());
+            }
+            Bukkit.getServicesManager().unregister(com.ladakx.inertia.api.InertiaApiProvider.class, inertiaApiProvider);
             inertiaApiProvider = null;
         }
 
@@ -351,7 +358,7 @@ public final class InertiaPlugin extends JavaPlugin {
                     body.destroy();
 
                     if (location.getWorld() != null) {
-                        com.ladakx.inertia.physics.body.InertiaPhysicsBody respawned = bodyFactory.spawnBodyWithResult(location, bodyId, null, java.util.Map.of());
+                        PhysicsBody respawned = bodyFactory.spawnBodyWithResult(location, bodyId, null, java.util.Map.of());
                         if (respawned != null) {
                             respawned.setLinearVelocity(linearVelocity);
                             respawned.setAngularVelocity(angularVelocity);

@@ -1,7 +1,6 @@
 package com.ladakx.inertia.features.commands.impl;
 
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
-import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.features.commands.CloudModule;
@@ -55,7 +54,7 @@ public class AdminCommands extends CloudModule {
                     
                     // Для простоты возьмем состояние первого мира, чтобы определить текущий тогл
                     boolean isAnyPaused = worldRegistry.getAllWorlds().stream()
-                            .anyMatch(IPhysicsWorld::isSimulationPaused);
+                            .anyMatch(com.ladakx.inertia.physics.world.PhysicsWorld::isSimulationPaused);
                     
                     if (ctx.contains("state")) {
                         state = ctx.get("state");
@@ -64,7 +63,7 @@ public class AdminCommands extends CloudModule {
                     }
 
                     int count = 0;
-                    for (IPhysicsWorld world : worldRegistry.getAllWorlds()) {
+                    for (com.ladakx.inertia.physics.world.PhysicsWorld world : worldRegistry.getAllWorlds()) {
                         world.setSimulationPaused(state);
                         count++;
                     }

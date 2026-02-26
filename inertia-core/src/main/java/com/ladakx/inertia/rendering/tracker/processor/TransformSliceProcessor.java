@@ -208,20 +208,31 @@ public final class TransformSliceProcessor {
                 }
 
                 if (sendPosition || sendTransform) {
-                    ArrayList<Object> groupPackets = new ArrayList<>(members.length * 2);
-                    boolean anyCritical = false;
-
+                    // Build packets in a deterministic phase order:
+                    // 1) all position packets (anchors/vehicles)
+                    // 2) all transform metadata packets (Display transforms)
+                    // 3) all generic metadata packets
+                    //
+                    // This prevents "tearing" where passenger Display entities apply their transform
+                    // before the parent vehicle teleport is processed by the client (more visible at
+                    // high angular velocity).
+                    ArrayList<TrackedVisual> trackedMembers = new ArrayList<>(members.length);
                     for (int memberId : members) {
                         if (!trackingState.isVisible(memberId)) continue;
                         TrackedVisual tracked = visualsById.get(memberId);
                         if (tracked == null) continue;
-
                         if (!tracked.isEnabled() || !tracked.isAllowedForLod(lodLevel)
                                 || !tracked.isAllowedForProtocol(playerFrame.clientProtocol())) {
                             continue;
                         }
+                        trackedMembers.add(tracked);
+                    }
 
-                        if (sendPosition) {
+                    ArrayList<Object> groupPackets = new ArrayList<>(trackedMembers.size() * 2);
+                    boolean anyCritical = false;
+
+                    if (sendPosition) {
+                        for (TrackedVisual tracked : trackedMembers) {
                             if (!tracked.isPassenger()) {
                                 Object positionPacket = tracked.ensurePositionPacket();
                                 if (positionPacket != null) {
@@ -230,8 +241,10 @@ public final class TransformSliceProcessor {
                             }
                             tracked.syncPositionForLod(lodLevel);
                         }
+                    }
 
-                        if (sendTransform) {
+                    if (sendTransform) {
+                        for (TrackedVisual tracked : trackedMembers) {
                             Object transformPacket = tracked.ensureTransformMetaPacket();
                             if (transformPacket != null) {
                                 groupPackets.add(transformPacket);
@@ -239,7 +252,9 @@ public final class TransformSliceProcessor {
                             tracked.syncRotationForLod(lodLevel);
                             tracked.clearForceTransformResyncDirty();
                         }
+                    }
 
+                    for (TrackedVisual tracked : trackedMembers) {
                         PendingMetadata meta = tracked.getPendingMetaPacket();
                         if (meta != null) {
                             if (!dropPolicy.shouldDrop(meta.critical(), lodLevel, tracked.visual().getId())) {

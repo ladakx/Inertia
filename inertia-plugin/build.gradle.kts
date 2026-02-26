@@ -62,6 +62,9 @@ tasks {
 
     build {
         dependsOn(shadowJar)
+        if (providers.gradleProperty("inertia.publishLocalOnBuild").orElse("true").get().equals("true", ignoreCase = true)) {
+            finalizedBy(":publishInertiaToMavenLocal")
+        }
     }
 }
 

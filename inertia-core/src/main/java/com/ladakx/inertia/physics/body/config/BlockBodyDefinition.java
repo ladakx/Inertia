@@ -1,6 +1,6 @@
 package com.ladakx.inertia.physics.body.config;
 
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 
 import java.util.List;
 import java.util.Objects;

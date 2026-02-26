@@ -1,6 +1,6 @@
 package com.ladakx.inertia.features.tools;
 
-import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.api.InertiaApiAccess;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
@@ -49,7 +49,7 @@ public abstract class Tool {
     }
 
     protected boolean validateWorld(Player player) {
-        if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) {
+        if (!InertiaApiAccess.resolve().isWorldSimulated(player.getWorld().getName())) {
             send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return false;
         }

@@ -1,7 +1,7 @@
 package com.ladakx.inertia.physics.body.impl;
 
 import com.github.stephengold.joltjni.BodyCreationSettings;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
 import org.jetbrains.annotations.NotNull;
@@ -33,4 +33,3 @@ public final class CustomPhysicsBody extends AbstractPhysicsBody {
         return PhysicsBodyType.CUSTOM;
     }
 }
-

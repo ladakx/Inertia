@@ -5,7 +5,7 @@ import com.github.stephengold.joltjni.enumerate.*;
 import com.github.stephengold.joltjni.readonly.ConstBody;
 import com.ladakx.inertia.api.ApiErrorCode;
 import com.ladakx.inertia.api.ApiResult;
-import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.api.InertiaApiAccess;
 import com.ladakx.inertia.api.capability.ApiCapabilities;
 import com.ladakx.inertia.api.capability.ApiCapability;
 import com.ladakx.inertia.api.body.MotionType;
@@ -13,7 +13,6 @@ import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
 import com.ladakx.inertia.api.physics.PhysicsBodySpec;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
-import com.ladakx.inertia.api.world.IPhysicsWorld;
 import com.ladakx.inertia.common.chunk.ChunkTicketManager;
 import com.ladakx.inertia.common.chunk.ChunkUtils;
 import com.ladakx.inertia.common.logging.InertiaLogger;
@@ -53,7 +52,6 @@ import com.ladakx.inertia.physics.world.buoyancy.BuoyancyManager;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import com.ladakx.inertia.physics.factory.shape.ApiShapeConverter;
-import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -75,7 +73,7 @@ import java.nio.ByteOrder;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
+public class PhysicsWorld implements AutoCloseable, com.ladakx.inertia.api.world.PhysicsWorld {
 
     private final String worldName;
     private final World worldBukkit;
@@ -111,7 +109,6 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     private volatile boolean fluidPhysicsEnabled;
     private @Nullable BukkitTask buoyancyScanTask;
     private final ApiShapeConverter apiShapeConverter = new ApiShapeConverter();
-    private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter = new ApiPhysicsBodyAdapter();
     private final PhysicsEventDispatcher eventDispatcher;
 
     // Removed: private @Nullable BukkitTask networkTickTask;
@@ -150,7 +147,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         );
         this.snapshotPool = new SnapshotPool();
 
-        this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager, apiPhysicsBodyAdapter);
+        this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.networkEntityTracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
         this.buoyancyManager = new BuoyancyManager(this);
         this.fluidPhysicsEnabled = inertiaConfig.PHYSICS.FLUIDS.enabled;
@@ -160,7 +157,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
                 new BukkitMainThreadExecutor(InertiaPlugin.getInstance()),
                 new BukkitEventPublisher()
         );
-        this.contactListener = new PhysicsContactListener(objectManager, physicsSystem, entityPhysicsManager, apiPhysicsBodyAdapter, eventDispatcher);
+        this.contactListener = new PhysicsContactListener(objectManager, physicsSystem, entityPhysicsManager, eventDispatcher);
         this.physicsSystem.setContactListener(contactListener);
 
         this.bodyActivationListener = new InertiaBodyActivationListener(objectManager);
@@ -507,15 +504,39 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     }
 
     public List<RaycastResult> raycastEntity(@NotNull Location start, @NotNull Vector dir, double dist) {
-        RaycastHit hit = queryEngine.raycast(start, dir, dist);
-        if (hit == null) return Collections.emptyList();
+        // Tools need the internal VA to resolve the hit back to an AbstractPhysicsBody via objectManager.
+        // The public API raycast returns an API PhysicsBody wrapper, so we do the narrow-phase query here.
+        RVec3 startVec = toJolt(start);
+        Vector scaledDir = dir.clone().normalize().multiply(dist);
+        Vec3 dirVec = new Vec3((float) scaledDir.getX(), (float) scaledDir.getY(), (float) scaledDir.getZ());
 
-        if (hit.body() instanceof AbstractPhysicsBody abstractBody) {
-            long va = abstractBody.getBody().targetVa();
-            Location hitLoc = hit.point().toLocation(worldBukkit);
-            RVec3 hitPosLocal = toJolt(hitLoc);
-            return Collections.singletonList(new RaycastResult(va, hitPosLocal));
+        RRayCast ray = new RRayCast(startVec, dirVec);
+        AllHitCastRayCollector collector = new AllHitCastRayCollector();
+        physicsSystem.getNarrowPhaseQuery().castRay(ray, new RayCastSettings(), collector);
+
+        List<RayCastResult> hits = collector.getHits();
+        if (hits.isEmpty()) {
+            return Collections.emptyList();
         }
+        hits.sort(java.util.Comparator.comparingDouble(RayCastResult::getFraction));
+
+        var bli = physicsSystem.getBodyLockInterface();
+        for (RayCastResult hit : hits) {
+            try (BodyLockRead lock = new BodyLockRead(bli, hit.getBodyId())) {
+                if (!lock.succeeded()) {
+                    continue;
+                }
+                ConstBody body = lock.getBody();
+                long va = body.targetVa();
+                if (objectManager.getByVa(va) == null) {
+                    continue;
+                }
+
+                RVec3 hitPosLocal = ray.getPointOnRay(hit.getFraction());
+                return Collections.singletonList(new RaycastResult(va, hitPosLocal));
+            }
+        }
+
         return Collections.emptyList();
     }
 
@@ -679,9 +700,9 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
     @Override public boolean isSimulationPaused() { return isPaused.get(); }
     @Override public void setGravity(@NotNull Vector gravity) { if (gravity == null) return; physicsSystem.setGravity(ConvertUtils.toVec3(gravity)); }
     @Override public @NotNull Vector getGravity() { Vec3 g = physicsSystem.getGravity(); return ConvertUtils.toBukkit(g); }
-    @Override public @NotNull Collection<PhysicsBody> getBodies() { return objectManager.getAll().stream().map(apiPhysicsBodyAdapter::adapt).collect(java.util.stream.Collectors.toUnmodifiableSet()); }
+    @Override public @NotNull Collection<PhysicsBody> getBodies() { return objectManager.getAll().stream().map(obj -> (PhysicsBody) obj).collect(java.util.stream.Collectors.toUnmodifiableSet()); }
     @Override public @NotNull PhysicsInteraction getInteraction() {
-        InertiaAPI.resolve().capabilities().require(ApiCapability.INTERACTION_ADVANCED);
+        InertiaApiAccess.resolve().capabilities().require(ApiCapability.INTERACTION_ADVANCED);
         return queryEngine;
     }
 
@@ -703,7 +724,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
         }
 
         ApiCapability shapeCapability = ApiCapabilities.forShape(spec.shape().kind());
-        if (!InertiaAPI.resolve().capabilities().supports(shapeCapability)) {
+        if (!InertiaApiAccess.resolve().capabilities().supports(shapeCapability)) {
             return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "shape-invalid-params");
         }
 
@@ -742,7 +763,7 @@ public class PhysicsWorld implements AutoCloseable, IPhysicsWorld {
             settings.setPosition(initialPos);
             settings.setRotation(initialRot);
 
-            PhysicsBody spawnedBody = apiPhysicsBodyAdapter.adapt(new CustomPhysicsBody(this, settings, spec.bodyId(), eventDispatcher));
+            PhysicsBody spawnedBody = new CustomPhysicsBody(this, settings, spec.bodyId(), eventDispatcher);
             PhysicsBodyPreSpawnEvent preSpawnEvent = new PhysicsBodyPreSpawnEvent(spawnedBody);
             eventDispatcher.dispatchSync(preSpawnEvent);
             if (preSpawnEvent.isCancelled()) {

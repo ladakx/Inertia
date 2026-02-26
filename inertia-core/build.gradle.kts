@@ -1,11 +1,22 @@
 plugins {
     `java-library`
+    `maven-publish`
 }
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(16))
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release.set(16)
+}
+tasks.withType<Javadoc>().configureEach {
+    // Some internal sources contain javadoc text that doclint treats as errors.
+    // Publishing should not be blocked by javadoc strictness.
+    isFailOnError = false
+    (options as? StandardJavadocDocletOptions)?.addStringOption("Xdoclint:none", "-quiet")
 }
 
 dependencies {
@@ -29,4 +40,19 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+            artifactId = "inertia-core"
+        }
+    }
+}
+
+tasks.named("build").configure {
+    if (providers.gradleProperty("inertia.publishLocalOnBuild").orElse("true").get().equals("true", ignoreCase = true)) {
+        finalizedBy("publishToMavenLocal")
+    }
 }

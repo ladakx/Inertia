@@ -1,7 +1,7 @@
 package com.ladakx.inertia.features.commands.parsers;
 
 import com.ladakx.inertia.configuration.ConfigurationService;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.config.BodyDefinition;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
 import org.bukkit.command.CommandSender;

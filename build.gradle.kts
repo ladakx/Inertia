@@ -1,5 +1,14 @@
+plugins {
+    base
+}
+
 subprojects {
     apply(plugin = "java")
+
+    // Default coordinates for local publishing / multi-project consistency.
+    // Individual subprojects may override.
+    group = "com.ladakx"
+    version = "1.0-DEV"
 
     repositories {
         mavenCentral()
@@ -31,5 +40,24 @@ configure(subprojects.filter { it.name != "inertia-api" }) {
 
         // JOML
         "implementation"("org.joml:joml:1.10.8")
+    }
+}
+
+// --- Local publishing convenience ---
+
+val publishLocalOnBuild = providers.gradleProperty("inertia.publishLocalOnBuild")
+    .orElse("true")
+    .map { it.equals("true", ignoreCase = true) }
+
+tasks.register("publishInertiaToMavenLocal") {
+    group = "publishing"
+    description = "Publish Inertia artifacts to mavenLocal()"
+    dependsOn(":inertia-api:publishToMavenLocal")
+    dependsOn(":inertia-core:publishToMavenLocal")
+}
+
+tasks.named("build").configure {
+    if (publishLocalOnBuild.get()) {
+        finalizedBy("publishInertiaToMavenLocal")
     }
 }

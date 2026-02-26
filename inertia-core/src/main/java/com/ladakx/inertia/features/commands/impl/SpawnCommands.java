@@ -5,7 +5,7 @@ import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.features.commands.CloudModule;
 import com.ladakx.inertia.features.commands.parsers.BodyIdParser;
 import com.ladakx.inertia.features.commands.parsers.BodyIdByTypeParser;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeGenerator;
 import com.ladakx.inertia.physics.debug.shapes.DebugShapeManager;
 import com.ladakx.inertia.physics.factory.BodyFactory;

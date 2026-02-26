@@ -3,12 +3,12 @@ package com.ladakx.inertia.physics.body.impl;
 import com.github.stephengold.joltjni.*;
 import com.github.stephengold.joltjni.enumerate.EActivation;
 import com.ladakx.inertia.api.body.MotionType;
+import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.api.events.PhysicsBodyPostDestroyEvent;
 import com.ladakx.inertia.api.events.PhysicsBodyPreDestroyEvent;
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import com.ladakx.inertia.physics.events.PhysicsEventDispatcher;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public abstract class AbstractPhysicsBody implements InertiaPhysicsBody {
+public abstract class AbstractPhysicsBody implements PhysicsBody {
     private final List<Integer> relatedBodies = new CopyOnWriteArrayList<>();
     private final List<TwoBodyConstraintRef> constraints = new CopyOnWriteArrayList<>();
     private final @NotNull PhysicsWorld space;

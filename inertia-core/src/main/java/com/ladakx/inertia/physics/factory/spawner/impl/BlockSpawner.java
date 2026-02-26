@@ -8,8 +8,8 @@ import com.ladakx.inertia.api.events.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.body.config.BodyDefinition;
 import com.ladakx.inertia.physics.body.impl.BlockPhysicsBody;
@@ -42,7 +42,7 @@ public class BlockSpawner implements BodySpawner {
     }
 
     @Override
-    public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
+    public PhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsWorld space = context.world();
         PhysicsBodyRegistry.BodyModel model = configService.getPhysicsBodyRegistry().require(context.bodyId());
         BodyDefinition def = model.bodyDefinition();

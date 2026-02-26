@@ -10,6 +10,7 @@ import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 import org.joml.Quaternionf;
 
@@ -46,6 +47,29 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
                 definition.key(),
                 definition.localOffset(),
                 definition.localRotation(),
+                true,
+                true,
+                null
+        );
+        entity.setBaseTransform(location, rotation);
+        tracker.register(visual, entity.trackerLocation(), entity.trackerRotation(), null, visual.getId(), -1, false, 0x07, true);
+        return entity;
+    }
+
+    @Override
+    public @NotNull RenderEntity registerVisual(@NotNull Location location,
+                                                @NotNull Quaternionf rotation,
+                                                @NotNull NetworkVisual visual) {
+        Objects.requireNonNull(location, "location");
+        Objects.requireNonNull(rotation, "rotation");
+        Objects.requireNonNull(visual, "visual");
+
+        RenderEntityImpl entity = new RenderEntityImpl(
+                tracker,
+                visual,
+                "custom:" + visual.getId(),
+                new Vector(0, 0, 0),
+                new Quaternionf(),
                 true,
                 true,
                 null

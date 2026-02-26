@@ -122,6 +122,12 @@ Inertia uses a **Feature-Based** architecture with **Dependency Injection**.
 * `com.ladakx.inertia.features` - Gameplay logic (Tools, Commands).
 * `com.ladakx.inertia.infrastructure` - Low-level NMS adapters & Native loaders.
 
+### Public API Docs
+
+* `docs/public-api.md`
+* `docs/transports-api.md`
+* `docs/jolt-api.md`
+
 ### Building from Source
 
 The project uses Gradle with the Shadow plugin.
@@ -153,20 +159,23 @@ The project uses Gradle with the Shadow plugin.
 ## API Compatibility Matrix for Third-Party Plugins
 
 When integrating with Inertia API, validate both:
-- Minimum API version (`InertiaAPI.apiVersion()` / `isCompatibleWith(...)`)
-- Required capabilities (`InertiaAPI.capabilities().supports(...)`)
+- Minimum API version (`InertiaApi.apiVersion()` / `isCompatibleWith(...)`)
+- Required capabilities (`InertiaApi.capabilities().supports(...)`)
+
+Recommended entrypoint:
+- `com.ladakx.inertia.api.InertiaApiAccess.resolve()` (Bukkit ServicesManager-backed)
 
 | Feature | Minimum API version | Required capabilities |
 |---|---:|---|
 | Core body spawn by configured `bodyId` | `1.2.0` | `PHYSICS_SHAPE_BOX`, `PHYSICS_SHAPE_SPHERE`, `PHYSICS_SHAPE_CAPSULE`, `PHYSICS_SHAPE_CYLINDER`, `PHYSICS_SHAPE_TAPERED_CAPSULE`, `PHYSICS_SHAPE_TAPERED_CYLINDER`, `PHYSICS_SHAPE_CONVEX_HULL`, `PHYSICS_SHAPE_COMPOUND` |
-| Rendering API access (`InertiaAPI.rendering()`) | `1.2.0` | `RENDERING` |
+| Rendering API access (`InertiaApi.rendering()`) | `1.2.0` | `RENDERING` |
 | Advanced interaction queries (`PhysicsWorld.getInteraction()`) | `1.2.0` | `INTERACTION_ADVANCED` |
 | Custom physics shape descriptors | `1.2.0` | `PHYSICS_SHAPE_CUSTOM` |
 
 Example compatibility gate:
 
 ```java
-InertiaAPI api = InertiaAPI.resolve();
+com.ladakx.inertia.api.InertiaApi api = com.ladakx.inertia.api.InertiaApiAccess.resolve();
 boolean compatible = api.isCompatibleWith(
         "1.2.0",
         java.util.EnumSet.of(

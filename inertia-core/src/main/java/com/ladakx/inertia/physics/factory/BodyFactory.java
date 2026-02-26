@@ -7,8 +7,8 @@ import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import com.ladakx.inertia.core.InertiaPlugin;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.factory.shape.JShapeFactory;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawnContext;
 import com.ladakx.inertia.physics.factory.spawner.BodySpawner;
@@ -68,20 +68,6 @@ public class BodyFactory {
         spawners.put(spawner.getType(), spawner);
     }
 
-    /**
-     * @deprecated Use ValidationUtils directly if needed, or rely on spawners validation.
-     */
-    @Deprecated
-    public ValidationUtils.ValidationResult canSpawnAt(PhysicsWorld space, ShapeRefC shapeRef, RVec3 pos, Quat rot) {
-        return ValidationUtils.canSpawnAt(space, shapeRef, pos, rot);
-    }
-
-    public enum ValidationResult { // Keep for backward compat for now if needed, but deprecated
-        SUCCESS,
-        OUT_OF_BOUNDS,
-        OBSTRUCTED
-    }
-
     public boolean spawnBody(Location location, String bodyId) {
         return spawnBody(location, bodyId, null);
     }
@@ -90,10 +76,10 @@ public class BodyFactory {
         return spawnBodyWithResult(location, bodyId, player, Map.of()) != null;
     }
 
-    public @Nullable InertiaPhysicsBody spawnBodyWithResult(Location location,
-                                                            String bodyId,
-                                                            @Nullable Player player,
-                                                            Map<String, Object> params) {
+    public @Nullable PhysicsBody spawnBodyWithResult(Location location,
+                                                     String bodyId,
+                                                     @Nullable Player player,
+                                                     Map<String, Object> params) {
         if (location.getWorld() == null) return null;
         PhysicsWorld space = physicsWorldRegistry.getWorld(location.getWorld());
         if (space == null) return null;

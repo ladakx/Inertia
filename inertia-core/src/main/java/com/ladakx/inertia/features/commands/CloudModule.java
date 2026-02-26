@@ -1,6 +1,6 @@
 package com.ladakx.inertia.features.commands;
 
-import com.ladakx.inertia.api.InertiaAPI;
+import com.ladakx.inertia.api.InertiaApiAccess;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.configuration.message.MessageKey;
 import org.bukkit.command.CommandSender;
@@ -36,7 +36,7 @@ public abstract class CloudModule {
     }
 
     protected boolean validateWorld(Player player) {
-        if (!InertiaAPI.get().isWorldSimulated(player.getWorld().getName())) {
+        if (!InertiaApiAccess.resolve().isWorldSimulated(player.getWorld().getName())) {
             config.getMessageManager().send(player, MessageKey.NOT_FOR_THIS_WORLD);
             return false;
         }

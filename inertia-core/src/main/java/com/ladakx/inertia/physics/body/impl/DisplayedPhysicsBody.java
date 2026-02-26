@@ -19,6 +19,9 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
     protected final PhysicsBodyRegistry modelRegistry;
     protected PhysicsDisplayComposite displayComposite;
     private boolean wasActive = true;
+    private boolean hasLastCapturedPose = false;
+    private float lastCapturedX, lastCapturedY, lastCapturedZ;
+    private float lastCapturedRotX, lastCapturedRotY, lastCapturedRotZ, lastCapturedRotW;
 
     public DisplayedPhysicsBody(@NotNull PhysicsWorld space,
                                 @NotNull BodyCreationSettings bodySettings,
@@ -82,6 +85,14 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
                 rotationW,
                 wokeUp
         );
+        hasLastCapturedPose = true;
+        lastCapturedX = positionX;
+        lastCapturedY = positionY;
+        lastCapturedZ = positionZ;
+        lastCapturedRotX = rotationX;
+        lastCapturedRotY = rotationY;
+        lastCapturedRotZ = rotationZ;
+        lastCapturedRotW = rotationW;
         wasActive = true;
     }
 
@@ -94,7 +105,24 @@ public abstract class DisplayedPhysicsBody extends AbstractPhysicsBody {
         java.util.Objects.requireNonNull(accumulator, "accumulator");
         java.util.Objects.requireNonNull(pool, "pool");
         java.util.Objects.requireNonNull(origin, "origin");
-        displayComposite.capture(true, origin, accumulator, pool, true);
+        if (hasLastCapturedPose) {
+            displayComposite.captureWithTransform(
+                    true,
+                    origin,
+                    accumulator,
+                    pool,
+                    lastCapturedX,
+                    lastCapturedY,
+                    lastCapturedZ,
+                    lastCapturedRotX,
+                    lastCapturedRotY,
+                    lastCapturedRotZ,
+                    lastCapturedRotW,
+                    true
+            );
+        } else {
+            displayComposite.capture(true, origin, accumulator, pool, true);
+        }
         wasActive = false;
     }
 

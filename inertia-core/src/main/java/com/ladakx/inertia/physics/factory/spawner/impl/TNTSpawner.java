@@ -7,8 +7,8 @@ import com.ladakx.inertia.api.events.PhysicsBodyPostSpawnEvent;
 import com.ladakx.inertia.api.events.PhysicsBodyPreSpawnEvent;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.core.InertiaPlugin;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
-import com.ladakx.inertia.physics.body.InertiaPhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBody;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.config.BlockBodyDefinition;
 import com.ladakx.inertia.physics.body.impl.TNTPhysicsBody;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -41,7 +41,7 @@ public class TNTSpawner implements BodySpawner {
     }
 
     @Override
-    public InertiaPhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
+    public PhysicsBody spawnBody(@org.jetbrains.annotations.NotNull BodySpawnContext context) {
         PhysicsWorld space = context.world();
         boolean bypassValidation = context.getParam("bypass_validation", Boolean.class, false);
         UUID clusterId = context.getParam("cluster_id", UUID.class, UUID.randomUUID());

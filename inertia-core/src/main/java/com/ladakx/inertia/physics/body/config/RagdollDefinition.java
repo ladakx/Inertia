@@ -1,7 +1,7 @@
 package com.ladakx.inertia.physics.body.config;
 
 import com.github.stephengold.joltjni.enumerate.EAxis;
-import com.ladakx.inertia.physics.body.PhysicsBodyType;
+import com.ladakx.inertia.api.body.PhysicsBodyType;
 import org.bukkit.util.Vector;
 
 import java.util.Collections;

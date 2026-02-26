@@ -7,7 +7,6 @@ import com.github.stephengold.joltjni.readonly.ConstBodyLockInterfaceLocking;
 import com.github.stephengold.joltjni.readonly.ConstBroadPhaseQuery;
 import com.ladakx.inertia.api.interaction.PhysicsInteraction;
 import com.ladakx.inertia.api.interaction.RaycastHit;
-import com.ladakx.inertia.core.api.body.ApiPhysicsBodyAdapter;
 import com.ladakx.inertia.api.body.PhysicsBody;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
@@ -23,13 +22,11 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
     private final PhysicsWorld physicsWorld;
     private final PhysicsSystem physicsSystem;
     private final PhysicsObjectManager objectManager;
-    private final ApiPhysicsBodyAdapter apiPhysicsBodyAdapter;
 
-    public PhysicsQueryEngine(PhysicsWorld physicsWorld, PhysicsSystem physicsSystem, PhysicsObjectManager objectManager, ApiPhysicsBodyAdapter apiPhysicsBodyAdapter) {
+    public PhysicsQueryEngine(PhysicsWorld physicsWorld, PhysicsSystem physicsSystem, PhysicsObjectManager objectManager) {
         this.physicsWorld = physicsWorld;
         this.physicsSystem = physicsSystem;
         this.objectManager = objectManager;
-        this.apiPhysicsBodyAdapter = apiPhysicsBodyAdapter;
     }
 
     @Override
@@ -68,7 +65,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
 
                 RVec3 hitPosJolt = ray.getPointOnRay(hit.getFraction());
                 Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
-                return new RaycastHit(apiPhysicsBodyAdapter.adapt(obj), hitPosBukkit, hit.getFraction());
+                return new RaycastHit(obj, hitPosBukkit, hit.getFraction());
             }
         }
 
@@ -107,7 +104,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
                         // Convert Jolt Hit Pos to Bukkit Location
                         Vector hitPosBukkit = physicsWorld.toBukkitVec(hitPosJolt);
 
-                        results.add(new RaycastHit(apiPhysicsBodyAdapter.adapt(obj), hitPosBukkit, hit.getFraction()));
+                        results.add(new RaycastHit(obj, hitPosBukkit, hit.getFraction()));
                     }
                 }
             }
@@ -136,7 +133,7 @@ public class PhysicsQueryEngine implements PhysicsInteraction {
                         ConstBody body = lock.getBody();
                         AbstractPhysicsBody obj = objectManager.getByVa(body.targetVa());
                         if (obj != null) {
-                            bodies.add(apiPhysicsBodyAdapter.adapt(obj));
+                            bodies.add(obj);
                         }
                     }
                 }
