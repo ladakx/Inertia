@@ -2,7 +2,6 @@ package com.ladakx.inertia.api.capability;
 
 public enum ApiCapability {
     RENDERING,
-    TRANSPORT_PLATFORM,
     JOLT_NATIVE_ACCESS,
     PHYSICS_SHAPE_BOX,
     PHYSICS_SHAPE_SPHERE,

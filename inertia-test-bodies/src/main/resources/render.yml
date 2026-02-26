@@ -1,0 +1,51 @@
+# Render models for inertia-test-bodies plugin.
+light_cube:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: BLOCK_DISPLAY
+      block: WHITE_CONCRETE
+      rotate-translation: true
+      interpolation-duration: 2
+      teleport-duration: 2
+
+heavy_cube:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: BLOCK_DISPLAY
+      block: OBSIDIAN
+      rotate-translation: true
+      interpolation-duration: 2
+      teleport-duration: 2
+
+bouncy_ball:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: BLOCK_DISPLAY
+      block: RED_CONCRETE
+      scale: "0.8 0.8 0.8"
+      rotate-translation: true
+      interpolation-duration: 2
+      teleport-duration: 2
+
+slippery_puck:
+  sync:
+    position: true
+    rotation: true
+  entities:
+    display:
+      type: BLOCK_DISPLAY
+      block: PACKED_ICE
+      scale: "0.9 0.2 0.9"
+      rotate-translation: true
+      interpolation-duration: 2
+      teleport-duration: 2
+

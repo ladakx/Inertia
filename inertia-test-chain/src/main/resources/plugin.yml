@@ -1,0 +1,14 @@
+name: inertia-test-chain
+main: com.ladakx.inertia.test.chain.InertiaTestChainPlugin
+version: 1.0-DEV
+api-version: "1.16"
+depend: [ Inertia ]
+commands:
+  itchain:
+    description: Spawn Inertia test chains (via API)
+    usage: /itchain spawn [links]
+    permission: inertia.test.chain
+permissions:
+  inertia.test.chain:
+    default: op
+

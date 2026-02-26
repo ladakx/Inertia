@@ -125,7 +125,6 @@ Inertia uses a **Feature-Based** architecture with **Dependency Injection**.
 ### Public API Docs
 
 * `docs/public-api.md`
-* `docs/transports-api.md`
 * `docs/jolt-api.md`
 
 ### Third-Party Integration (Runtime Registries)
