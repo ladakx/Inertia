@@ -96,8 +96,6 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
         this.physicsBodiesService = new PhysicsBodiesServiceImpl(physicsWorldRegistry);
 
         // Platform services (stable entry points for new subsystems).
-        serviceRegistry.register(plugin, com.ladakx.inertia.api.transport.TransportServices.TRANSPORTS,
-                new com.ladakx.inertia.core.impl.transport.TransportServiceImpl(plugin, this));
         serviceRegistry.register(plugin, com.ladakx.inertia.api.jolt.JoltServices.JOLT,
                 new com.ladakx.inertia.core.impl.jolt.JoltServiceImpl());
         serviceRegistry.register(plugin, RenderingModelServices.MODELS, renderModelRegistry);
@@ -227,7 +225,6 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
 
     private @NotNull Set<ApiCapability> resolveCapabilities() {
         EnumSet<ApiCapability> supported = EnumSet.noneOf(ApiCapability.class);
-        supported.add(ApiCapability.TRANSPORT_PLATFORM);
         supported.add(ApiCapability.JOLT_NATIVE_ACCESS);
         supported.add(ApiCapability.PHYSICS_SHAPE_BOX);
         supported.add(ApiCapability.PHYSICS_SHAPE_SPHERE);

@@ -245,7 +245,7 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_RIGHT_ROTATION, new Quaternionf(rightRotation)));
 
         if (MetadataAccessors.DISPLAY_INTERPOLATION_START_DELTA != null) {
-            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_INTERPOLATION_START_DELTA, 0));
+            data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_INTERPOLATION_START_DELTA, -1));
         }
         if (interpolationDuration != null && interpolationDuration > 0) {
             data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_INTERPOLATION_DURATION, interpolationDuration));

@@ -236,7 +236,7 @@ public abstract class AbstractNetworkVisual implements NetworkVisual {
 
     protected void addTransformationMetadata(List<SynchedEntityData.DataValue<?>> data, Quaternionf rotation) {
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_SCALE, scale));
-        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_DELAY_INTERPOLATION_DURATION, 0));
+        data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_DELAY_INTERPOLATION_DURATION, -1));
         data.add(SynchedEntityData.DataValue.create(MetadataAccessors.DISPLAY_LEFT_ROTATION, rotation));
 
         Vector3f translation = calculateTranslation(scale, rotation);
