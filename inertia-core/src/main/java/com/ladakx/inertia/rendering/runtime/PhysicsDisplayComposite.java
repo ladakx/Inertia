@@ -3,6 +3,10 @@ package com.ladakx.inertia.rendering.runtime;
 import com.github.stephengold.joltjni.Body;
 import com.github.stephengold.joltjni.Quat;
 import com.github.stephengold.joltjni.RVec3;
+import com.ladakx.inertia.api.rendering.transform.EntityTransformAlgorithm;
+import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
+import com.ladakx.inertia.core.impl.rendering.transform.MutableEntityTransformContext;
+import com.ladakx.inertia.core.impl.rendering.transform.MutableEntityTransformImpl;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
@@ -50,14 +54,17 @@ public final class PhysicsDisplayComposite {
     private final List<DisplayPart> parts;
     private final World world;
     private final @Nullable NetworkEntityTracker tracker;
+    private final @Nullable RenderTransformService transformService;
     private final StaticEntityPersister staticEntityPersister;
 
     private final Vector3f cacheBodyPos = new Vector3f();
     private final Quaternionf cacheBodyRot = new Quaternionf();
     private final Vector3f cacheCenterOffset = new Vector3f();
-    private final Vector3f cacheFinalPos = new Vector3f();
     private final Vector3f cacheLocalOffset = new Vector3f();
-    private final Quaternionf cacheFinalRot = new Quaternionf();
+    private final Vector3f cacheStackTranslation = new Vector3f();
+    private final Quaternionf cacheStackRotation = new Quaternionf();
+    private final MutableEntityTransformContext transformContext = new MutableEntityTransformContext();
+    private final MutableEntityTransformImpl transformOutput = new MutableEntityTransformImpl();
 
     private final int[] orderedPartIndices;
     private final int[] placedOnIndex;
@@ -68,12 +75,14 @@ public final class PhysicsDisplayComposite {
                                    World world,
                                    List<DisplayPart> parts,
                                    @Nullable NetworkEntityTracker tracker,
+                                   @Nullable RenderTransformService transformService,
                                    StaticEntityPersister staticEntityPersister) {
         this.owner = Objects.requireNonNull(owner);
         this.body = owner.getBody();
         this.world = Objects.requireNonNull(world);
         this.parts = Collections.unmodifiableList(parts);
         this.tracker = tracker;
+        this.transformService = transformService;
         this.staticEntityPersister = Objects.requireNonNull(staticEntityPersister, "staticEntityPersister");
         this.placedOnIndex = new int[parts.size()];
         this.orderedPartIndices = computePlaceOrder();
@@ -304,20 +313,38 @@ public final class PhysicsDisplayComposite {
                                        Quaternionf baseRot,
                                        Vector3f outPos,
                                        Quaternionf outRot) {
-        outPos.set(basePos);
+        Vector offset = def.localOffset();
+        cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
+        transformContext.set(
+                part.modelId(),
+                def.key(),
+                isPassenger,
+                isPassenger,
+                part.syncPosition() && !isPassenger,
+                part.syncRotation(),
+                basePos,
+                baseRot,
+                cacheLocalOffset,
+                def.localRotation(),
+                cacheStackTranslation.zero(),
+                cacheStackRotation.identity()
+        );
+        EntityTransformAlgorithm algorithm = resolveAlgorithm(part.modelId(), def.key());
+        algorithm.compute(transformContext, transformOutput);
+        outPos.set(transformOutput.position());
+        outRot.set(transformOutput.rotation());
+    }
 
-        if (!isPassenger && part.syncPosition()) {
-            Vector offset = def.localOffset();
-            cacheLocalOffset.set((float) offset.getX(), (float) offset.getY(), (float) offset.getZ());
-            baseRot.transform(cacheLocalOffset);
-            outPos.add(cacheLocalOffset);
+    private EntityTransformAlgorithm resolveAlgorithm(String modelId, String entityKey) {
+        if (transformService == null) {
+            return DEFAULT_ALGORITHM_HOLDER.DEFAULT_ALGORITHM;
         }
+        return transformService.resolveAlgorithm(modelId, entityKey);
+    }
 
-        if (part.syncRotation()) {
-            outRot.set(baseRot).mul(def.localRotation());
-        } else {
-            outRot.set(def.localRotation());
-        }
+    private static final class DEFAULT_ALGORITHM_HOLDER {
+        private static final EntityTransformAlgorithm DEFAULT_ALGORITHM =
+                new com.ladakx.inertia.core.impl.rendering.transform.DefaultEntityTransformAlgorithm();
     }
 
     private int[] computePlaceOrder() {

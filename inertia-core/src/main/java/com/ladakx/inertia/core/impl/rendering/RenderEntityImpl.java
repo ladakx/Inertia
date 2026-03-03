@@ -2,6 +2,10 @@ package com.ladakx.inertia.core.impl.rendering;
 
 import com.ladakx.inertia.api.rendering.entity.RenderEntity;
 import com.ladakx.inertia.api.rendering.entity.TransformStack;
+import com.ladakx.inertia.api.rendering.transform.EntityTransformAlgorithm;
+import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
+import com.ladakx.inertia.core.impl.rendering.transform.MutableEntityTransformContext;
+import com.ladakx.inertia.core.impl.rendering.transform.MutableEntityTransformImpl;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import org.bukkit.Location;
@@ -17,8 +21,9 @@ import java.util.Objects;
 final class RenderEntityImpl implements RenderEntity {
 
     private final NetworkEntityTracker tracker;
+    private final RenderTransformService transformService;
     private final NetworkVisual visual;
-    @SuppressWarnings("unused")
+    private final String modelId;
     private final String key;
     private final @Nullable String placeOnKey;
 
@@ -39,17 +44,17 @@ final class RenderEntityImpl implements RenderEntity {
     private final Vector3f stackPos = new Vector3f();
     private final Quaternionf stackRot = new Quaternionf();
     private final Vector3f localPos = new Vector3f();
-    private final Quaternionf localRot = new Quaternionf();
-    private final Vector3f worldPos = new Vector3f();
-    private final Quaternionf worldRot = new Quaternionf();
-    private final Vector3f scratchVec = new Vector3f();
+    private final MutableEntityTransformContext transformContext = new MutableEntityTransformContext();
+    private final MutableEntityTransformImpl transformOutput = new MutableEntityTransformImpl();
 
     // Objects passed to tracker (mutated in-place to avoid allocations)
     private final Location trackerLocation;
     private final Quaternionf trackerRotation = new Quaternionf();
 
     RenderEntityImpl(@NotNull NetworkEntityTracker tracker,
+                     @NotNull RenderTransformService transformService,
                      @NotNull NetworkVisual visual,
+                     @NotNull String modelId,
                      @NotNull String key,
                      @NotNull Vector localOffset,
                      @NotNull Quaternionf localRotation,
@@ -57,7 +62,9 @@ final class RenderEntityImpl implements RenderEntity {
                      boolean syncRotation,
                      @Nullable String placeOnKey) {
         this.tracker = Objects.requireNonNull(tracker, "tracker");
+        this.transformService = Objects.requireNonNull(transformService, "transformService");
         this.visual = Objects.requireNonNull(visual, "visual");
+        this.modelId = Objects.requireNonNull(modelId, "modelId");
         this.key = Objects.requireNonNull(key, "key");
         this.placeOnKey = (placeOnKey == null || placeOnKey.isBlank()) ? null : placeOnKey;
         Objects.requireNonNull(localOffset, "localOffset");
@@ -155,33 +162,27 @@ final class RenderEntityImpl implements RenderEntity {
         transformStack.getLocalTranslation(stackPos);
         transformStack.getLocalRotation(stackRot);
 
-        // localRot = defRot * stackRot
-        localRot.set(defRotation).mul(stackRot);
+        localPos.set(defOffset);
+        EntityTransformAlgorithm algorithm = transformService.resolveAlgorithm(modelId, key);
+        transformContext.set(
+                modelId,
+                key,
+                placeOnKey != null,
+                placeOnKey != null,
+                syncPosition,
+                syncRotation,
+                basePos,
+                baseRot,
+                localPos,
+                defRotation,
+                stackPos,
+                stackRot
+        );
+        algorithm.compute(transformContext, transformOutput);
 
-        // localPos = (syncPosition ? defOffset : 0) + defRot * stackPos
-        localPos.zero();
-        if (syncPosition) {
-            localPos.add(defOffset);
-        }
-        scratchVec.set(stackPos);
-        defRotation.transform(scratchVec);
-        localPos.add(scratchVec);
-
-        // worldPos = basePos + baseRot * localPos
-        worldPos.set(localPos);
-        baseRot.transform(worldPos);
-        worldPos.add(basePos);
-
-        // worldRot = (syncRotation ? baseRot : I) * localRot
-        if (syncRotation) {
-            worldRot.set(baseRot).mul(localRot);
-        } else {
-            worldRot.set(localRot);
-        }
-
-        trackerLocation.setX(worldPos.x);
-        trackerLocation.setY(worldPos.y);
-        trackerLocation.setZ(worldPos.z);
-        trackerRotation.set(worldRot);
+        trackerLocation.setX(transformOutput.position().x);
+        trackerLocation.setY(transformOutput.position().y);
+        trackerLocation.setZ(transformOutput.position().z);
+        trackerRotation.set(transformOutput.rotation());
     }
 }

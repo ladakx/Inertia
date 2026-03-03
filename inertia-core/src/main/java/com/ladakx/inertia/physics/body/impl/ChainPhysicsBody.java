@@ -107,6 +107,7 @@ public class ChainPhysicsBody extends DisplayedPhysicsBody implements IChain {
                 world,
                 parts,
                 plugin != null ? plugin.getNetworkEntityTracker() : null,
+                plugin != null ? plugin.getRenderTransformService() : null,
                 new BukkitStaticEntityPersister(plugin != null ? plugin.getItemRegistry() : null)
         );
     }

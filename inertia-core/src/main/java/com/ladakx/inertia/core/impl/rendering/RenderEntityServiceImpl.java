@@ -3,6 +3,7 @@ package com.ladakx.inertia.core.impl.rendering;
 import com.ladakx.inertia.api.rendering.entity.RenderEntity;
 import com.ladakx.inertia.api.rendering.entity.RenderEntityService;
 import com.ladakx.inertia.api.rendering.entity.RenderModelInstance;
+import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
@@ -21,12 +22,18 @@ import java.util.Objects;
 
 public final class RenderEntityServiceImpl implements RenderEntityService {
 
+    private static final String SINGLE_ENTITY_MODEL_ID = "inertia:single";
+
     private final RenderFactory renderFactory;
     private final NetworkEntityTracker tracker;
+    private final RenderTransformService transformService;
 
-    public RenderEntityServiceImpl(@NotNull RenderFactory renderFactory, @NotNull NetworkEntityTracker tracker) {
+    public RenderEntityServiceImpl(@NotNull RenderFactory renderFactory,
+                                   @NotNull NetworkEntityTracker tracker,
+                                   @NotNull RenderTransformService transformService) {
         this.renderFactory = Objects.requireNonNull(renderFactory, "renderFactory");
         this.tracker = Objects.requireNonNull(tracker, "tracker");
+        this.transformService = Objects.requireNonNull(transformService, "transformService");
     }
 
     @Override
@@ -42,7 +49,9 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
         NetworkVisual visual = renderFactory.create(world, location, definition);
         RenderEntityImpl entity = new RenderEntityImpl(
                 tracker,
+                transformService,
                 visual,
+                SINGLE_ENTITY_MODEL_ID,
                 definition.key(),
                 definition.localOffset(),
                 definition.localRotation(),
@@ -84,7 +93,9 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
             }
             RenderEntityImpl entity = new RenderEntityImpl(
                     tracker,
+                    transformService,
                     visual,
+                    modelDefinition.id(),
                     key,
                     def.localOffset(),
                     def.localRotation(),

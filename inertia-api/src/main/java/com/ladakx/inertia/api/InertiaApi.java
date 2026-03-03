@@ -13,6 +13,8 @@ import com.ladakx.inertia.api.jolt.JoltServices;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.rendering.model.RenderModelRegistryService;
 import com.ladakx.inertia.api.rendering.model.RenderingModelServices;
+import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
+import com.ladakx.inertia.api.rendering.transform.RenderingTransformServices;
 import com.ladakx.inertia.api.services.ServiceRegistry;
 import com.ladakx.inertia.api.version.ApiVersion;
 import com.ladakx.inertia.api.world.PhysicsWorld;
@@ -72,6 +74,13 @@ public interface InertiaApi {
      */
     default @NotNull RenderModelRegistryService renderModels() {
         return services().require(RenderingModelServices.MODELS);
+    }
+
+    /**
+     * Registry and resolver for pluggable render transform algorithms.
+     */
+    default @NotNull RenderTransformService renderTransforms() {
+        return services().require(RenderingTransformServices.TRANSFORMS);
     }
 
     default boolean isCompatibleWith(@NotNull ApiVersion minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {

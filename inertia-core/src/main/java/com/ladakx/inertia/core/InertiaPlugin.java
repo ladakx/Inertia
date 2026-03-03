@@ -2,6 +2,8 @@ package com.ladakx.inertia.core;
 
 import com.ladakx.inertia.api.lifecycle.InertiaApiReadyEvent;
 import com.ladakx.inertia.api.lifecycle.InertiaApiShutdownEvent;
+import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
+import com.ladakx.inertia.api.rendering.transform.RenderingTransformServices;
 import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
 import com.ladakx.inertia.api.service.DebugRenderService;
 import com.ladakx.inertia.api.service.PhysicsManipulationService;
@@ -42,6 +44,7 @@ import com.ladakx.inertia.features.tools.ToolRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -430,4 +433,12 @@ public final class InertiaPlugin extends JavaPlugin {
     public BossBarPerformanceMonitor getPerfMonitor() { return perfMonitor; }
     public NetworkManager getNetworkManager() { return networkManager; }
     public NetworkEntityTracker getNetworkEntityTracker() { return networkEntityTracker; }
+    public @Nullable RenderTransformService getRenderTransformService() {
+        if (inertiaApiProvider == null) return null;
+        try {
+            return inertiaApiProvider.getApi().services().get(RenderingTransformServices.TRANSFORMS);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
 }

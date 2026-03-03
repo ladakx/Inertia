@@ -3,6 +3,7 @@ package com.ladakx.inertia.core.impl;
 import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.rendering.VisualTracker;
 import com.ladakx.inertia.api.rendering.entity.RenderEntityService;
+import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
 import com.ladakx.inertia.core.impl.rendering.RenderEntityServiceImpl;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
@@ -15,10 +16,14 @@ public final class RenderingServiceImpl implements RenderingService {
     private final RenderFactory renderFactory;
     private final VisualTracker visualTracker;
     private final RenderEntityService entityService;
+    private final RenderTransformService transformService;
 
-    public RenderingServiceImpl(@NotNull RenderFactory renderFactory, @NotNull NetworkEntityTracker tracker) {
+    public RenderingServiceImpl(@NotNull RenderFactory renderFactory,
+                                @NotNull NetworkEntityTracker tracker,
+                                @NotNull RenderTransformService transformService) {
         this.renderFactory = Objects.requireNonNull(renderFactory, "renderFactory");
         Objects.requireNonNull(tracker, "tracker");
+        this.transformService = Objects.requireNonNull(transformService, "transformService");
         this.visualTracker = new VisualTracker() {
             @Override
             public void register(@NotNull com.ladakx.inertia.rendering.NetworkVisual visual,
@@ -75,7 +80,7 @@ public final class RenderingServiceImpl implements RenderingService {
                 return tracker.isVisualClosed(visualId);
             }
         };
-        this.entityService = new RenderEntityServiceImpl(renderFactory, tracker);
+        this.entityService = new RenderEntityServiceImpl(renderFactory, tracker, transformService);
     }
 
     @Override
@@ -91,5 +96,10 @@ public final class RenderingServiceImpl implements RenderingService {
     @Override
     public @NotNull RenderEntityService entities() {
         return entityService;
+    }
+
+    @Override
+    public @NotNull RenderTransformService transforms() {
+        return transformService;
     }
 }
