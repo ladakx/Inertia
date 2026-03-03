@@ -13,8 +13,6 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(16)
 }
 tasks.withType<Javadoc>().configureEach {
-    // Some internal sources contain javadoc text that doclint treats as errors.
-    // Publishing should not be blocked by javadoc strictness.
     isFailOnError = false
     (options as? StandardJavadocDocletOptions)?.addStringOption("Xdoclint:none", "-quiet")
 }
