@@ -48,7 +48,7 @@ import com.ladakx.inertia.physics.world.snapshot.PhysicsSnapshot;
 import com.ladakx.inertia.physics.world.snapshot.SnapshotPool;
 import com.ladakx.inertia.physics.world.snapshot.VisualState;
 import com.ladakx.inertia.physics.world.terrain.TerrainAdapter;
-import com.ladakx.inertia.physics.world.buoyancy.BuoyancyManager;
+import com.ladakx.inertia.physics.world.fluid.FluidBuoyancyController;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.common.utils.ConvertUtils;
 import com.ladakx.inertia.physics.factory.shape.ApiShapeConverter;
@@ -104,7 +104,7 @@ public class PhysicsWorld implements AutoCloseable, com.ladakx.inertia.api.world
     private final NetworkEntityTracker networkEntityTracker;
     private final @Nullable PhysicsMetricsService metricsService;
     private final @Nullable DiagnosticsService diagnosticsService;
-    private final BuoyancyManager buoyancyManager;
+    private final FluidBuoyancyController fluidBuoyancyController;
     private final ThreadLocal<ByteBuffer> batchTransformBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(7 * Float.BYTES).order(ByteOrder.nativeOrder()));
     private volatile boolean fluidPhysicsEnabled;
     private @Nullable BukkitTask buoyancyScanTask;
@@ -149,7 +149,7 @@ public class PhysicsWorld implements AutoCloseable, com.ladakx.inertia.api.world
 
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.networkEntityTracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
-        this.buoyancyManager = new BuoyancyManager(this);
+        this.fluidBuoyancyController = new FluidBuoyancyController(this);
         this.fluidPhysicsEnabled = inertiaConfig.PHYSICS.FLUIDS.enabled;
 
         this.entityPhysicsManager = new EntityPhysicsManager(this, taskManager);
@@ -254,7 +254,7 @@ public class PhysicsWorld implements AutoCloseable, com.ladakx.inertia.api.world
         }
         float deltaTime = 1.0f / settings.tickRate();
         if (fluidPhysicsEnabled) {
-            buoyancyManager.applyBuoyancyForces(deltaTime);
+            fluidBuoyancyController.applyForces(deltaTime);
         }
         int errors = physicsSystem.update(deltaTime, settings.collisionSteps(), tempAllocator, jobSystem);
         if (errors != EPhysicsUpdateError.None) {
@@ -298,7 +298,7 @@ public class PhysicsWorld implements AutoCloseable, com.ladakx.inertia.api.world
         }
 
         buoyancyScanTask = org.bukkit.Bukkit.getScheduler().runTaskTimer(plugin, () ->
-                buoyancyManager.updateFluidStates(objectManager.getActive()), 1L, 1L);
+                fluidBuoyancyController.refreshContacts(objectManager.getActive()), 1L, 1L);
     }
 
     private PhysicsSnapshot collectSnapshot() {
