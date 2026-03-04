@@ -37,6 +37,7 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
 
     private final String bodyId;
     private final String partName;
+    private final float buoyancyVolumeEstimate;
     private final @Nullable String skinNickname;
     private boolean removed = false;
     private final CollisionGroup collisionGroup;
@@ -67,6 +68,11 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
 
         RagdollDefinition def = (RagdollDefinition) modelRegistry.require(bodyId).bodyDefinition();
         RagdollDefinition.RagdollPartDefinition partDef = def.parts().get(partName);
+        Vector partSize = partDef.size();
+        this.buoyancyVolumeEstimate = Math.max(
+                0.0001f,
+                (float) Math.abs(partSize.getX() * partSize.getY() * partSize.getZ())
+        );
 
         if (partDef.parentName() != null) {
             Body parentBody = spawnedParts.get(partDef.parentName());
@@ -296,6 +302,10 @@ public class RagdollPhysicsBody extends DisplayedPhysicsBody implements IRagdoll
     @Override
     public @NotNull String getBodyId() {
         return bodyId;
+    }
+
+    public float getBuoyancyVolumeEstimate() {
+        return buoyancyVolumeEstimate;
     }
 
     @Override

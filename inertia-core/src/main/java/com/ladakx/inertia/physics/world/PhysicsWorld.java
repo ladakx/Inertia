@@ -149,7 +149,7 @@ public class PhysicsWorld implements AutoCloseable, com.ladakx.inertia.api.world
 
         this.queryEngine = new PhysicsQueryEngine(this, physicsSystem, objectManager);
         this.networkEntityTracker = InertiaPlugin.getInstance().getNetworkEntityTracker();
-        this.fluidBuoyancyController = new FluidBuoyancyController(this);
+        this.fluidBuoyancyController = new FluidBuoyancyController(this, inertiaConfig.PHYSICS.FLUIDS);
         this.fluidPhysicsEnabled = inertiaConfig.PHYSICS.FLUIDS.enabled;
 
         this.entityPhysicsManager = new EntityPhysicsManager(this, taskManager);
@@ -298,7 +298,7 @@ public class PhysicsWorld implements AutoCloseable, com.ladakx.inertia.api.world
         }
 
         buoyancyScanTask = org.bukkit.Bukkit.getScheduler().runTaskTimer(plugin, () ->
-                fluidBuoyancyController.refreshContacts(objectManager.getActive()), 1L, 1L);
+                fluidBuoyancyController.refreshContacts(objectManager.getAll()), 1L, 1L);
     }
 
     private PhysicsSnapshot collectSnapshot() {

@@ -183,9 +183,55 @@ public class InertiaConfig {
 
         public static class FluidsSettings {
             public final boolean enabled;
+            public final float buoyancyScale;
+            public final float waterDensity;
+            public final float lavaDensity;
+            public final float waterLinearDrag;
+            public final float waterAngularDrag;
+            public final float lavaLinearDrag;
+            public final float lavaAngularDrag;
+            public final float minSubmersionToSimulate;
+            public final float sampleYEpsilon;
+            public final int sampleGridSize;
+            public final float minShapeHalfExtent;
+            public final float minEstimatedVolume;
+            public final float volumeScale;
+            public final float ragdollVolumeScale;
 
             public FluidsSettings(ConfigurationSection section) {
                 this.enabled = section == null || section.getBoolean("enabled", true);
+                this.buoyancyScale = section != null ? Math.max(0f, (float) section.getDouble("buoyancy-scale", 1.05d)) : 1.05f;
+
+                // Density is interpreted in "mass units per block^3".
+                // Objects float when (volume * fluidDensity * buoyancyScale) > bodyMass.
+                this.waterDensity = section != null ? Math.max(0f, (float) section.getDouble("water-density", 80.0d)) : 80.0f;
+                this.lavaDensity = section != null ? Math.max(0f, (float) section.getDouble("lava-density", 140.0d)) : 140.0f;
+
+                // Linear drag: impulse = -velocity * drag * submergedVolume * dt
+                this.waterLinearDrag = section != null ? Math.max(0f, (float) section.getDouble("water-linear-drag", 1.4d)) : 1.4f;
+                this.waterAngularDrag = section != null ? Math.max(0f, (float) section.getDouble("water-angular-drag", 0.12d)) : 0.12f;
+                this.lavaLinearDrag = section != null ? Math.max(0f, (float) section.getDouble("lava-linear-drag", 4.0d)) : 4.0f;
+                this.lavaAngularDrag = section != null ? Math.max(0f, (float) section.getDouble("lava-angular-drag", 0.45d)) : 0.45f;
+
+                this.minSubmersionToSimulate = section != null ? clamp01((float) section.getDouble("min-submersion", 0.05d)) : 0.05f;
+                this.sampleYEpsilon = section != null ? Math.max(0f, (float) section.getDouble("sample-y-epsilon", 0.05d)) : 0.05f;
+                this.sampleGridSize = section != null ? clampInt(section.getInt("sample-grid-size", 3), 2, 5) : 3;
+                this.minShapeHalfExtent = section != null ? Math.max(0.001f, (float) section.getDouble("min-shape-half-extent", 0.05d)) : 0.05f;
+                this.minEstimatedVolume = section != null ? Math.max(0.0001f, (float) section.getDouble("min-estimated-volume", 0.001d)) : 0.001f;
+                this.volumeScale = section != null ? Math.max(0.1f, (float) section.getDouble("volume-scale", 1.0d)) : 1.0f;
+                this.ragdollVolumeScale = section != null ? Math.max(0.1f, (float) section.getDouble("ragdoll-volume-scale", 2.2d)) : 2.2f;
+            }
+
+            private static int clampInt(int value, int min, int max) {
+                if (value < min) return min;
+                if (value > max) return max;
+                return value;
+            }
+
+            private static float clamp01(float value) {
+                if (value < 0f) return 0f;
+                if (value > 1f) return 1f;
+                return value;
             }
         }
 

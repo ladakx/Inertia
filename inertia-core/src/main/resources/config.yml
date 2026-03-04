@@ -16,8 +16,34 @@ physics:
   # Точность вычислений: DP (double precision) или SP (single precision).
   precision: DP
   fluids:
-    # Включить/выключить физику жидкостей (буйность/drag в воде и лаве).
+    # Включить/выключить физику жидкостей (плавучесть + drag в воде и лаве).
     enabled: true
+    # Глобальный множитель плавучести (закон Архимеда).
+    # 1.0 = физически нейтрально по формуле; >1.0 плавучесть сильнее.
+    buoyancy-scale: 1.05
+    # Плотности сред в "масса на блок^3".
+    # Тело всплывает, если (объем * плотность_среды * buoyancy-scale) > масса тела.
+    water-density: 80.0
+    lava-density: 140.0
+    # Коэффициенты сопротивления среды (чем выше, тем сильнее замедление в жидкости).
+    water-linear-drag: 1.4
+    water-angular-drag: 0.12
+    lava-linear-drag: 4.0
+    lava-angular-drag: 0.45
+    # Минимальная погруженность [0..1], начиная с которой применяем жидкостную физику.
+    min-submersion: 0.05
+    # Отступ по Y при сэмплинге жидкости внутри AABB тела.
+    sample-y-epsilon: 0.05
+    # Размер сетки сэмплинга по каждой оси (итого точек = N^3), диапазон 2..5.
+    sample-grid-size: 3
+    # Минимальный half-extent shape для оценки объема и контакта с жидкостью.
+    min-shape-half-extent: 0.05
+    # Минимальный оценочный объем тела (блок^3), защита от нулевого объема.
+    min-estimated-volume: 0.001
+    # Глобальный множитель вытесняемого объема для buoyancy/drag (компенсация упрощенных коллизий).
+    volume-scale: 1.0
+    # Отдельный множитель для ragdoll (трупов), т.к. их hitbox-части обычно уже визуальной модели.
+    ragdoll-volume-scale: 3.0
   native-library:
     # Для Windows x64 сначала пробовать AVX2-сборки.
     prefer-windows-avx2: true
@@ -28,7 +54,7 @@ physics:
   # Количество потоков для генерации/обработки физики.
   worker-threads: 3
   # Режим буфера снапшотов физики: LATEST (только последний кадр) или FIFO (совместимый режим).
-  snapshot-mode: FIFO
+  snapshot-mode: LATEST
   persistence:
     save-dynamic-bodies-on-reload: true
   terrain-generation:

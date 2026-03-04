@@ -76,7 +76,7 @@ blocks:
     render:
       model: test_heavy_cube
     physics:
-      mass: 250.0
+      mass: 500.0
       friction: 0.9
       restitution: 0.0
       linear-damping: 0.05
@@ -236,7 +236,7 @@ ragdolls:
     parts:
       # --- TORSO ---
       torso:
-        mass: 30.0
+        mass: 5.0
         size: "0.5 0.75 0.25"
         # Зберігаємо ваш налаштований шейп
         shape: "type=box x=0.25 y=0.375 z=0.125"
@@ -249,7 +249,7 @@ ragdolls:
 
       # --- HEAD ---
       head:
-        mass: 8.0
+        mass: 1.5
         size: "0.5 0.5 0.5"
         shape: "type=box x=0.1875 y=0.1875 z=0.1875"
         render-model: "ragdoll_head"
@@ -271,7 +271,7 @@ ragdolls:
 
       # --- ARMS ---
       left-arm:
-        mass: 6.0
+        mass: 1.0
         size: "0.25 0.75 0.25"
         shape: "type=box x=0.0625 y=0.375 z=0.0625"
         render-model: "ragdoll_left_arm"
@@ -292,7 +292,7 @@ ragdolls:
             rotation-z: "-160 160" # Підняття/опускання
 
       right-arm:
-        mass: 6.0
+        mass: 1.0
         size: "0.25 0.75 0.25"
         shape: "type=box x=0.0625 y=0.375 z=0.0625"
         render-model: "ragdoll_right_arm"
@@ -313,7 +313,7 @@ ragdolls:
 
       # --- LEGS ---
       left-leg:
-        mass: 7.0
+        mass: 1.5
         size: "0.25 0.75 0.25"
         shape: "type=box x=0.0625 y=0.375 z=0.0625"
         render-model: "ragdoll_left_leg"
@@ -335,7 +335,7 @@ ragdolls:
             rotation-z: "-20 20"  # Шпагат обмежений
 
       right-leg:
-        mass: 7.0
+        mass: 1.5
         size: "0.25 0.75 0.25"
         shape: "type=box x=0.0625 y=0.375 z=0.0625"
         render-model: "ragdoll_right_leg"

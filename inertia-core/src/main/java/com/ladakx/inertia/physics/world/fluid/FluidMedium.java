@@ -4,29 +4,13 @@ import org.bukkit.Material;
 import org.jetbrains.annotations.Nullable;
 
 enum FluidMedium {
-    WATER(
-            (byte) 0,
-            1.0f,   // buoyancy multiplier relative to gravity
-            0.35f,  // linear damping strength
-            0.04f   // angular damping strength
-    ),
-    LAVA(
-            (byte) 1,
-            1.35f,
-            1.1f,
-            0.12f
-    );
+    WATER((byte) 0),
+    LAVA((byte) 1);
 
     final byte id;
-    final float buoyancy;
-    final float linearDamping;
-    final float angularDamping;
 
-    FluidMedium(byte id, float buoyancy, float linearDamping, float angularDamping) {
+    FluidMedium(byte id) {
         this.id = id;
-        this.buoyancy = buoyancy;
-        this.linearDamping = linearDamping;
-        this.angularDamping = angularDamping;
     }
 
     static @Nullable FluidMedium fromLiquidMaterial(Material material) {
@@ -43,4 +27,3 @@ enum FluidMedium {
         return id == LAVA.id ? LAVA : WATER;
     }
 }
-
