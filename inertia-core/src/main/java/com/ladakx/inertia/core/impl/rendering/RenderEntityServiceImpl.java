@@ -4,6 +4,7 @@ import com.ladakx.inertia.api.rendering.entity.RenderEntity;
 import com.ladakx.inertia.api.rendering.entity.RenderEntityService;
 import com.ladakx.inertia.api.rendering.entity.RenderModelInstance;
 import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
+import com.ladakx.inertia.core.impl.rendering.interaction.RenderInteractionServiceImpl;
 import com.ladakx.inertia.rendering.NetworkVisual;
 import com.ladakx.inertia.rendering.RenderFactory;
 import com.ladakx.inertia.rendering.config.RenderEntityDefinition;
@@ -27,13 +28,16 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
     private final RenderFactory renderFactory;
     private final NetworkEntityTracker tracker;
     private final RenderTransformService transformService;
+    private final RenderInteractionServiceImpl interactionService;
 
     public RenderEntityServiceImpl(@NotNull RenderFactory renderFactory,
                                    @NotNull NetworkEntityTracker tracker,
-                                   @NotNull RenderTransformService transformService) {
+                                   @NotNull RenderTransformService transformService,
+                                   @NotNull RenderInteractionServiceImpl interactionService) {
         this.renderFactory = Objects.requireNonNull(renderFactory, "renderFactory");
         this.tracker = Objects.requireNonNull(tracker, "tracker");
         this.transformService = Objects.requireNonNull(transformService, "transformService");
+        this.interactionService = Objects.requireNonNull(interactionService, "interactionService");
     }
 
     @Override
@@ -50,6 +54,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
         RenderEntityImpl entity = new RenderEntityImpl(
                 tracker,
                 transformService,
+                interactionService,
                 visual,
                 SINGLE_ENTITY_MODEL_ID,
                 definition.key(),
@@ -60,6 +65,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
                 null
         );
         entity.setBaseTransform(location, rotation);
+        interactionService.registerVisualTarget(visual.getId(), SINGLE_ENTITY_MODEL_ID, definition.key(), entity.trackerLocation());
         tracker.register(visual, entity.trackerLocation(), entity.trackerRotation(), null, visual.getId(), -1, false, 0x07, true);
         return entity;
     }
@@ -94,6 +100,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
             RenderEntityImpl entity = new RenderEntityImpl(
                     tracker,
                     transformService,
+                    interactionService,
                     visual,
                     modelDefinition.id(),
                     key,
@@ -116,6 +123,7 @@ public final class RenderEntityServiceImpl implements RenderEntityService {
 
         for (RenderEntityImpl entity : model.orderedEntitiesForSpawn()) {
             NetworkVisual visual = entity.visual();
+            interactionService.registerVisualTarget(visual.getId(), modelDefinition.id(), entity.key(), entity.trackerLocation());
             int mountVehicleId = -1;
             String parentKey = entity.placeOnKey();
             if (parentKey != null) {

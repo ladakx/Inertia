@@ -362,9 +362,6 @@ iron_chain:
       item-model: items.iron_chain  # ItemStack-конфіг
       display-mode: NONE
       scale: "1.15 1.15 1.15"
-      show-when:
-        active: true
-        sleeping: true
       interpolation-duration: 3
       teleport-duration: 3
 

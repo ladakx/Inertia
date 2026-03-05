@@ -4,6 +4,7 @@ import com.ladakx.inertia.api.rendering.RenderingService;
 import com.ladakx.inertia.api.rendering.VisualTracker;
 import com.ladakx.inertia.api.rendering.entity.RenderEntityService;
 import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
+import com.ladakx.inertia.core.impl.rendering.interaction.RenderInteractionServiceImpl;
 import com.ladakx.inertia.core.impl.rendering.RenderEntityServiceImpl;
 import com.ladakx.inertia.rendering.tracker.NetworkEntityTracker;
 import com.ladakx.inertia.rendering.RenderFactory;
@@ -20,7 +21,8 @@ public final class RenderingServiceImpl implements RenderingService {
 
     public RenderingServiceImpl(@NotNull RenderFactory renderFactory,
                                 @NotNull NetworkEntityTracker tracker,
-                                @NotNull RenderTransformService transformService) {
+                                @NotNull RenderTransformService transformService,
+                                @NotNull RenderInteractionServiceImpl interactionService) {
         this.renderFactory = Objects.requireNonNull(renderFactory, "renderFactory");
         Objects.requireNonNull(tracker, "tracker");
         this.transformService = Objects.requireNonNull(transformService, "transformService");
@@ -80,7 +82,7 @@ public final class RenderingServiceImpl implements RenderingService {
                 return tracker.isVisualClosed(visualId);
             }
         };
-        this.entityService = new RenderEntityServiceImpl(renderFactory, tracker, transformService);
+        this.entityService = new RenderEntityServiceImpl(renderFactory, tracker, transformService, interactionService);
     }
 
     @Override

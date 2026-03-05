@@ -6,7 +6,13 @@ import com.ladakx.inertia.api.diagnostics.DiagnosticsSlaContract;
 import com.ladakx.inertia.api.diagnostics.MetricsServiceSnapshot;
 import com.ladakx.inertia.api.diagnostics.QueueBackpressureCounters;
 import com.ladakx.inertia.api.diagnostics.TickDurationPercentiles;
+import com.ladakx.inertia.api.diagnostics.TransportDiagnosticsSnapshot;
+import com.ladakx.inertia.api.diagnostics.TransportWorldSnapshot;
 import com.ladakx.inertia.api.diagnostics.WorldHealthSnapshot;
+import com.ladakx.inertia.api.InertiaApiAccess;
+import com.ladakx.inertia.api.transport.TransportHandle;
+import com.ladakx.inertia.api.transport.TransportService;
+import com.ladakx.inertia.api.transport.TransportState;
 import com.ladakx.inertia.api.service.PhysicsMetricsService;
 import com.ladakx.inertia.physics.world.loop.LoopDiagnosticsSnapshot;
 import com.ladakx.inertia.physics.world.loop.LoopTickListener;
@@ -15,6 +21,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -65,6 +72,55 @@ public final class DiagnosticsServiceImpl implements DiagnosticsService, LoopTic
     @Override
     public @NotNull DiagnosticsSlaContract getSlaContract() {
         return SLA_CONTRACT;
+    }
+
+    @Override
+    public @NotNull TransportDiagnosticsSnapshot getTransportDiagnosticsSnapshot() {
+        try {
+            TransportService transportService = InertiaApiAccess.resolve().transport();
+            Collection<TransportHandle> handles = transportService.getAll();
+            if (handles.isEmpty()) {
+                return new TransportDiagnosticsSnapshot(0, 0, 0, 0.0d, 0.0d, List.of(), System.nanoTime());
+            }
+
+            Map<UUID, TransportWorldAccumulator> byWorld = new ConcurrentHashMap<>();
+            int total = 0;
+            int active = 0;
+            int grounded = 0;
+            double totalSpeed = 0.0d;
+            double maxSpeed = 0.0d;
+
+            for (TransportHandle handle : handles) {
+                TransportState state = transportService.getState(handle.id());
+                if (state == null) {
+                    continue;
+                }
+                total++;
+                if (state.speedKmh() > 0.01d) {
+                    active++;
+                }
+                if (state.grounded()) {
+                    grounded++;
+                }
+                totalSpeed += state.speedKmh();
+                maxSpeed = Math.max(maxSpeed, state.speedKmh());
+
+                UUID worldId = Objects.requireNonNull(state.location().getWorld(), "transport world").getUID();
+                String worldName = state.location().getWorld().getName();
+                byWorld.computeIfAbsent(worldId, id -> new TransportWorldAccumulator(id, worldName)).accumulate(state);
+            }
+
+            List<TransportWorldSnapshot> worldSnapshots = new ArrayList<>(byWorld.size());
+            for (TransportWorldAccumulator accumulator : byWorld.values()) {
+                worldSnapshots.add(accumulator.snapshot());
+            }
+            worldSnapshots.sort((a, b) -> a.worldName().compareToIgnoreCase(b.worldName()));
+
+            double averageSpeed = total == 0 ? 0.0d : totalSpeed / total;
+            return new TransportDiagnosticsSnapshot(total, active, grounded, averageSpeed, maxSpeed, worldSnapshots, System.nanoTime());
+        } catch (Exception ignored) {
+            return new TransportDiagnosticsSnapshot(0, 0, 0, 0.0d, 0.0d, List.of(), System.nanoTime());
+        }
     }
 
     @Override
@@ -194,6 +250,50 @@ public final class DiagnosticsServiceImpl implements DiagnosticsService, LoopTic
 
         private static double toMillis(long nanos) {
             return nanos / 1_000_000.0d;
+        }
+    }
+
+    private static final class TransportWorldAccumulator {
+        private final UUID worldId;
+        private final String worldName;
+        private int transports;
+        private int activeTransports;
+        private int groundedTransports;
+        private double totalSpeedKmh;
+        private double maxSpeedKmh;
+        private double totalRpm;
+
+        private TransportWorldAccumulator(UUID worldId, String worldName) {
+            this.worldId = Objects.requireNonNull(worldId, "worldId");
+            this.worldName = Objects.requireNonNull(worldName, "worldName");
+        }
+
+        private void accumulate(TransportState state) {
+            transports++;
+            if (state.speedKmh() > 0.01d) {
+                activeTransports++;
+            }
+            if (state.grounded()) {
+                groundedTransports++;
+            }
+            totalSpeedKmh += state.speedKmh();
+            maxSpeedKmh = Math.max(maxSpeedKmh, state.speedKmh());
+            totalRpm += state.engineRpm();
+        }
+
+        private TransportWorldSnapshot snapshot() {
+            double avgSpeed = transports == 0 ? 0.0d : totalSpeedKmh / transports;
+            double avgRpm = transports == 0 ? 0.0d : totalRpm / transports;
+            return new TransportWorldSnapshot(
+                    worldId,
+                    worldName,
+                    transports,
+                    activeTransports,
+                    groundedTransports,
+                    avgSpeed,
+                    maxSpeedKmh,
+                    avgRpm
+            );
         }
     }
 }

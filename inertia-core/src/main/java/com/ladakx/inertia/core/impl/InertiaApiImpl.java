@@ -17,13 +17,23 @@ import com.ladakx.inertia.api.extension.ExtensionContext;
 import com.ladakx.inertia.api.extension.ExtensionHandle;
 import com.ladakx.inertia.api.extension.ExtensionRegistry;
 import com.ladakx.inertia.api.extension.InertiaExtension;
+import com.ladakx.inertia.api.player.PlayerToolServices;
+import com.ladakx.inertia.api.player.PlayerToolsService;
 import com.ladakx.inertia.api.rendering.RenderingService;
+import com.ladakx.inertia.api.rendering.interaction.RenderInteractionService;
+import com.ladakx.inertia.api.rendering.interaction.RenderInteractionServices;
 import com.ladakx.inertia.api.rendering.model.RenderModelRegistryService;
 import com.ladakx.inertia.api.rendering.model.RenderingModelServices;
 import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
 import com.ladakx.inertia.api.rendering.transform.RenderingTransformServices;
 import com.ladakx.inertia.api.services.ServiceKey;
 import com.ladakx.inertia.api.services.ServiceRegistry;
+import com.ladakx.inertia.api.transport.TransportService;
+import com.ladakx.inertia.api.transport.TransportAdvancedService;
+import com.ladakx.inertia.api.transport.TransportAdvancedServices;
+import com.ladakx.inertia.api.transport.TransportNativeService;
+import com.ladakx.inertia.api.transport.TransportNativeServices;
+import com.ladakx.inertia.api.transport.TransportServices;
 import com.ladakx.inertia.api.version.ApiVersion;
 import com.ladakx.inertia.api.world.PhysicsWorld;
 import com.ladakx.inertia.common.logging.InertiaLogger;
@@ -32,7 +42,10 @@ import com.ladakx.inertia.core.InertiaPlugin;
 import com.ladakx.inertia.core.impl.capability.CapabilityServiceImpl;
 import com.ladakx.inertia.core.impl.config.ConfigServiceImpl;
 import com.ladakx.inertia.core.impl.body.PhysicsBodiesServiceImpl;
+import com.ladakx.inertia.core.impl.player.PlayerToolsServiceImpl;
+import com.ladakx.inertia.core.impl.rendering.interaction.RenderInteractionServiceImpl;
 import com.ladakx.inertia.core.impl.rendering.transform.RenderTransformServiceImpl;
+import com.ladakx.inertia.core.impl.transport.TransportServiceImpl;
 import com.ladakx.inertia.api.body.PhysicsBodyType;
 import com.ladakx.inertia.physics.body.impl.BlockPhysicsBody;
 import com.ladakx.inertia.physics.body.registry.PhysicsBodyRegistry;
@@ -61,7 +74,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
 
-    private static final ApiVersion API_VERSION = new ApiVersion(1, 5, 0);
+    private static final ApiVersion API_VERSION = new ApiVersion(1, 14, 0);
 
     private final InertiaPlugin plugin;
     private final PhysicsWorldRegistry physicsWorldRegistry;
@@ -78,6 +91,11 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
     private final RenderModelRegistryService renderModelRegistry;
     private final PhysicsBodiesService physicsBodiesService;
     private final RenderTransformService renderTransformService;
+    private final RenderInteractionService renderInteractionService;
+    private final PlayerToolsService playerToolsService;
+    private final TransportService transportService;
+    private final TransportAdvancedService transportAdvancedService;
+    private final TransportNativeService transportNativeService;
 
     public InertiaApiImpl(@NotNull InertiaPlugin plugin,
                           @NotNull PhysicsWorldRegistry physicsWorldRegistry,
@@ -92,23 +110,35 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
         this.shapeFactory = Objects.requireNonNull(shapeFactory, "shapeFactory");
 
         this.renderTransformService = new RenderTransformServiceImpl(plugin);
-        this.renderingService = new RenderingServiceImpl(renderFactory, networkEntityTracker, renderTransformService);
+        RenderInteractionServiceImpl renderInteractionServiceImpl = new RenderInteractionServiceImpl(plugin.getNetworkManager());
+        this.renderInteractionService = renderInteractionServiceImpl;
+        this.playerToolsService = new PlayerToolsServiceImpl(plugin.getPlayerTools());
+        this.renderingService = new RenderingServiceImpl(renderFactory, networkEntityTracker, renderTransformService, renderInteractionServiceImpl);
         this.configService = new ConfigServiceImpl();
         this.capabilityService = new CapabilityServiceImpl(API_VERSION, resolveCapabilities());
         this.diagnosticsService = Objects.requireNonNull(diagnosticsService, "diagnosticsService");
 
-        this.renderModelRegistry = new com.ladakx.inertia.core.impl.rendering.RenderModelRegistryServiceImpl();
+        this.renderModelRegistry = new com.ladakx.inertia.core.impl.rendering.RenderModelRegistryServiceImpl(plugin.getItemRegistry());
         this.physicsBodiesService = new PhysicsBodiesServiceImpl(physicsWorldRegistry);
+        TransportServiceImpl transportServiceImpl = new TransportServiceImpl(physicsWorldRegistry, physicsBodiesService);
+        this.transportService = transportServiceImpl;
+        this.transportAdvancedService = transportServiceImpl;
+        this.transportNativeService = transportServiceImpl;
 
         // Platform services (stable entry points for new subsystems).
         serviceRegistry.register(plugin, com.ladakx.inertia.api.jolt.JoltServices.JOLT,
                 new com.ladakx.inertia.core.impl.jolt.JoltServiceImpl());
         serviceRegistry.register(plugin, RenderingModelServices.MODELS, renderModelRegistry);
         serviceRegistry.register(plugin, RenderingTransformServices.TRANSFORMS, renderTransformService);
+        serviceRegistry.register(plugin, RenderInteractionServices.INTERACTION, renderInteractionService);
+        serviceRegistry.register(plugin, PlayerToolServices.TOOLS, playerToolsService);
         serviceRegistry.register(plugin, PhysicsBodyServices.BODIES, physicsBodiesService);
+        serviceRegistry.register(plugin, TransportServices.TRANSPORT, transportService);
+        serviceRegistry.register(plugin, TransportAdvancedServices.ADVANCED, transportAdvancedService);
+        serviceRegistry.register(plugin, TransportNativeServices.NATIVE, transportNativeService);
 
         plugin.getServer().getPluginManager().registerEvents(
-                new AutoCleanupListener(serviceRegistry, extensionRegistry, renderModelRegistry, physicsBodiesService, renderTransformService),
+                new AutoCleanupListener(serviceRegistry, extensionRegistry, renderModelRegistry, physicsBodiesService, renderTransformService, transportService),
                 plugin
         );
     }
@@ -241,6 +271,12 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
         supported.add(ApiCapability.PHYSICS_SHAPE_CONVEX_HULL);
         supported.add(ApiCapability.PHYSICS_SHAPE_COMPOUND);
         supported.add(ApiCapability.INTERACTION_ADVANCED);
+        supported.add(ApiCapability.RENDER_INTERACTION);
+        supported.add(ApiCapability.PLAYER_TOOLS);
+        supported.add(ApiCapability.TRANSPORT);
+        supported.add(ApiCapability.TRANSPORT_ADVANCED);
+        supported.add(ApiCapability.TRANSPORT_NATIVE_ACCESS);
+        supported.add(ApiCapability.TRANSPORT_VISUAL_TELEMETRY);
         if (renderFactory != null) {
             supported.add(ApiCapability.RENDERING);
         }
@@ -386,17 +422,20 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
         private final RenderModelRegistryService renderModels;
         private final PhysicsBodiesService bodies;
         private final RenderTransformService transforms;
+        private final TransportService transport;
 
         private AutoCleanupListener(ServiceRegistry services,
                                     ExtensionRegistry extensions,
                                     RenderModelRegistryService renderModels,
                                     PhysicsBodiesService bodies,
-                                    RenderTransformService transforms) {
+                                    RenderTransformService transforms,
+                                    TransportService transport) {
             this.services = services;
             this.extensions = extensions;
             this.renderModels = renderModels;
             this.bodies = bodies;
             this.transforms = transforms;
+            this.transport = transport;
         }
 
         @EventHandler
@@ -423,6 +462,10 @@ public final class InertiaApiImpl implements InertiaApiProvider, InertiaApi {
             }
             try {
                 transforms.unregisterAll(plugin);
+            } catch (Exception ignored) {
+            }
+            try {
+                transport.destroyAll(plugin);
             } catch (Exception ignored) {
             }
         }

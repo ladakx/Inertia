@@ -1,7 +1,6 @@
 package com.ladakx.inertia.common;
 
 import com.ladakx.inertia.common.logging.InertiaLogger;
-import com.ladakx.inertia.configuration.message.MessageKey;
 import org.bukkit.Bukkit;
 
 import java.util.ArrayList;

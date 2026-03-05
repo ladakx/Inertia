@@ -16,6 +16,7 @@ import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.configuration.ConfigurationService;
 import com.ladakx.inertia.features.commands.InertiaCommandManager;
 import com.ladakx.inertia.features.items.ItemRegistry;
+import com.ladakx.inertia.features.listeners.PhysicsBodyInteractListener;
 import com.ladakx.inertia.features.tools.data.ToolDataManager;
 import com.ladakx.inertia.features.ui.BossBarPerformanceMonitor;
 import com.ladakx.inertia.infrastructure.nms.network.NetworkManager;
@@ -195,6 +196,7 @@ public final class InertiaPlugin extends JavaPlugin {
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new WorldLoadListener(physicsWorldRegistry), this);
         Bukkit.getPluginManager().registerEvents(new BlockChangeListener(physicsWorldRegistry), this);
+        Bukkit.getPluginManager().registerEvents(new PhysicsBodyInteractListener(physicsWorldRegistry), this);
         Bukkit.getPluginManager().registerEvents(new DynamicBodyChunkListener(dynamicBodyPersistenceCoordinator), this);
         Bukkit.getPluginManager().registerEvents(new com.ladakx.inertia.features.listeners.NetworkListener(networkManager, networkEntityTracker), this);
     }

@@ -5,6 +5,7 @@ import com.ladakx.inertia.api.ExecutionContext;
 import com.ladakx.inertia.api.ThreadingPolicy;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -41,6 +42,24 @@ public interface RenderModelRegistryService {
         return registerFromConfigSection(owner, section, RenderIdPolicy.NAMESPACE_OWNER_IF_MISSING);
     }
 
+    /**
+     * Register runtime ItemStack for {@code item-model} references in render models.
+     * <p>
+     * Example:
+     * <pre>
+     * item-model: items.my_runtime_item
+     * </pre>
+     * with id {@code my_runtime_item}.
+     */
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    @NotNull ApiResult<Void> registerItemModel(@NotNull Plugin owner, @NotNull String id, @NotNull ItemStack itemStack);
+
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    @NotNull ApiResult<Void> unregisterItemModel(@NotNull String id);
+
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
+    @Nullable ItemStack getItemModel(@NotNull String id);
+
     @Nullable RenderModelDefinition get(@NotNull String id);
 
     @NotNull Collection<RenderModelDefinition> getAll();
@@ -49,4 +68,3 @@ public interface RenderModelRegistryService {
 
     void unregisterAll(@NotNull Plugin owner);
 }
-

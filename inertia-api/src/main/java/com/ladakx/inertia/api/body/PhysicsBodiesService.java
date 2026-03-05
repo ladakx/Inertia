@@ -10,6 +10,8 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+
 /**
  * Stable facade for creating and tracking physics bodies owned by external plugins.
  * <p>
@@ -42,6 +44,58 @@ public interface PhysicsBodiesService {
                                               @Nullable String bodyId);
 
     /**
+     * Spawn a body and mark it as persistent for save/load operations.
+     *
+     * @param customData plugin-defined string metadata persisted with the body
+     */
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    default @NotNull ApiResult<PhysicsBody> spawnPersistent(@NotNull Plugin owner,
+                                                             @NotNull PhysicsWorld world,
+                                                             @NotNull PhysicsBodySpec spec,
+                                                             @Nullable Map<String, String> customData) {
+        return spawn(owner, world, spec);
+    }
+
+    /**
+     * Updates plugin-defined persistent metadata for a tracked body.
+     */
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    default void setPersistentData(@NotNull Plugin owner,
+                                   @NotNull PhysicsBody body,
+                                   @Nullable Map<String, String> customData) {
+    }
+
+    /**
+     * Returns plugin-defined persistent metadata for the body.
+     */
+    @ExecutionContext(ThreadingPolicy.ANY_THREAD)
+    default @NotNull Map<String, String> getPersistentData(@NotNull PhysicsBody body) {
+        return Map.of();
+    }
+
+    /**
+     * Saves all persistent bodies owned by the plugin into owner data folder path.
+     *
+     * @param relativePath e.g. {@code "inertia/persistent-bodies.yml"}
+     * @return number of saved bodies
+     */
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    default @NotNull ApiResult<Integer> saveOwned(@NotNull Plugin owner, @NotNull String relativePath) {
+        return ApiResult.failure(com.ladakx.inertia.api.ApiErrorCode.UNSUPPORTED_OPERATION, "error-occurred");
+    }
+
+    /**
+     * Loads previously saved persistent bodies from owner data folder path.
+     *
+     * @param relativePath e.g. {@code "inertia/persistent-bodies.yml"}
+     * @return number of spawned bodies
+     */
+    @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
+    default @NotNull ApiResult<Integer> loadOwned(@NotNull Plugin owner, @NotNull String relativePath) {
+        return ApiResult.failure(com.ladakx.inertia.api.ApiErrorCode.UNSUPPORTED_OPERATION, "error-occurred");
+    }
+
+    /**
      * Ownership metadata for the provided body.
      */
     @NotNull PhysicsBodyOwner ownerOf(@NotNull PhysicsBody body);
@@ -52,4 +106,3 @@ public interface PhysicsBodiesService {
     @ExecutionContext(ThreadingPolicy.MAIN_THREAD_ONLY)
     void destroyAll(@NotNull Plugin owner);
 }
-

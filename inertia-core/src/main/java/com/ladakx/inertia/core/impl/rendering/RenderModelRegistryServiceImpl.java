@@ -5,8 +5,10 @@ import com.ladakx.inertia.api.ApiResult;
 import com.ladakx.inertia.api.rendering.model.RenderIdPolicy;
 import com.ladakx.inertia.api.rendering.model.RenderModelRegistryService;
 import com.ladakx.inertia.configuration.dto.RenderConfig;
+import com.ladakx.inertia.features.items.ItemRegistry;
 import com.ladakx.inertia.rendering.config.RenderModelDefinition;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,6 +23,12 @@ public final class RenderModelRegistryServiceImpl implements RenderModelRegistry
 
     private final ConcurrentMap<String, Entry> byId = new ConcurrentHashMap<>();
     private final ConcurrentMap<Plugin, Set<String>> idsByOwner = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Plugin, Set<String>> itemIdsByOwner = new ConcurrentHashMap<>();
+    private final ItemRegistry itemRegistry;
+
+    public RenderModelRegistryServiceImpl(@NotNull ItemRegistry itemRegistry) {
+        this.itemRegistry = Objects.requireNonNull(itemRegistry, "itemRegistry");
+    }
 
     @Override
     public @NotNull ApiResult<Void> registerModel(@NotNull Plugin owner, @NotNull RenderModelDefinition model) {
@@ -73,6 +81,41 @@ public final class RenderModelRegistryServiceImpl implements RenderModelRegistry
         return ApiResult.success(ok);
     }
 
+    @Override
+    public @NotNull ApiResult<Void> registerItemModel(@NotNull Plugin owner, @NotNull String id, @NotNull ItemStack itemStack) {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(itemStack, "itemStack");
+        if (id.isBlank()) {
+            return ApiResult.failure(ApiErrorCode.INVALID_SPEC, "render.item-model-id-blank");
+        }
+        if (!itemRegistry.registerItem(id, itemStack, false)) {
+            return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "render.item-model-already-registered");
+        }
+        itemIdsByOwner.computeIfAbsent(owner, k -> ConcurrentHashMap.newKeySet()).add(id);
+        return ApiResult.success(null);
+    }
+
+    @Override
+    public @NotNull ApiResult<Void> unregisterItemModel(@NotNull String id) {
+        Objects.requireNonNull(id, "id");
+        ItemStack removed = itemRegistry.removeItem(id);
+        if (removed == null) {
+            return ApiResult.failure(ApiErrorCode.UNSUPPORTED_OPERATION, "render.item-model-not-found");
+        }
+        for (Set<String> ids : itemIdsByOwner.values()) {
+            ids.remove(id);
+        }
+        itemIdsByOwner.entrySet().removeIf(e -> e.getValue().isEmpty());
+        return ApiResult.success(null);
+    }
+
+    @Override
+    public @Nullable ItemStack getItemModel(@NotNull String id) {
+        Objects.requireNonNull(id, "id");
+        return itemRegistry.getItem(id);
+    }
+
     private static @NotNull String mapId(@NotNull Plugin owner, @NotNull String rawId, @NotNull RenderIdPolicy policy) {
         return switch (policy) {
             case AS_IS -> rawId;
@@ -114,9 +157,16 @@ public final class RenderModelRegistryServiceImpl implements RenderModelRegistry
     public void unregisterAll(@NotNull Plugin owner) {
         Objects.requireNonNull(owner, "owner");
         Set<String> ids = idsByOwner.remove(owner);
-        if (ids == null || ids.isEmpty()) return;
-        for (String id : ids) {
-            byId.remove(id);
+        if (ids != null) {
+            for (String id : ids) {
+                byId.remove(id);
+            }
+        }
+        Set<String> itemIds = itemIdsByOwner.remove(owner);
+        if (itemIds != null) {
+            for (String id : itemIds) {
+                itemRegistry.removeItem(id);
+            }
         }
     }
 }

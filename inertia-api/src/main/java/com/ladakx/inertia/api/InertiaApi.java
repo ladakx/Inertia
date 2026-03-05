@@ -10,12 +10,22 @@ import com.ladakx.inertia.api.diagnostics.DiagnosticsService;
 import com.ladakx.inertia.api.extension.ExtensionRegistry;
 import com.ladakx.inertia.api.jolt.JoltService;
 import com.ladakx.inertia.api.jolt.JoltServices;
+import com.ladakx.inertia.api.player.PlayerToolServices;
+import com.ladakx.inertia.api.player.PlayerToolsService;
 import com.ladakx.inertia.api.rendering.RenderingService;
+import com.ladakx.inertia.api.rendering.interaction.RenderInteractionService;
+import com.ladakx.inertia.api.rendering.interaction.RenderInteractionServices;
 import com.ladakx.inertia.api.rendering.model.RenderModelRegistryService;
 import com.ladakx.inertia.api.rendering.model.RenderingModelServices;
 import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
 import com.ladakx.inertia.api.rendering.transform.RenderingTransformServices;
 import com.ladakx.inertia.api.services.ServiceRegistry;
+import com.ladakx.inertia.api.transport.TransportService;
+import com.ladakx.inertia.api.transport.TransportAdvancedService;
+import com.ladakx.inertia.api.transport.TransportAdvancedServices;
+import com.ladakx.inertia.api.transport.TransportNativeService;
+import com.ladakx.inertia.api.transport.TransportNativeServices;
+import com.ladakx.inertia.api.transport.TransportServices;
 import com.ladakx.inertia.api.version.ApiVersion;
 import com.ladakx.inertia.api.world.PhysicsWorld;
 import org.bukkit.Location;
@@ -81,6 +91,41 @@ public interface InertiaApi {
      */
     default @NotNull RenderTransformService renderTransforms() {
         return services().require(RenderingTransformServices.TRANSFORMS);
+    }
+
+    /**
+     * Resolver and event bridge for packet-render entity interactions.
+     */
+    default @NotNull RenderInteractionService renderInteractions() {
+        return services().require(RenderInteractionServices.INTERACTION);
+    }
+
+    /**
+     * Transport domain facade (wheeled/tracked/motorcycle vehicles).
+     */
+    default @NotNull TransportService transport() {
+        return services().require(TransportServices.TRANSPORT);
+    }
+
+    /**
+     * Advanced low-level transport controls and telemetry.
+     */
+    default @NotNull TransportAdvancedService transportAdvanced() {
+        return services().require(TransportAdvancedServices.ADVANCED);
+    }
+
+    /**
+     * Full native transport access (task-scoped jolt-jni vehicle objects).
+     */
+    default @NotNull TransportNativeService transportNative() {
+        return services().require(TransportNativeServices.NATIVE);
+    }
+
+    /**
+     * Public player tools facade (camera rotation + sound playback).
+     */
+    default @NotNull PlayerToolsService playerTools() {
+        return services().require(PlayerToolServices.TOOLS);
     }
 
     default boolean isCompatibleWith(@NotNull ApiVersion minimumVersion, @NotNull Collection<ApiCapability> requiredCapabilities) {

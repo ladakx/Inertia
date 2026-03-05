@@ -13,6 +13,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class ItemRegistry {
@@ -67,8 +68,7 @@ public class ItemRegistry {
 
     @Nullable
     public ItemStack getItem(@NotNull String id) {
-        if (id.startsWith("item.")) id = id.substring(5);
-        else if (id.startsWith("items.")) id = id.substring(6);
+        id = normalizeId(id);
 
         if (!items.containsKey(id)) {
             // Fallback
@@ -91,12 +91,36 @@ public class ItemRegistry {
     }
 
     public boolean hasItem(@NotNull String id) {
-        if (id.startsWith("item.")) id = id.substring(5);
-        else if (id.startsWith("items.")) id = id.substring(6);
+        id = normalizeId(id);
         return items.containsKey(id);
     }
 
     public Set<String> getItemIds() {
         return Collections.unmodifiableSet(items.keySet());
+    }
+
+    public boolean registerItem(@NotNull String id, @NotNull ItemStack item, boolean overwrite) {
+        id = normalizeId(id);
+        Objects.requireNonNull(item, "item");
+        if (id.isBlank()) {
+            return false;
+        }
+        if (!overwrite && items.containsKey(id)) {
+            return false;
+        }
+        items.put(id, item.clone());
+        return true;
+    }
+
+    @Nullable
+    public ItemStack removeItem(@NotNull String id) {
+        return items.remove(normalizeId(id));
+    }
+
+    private static @NotNull String normalizeId(@NotNull String id) {
+        Objects.requireNonNull(id, "id");
+        if (id.startsWith("item.")) return id.substring(5);
+        if (id.startsWith("items.")) return id.substring(6);
+        return id;
     }
 }

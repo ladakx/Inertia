@@ -2,6 +2,7 @@ package com.ladakx.inertia.nms.v1_21_r8.network;
 
 import com.ladakx.inertia.common.logging.InertiaLogger;
 import com.ladakx.inertia.core.InertiaPlugin;
+import com.ladakx.inertia.infrastructure.nms.network.NetworkEntityInteractionListener;
 import com.ladakx.inertia.physics.body.impl.AbstractPhysicsBody;
 import com.ladakx.inertia.physics.world.PhysicsWorld;
 import io.netty.channel.Channel;
@@ -14,6 +15,8 @@ import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Objects;
 
 public class InertiaPacketInjector {
 
@@ -21,6 +24,11 @@ public class InertiaPacketInjector {
     private static final int NETWORK_ENTITY_START_ID = 1_000_000_000;
 
     private static Field actionField;
+    private final List<NetworkEntityInteractionListener> interactionListeners;
+
+    public InertiaPacketInjector(List<NetworkEntityInteractionListener> interactionListeners) {
+        this.interactionListeners = Objects.requireNonNull(interactionListeners, "interactionListeners");
+    }
 
     static {
         try {
@@ -65,12 +73,6 @@ public class InertiaPacketInjector {
     }
 
     private void handleInteraction(Player player, ServerboundInteractPacket packet, int entityId) {
-        PhysicsWorld space = InertiaPlugin.getInstance().getSpaceManager().getSpace(player.getWorld());
-        if (space == null) return;
-
-        AbstractPhysicsBody body = space.getObjectByNetworkEntityId(entityId);
-        if (body == null) return;
-
         boolean isAttack = false;
         try {
             if (actionField != null) {
@@ -83,9 +85,24 @@ public class InertiaPacketInjector {
             InertiaLogger.error("Error reading packet action", e);
         }
 
-        boolean finalIsAttack = isAttack;
+        PhysicsWorld space = InertiaPlugin.getInstance().getSpaceManager().getSpace(player.getWorld());
+        if (space == null) return;
+
+        AbstractPhysicsBody body = space.getObjectByNetworkEntityId(entityId);
+        final boolean finalIsAttack = isAttack;
         org.bukkit.Bukkit.getScheduler().runTask(InertiaPlugin.getInstance(), () -> {
-            InertiaPlugin.getInstance().getToolManager().handleNetworkInteraction(player, body, finalIsAttack);
+            for (NetworkEntityInteractionListener listener : interactionListeners) {
+                try {
+                    if (listener.onNetworkEntityInteraction(player, entityId, finalIsAttack)) {
+                        return;
+                    }
+                } catch (Exception ex) {
+                    InertiaLogger.warn("Network interaction listener failed: " + ex.getMessage());
+                }
+            }
+            if (body != null) {
+                InertiaPlugin.getInstance().getToolManager().handleNetworkInteraction(player, body, finalIsAttack);
+            }
         });
     }
 

@@ -4,6 +4,7 @@ import com.ladakx.inertia.api.rendering.entity.RenderEntity;
 import com.ladakx.inertia.api.rendering.entity.TransformStack;
 import com.ladakx.inertia.api.rendering.transform.EntityTransformAlgorithm;
 import com.ladakx.inertia.api.rendering.transform.RenderTransformService;
+import com.ladakx.inertia.core.impl.rendering.interaction.RenderInteractionServiceImpl;
 import com.ladakx.inertia.core.impl.rendering.transform.MutableEntityTransformContext;
 import com.ladakx.inertia.core.impl.rendering.transform.MutableEntityTransformImpl;
 import com.ladakx.inertia.rendering.NetworkVisual;
@@ -22,6 +23,7 @@ final class RenderEntityImpl implements RenderEntity {
 
     private final NetworkEntityTracker tracker;
     private final RenderTransformService transformService;
+    private final RenderInteractionServiceImpl interactionService;
     private final NetworkVisual visual;
     private final String modelId;
     private final String key;
@@ -53,6 +55,7 @@ final class RenderEntityImpl implements RenderEntity {
 
     RenderEntityImpl(@NotNull NetworkEntityTracker tracker,
                      @NotNull RenderTransformService transformService,
+                     @NotNull RenderInteractionServiceImpl interactionService,
                      @NotNull NetworkVisual visual,
                      @NotNull String modelId,
                      @NotNull String key,
@@ -63,6 +66,7 @@ final class RenderEntityImpl implements RenderEntity {
                      @Nullable String placeOnKey) {
         this.tracker = Objects.requireNonNull(tracker, "tracker");
         this.transformService = Objects.requireNonNull(transformService, "transformService");
+        this.interactionService = Objects.requireNonNull(interactionService, "interactionService");
         this.visual = Objects.requireNonNull(visual, "visual");
         this.modelId = Objects.requireNonNull(modelId, "modelId");
         this.key = Objects.requireNonNull(key, "key");
@@ -93,6 +97,7 @@ final class RenderEntityImpl implements RenderEntity {
     public void setBaseTransform(@NotNull Location location, @NotNull Quaternionf rotation) {
         setBaseTransformFast(location, rotation);
         recompute();
+        interactionService.updateVisualTargetPosition(visual.getId(), trackerLocation);
     }
 
     void setBaseTransformFast(@NotNull Location location, @NotNull Quaternionf rotation) {
@@ -121,6 +126,7 @@ final class RenderEntityImpl implements RenderEntity {
     public void sync() {
         if (closed) return;
         recompute();
+        interactionService.updateVisualTargetPosition(visual.getId(), trackerLocation);
         tracker.updateState(visual, trackerLocation, trackerRotation, enabled);
     }
 
@@ -134,6 +140,7 @@ final class RenderEntityImpl implements RenderEntity {
     public void close() {
         if (closed) return;
         closed = true;
+        interactionService.unregisterVisualTarget(visual.getId());
         tracker.unregister(visual);
     }
 
@@ -156,6 +163,7 @@ final class RenderEntityImpl implements RenderEntity {
     void recomputeForSpawn() {
         if (closed) return;
         recompute();
+        interactionService.updateVisualTargetPosition(visual.getId(), trackerLocation);
     }
 
     private void recompute() {
